@@ -1,0 +1,75 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: vcc-mongodb-dev
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+      MONGO_INITDB_DATABASE: vcc-manager-dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_dev_data:/data/db
+    networks:
+      - vcc-dev-network
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: vcc-redis-dev
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - vcc-dev-network
+
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: vcc-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      MONGODB_URI: mongodb://admin:password@mongodb:27017/vcc-manager-dev?authSource=admin
+      REDIS_URL: redis://redis:6379
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: http://localhost:3001/auth/google/callback
+      SESSION_SECRET: dev-session-secret
+      ADMIN_EMAILS: admin@example.com
+      UPLOAD_PATH: /app/uploads
+      MAX_FILE_SIZE: 10485760
+      COMFY_UI_BASE_URL: http://localhost:8188
+      JWT_SECRET: dev-jwt-secret
+      JWT_EXPIRES_IN: 7d
+      FRONTEND_URL: http://localhost:3001
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./src:/app/src
+      - uploads_dev_data:/app/uploads
+    depends_on:
+      - mongodb
+      - redis
+    networks:
+      - vcc-dev-network
+    command: ["npm", "run", "dev"]
+
+volumes:
+  mongodb_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  uploads_dev_data:
+    driver: local
+
+networks:
+  vcc-dev-network:
+    driver: bridge
