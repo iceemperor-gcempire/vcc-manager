@@ -7,6 +7,9 @@ const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
   try {
+    console.log('🎯 Image generation request received');
+    console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
+    
     const {
       workboardId,
       prompt,
@@ -17,10 +20,23 @@ router.post('/generate', requireAuth, async (req, res) => {
       referenceImageMethod,
       stylePreset,
       upscaleMethod,
-      additionalParams
+      additionalParams,
+      seed,
+      randomSeed
     } = req.body;
     
+    console.log('🔍 Extracted fields:', {
+      workboardId,
+      prompt: prompt?.substring(0, 50) + '...',
+      aiModel,
+      imageSize,
+      seed,
+      randomSeed,
+      additionalParamsKeys: additionalParams ? Object.keys(additionalParams) : []
+    });
+    
     if (!workboardId || !prompt || !aiModel) {
+      console.error('❌ Missing required fields:', { workboardId: !!workboardId, prompt: !!prompt, aiModel: !!aiModel });
       return res.status(400).json({
         message: 'Missing required fields: workboardId, prompt, aiModel'
       });
@@ -46,10 +62,20 @@ router.post('/generate', requireAuth, async (req, res) => {
       referenceImageMethod,
       stylePreset,
       upscaleMethod,
-      additionalParams: additionalParams || {}
+      additionalParams: additionalParams || {},
+      seed,
+      randomSeed
     };
     
+    console.log('📦 Prepared inputData for job creation:', JSON.stringify(inputData, null, 2));
+    
     const job = await addImageGenerationJob(req.user._id, workboardId, inputData);
+    
+    console.log('✅ Job created successfully:', {
+      jobId: job._id,
+      status: job.status,
+      createdAt: job.createdAt
+    });
     
     if (referenceImages && referenceImages.length > 0) {
       for (const refImg of referenceImages) {

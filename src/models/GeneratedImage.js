@@ -46,12 +46,17 @@ const generatedImageSchema = new mongoose.Schema({
   generationParams: {
     prompt: String,
     negativePrompt: String,
-    model: String,
-    seed: Number,
+    model: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    seed: mongoose.Schema.Types.Mixed, // 64비트 정수 지원
     steps: Number,
     cfg: Number,
     sampler: String,
-    scheduler: String
+    scheduler: String,
+    imageSize: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    stylePreset: mongoose.Schema.Types.Mixed, // 추가 파라미터들
+    upscaleMethod: mongoose.Schema.Types.Mixed,
+    referenceImageMethod: mongoose.Schema.Types.Mixed,
+    additionalParams: mongoose.Schema.Types.Mixed
   },
   tags: [String],
   isPublic: {

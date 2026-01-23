@@ -26,8 +26,8 @@ const imageGenerationJobSchema = new mongoose.Schema({
       required: true
     },
     negativePrompt: String,
-    aiModel: String,
-    imageSize: String,
+    aiModel: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    imageSize: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
     referenceImages: [{
       imageId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -36,10 +36,12 @@ const imageGenerationJobSchema = new mongoose.Schema({
       method: String,
       strength: Number
     }],
-    referenceImageMethod: String,
-    stylePreset: String,
-    upscaleMethod: String,
-    additionalParams: mongoose.Schema.Types.Mixed
+    referenceImageMethod: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    stylePreset: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    upscaleMethod: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
+    additionalParams: mongoose.Schema.Types.Mixed,
+    seed: mongoose.Schema.Types.Mixed, // 시드 값 추가
+    randomSeed: Boolean // 랜덤 시드 여부 추가
   },
   workflowData: {
     type: String,
