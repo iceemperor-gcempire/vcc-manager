@@ -48,7 +48,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { jobAPI } from '../services/api';
+import { jobAPI, workboardAPI } from '../services/api';
 import config from '../config';
 
 function JobStatusChip({ status }) {
@@ -217,14 +217,18 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           <Grid item xs={6} sm={3}>
             <Typography variant="caption" color="textSecondary">AI 모델</Typography>
             <Typography variant="body2">
-              {job.inputData?.aiModel || '-'}
+              {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key ? 
+                job.inputData.aiModel.key : 
+                job.inputData?.aiModel || '-'}
             </Typography>
           </Grid>
 
           <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">이미지 크기</Typography>
+            <Typography variant="caption" color="textSecondary">요청 크기</Typography>
             <Typography variant="body2">
-              {job.inputData?.imageSize || '-'}
+              {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key ? 
+                job.inputData.imageSize.key : 
+                job.inputData?.imageSize || '-'}
             </Typography>
           </Grid>
 
@@ -440,16 +444,32 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">AI 모델</Typography>
-            <Typography variant="body1">{job.inputData?.aiModel || '-'}</Typography>
+            <Typography variant="body1">
+              {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key ? 
+                job.inputData.aiModel.key : 
+                job.inputData?.aiModel || '-'}
+            </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">이미지 크기</Typography>
-            <Typography variant="body1">{job.inputData?.imageSize || '-'}</Typography>
+            <Typography variant="body2" color="textSecondary">요청 크기</Typography>
+            <Typography variant="body1">
+              {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key ? 
+                job.inputData.imageSize.key : 
+                job.inputData?.imageSize || '-'}
+            </Typography>
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">시드 (Seed)</Typography>
             <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
               {job.inputData?.seed !== undefined ? job.inputData.seed : '-'}
+            </Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="body2" color="textSecondary">실제 이미지 크기</Typography>
+            <Typography variant="body1">
+              {job.resultImages?.length > 0 && job.resultImages[0].metadata?.width && job.resultImages[0].metadata?.height 
+                ? `${job.resultImages[0].metadata.width} x ${job.resultImages[0].metadata.height}` 
+                : '정보 없음'}
             </Typography>
           </Grid>
           <Grid item xs={6}>
@@ -639,17 +659,110 @@ function JobHistory() {
     setImageViewerOpen(true);
   };
 
-  const handleContinueJob = (job) => {
-    // 작업 데이터를 로컬스토리지에 저장
-    const jobData = {
-      workboardId: job.workboardId,
-      inputData: job.inputData
-    };
-    localStorage.setItem('continueJobData', JSON.stringify(jobData));
-    
-    // 해당 작업판의 이미지 생성 페이지로 이동
-    navigate(`/generate/${job.workboardId}`);
-    toast.success('작업 설정을 불러왔습니다');
+  const handleContinueJob = async (job) => {
+    try {
+      console.log('Continue job called with:', job);
+      
+      // 작업판 ID 추출 (객체 또는 문자열 ID 모두 처리)
+      let workboardId = null;
+      
+      if (typeof job.workboardId === 'string') {
+        workboardId = job.workboardId;
+      } else if (job.workboardId?._id) {
+        workboardId = job.workboardId._id;
+      } else if (job.workboardId?.id) {
+        workboardId = job.workboardId.id;
+      }
+      
+      console.log('Extracted workboardId:', workboardId);
+
+      if (!workboardId || workboardId === 'undefined' || workboardId === 'null') {
+        console.warn('Invalid workboardId:', workboardId);
+        toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
+        // 작업 데이터만 저장하고 작업판 선택 페이지로 이동
+        localStorage.setItem('continueJobData', JSON.stringify({
+          inputData: job.inputData,
+          fromJobHistory: true
+        }));
+        navigate('/workboards');
+        return;
+      }
+
+      // MongoDB ObjectId 형식 검증
+      if (!/^[0-9a-fA-F]{24}$/.test(workboardId)) {
+        console.warn('Invalid ObjectId format:', workboardId);
+        toast.error('잘못된 작업판 ID입니다. 작업판 선택 페이지로 이동합니다.');
+        localStorage.setItem('continueJobData', JSON.stringify({
+          inputData: job.inputData,
+          fromJobHistory: true
+        }));
+        navigate('/workboards');
+        return;
+      }
+
+      console.log('Fetching workboard:', workboardId);
+      
+      // 작업판이 존재하는지 확인
+      const workboardResponse = await workboardAPI.getById(workboardId);
+      const workboard = workboardResponse.data?.workboard;
+      
+      console.log('Workboard response:', workboard);
+      
+      if (!workboard) {
+        toast.error('작업판을 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
+        localStorage.setItem('continueJobData', JSON.stringify({
+          inputData: job.inputData,
+          fromJobHistory: true
+        }));
+        navigate('/workboards');
+        return;
+      }
+      
+      if (!workboard.isActive) {
+        toast.error('작업판이 비활성화되었습니다. 작업판 선택 페이지로 이동합니다.');
+        localStorage.setItem('continueJobData', JSON.stringify({
+          inputData: job.inputData,
+          fromJobHistory: true
+        }));
+        navigate('/workboards');
+        return;
+      }
+
+      // 작업 데이터를 로컬스토리지에 저장
+      const jobData = {
+        workboardId: workboardId,
+        inputData: job.inputData,
+        workboard: workboard // 작업판 정보도 함께 저장
+      };
+      localStorage.setItem('continueJobData', JSON.stringify(jobData));
+      
+      // 해당 작업판의 이미지 생성 페이지로 이동
+      navigate(`/generate/${workboardId}`);
+      toast.success('작업 설정을 불러왔습니다');
+      
+    } catch (error) {
+      console.error('Continue job error:', error);
+      console.error('Error details:', {
+        status: error.response?.status,
+        message: error.response?.data?.message,
+        jobId: job._id,
+        workboardId: job.workboardId
+      });
+      
+      if (error.response?.status === 404) {
+        toast.error('작업판이 존재하지 않습니다. 작업판 선택 페이지로 이동합니다.');
+      } else if (error.response?.status === 403) {
+        toast.error('작업판 접근 권한이 없습니다. 작업판 선택 페이지로 이동합니다.');
+      } else {
+        toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
+      }
+      
+      localStorage.setItem('continueJobData', JSON.stringify({
+        inputData: job.inputData,
+        fromJobHistory: true
+      }));
+      navigate('/workboards');
+    }
   };
 
   const jobs = data?.data?.jobs || [];

@@ -50,8 +50,29 @@ function WorkboardCard({ workboard }) {
   const [infoOpen, setInfoOpen] = useState(false);
 
   const handleSelect = () => {
+    // 히스토리에서 온 데이터가 있는지 확인
+    const continueJobData = localStorage.getItem('continueJobData');
+    if (continueJobData) {
+      try {
+        const parsedData = JSON.parse(continueJobData);
+        if (parsedData.fromJobHistory) {
+          // 히스토리에서 온 데이터를 해당 작업판으로 연결
+          const updatedData = {
+            workboardId: workboard._id,
+            inputData: parsedData.inputData,
+            workboard: workboard
+          };
+          localStorage.setItem('continueJobData', JSON.stringify(updatedData));
+          toast.success('작업 히스토리 데이터와 작업판이 연결되었습니다');
+        }
+      } catch (error) {
+        console.warn('Failed to parse continue job data:', error);
+      }
+    }
+    
     navigate(`/generate/${workboard._id}`);
   };
+
 
   const handleInfo = () => {
     setInfoOpen(true);

@@ -285,7 +285,11 @@ function ImageGeneration() {
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   
-  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm();
+  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+    mode: 'onChange',
+    shouldUnregister: false,
+    shouldFocusError: true
+  });
   
   const { data: workboard, isLoading, error } = useQuery(
     ['workboard', id],
@@ -310,7 +314,13 @@ function ImageGeneration() {
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
+    console.log('🔄 useEffect triggered with workboardData:', workboardData);
+    console.log('📝 setValue function available:', typeof setValue);
+    
     if (workboardData) {
+      console.log('✅ Setting up form with workboard:', workboardData.name);
+      console.log('📊 Full workboard data:', JSON.stringify(workboardData, null, 2));
+      
       // 로컬스토리지에서 계속하기 데이터 확인
       const continueJobData = localStorage.getItem('continueJobData');
       let jobInputData = null;
@@ -318,11 +328,14 @@ function ImageGeneration() {
       if (continueJobData) {
         try {
           const parsedData = JSON.parse(continueJobData);
+          console.log('Found continue job data:', parsedData);
           // 동일한 작업판인 경우 사용
           if (parsedData.workboardId === workboardData._id) {
             jobInputData = parsedData.inputData;
             localStorage.removeItem('continueJobData'); // 사용 후 제거
-            toast.success('이전 작업 설정을 불러왔습니다');
+            console.log('Using continue job data for same workboard');
+          } else {
+            console.log('Different workboard, not using continue data');
           }
         } catch (error) {
           console.warn('Failed to parse continue job data:', error);
@@ -330,20 +343,151 @@ function ImageGeneration() {
       }
       
       if (jobInputData) {
-        // 이전 작업 데이터로 폼 채우기
-        Object.keys(jobInputData).forEach(key => {
-          if (key === 'additionalParams' && jobInputData[key]) {
-            Object.keys(jobInputData[key]).forEach(paramKey => {
-              setValue(`additionalParams.${paramKey}`, jobInputData[key][paramKey]);
-            });
-          } else if (key !== 'referenceImages') {
-            setValue(key, jobInputData[key]);
+        // 스마트 필드 매칭: 작업판에 존재하는 필드만 적용
+        const safeSetValue = (fieldName, value) => {
+          try {
+            if (value !== undefined && value !== null) {
+              setValue(fieldName, value);
+            }
+          } catch (error) {
+            console.warn(`Failed to set value for field ${fieldName}:`, error);
+          }
+        };
+
+        // 기본 필드 매칭
+        const basicFields = {
+          prompt: jobInputData.prompt,
+          negativePrompt: jobInputData.negativePrompt,
+          aiModel: jobInputData.aiModel,
+          imageSize: jobInputData.imageSize
+        };
+
+        Object.keys(basicFields).forEach(key => {
+          const inputValue = basicFields[key];
+          if (!inputValue) return;
+          
+          if (key === 'aiModel' && workboardData.baseInputFields?.aiModel) {
+            // AI 모델 매칭: 우선 값으로, 없으면 키로 매칭
+            let matchedValue = null;
+            
+            if (typeof inputValue === 'object' && inputValue.value) {
+              // 키-값 객체인 경우, 먼저 값으로 매칭
+              matchedValue = workboardData.baseInputFields.aiModel.find(
+                model => model.value === inputValue.value
+              )?.value;
+              
+              // 값 매칭 실패 시 키로 매칭
+              if (!matchedValue) {
+                matchedValue = workboardData.baseInputFields.aiModel.find(
+                  model => model.key === inputValue.key
+                )?.value;
+              }
+            } else if (typeof inputValue === 'string') {
+              // 문자열인 경우, 먼저 값으로 매칭
+              matchedValue = workboardData.baseInputFields.aiModel.find(
+                model => model.value === inputValue
+              )?.value;
+              
+              // 값 매칭 실패 시 키로 매칭
+              if (!matchedValue) {
+                matchedValue = workboardData.baseInputFields.aiModel.find(
+                  model => model.key === inputValue
+                )?.value;
+              }
+            }
+            
+            if (matchedValue) {
+              safeSetValue(key, matchedValue);
+            } else {
+              console.warn(`AI model ${JSON.stringify(inputValue)} not found in workboard, using default`);
+              safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
+            }
+            
+          } else if (key === 'imageSize' && workboardData.baseInputFields?.imageSizes) {
+            // 이미지 크기 매칭: 우선 값으로, 없으면 키로 매칭
+            let matchedValue = null;
+            
+            if (typeof inputValue === 'object' && inputValue.value) {
+              matchedValue = workboardData.baseInputFields.imageSizes.find(
+                size => size.value === inputValue.value
+              )?.value;
+              
+              if (!matchedValue) {
+                matchedValue = workboardData.baseInputFields.imageSizes.find(
+                  size => size.key === inputValue.key
+                )?.value;
+              }
+            } else if (typeof inputValue === 'string') {
+              matchedValue = workboardData.baseInputFields.imageSizes.find(
+                size => size.value === inputValue
+              )?.value;
+              
+              if (!matchedValue) {
+                matchedValue = workboardData.baseInputFields.imageSizes.find(
+                  size => size.key === inputValue
+                )?.value;
+              }
+            }
+            
+            if (matchedValue) {
+              safeSetValue(key, matchedValue);
+            } else {
+              console.warn(`Image size ${JSON.stringify(inputValue)} not found in workboard, using default`);
+              safeSetValue(key, workboardData.baseInputFields.imageSizes[0]?.value);
+            }
+          } else {
+            safeSetValue(key, inputValue);
           }
         });
+
+        // 추가 파라미터 매칭
+        if (jobInputData.additionalParams && workboardData.additionalInputFields) {
+          Object.keys(jobInputData.additionalParams).forEach(paramKey => {
+            const field = workboardData.additionalInputFields.find(f => f.name === paramKey);
+            if (field) {
+              const inputValue = jobInputData.additionalParams[paramKey];
+              
+              // select 타입의 경우 키-값 매칭
+              if (field.type === 'select' && field.options) {
+                let matchedValue = null;
+                
+                if (typeof inputValue === 'object' && inputValue.value) {
+                  // 키-값 객체인 경우, 먼저 값으로 매칭
+                  matchedValue = field.options.find(option => option.value === inputValue.value)?.value;
+                  
+                  // 값 매칭 실패 시 키로 매칭
+                  if (!matchedValue) {
+                    matchedValue = field.options.find(option => option.key === inputValue.key)?.value;
+                  }
+                } else if (typeof inputValue === 'string') {
+                  // 문자열인 경우, 먼저 값으로 매칭
+                  matchedValue = field.options.find(option => option.value === inputValue)?.value;
+                  
+                  // 값 매칭 실패 시 키로 매칭
+                  if (!matchedValue) {
+                    matchedValue = field.options.find(option => option.key === inputValue)?.value;
+                  }
+                }
+                
+                if (matchedValue) {
+                  safeSetValue(`additionalParams.${paramKey}`, matchedValue);
+                } else {
+                  console.warn(`Option ${JSON.stringify(inputValue)} not found for field ${paramKey}, using default`);
+                  safeSetValue(`additionalParams.${paramKey}`, field.defaultValue || field.options[0]?.value);
+                }
+              } else {
+                // 다른 타입의 경우 그대로 사용
+                safeSetValue(`additionalParams.${paramKey}`, inputValue);
+              }
+            } else {
+              console.warn(`Field ${paramKey} not found in workboard, skipping`);
+            }
+          });
+        }
         
         // 참조 이미지 설정 (있는 경우)
         if (jobInputData.referenceImages) {
-          setValue('referenceImages', jobInputData.referenceImages);
+          safeSetValue('referenceImages', jobInputData.referenceImages);
         }
         
         // 시드 값 설정 (있는 경우)
@@ -351,58 +495,209 @@ function ImageGeneration() {
           setSeedValue(jobInputData.seed);
           setRandomSeed(false); // 고정 시드 값이 있으면 랜덤 해제
         }
+
+        toast.success(`이전 작업 설정을 불러왔습니다 (${Object.keys(basicFields).filter(k => basicFields[k]).length}개 필드 적용)`);
       } else {
-        // 기본값 설정
+        console.log('🎯 Setting default values...');
+        console.log('📋 workboardData.baseInputFields:', workboardData.baseInputFields);
+        
+        // 기본값 객체 구성
+        const defaultValues = {};
+        
         // AI 모델 기본값 설정
         if (workboardData.baseInputFields?.aiModel?.length > 0) {
-          setValue('aiModel', workboardData.baseInputFields.aiModel[0].value);
+          const defaultAiModel = workboardData.baseInputFields.aiModel[0].value;
+          console.log('🤖 Default AI model:', defaultAiModel);
+          defaultValues.aiModel = defaultAiModel;
         }
         
         // 이미지 크기 기본값 설정
         if (workboardData.baseInputFields?.imageSizes?.length > 0) {
-          setValue('imageSize', workboardData.baseInputFields.imageSizes[0].value);
+          const defaultImageSize = workboardData.baseInputFields.imageSizes[0].value;
+          console.log('📐 Default image size:', defaultImageSize);
+          defaultValues.imageSize = defaultImageSize;
         }
         
         // 스타일 프리셋 기본값 설정
         if (workboardData.baseInputFields?.stylePresets?.length > 0) {
-          setValue('stylePreset', workboardData.baseInputFields.stylePresets[0].value);
+          const defaultStylePreset = workboardData.baseInputFields.stylePresets[0].value;
+          console.log('🎨 Default style preset:', defaultStylePreset);
+          defaultValues.stylePreset = defaultStylePreset;
         }
         
         // 참조 이미지 방법 기본값 설정
         if (workboardData.baseInputFields?.referenceImageMethods?.length > 0) {
-          setValue('referenceImageMethod', workboardData.baseInputFields.referenceImageMethods[0].value);
+          const defaultRefMethod = workboardData.baseInputFields.referenceImageMethods[0].value;
+          console.log('🖼️ Default reference method:', defaultRefMethod);
+          defaultValues.referenceImageMethod = defaultRefMethod;
         }
         
         // 업스케일 방법 기본값 설정
         if (workboardData.baseInputFields?.upscaleMethods?.length > 0) {
-          setValue('upscaleMethod', workboardData.baseInputFields.upscaleMethods[0].value);
+          const defaultUpscale = workboardData.baseInputFields.upscaleMethods[0].value;
+          console.log('📈 Default upscale method:', defaultUpscale);
+          defaultValues.upscaleMethod = defaultUpscale;
         }
         
         // 추가 입력 필드들의 기본값 설정
         if (workboardData.additionalInputFields?.length > 0) {
+          defaultValues.additionalParams = {};
+          
           workboardData.additionalInputFields.forEach((field) => {
             if (field.type === 'select' && field.options?.length > 0) {
-              setValue(`additionalParams.${field.name}`, field.defaultValue || field.options[0].value);
+              const defaultValue = field.defaultValue || field.options[0].value;
+              console.log(`⚙️ Default ${field.name}:`, defaultValue);
+              defaultValues.additionalParams[field.name] = defaultValue;
             } else if (field.defaultValue !== undefined) {
-              setValue(`additionalParams.${field.name}`, field.defaultValue);
+              console.log(`⚙️ Default ${field.name}:`, field.defaultValue);
+              defaultValues.additionalParams[field.name] = field.defaultValue;
             }
           });
         }
+        
+        console.log('🎯 Applying default values with reset():', defaultValues);
+        
+        // 렌더링 완료 후 기본값 설정
+        setTimeout(() => {
+          console.log('⏰ Applying reset with setTimeout...');
+          reset(defaultValues);
+          console.log('✅ Default values setup completed with reset');
+        }, 100);
+        
+        // 동시에 개별 setValue로도 시도
+        Object.keys(defaultValues).forEach(key => {
+          if (key === 'additionalParams') {
+            Object.keys(defaultValues.additionalParams || {}).forEach(paramKey => {
+              setValue(`additionalParams.${paramKey}`, defaultValues.additionalParams[paramKey]);
+            });
+          } else {
+            setValue(key, defaultValues[key]);
+          }
+        });
+        
+        console.log('🔄 Individual setValue calls completed');
       }
     }
-  }, [workboardData, setValue]);
+  }, [workboardData, setValue, reset]);
 
   const onSubmit = async (formData) => {
     setGenerating(true);
     try {
+      console.log('🚀 Form submission started');
+      console.log('📝 Raw form data:', formData);
+      console.log('🎲 Random seed:', randomSeed);
+      console.log('🔢 Seed value:', seedValue);
+      
       // 시드 값 처리
       const finalSeedValue = randomSeed ? generateRandomSeed() : seedValue;
+      console.log('✅ Final seed value:', finalSeedValue);
       
-      await generateMutation.mutateAsync({
+      // 선택 필드들의 키-값 매핑 처리
+      const processedFormData = { ...formData };
+      
+      // AI 모델 키-값 매핑
+      if (formData.aiModel && workboardData?.baseInputFields?.aiModel) {
+        const selectedModel = workboardData.baseInputFields.aiModel.find(model => model.value === formData.aiModel);
+        if (selectedModel) {
+          processedFormData.aiModel = {
+            key: selectedModel.key,
+            value: selectedModel.value
+          };
+          console.log('🤖 AI Model mapped:', processedFormData.aiModel);
+        } else {
+          console.warn('⚠️ AI model not found:', formData.aiModel);
+        }
+      }
+      
+      // 이미지 크기 키-값 매핑
+      if (formData.imageSize && workboardData?.baseInputFields?.imageSizes) {
+        const selectedSize = workboardData.baseInputFields.imageSizes.find(size => size.value === formData.imageSize);
+        if (selectedSize) {
+          processedFormData.imageSize = {
+            key: selectedSize.key,
+            value: selectedSize.value
+          };
+          console.log('📐 Image size mapped:', processedFormData.imageSize);
+        } else {
+          console.warn('⚠️ Image size not found:', formData.imageSize);
+        }
+      }
+      
+      // 스타일 프리셋 키-값 매핑
+      if (formData.stylePreset && workboardData?.baseInputFields?.stylePresets) {
+        const selectedPreset = workboardData.baseInputFields.stylePresets.find(preset => preset.value === formData.stylePreset);
+        if (selectedPreset) {
+          processedFormData.stylePreset = {
+            key: selectedPreset.key,
+            value: selectedPreset.value
+          };
+          console.log('🎨 Style preset mapped:', processedFormData.stylePreset);
+        }
+      }
+      
+      // 참조 이미지 방법 키-값 매핑
+      if (formData.referenceImageMethod && workboardData?.baseInputFields?.referenceImageMethods) {
+        const selectedMethod = workboardData.baseInputFields.referenceImageMethods.find(method => method.value === formData.referenceImageMethod);
+        if (selectedMethod) {
+          processedFormData.referenceImageMethod = {
+            key: selectedMethod.key,
+            value: selectedMethod.value
+          };
+          console.log('🖼️ Reference method mapped:', processedFormData.referenceImageMethod);
+        }
+      }
+      
+      // 업스케일 방법 키-값 매핑
+      if (formData.upscaleMethod && workboardData?.baseInputFields?.upscaleMethods) {
+        const selectedUpscale = workboardData.baseInputFields.upscaleMethods.find(method => method.value === formData.upscaleMethod);
+        if (selectedUpscale) {
+          processedFormData.upscaleMethod = {
+            key: selectedUpscale.key,
+            value: selectedUpscale.value
+          };
+          console.log('📈 Upscale method mapped:', processedFormData.upscaleMethod);
+        }
+      }
+      
+      // 추가 입력 필드들의 키-값 매핑
+      if (formData.additionalParams && workboardData?.additionalInputFields) {
+        const processedAdditionalParams = { ...formData.additionalParams };
+        
+        workboardData.additionalInputFields.forEach(field => {
+          const paramValue = formData.additionalParams[field.name];
+          if (paramValue !== undefined && field.type === 'select' && field.options) {
+            const selectedOption = field.options.find(option => option.value === paramValue);
+            if (selectedOption) {
+              processedAdditionalParams[field.name] = {
+                key: selectedOption.key,
+                value: selectedOption.value
+              };
+              console.log(`⚙️ ${field.name} mapped:`, processedAdditionalParams[field.name]);
+            } else {
+              console.warn(`⚠️ Option not found for ${field.name}:`, paramValue);
+            }
+          }
+        });
+        
+        processedFormData.additionalParams = processedAdditionalParams;
+      }
+      
+      const finalPayload = {
         workboardId: id,
-        ...formData,
+        ...processedFormData,
         seed: finalSeedValue,
         randomSeed
+      };
+      
+      console.log('📤 Final payload to API:', JSON.stringify(finalPayload, null, 2));
+      
+      await generateMutation.mutateAsync(finalPayload);
+    } catch (error) {
+      console.error('❌ Submission error:', error);
+      console.error('🔍 Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
       });
     } finally {
       setGenerating(false);
@@ -450,7 +745,7 @@ function ImageGeneration() {
         )}
       </Box>
 
-      <form onSubmit={handleSubmit(onSubmit)}>
+      <form key={workboardData?._id} onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
             <Paper sx={{ p: 3, mb: 3 }}>
@@ -483,11 +778,16 @@ function ImageGeneration() {
                 <Controller
                   name="aiModel"
                   control={control}
+                  defaultValue={workboardData.baseInputFields.aiModel[0]?.value || ''}
                   rules={{ required: 'AI 모델을 선택해주세요' }}
                   render={({ field }) => (
                     <FormControl fullWidth sx={{ mb: 3 }} error={!!errors.aiModel}>
                       <InputLabel>AI 모델</InputLabel>
-                      <Select {...field} label="AI 모델">
+                      <Select 
+                        {...field} 
+                        value={field.value || workboardData.baseInputFields.aiModel[0]?.value || ''}
+                        label="AI 모델"
+                      >
                         {workboardData.baseInputFields.aiModel.map((model) => (
                           <MenuItem key={model.value} value={model.value}>
                             {model.key}
@@ -509,10 +809,15 @@ function ImageGeneration() {
                 <Controller
                   name="imageSize"
                   control={control}
+                  defaultValue={workboardData.baseInputFields.imageSizes[0]?.value || ''}
                   render={({ field }) => (
                     <FormControl fullWidth sx={{ mb: 3 }}>
                       <InputLabel>이미지 크기</InputLabel>
-                      <Select {...field} label="이미지 크기">
+                      <Select 
+                        {...field} 
+                        value={field.value || workboardData.baseInputFields.imageSizes[0]?.value || ''}
+                        label="이미지 크기"
+                      >
                         {workboardData.baseInputFields.imageSizes.map((size) => (
                           <MenuItem key={size.value} value={size.value}>
                             {size.key}
@@ -614,11 +919,19 @@ function ImageGeneration() {
                       <Controller
                         name={`additionalParams.${field.name}`}
                         control={control}
+                        defaultValue={field.type === 'select' ? 
+                          (field.defaultValue || field.options?.[0]?.value || '') : 
+                          (field.defaultValue || '')
+                        }
                         render={({ field: formField }) => (
                           field.type === 'select' ? (
                             <FormControl fullWidth>
                               <InputLabel>{field.label}</InputLabel>
-                              <Select {...formField} label={field.label}>
+                              <Select 
+                                {...formField} 
+                                value={formField.value || field.defaultValue || field.options?.[0]?.value || ''}
+                                label={field.label}
+                              >
                                 {field.options?.map((option) => (
                                   <MenuItem key={option.value} value={option.value}>
                                     {option.key}
