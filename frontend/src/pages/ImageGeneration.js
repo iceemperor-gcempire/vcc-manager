@@ -22,7 +22,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  FormControlLabel,
+  Switch,
+  InputAdornment
 } from '@mui/material';
 import {
   Send,
@@ -30,7 +33,8 @@ import {
   Delete,
   Add,
   Info,
-  ArrowBack
+  ArrowBack,
+  Shuffle
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -265,11 +269,21 @@ function ReferenceImageSelector({ value, onChange, workboard }) {
   );
 }
 
+// 64비트 부호있는 정수 범위에서 랜덤 시드 생성
+const generateRandomSeed = () => {
+  // JavaScript의 Number.MAX_SAFE_INTEGER는 2^53-1이므로, 64비트 범위로 제한
+  const min = -9223372036854775808; // -2^63
+  const max = 9223372036854775807;  // 2^63-1
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+};
+
 function ImageGeneration() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [generating, setGenerating] = useState(false);
+  const [randomSeed, setRandomSeed] = useState(true);
+  const [seedValue, setSeedValue] = useState(generateRandomSeed);
   
   const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm();
   
@@ -331,6 +345,12 @@ function ImageGeneration() {
         if (jobInputData.referenceImages) {
           setValue('referenceImages', jobInputData.referenceImages);
         }
+        
+        // 시드 값 설정 (있는 경우)
+        if (jobInputData.seed !== undefined) {
+          setSeedValue(jobInputData.seed);
+          setRandomSeed(false); // 고정 시드 값이 있으면 랜덤 해제
+        }
       } else {
         // 기본값 설정
         // AI 모델 기본값 설정
@@ -375,9 +395,14 @@ function ImageGeneration() {
   const onSubmit = async (formData) => {
     setGenerating(true);
     try {
+      // 시드 값 처리
+      const finalSeedValue = randomSeed ? generateRandomSeed() : seedValue;
+      
       await generateMutation.mutateAsync({
         workboardId: id,
-        ...formData
+        ...formData,
+        seed: finalSeedValue,
+        randomSeed
       });
     } finally {
       setGenerating(false);
@@ -515,6 +540,50 @@ function ImageGeneration() {
                   />
                 )}
               />
+
+              {/* 시드 값 설정 */}
+              <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+                <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+                  <Typography variant="subtitle1">시드 (Seed)</Typography>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={randomSeed}
+                        onChange={(e) => {
+                          setRandomSeed(e.target.checked);
+                          if (e.target.checked) {
+                            setSeedValue(generateRandomSeed());
+                          }
+                        }}
+                        color="primary"
+                      />
+                    }
+                    label="무작위"
+                  />
+                </Box>
+                <TextField
+                  fullWidth
+                  type="number"
+                  label="시드 값"
+                  value={seedValue}
+                  onChange={(e) => setSeedValue(parseInt(e.target.value) || 0)}
+                  disabled={randomSeed}
+                  placeholder="-9223372036854775808 ~ 9223372036854775807"
+                  helperText={randomSeed ? "무작위 모드에서는 자동으로 시드가 생성됩니다" : "동일한 시드는 동일한 결과를 생성합니다"}
+                  InputProps={{
+                    endAdornment: randomSeed ? (
+                      <InputAdornment position="end">
+                        <IconButton
+                          onClick={() => setSeedValue(generateRandomSeed())}
+                          size="small"
+                        >
+                          <Shuffle />
+                        </IconButton>
+                      </InputAdornment>
+                    ) : null,
+                  }}
+                />
+              </Paper>
             </Paper>
 
             {/* 참고 이미지 */}

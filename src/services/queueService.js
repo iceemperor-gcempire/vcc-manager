@@ -100,10 +100,16 @@ const processImageGeneration = async (job) => {
   try {
     job.progress(10);
     
-    const workflowJson = injectInputsIntoWorkflow(workboardData.workflowData, inputData, workboardData);
+    const { workflowJson, actualSeed } = injectInputsIntoWorkflow(workboardData.workflowData, inputData, workboardData);
     job.progress(20);
     
-    console.log(`Submitting workflow to ComfyUI for job ${jobId}`);
+    // 실제 사용된 시드 값을 inputData에 추가
+    const enhancedInputData = {
+      ...inputData,
+      seed: actualSeed
+    };
+    
+    console.log(`Submitting workflow to ComfyUI for job ${jobId} with seed: ${actualSeed}`);
     const comfyResult = await comfyUIService.submitWorkflow(
       workboardData.serverUrl,
       workflowJson,
@@ -116,7 +122,7 @@ const processImageGeneration = async (job) => {
       throw new Error('No images returned from ComfyUI');
     }
     
-    const savedImages = await saveGeneratedImages(jobId, comfyResult.images, inputData);
+    const savedImages = await saveGeneratedImages(jobId, comfyResult.images, enhancedInputData);
     job.progress(100);
     
     return { images: savedImages };
@@ -126,7 +132,21 @@ const processImageGeneration = async (job) => {
   }
 };
 
+// 64비트 부호있는 정수 범위에서 랜덤 시드 생성
+const generateRandomSeed = () => {
+  // ComfyUI는 64비트 부호있는 정수를 사용
+  const min = -9223372036854775808; // -2^63
+  const max = 9223372036854775807;  // 2^63-1
+  // JavaScript의 안전한 정수 범위 내에서 생성
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - Number.MIN_SAFE_INTEGER + 1)) + Number.MIN_SAFE_INTEGER;
+};
+
 const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null) => {
+  // 시드 값 처리: 사용자 지정 또는 랜덤 생성
+  const seedValue = inputData.seed !== undefined ? 
+    parseInt(inputData.seed) : 
+    generateRandomSeed();
+  
   // 기본 고정 형식 문자열들과 타입 정보
   const replacements = {
     '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
@@ -134,7 +154,7 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
     '{{##model##}}': { value: inputData.aiModel || '', type: 'string' },
     '{{##width##}}': { value: parseInt(inputData.imageSize?.split('x')[0]) || 512, type: 'number' },
     '{{##height##}}': { value: parseInt(inputData.imageSize?.split('x')[1]) || 512, type: 'number' },
-    '{{##seed##}}': { value: Math.floor(Math.random() * 1000000000), type: 'number' },
+    '{{##seed##}}': { value: seedValue, type: 'number' },
     '{{##steps##}}': { value: parseInt(inputData.additionalParams?.steps) || 20, type: 'number' },
     '{{##cfg##}}': { value: parseFloat(inputData.additionalParams?.cfg) || 7, type: 'number' },
     '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
@@ -174,11 +194,18 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   try {
     const workflowObj = JSON.parse(workflowTemplate);
     const replacedObj = replaceInObject(workflowObj, replacements);
-    return replacedObj;
+    return {
+      workflowJson: replacedObj,
+      actualSeed: seedValue
+    };
   } catch (error) {
     console.error('Error parsing workflow template as JSON:', error);
     // fallback: 기존 문자열 치환 방식
-    return fallbackStringReplacement(workflowTemplate, replacements);
+    const fallbackResult = fallbackStringReplacement(workflowTemplate, replacements);
+    return {
+      workflowJson: fallbackResult,
+      actualSeed: seedValue
+    };
   }
 };
 

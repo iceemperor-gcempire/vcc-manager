@@ -227,6 +227,17 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               {job.inputData?.imageSize || '-'}
             </Typography>
           </Grid>
+
+          <Grid item xs={6} sm={3}>
+            <Typography variant="caption" color="textSecondary">시드</Typography>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+              {job.inputData?.seed !== undefined ? 
+                (job.inputData.seed.toString().length > 8 ? 
+                  `${job.inputData.seed.toString().slice(0, 8)}...` : 
+                  job.inputData.seed) 
+                : '-'}
+            </Typography>
+          </Grid>
         </Grid>
 
         <Box display="flex" justifyContent="flex-end" gap={1} mt={2}>
@@ -434,6 +445,12 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">이미지 크기</Typography>
             <Typography variant="body1">{job.inputData?.imageSize || '-'}</Typography>
+          </Grid>
+          <Grid item xs={6}>
+            <Typography variant="body2" color="textSecondary">시드 (Seed)</Typography>
+            <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
+              {job.inputData?.seed !== undefined ? job.inputData.seed : '-'}
+            </Typography>
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">생성 시간</Typography>
