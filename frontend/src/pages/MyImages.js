@@ -365,7 +365,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
 }
 
 function MyImages() {
-  const [tab, setTab] = useState(0);
+  const [tab, setTab] = useState(0); // 생성된 이미지를 기본으로 표시
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -377,13 +377,13 @@ function MyImages() {
   const { data: uploadedImages, isLoading: uploadedLoading } = useQuery(
     ['uploadedImages', search, page],
     () => imageAPI.getUploaded({ search, page, limit: 12 }),
-    { enabled: tab === 0 }
+    { enabled: tab === 1 }
   );
 
   const { data: generatedImages, isLoading: generatedLoading } = useQuery(
     ['generatedImages', search, page],
     () => imageAPI.getGenerated({ search, page, limit: 12 }),
-    { enabled: tab === 1 }
+    { enabled: tab === 0 }
   );
 
   const deleteUploadedMutation = useMutation(
@@ -429,7 +429,7 @@ function MyImages() {
   };
 
   const handleDelete = (image) => {
-    if (tab === 0) {
+    if (tab === 1) {
       if (window.confirm('이미지를 삭제하시겠습니까?')) {
         deleteUploadedMutation.mutate(image._id);
       }
@@ -443,9 +443,9 @@ function MyImages() {
     queryClient.invalidateQueries('uploadedImages');
   };
 
-  const currentImages = tab === 0 ? uploadedImages?.data?.images || [] : generatedImages?.data?.images || [];
-  const currentPagination = tab === 0 ? uploadedImages?.data?.pagination || {} : generatedImages?.data?.pagination || {};
-  const isLoading = tab === 0 ? uploadedLoading : generatedLoading;
+  const currentImages = tab === 1 ? uploadedImages?.data?.images || [] : generatedImages?.data?.images || [];
+  const currentPagination = tab === 1 ? uploadedImages?.data?.pagination || {} : generatedImages?.data?.pagination || {};
+  const isLoading = tab === 1 ? uploadedLoading : generatedLoading;
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -455,8 +455,8 @@ function MyImages() {
 
       <Box mb={3}>
         <Tabs value={tab} onChange={handleTabChange}>
-          <Tab label="업로드된 이미지" />
           <Tab label="생성된 이미지" />
+          <Tab label="업로드된 이미지" />
         </Tabs>
       </Box>
 
@@ -483,7 +483,7 @@ function MyImages() {
         </Box>
       ) : currentImages.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : `${tab === 0 ? '업로드된' : '생성된'} 이미지가 없습니다.`}
+          {search ? '검색 결과가 없습니다.' : `${tab === 1 ? '업로드된' : '생성된'} 이미지가 없습니다.`}
         </Alert>
       ) : (
         <>
@@ -492,7 +492,7 @@ function MyImages() {
               <Grid item xs={12} sm={6} md={4} lg={3} key={image._id}>
                 <ImageCard
                   image={image}
-                  type={tab === 0 ? 'uploaded' : 'generated'}
+                  type={tab === 1 ? 'uploaded' : 'generated'}
                   onView={handleView}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
@@ -521,7 +521,7 @@ function MyImages() {
       )}
 
       {/* 업로드 FAB (업로드된 이미지 탭에서만) */}
-      {tab === 0 && (
+      {tab === 1 && (
         <Fab
           color="primary"
           sx={{ position: 'fixed', bottom: 24, right: 24 }}
@@ -536,7 +536,7 @@ function MyImages() {
         image={selectedImage}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
-        type={tab === 0 ? 'uploaded' : 'generated'}
+        type={tab === 1 ? 'uploaded' : 'generated'}
       />
 
       <UploadDialog

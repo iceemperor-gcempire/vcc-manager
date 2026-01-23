@@ -41,7 +41,9 @@ import {
   Schedule,
   CheckCircle,
   Error as ErrorIcon,
-  Cancel
+  Cancel,
+  ZoomIn,
+  Download
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -90,7 +92,7 @@ function JobStatusChip({ status }) {
   );
 }
 
-function JobCard({ job, onView, onRetry, onCancel, onDelete }) {
+function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView }) {
   const canCancel = ['pending', 'processing'].includes(job.status);
   const canRetry = job.status === 'failed';
   const isProcessing = job.status === 'processing';
@@ -154,17 +156,30 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete }) {
                 <Avatar
                   key={index}
                   src={image.url}
-                  sx={{ width: 60, height: 60 }}
+                  onClick={() => onImageView(job.resultImages, index)}
+                  sx={{ 
+                    width: 60, 
+                    height: 60,
+                    cursor: 'pointer',
+                    '&:hover': { 
+                      opacity: 0.8,
+                      transform: 'scale(1.05)',
+                      transition: 'all 0.2s ease'
+                    }
+                  }}
                   variant="rounded"
                 />
               ))}
               {job.resultImages.length > 4 && (
                 <Avatar
+                  onClick={() => onImageView(job.resultImages, 4)}
                   sx={{ 
                     width: 60, 
                     height: 60, 
                     bgcolor: 'grey.200',
-                    color: 'grey.600'
+                    color: 'grey.600',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: 'grey.300' }
                   }}
                   variant="rounded"
                 >
@@ -257,7 +272,108 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete }) {
   );
 }
 
-function JobDetailDialog({ job, open, onClose }) {
+// 이미지 뷰어 다이얼로그 컴포넌트
+function ImageViewerDialog({ images, selectedIndex, open, onClose }) {
+  const [currentIndex, setCurrentIndex] = useState(selectedIndex || 0);
+
+  React.useEffect(() => {
+    if (selectedIndex !== undefined) {
+      setCurrentIndex(selectedIndex);
+    }
+  }, [selectedIndex]);
+
+  if (!images || images.length === 0) return null;
+
+  const currentImage = images[currentIndex];
+  
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = currentImage.url;
+    link.download = currentImage.originalName || `image_${currentIndex + 1}.png`;
+    link.click();
+    toast.success('다운로드 완료');
+  };
+
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="lg" 
+      fullWidth
+      PaperProps={{
+        sx: { bgcolor: 'black', maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ color: 'white', pb: 1 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6">
+            생성된 이미지 ({currentIndex + 1} / {images.length})
+          </Typography>
+          <Box>
+            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
+              <Download />
+            </IconButton>
+            <IconButton onClick={onClose} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </Box>
+      </DialogTitle>
+      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
+        <img
+          src={currentImage.url}
+          alt={`Generated ${currentIndex + 1}`}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '70vh',
+            objectFit: 'contain',
+            borderRadius: '8px'
+          }}
+        />
+        
+        {/* 이미지 정보 */}
+        {currentImage.metadata && (
+          <Box mt={2} sx={{ color: 'white' }}>
+            <Typography variant="body2">
+              크기: {currentImage.metadata.width} x {currentImage.metadata.height}
+            </Typography>
+            {currentImage.size && (
+              <Typography variant="body2">
+                파일 크기: {(currentImage.size / 1024 / 1024).toFixed(2)} MB
+              </Typography>
+            )}
+          </Box>
+        )}
+      </DialogContent>
+      
+      {/* 이미지 네비게이션 */}
+      {images.length > 1 && (
+        <DialogActions sx={{ bgcolor: 'black', justifyContent: 'center', pb: 2 }}>
+          <Box display="flex" gap={1} maxWidth="100%" sx={{ overflowX: 'auto' }}>
+            {images.map((image, index) => (
+              <Avatar
+                key={index}
+                src={image.url}
+                onClick={() => setCurrentIndex(index)}
+                sx={{
+                  width: 60,
+                  height: 60,
+                  cursor: 'pointer',
+                  border: index === currentIndex ? '2px solid white' : 'none',
+                  opacity: index === currentIndex ? 1 : 0.7,
+                  '&:hover': { opacity: 1 }
+                }}
+                variant="rounded"
+              />
+            ))}
+          </Box>
+        </DialogActions>
+      )}
+    </Dialog>
+  );
+}
+
+function JobDetailDialog({ job, open, onClose, onImageView }) {
   if (!job) return null;
 
   return (
@@ -351,16 +467,29 @@ function JobDetailDialog({ job, open, onClose }) {
             <Grid container spacing={2}>
               {job.resultImages.map((image, index) => (
                 <Grid item xs={6} sm={4} md={3} key={index}>
-                  <img
-                    src={image.url}
-                    alt="Generated"
-                    style={{
-                      width: '100%',
-                      height: '120px',
-                      objectFit: 'cover',
-                      borderRadius: '8px'
+                  <Box
+                    onClick={() => onImageView(job.resultImages, index)}
+                    sx={{
+                      cursor: 'pointer',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                      }
                     }}
-                  />
+                  >
+                    <img
+                      src={image.url}
+                      alt="Generated"
+                      style={{
+                        width: '100%',
+                        height: '120px',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  </Box>
                 </Grid>
               ))}
             </Grid>
@@ -394,6 +523,9 @@ function JobHistory() {
   const [page, setPage] = useState(1);
   const [selectedJob, setSelectedJob] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [viewerImages, setViewerImages] = useState([]);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
   const queryClient = useQueryClient();
 
@@ -468,6 +600,12 @@ function JobHistory() {
     }
   };
 
+  const handleImageView = (images, index = 0) => {
+    setViewerImages(images);
+    setSelectedImageIndex(index);
+    setImageViewerOpen(true);
+  };
+
   const jobs = data?.data?.jobs || [];
   const pagination = data?.data?.pagination || {};
 
@@ -537,6 +675,7 @@ function JobHistory() {
               onRetry={handleRetry}
               onCancel={handleCancel}
               onDelete={handleDelete}
+              onImageView={handleImageView}
             />
           ))}
 
@@ -563,6 +702,14 @@ function JobHistory() {
         job={selectedJob}
         open={detailOpen}
         onClose={() => setDetailOpen(false)}
+        onImageView={handleImageView}
+      />
+
+      <ImageViewerDialog
+        images={viewerImages}
+        selectedIndex={selectedImageIndex}
+        open={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
       />
     </Container>
   );
