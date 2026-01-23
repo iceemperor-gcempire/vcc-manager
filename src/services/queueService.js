@@ -160,13 +160,6 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   console.log('🔄 Injecting inputs into workflow...');
   console.log('📝 Input data received:', JSON.stringify(inputData, null, 2));
   
-  // 시드 값 처리: 사용자 지정 또는 랜덤 생성
-  const seedValue = inputData.seed !== undefined ? 
-    parseInt(inputData.seed) : 
-    generateRandomSeed();
-  
-  console.log('🎲 Processed seed value:', seedValue);
-  
   // 값 추출 헬퍼 함수: 키-값 객체에서 값만 추출하거나 문자열 그대로 반환
   const extractValue = (field) => {
     if (typeof field === 'object' && field?.value !== undefined) {
@@ -176,6 +169,26 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
     console.log('🔍 Using field as-is:', field);
     return field || '';
   };
+  
+  // 시드 값 처리: 사용자 지정 또는 랜덤 생성
+  let seedValue;
+  if (inputData.seed !== undefined && inputData.seed !== null && inputData.seed !== '') {
+    // extractValue를 사용하여 키-값 객체에서 값 추출
+    const extractedSeed = extractValue(inputData.seed);
+    const parsedSeed = parseInt(extractedSeed);
+    
+    // 유효한 정수인지 확인
+    if (!isNaN(parsedSeed)) {
+      seedValue = parsedSeed;
+    } else {
+      console.warn('⚠️ Invalid seed value, using random seed:', extractedSeed);
+      seedValue = generateRandomSeed();
+    }
+  } else {
+    seedValue = generateRandomSeed();
+  }
+  
+  console.log('🎲 Processed seed value:', seedValue);
   
   // 이미지 크기 추출 (예: "512x768" 또는 {key: "512x768", value: "512x768"})
   const extractedImageSize = extractValue(inputData.imageSize) || '512x512';
