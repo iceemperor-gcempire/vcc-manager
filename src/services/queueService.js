@@ -126,23 +126,21 @@ const processImageGeneration = async (job) => {
 };
 
 const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null) => {
-  let workflowString = workflowTemplate;
-  
-  // 기본 고정 형식 문자열들
+  // 기본 고정 형식 문자열들과 타입 정보
   const replacements = {
-    '{{##prompt##}}': inputData.prompt || '',
-    '{{##negative_prompt##}}': inputData.negativePrompt || '',
-    '{{##model##}}': inputData.aiModel || '',
-    '{{##width##}}': inputData.imageSize?.split('x')[0] || '512',
-    '{{##height##}}': inputData.imageSize?.split('x')[1] || '512',
-    '{{##seed##}}': Math.floor(Math.random() * 1000000000),
-    '{{##steps##}}': inputData.additionalParams?.steps || 20,
-    '{{##cfg##}}': inputData.additionalParams?.cfg || 7,
-    '{{##sampler##}}': inputData.additionalParams?.sampler || 'euler',
-    '{{##scheduler##}}': inputData.additionalParams?.scheduler || 'normal',
-    '{{##reference_method##}}': inputData.referenceImageMethod || '',
-    '{{##upscale_method##}}': inputData.upscaleMethod || '',
-    '{{##base_style##}}': inputData.baseStyle || ''
+    '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
+    '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
+    '{{##model##}}': { value: inputData.aiModel || '', type: 'string' },
+    '{{##width##}}': { value: parseInt(inputData.imageSize?.split('x')[0]) || 512, type: 'number' },
+    '{{##height##}}': { value: parseInt(inputData.imageSize?.split('x')[1]) || 512, type: 'number' },
+    '{{##seed##}}': { value: Math.floor(Math.random() * 1000000000), type: 'number' },
+    '{{##steps##}}': { value: parseInt(inputData.additionalParams?.steps) || 20, type: 'number' },
+    '{{##cfg##}}': { value: parseFloat(inputData.additionalParams?.cfg) || 7, type: 'number' },
+    '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
+    '{{##scheduler##}}': { value: inputData.additionalParams?.scheduler || 'normal', type: 'string' },
+    '{{##reference_method##}}': { value: inputData.referenceImageMethod || '', type: 'string' },
+    '{{##upscale_method##}}': { value: inputData.upscaleMethod || '', type: 'string' },
+    '{{##base_style##}}': { value: inputData.baseStyle || '', type: 'string' }
   };
 
   // 추가 입력 필드들의 커스톰 형식 문자열 처리
@@ -150,13 +148,75 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
     workboard.additionalInputFields.forEach(field => {
       const fieldName = field.name;
       const formatString = field.formatString || `{{##${fieldName}##}}`;
-      const value = inputData[fieldName] || field.defaultValue || '';
-      replacements[formatString] = value;
+      let value = inputData[fieldName] || field.defaultValue || '';
+      
+      // 필드 타입에 따른 값 변환
+      switch (field.type) {
+        case 'number':
+          value = parseFloat(value) || 0;
+          break;
+        case 'boolean':
+          value = Boolean(value);
+          break;
+        case 'string':
+        case 'select':
+        default:
+          value = String(value);
+          break;
+      }
+      
+      replacements[formatString] = { value, type: field.type || 'string' };
     });
   }
   
+  // JSON 객체로 파싱 후 재귀적으로 치환
+  try {
+    const workflowObj = JSON.parse(workflowTemplate);
+    const replacedObj = replaceInObject(workflowObj, replacements);
+    return replacedObj;
+  } catch (error) {
+    console.error('Error parsing workflow template as JSON:', error);
+    // fallback: 기존 문자열 치환 방식
+    return fallbackStringReplacement(workflowTemplate, replacements);
+  }
+};
+
+// JSON 객체 내에서 재귀적으로 값을 치환하는 함수
+const replaceInObject = (obj, replacements) => {
+  if (typeof obj === 'string') {
+    // 문자열 내 플레이스홀더 확인 및 치환
+    const replacement = replacements[obj];
+    if (replacement) {
+      return replacement.value;
+    }
+    
+    // 부분 문자열 치환 (문자열 내 일부만 플레이스홀더인 경우)
+    let result = obj;
+    Object.keys(replacements).forEach(key => {
+      if (result.includes(key)) {
+        result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacements[key].value);
+      }
+    });
+    return result;
+  } else if (Array.isArray(obj)) {
+    return obj.map(item => replaceInObject(item, replacements));
+  } else if (obj && typeof obj === 'object') {
+    const result = {};
+    Object.keys(obj).forEach(key => {
+      result[key] = replaceInObject(obj[key], replacements);
+    });
+    return result;
+  }
+  return obj;
+};
+
+// 기존 문자열 치환 방식 (fallback)
+const fallbackStringReplacement = (workflowTemplate, replacements) => {
+  let workflowString = workflowTemplate;
+  
   Object.keys(replacements).forEach(key => {
-    workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacements[key]);
+    const { value } = replacements[key];
+    workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
   });
   
   return JSON.parse(workflowString);
