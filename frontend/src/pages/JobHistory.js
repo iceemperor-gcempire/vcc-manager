@@ -46,6 +46,7 @@ import {
   Download
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { jobAPI } from '../services/api';
 import config from '../config';
@@ -92,9 +93,10 @@ function JobStatusChip({ status }) {
   );
 }
 
-function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView }) {
+function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue }) {
   const canCancel = ['pending', 'processing'].includes(job.status);
   const canRetry = job.status === 'failed';
+  const canContinue = ['completed', 'failed'].includes(job.status);
   const isProcessing = job.status === 'processing';
 
   const formatDuration = (ms) => {
@@ -235,6 +237,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView }) {
           >
             상세보기
           </Button>
+
+          {canContinue && (
+            <Button
+              size="small"
+              onClick={() => onContinue(job)}
+              startIcon={<PlayArrow />}
+              color="success"
+              variant="contained"
+              sx={{ ml: 1 }}
+            >
+              같은 작업 계속하기
+            </Button>
+          )}
 
           {canRetry && (
             <Button
@@ -527,6 +542,7 @@ function JobHistory() {
   const [viewerImages, setViewerImages] = useState([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
 
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery(
@@ -606,6 +622,19 @@ function JobHistory() {
     setImageViewerOpen(true);
   };
 
+  const handleContinueJob = (job) => {
+    // 작업 데이터를 로컬스토리지에 저장
+    const jobData = {
+      workboardId: job.workboardId,
+      inputData: job.inputData
+    };
+    localStorage.setItem('continueJobData', JSON.stringify(jobData));
+    
+    // 해당 작업판의 이미지 생성 페이지로 이동
+    navigate(`/generate/${job.workboardId}`);
+    toast.success('작업 설정을 불러왔습니다');
+  };
+
   const jobs = data?.data?.jobs || [];
   const pagination = data?.data?.pagination || {};
 
@@ -676,6 +705,7 @@ function JobHistory() {
               onCancel={handleCancel}
               onDelete={handleDelete}
               onImageView={handleImageView}
+              onContinue={handleContinueJob}
             />
           ))}
 

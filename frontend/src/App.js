@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { QueryClient, QueryClientProvider } from 'react-query';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import CssBaseline from '@mui/material/CssBaseline';
@@ -77,6 +77,18 @@ function App() {
 
 function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const location = useLocation();
+  const queryClient = useQueryClient();
+
+  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 이미지)
+  useEffect(() => {
+    const refreshPaths = ['/jobs', '/images'];
+    if (refreshPaths.includes(location.pathname)) {
+      queryClient.invalidateQueries('recentJobs');
+      queryClient.invalidateQueries('generatedImages');
+      queryClient.invalidateQueries('uploadedImages');
+    }
+  }, [location.pathname, queryClient]);
 
   const handleMobileToggle = () => {
     setMobileOpen(!mobileOpen);

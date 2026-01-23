@@ -271,7 +271,7 @@ function ImageGeneration() {
   const queryClient = useQueryClient();
   const [generating, setGenerating] = useState(false);
   
-  const { control, handleSubmit, watch, formState: { errors } } = useForm();
+  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm();
   
   const { data: workboard, isLoading, error } = useQuery(
     ['workboard', id],
@@ -291,6 +291,86 @@ function ImageGeneration() {
       }
     }
   );
+
+  const workboardData = workboard?.data?.workboard;
+
+  // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
+  useEffect(() => {
+    if (workboardData) {
+      // 로컬스토리지에서 계속하기 데이터 확인
+      const continueJobData = localStorage.getItem('continueJobData');
+      let jobInputData = null;
+      
+      if (continueJobData) {
+        try {
+          const parsedData = JSON.parse(continueJobData);
+          // 동일한 작업판인 경우 사용
+          if (parsedData.workboardId === workboardData._id) {
+            jobInputData = parsedData.inputData;
+            localStorage.removeItem('continueJobData'); // 사용 후 제거
+            toast.success('이전 작업 설정을 불러왔습니다');
+          }
+        } catch (error) {
+          console.warn('Failed to parse continue job data:', error);
+        }
+      }
+      
+      if (jobInputData) {
+        // 이전 작업 데이터로 폼 채우기
+        Object.keys(jobInputData).forEach(key => {
+          if (key === 'additionalParams' && jobInputData[key]) {
+            Object.keys(jobInputData[key]).forEach(paramKey => {
+              setValue(`additionalParams.${paramKey}`, jobInputData[key][paramKey]);
+            });
+          } else if (key !== 'referenceImages') {
+            setValue(key, jobInputData[key]);
+          }
+        });
+        
+        // 참조 이미지 설정 (있는 경우)
+        if (jobInputData.referenceImages) {
+          setValue('referenceImages', jobInputData.referenceImages);
+        }
+      } else {
+        // 기본값 설정
+        // AI 모델 기본값 설정
+        if (workboardData.baseInputFields?.aiModel?.length > 0) {
+          setValue('aiModel', workboardData.baseInputFields.aiModel[0].value);
+        }
+        
+        // 이미지 크기 기본값 설정
+        if (workboardData.baseInputFields?.imageSizes?.length > 0) {
+          setValue('imageSize', workboardData.baseInputFields.imageSizes[0].value);
+        }
+        
+        // 스타일 프리셋 기본값 설정
+        if (workboardData.baseInputFields?.stylePresets?.length > 0) {
+          setValue('stylePreset', workboardData.baseInputFields.stylePresets[0].value);
+        }
+        
+        // 참조 이미지 방법 기본값 설정
+        if (workboardData.baseInputFields?.referenceImageMethods?.length > 0) {
+          setValue('referenceImageMethod', workboardData.baseInputFields.referenceImageMethods[0].value);
+        }
+        
+        // 업스케일 방법 기본값 설정
+        if (workboardData.baseInputFields?.upscaleMethods?.length > 0) {
+          setValue('upscaleMethod', workboardData.baseInputFields.upscaleMethods[0].value);
+        }
+        
+        // 추가 입력 필드들의 기본값 설정
+        if (workboardData.additionalInputFields?.length > 0) {
+          workboardData.additionalInputFields.forEach((field) => {
+            if (field.type === 'select' && field.options?.length > 0) {
+              setValue(`additionalParams.${field.name}`, field.defaultValue || field.options[0].value);
+            } else if (field.defaultValue !== undefined) {
+              setValue(`additionalParams.${field.name}`, field.defaultValue);
+            }
+          });
+        }
+      }
+    }
+  }, [workboardData, setValue]);
 
   const onSubmit = async (formData) => {
     setGenerating(true);
@@ -323,8 +403,6 @@ function ImageGeneration() {
       </Container>
     );
   }
-
-  const workboardData = workboard?.data?.workboard;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>

@@ -95,7 +95,9 @@ function ImageCard({ image, type, onEdit, onDelete, onView }) {
           {image.originalName}
         </Typography>
         <Typography variant="caption" color="textSecondary" display="block">
-          {image.metadata?.width}x{image.metadata?.height}
+          {image.metadata?.width && image.metadata?.height 
+            ? `${image.metadata.width}x${image.metadata.height}` 
+            : '크기 정보 없음'}
         </Typography>
         <Typography variant="caption" color="textSecondary" display="block">
           {formatFileSize(image.size)}
@@ -214,7 +216,9 @@ function ImageDetailDialog({ image, open, onClose, type }) {
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">크기</Typography>
             <Typography variant="body1">
-              {image.metadata?.width} x {image.metadata?.height}
+              {image.metadata?.width && image.metadata?.height 
+                ? `${image.metadata.width} x ${image.metadata.height}` 
+                : '크기 정보 없음'}
             </Typography>
           </Grid>
           <Grid item xs={6}>

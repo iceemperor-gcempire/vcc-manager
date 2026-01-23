@@ -2,6 +2,7 @@ const Queue = require('bull');
 const Redis = require('redis');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
@@ -240,6 +241,29 @@ const saveGeneratedImages = async (jobId, comfyImages, inputData) => {
       console.log(`Saving image ${i+1}/${comfyImages.length} to ${imagePath}`);
       await fs.promises.writeFile(imagePath, imageData.buffer);
       
+      // 실제 이미지 파일에서 크기 정보 추출
+      let imageMetadata = {
+        format: 'png'
+      };
+      
+      try {
+        const sharpImage = sharp(imageData.buffer);
+        const { width, height, format } = await sharpImage.metadata();
+        imageMetadata = {
+          width,
+          height,
+          format: format || 'png'
+        };
+        console.log(`Image ${i+1} metadata: ${width}x${height} ${format}`);
+      } catch (metadataError) {
+        console.warn(`Failed to extract metadata for image ${i+1}:`, metadataError.message);
+        // fallback to ComfyUI provided data if available
+        if (imageData.width && imageData.height) {
+          imageMetadata.width = imageData.width;
+          imageMetadata.height = imageData.height;
+        }
+      }
+      
       const generatedImage = new GeneratedImage({
         filename,
         originalName: filename,
@@ -249,11 +273,7 @@ const saveGeneratedImages = async (jobId, comfyImages, inputData) => {
         url: `/uploads/generated/${filename}`,
         userId: inputData.userId,
         jobId,
-        metadata: {
-          width: imageData.width,
-          height: imageData.height,
-          format: 'png'
-        },
+        metadata: imageMetadata,
         generationParams: {
           prompt: inputData.prompt,
           negativePrompt: inputData.negativePrompt,
