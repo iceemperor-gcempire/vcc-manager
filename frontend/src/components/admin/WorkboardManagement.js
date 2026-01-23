@@ -160,7 +160,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       referenceImageMethods: [],
       negativePromptField: { enabled: false, required: false },
       upscaleMethodField: { enabled: false, required: false, options: [] },
-      baseStyleField: { enabled: false, required: false, options: [] }
+      baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
+      additionalCustomFields: []
     }
   });
 
@@ -200,8 +201,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             baseStyleField: {
               enabled: fullData.additionalInputFields?.some(f => f.name === 'baseStyle') || false,
               required: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.required || false,
-              options: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.options || []
-            }
+              options: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.options || [],
+              formatString: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.formatString || '{{##base_style##}}'
+            },
+            // 추가 커스톰 필드들
+            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)) || []
           };
           
           console.log('Form data to reset with:', formData);
@@ -255,7 +259,24 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
         label: '기초 스타일',
         type: 'select',
         required: Boolean(data.baseStyleField.required),
-        options: (data.baseStyleField.options || []).filter(opt => opt.key && opt.value)
+        options: (data.baseStyleField.options || []).filter(opt => opt.key && opt.value),
+        formatString: data.baseStyleField.formatString || '{{##base_style##}}'
+      });
+    }
+
+    // 추가 커스톰 필드들 추가
+    if (data.additionalCustomFields) {
+      data.additionalCustomFields.forEach(field => {
+        if (field.name && field.label) {
+          additionalInputFields.push({
+            name: field.name,
+            label: field.label,
+            type: field.type || 'string',
+            required: Boolean(field.required),
+            options: field.type === 'select' ? (field.options || []) : undefined,
+            formatString: field.formatString || `{{##${field.name}##}}`
+          });
+        }
       });
     }
 
@@ -377,9 +398,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="body2" color="textSecondary">
-                      사용자가 선택할 수 있는 AI 모델들을 설정합니다.
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">
+                        사용자가 선택할 수 있는 AI 모델들을 설정합니다.
+                      </Typography>
+                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                        📝 Workflow JSON 형식: <code>{'{{##model##}}'}</code>
+                      </Typography>
+                    </Box>
                     <Button
                       startIcon={<Add />}
                       onClick={() => addArrayItem('aiModels')}
@@ -433,9 +459,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="body2" color="textSecondary">
-                      이미지 생성 크기 옵션들을 설정합니다.
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">
+                        이미지 생성 크기 옵션들을 설정합니다.
+                      </Typography>
+                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                        📝 Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
+                      </Typography>
+                    </Box>
                     <Button
                       startIcon={<Add />}
                       onClick={() => addArrayItem('imageSizes')}
@@ -489,9 +520,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionSummary>
                 <AccordionDetails>
                   <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="body2" color="textSecondary">
-                      참고 이미지를 어떻게 활용할지 옵션들을 설정합니다.
-                    </Typography>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">
+                        참고 이미지를 어떻게 활용할지 옵션들을 설정합니다.
+                      </Typography>
+                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                        📝 Workflow JSON 형식: <code>{'{{##reference_method##}}'}</code>
+                      </Typography>
+                    </Box>
                     <Button
                       startIcon={<Add />}
                       onClick={() => addArrayItem('referenceImageMethods')}
@@ -578,6 +614,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   <Typography variant="body2" color="textSecondary" mt={1}>
                     사용자가 부정 프롬프트를 입력할 수 있는 텍스트 필드입니다.
                   </Typography>
+                  <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                    📝 Workflow JSON 형식: <code>{'{{##negative_prompt##}}'}</code>
+                  </Typography>
                 </AccordionDetails>
               </Accordion>
 
@@ -611,7 +650,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   />
                   <Box mt={2}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Typography variant="body2">업스케일 방법 옵션</Typography>
+                      <Box>
+                        <Typography variant="body2">업스케일 방법 옵션</Typography>
+                        <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                          📝 Workflow JSON 형식: <code>{'{{##upscale_method##}}'}</code>
+                        </Typography>
+                      </Box>
                       <Button
                         startIcon={<Add />}
                         onClick={() => {
@@ -693,6 +737,26 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       />
                     )}
                   />
+                  {/* 형식 문자열 설정 */}
+                  <Box mb={2}>
+                    <Controller
+                      name="baseStyleField.formatString"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          fullWidth
+                          label="Workflow JSON 형식 문자열"
+                          placeholder="예: {{##base_style##}}"
+                          size="small"
+                          sx={{ fontFamily: 'monospace' }}
+                        />
+                      )}
+                    />
+                    <Typography variant="caption" color="textSecondary">
+                      Workflow JSON에서 이 필드를 대체할 문자열을 설정하세요.
+                    </Typography>
+                  </Box>
                   <Box mt={2}>
                     <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                       <Typography variant="body2">스타일 옵션 (LoRA 설정)</Typography>
@@ -746,6 +810,199 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       </Box>
                     ))}
                   </Box>
+                </AccordionDetails>
+              </Accordion>
+
+              {/* 추가 커스톰 필드 */}
+              <Accordion>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography variant="h6">추가 커스톰 필드</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                    <Typography variant="body2" color="textSecondary">
+                      사용자 정의 입력 필드를 추가할 수 있습니다.
+                    </Typography>
+                    <Button
+                      startIcon={<Add />}
+                      onClick={() => {
+                        const current = watch('additionalCustomFields') || [];
+                        setValue('additionalCustomFields', [...current, {
+                          name: '',
+                          label: '',
+                          type: 'string',
+                          required: false,
+                          formatString: '',
+                          options: []
+                        }]);
+                      }}
+                      size="small"
+                    >
+                      필드 추가
+                    </Button>
+                  </Box>
+                  {watch('additionalCustomFields')?.map((field, index) => (
+                    <Accordion key={index} sx={{ mb: 2 }}>
+                      <AccordionSummary expandIcon={<ExpandMore />}>
+                        <Typography>
+                          {field.label || `커스톰 필드 ${index + 1}`}
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails>
+                        <Grid container spacing={2}>
+                          <Grid item xs={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.name`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  fullWidth
+                                  label="필드명 (영문)"
+                                  placeholder="예: customField1"
+                                  size="small"
+                                  sx={{ fontFamily: 'monospace' }}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.label`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  fullWidth
+                                  label="표시명"
+                                  placeholder="예: 커스톰 옵션"
+                                  size="small"
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.type`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  fullWidth
+                                  select
+                                  label="입력 타입"
+                                  size="small"
+                                >
+                                  <MenuItem value="string">텍스트</MenuItem>
+                                  <MenuItem value="number">숫자</MenuItem>
+                                  <MenuItem value="select">선택</MenuItem>
+                                  <MenuItem value="boolean">체크박스</MenuItem>
+                                </TextField>
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.formatString`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  fullWidth
+                                  label="Workflow 형식 문자열"
+                                  placeholder={`예: {{##${field.name || 'field_name'}##}}`}
+                                  size="small"
+                                  sx={{ fontFamily: 'monospace' }}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={12}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.required`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <FormControlLabel
+                                  control={<Switch {...fieldProps} checked={fieldProps.value} />}
+                                  label="필수 입력"
+                                />
+                              )}
+                            />
+                          </Grid>
+                          {field.type === 'select' && (
+                            <Grid item xs={12}>
+                              <Typography variant="body2" gutterBottom>
+                                선택 옵션
+                              </Typography>
+                              <Box display="flex" justifyContent="flex-end" mb={1}>
+                                <Button
+                                  startIcon={<Add />}
+                                  onClick={() => {
+                                    const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
+                                    setValue(`additionalCustomFields.${index}.options`, [...currentOptions, { key: '', value: '' }]);
+                                  }}
+                                  size="small"
+                                >
+                                  옵션 추가
+                                </Button>
+                              </Box>
+                              {watch(`additionalCustomFields.${index}.options`)?.map((option, optionIndex) => (
+                                <Box key={optionIndex} display="flex" gap={1} mb={1} alignItems="center">
+                                  <Controller
+                                    name={`additionalCustomFields.${index}.options.${optionIndex}.key`}
+                                    control={control}
+                                    render={({ field: optionField }) => (
+                                      <TextField
+                                        {...optionField}
+                                        label="표시명"
+                                        size="small"
+                                        sx={{ flex: 1 }}
+                                      />
+                                    )}
+                                  />
+                                  <Controller
+                                    name={`additionalCustomFields.${index}.options.${optionIndex}.value`}
+                                    control={control}
+                                    render={({ field: optionField }) => (
+                                      <TextField
+                                        {...optionField}
+                                        label="실제 값"
+                                        size="small"
+                                        sx={{ flex: 1 }}
+                                      />
+                                    )}
+                                  />
+                                  <IconButton
+                                    onClick={() => {
+                                      const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
+                                      setValue(`additionalCustomFields.${index}.options`, currentOptions.filter((_, i) => i !== optionIndex));
+                                    }}
+                                    color="error"
+                                    size="small"
+                                  >
+                                    <Delete />
+                                  </IconButton>
+                                </Box>
+                              ))}
+                            </Grid>
+                          )}
+                          <Grid item xs={12}>
+                            <Box display="flex" justifyContent="flex-end">
+                              <IconButton
+                                onClick={() => {
+                                  const current = watch('additionalCustomFields') || [];
+                                  setValue('additionalCustomFields', current.filter((_, i) => i !== index));
+                                }}
+                                color="error"
+                              >
+                                <Delete />
+                              </IconButton>
+                            </Box>
+                          </Grid>
+                        </Grid>
+                      </AccordionDetails>
+                    </Accordion>
+                  ))}
                 </AccordionDetails>
               </Accordion>
             </Box>

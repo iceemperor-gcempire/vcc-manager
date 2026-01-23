@@ -1,309 +1,272 @@
-# Visual Content Creator Manager
+# VCC Manager
 
-A comprehensive web service for managing AI image generation through ComfyUI integration. This service provides a complete solution for users to create, manage, and organize AI-generated images with an intuitive web interface.
+Visual Content Creator Manager - ComfyUI 워크플로우 관리 및 이미지 생성 시스템
 
-## Features
+## 🚀 프로젝트 개요
 
-### Core Functionality
-- **Google SSO Authentication**: Secure login using Google accounts
-- **Workboard Management**: Customizable templates for different image generation workflows
-- **Image Generation Queue**: Asynchronous processing with real-time progress tracking
-- **File Management**: Upload and organize reference images
-- **Admin Panel**: Comprehensive administration tools for managing users and workboards
+VCC Manager는 ComfyUI 워크플로우를 효율적으로 관리하고 이미지 생성 작업을 자동화하기 위한 종합 관리 시스템입니다.
 
-### User Features
-- Upload and manage reference images for Image-to-Image and ControlNet operations
-- Create image generation jobs with custom parameters
-- Track job progress and history
-- Download and organize generated images
-- Tag and categorize images for easy organization
+### ✨ 주요 기능
 
-### Admin Features
-- Create and manage workboards (generation templates)
-- User management and statistics
-- System monitoring and job queue management
-- Configurable workflow templates using ComfyUI JSON format
+- **🔐 사용자 관리**: JWT 기반 인증 및 역할별 권한 관리
+- **📋 작업판 관리**: ComfyUI 워크플로우 템플릿 관리 (관리자 전용)
+- **🎨 이미지 생성**: 비동기 작업 큐를 통한 안정적인 이미지 생성
+- **📁 파일 관리**: 레퍼런스 이미지 업로드 및 생성 이미지 관리
+- **📊 실시간 모니터링**: 작업 상태 및 시스템 통계 대시보드
 
-## Architecture
+## 🛠️ 기술 스택
 
-### Backend (Node.js/Express)
-- RESTful API architecture
-- MongoDB for data persistence
-- Redis for job queue management
-- Bull queue for background processing
-- Passport.js for Google OAuth integration
-- Multer for file upload handling
+### Frontend
+- **React 18** - 모던 React 훅 기반 개발
+- **Material-UI** - 일관된 디자인 시스템
+- **React Query** - 효율적인 데이터 페칭 및 캐싱
+- **React Router** - 클라이언트 사이드 라우팅
 
-### Frontend (React)
-- Material-UI for modern, responsive interface
-- React Query for efficient data fetching
-- React Router for navigation
-- Context API for state management
+### Backend  
+- **Node.js** + **Express.js** - RESTful API 서버
+- **MongoDB** + **Mongoose** - 문서형 데이터베이스
+- **Redis** + **Bull Queue** - 작업 큐 및 세션 관리
+- **JWT** - 인증 토큰 관리
 
 ### Infrastructure
-- Docker containerization
-- Nginx reverse proxy
-- MongoDB and Redis services
-- Volume persistence for uploaded files
+- **Docker** + **Docker Compose** - 컨테이너 기반 배포
+- **Nginx** - 리버스 프록시 및 정적 파일 서빙
 
-## Prerequisites
+## 🚀 빠른 시작
 
-- Docker and Docker Compose
-- Google OAuth credentials
-- ComfyUI server (running separately)
+### 사전 요구사항
+- Docker & Docker Compose
+- Node.js 18+ (로컬 개발용)
+- ComfyUI 서버 (외부 서비스)
 
-## Quick Start
-
-### 1. Clone and Setup
+### 1. 프로젝트 클론 및 설정
 
 ```bash
 git clone <repository-url>
 cd vcc-manager-claude
+
+# 환경 변수 설정
 cp .env.example .env
+cp frontend/.env.example frontend/.env
+
+# 환경 변수 편집 (MongoDB, Redis, JWT 시크릿 등)
+nano .env
 ```
 
-### 2. Configure Environment
-
-Edit `.env` file with your settings:
+### 2. Docker Compose로 실행
 
 ```bash
-# Required: Google OAuth credentials
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
+# 전체 서비스 시작
+docker-compose up -d
 
-# Required: Admin email addresses
-ADMIN_EMAILS=admin@example.com
+# 서비스 상태 확인
+docker-compose ps
 
-# Required: Secure secrets (generate strong random strings)
-SESSION_SECRET=your_session_secret_key
-JWT_SECRET=your_jwt_secret_key
-
-# Optional: ComfyUI server URL
-COMFY_UI_BASE_URL=http://localhost:8188
+# 로그 확인
+docker-compose logs -f
 ```
 
-### 3. Start Development Environment
+### 3. 접속 확인
+- **프론트엔드**: http://localhost
+- **백엔드 API**: http://localhost/api
+- **관리자 계정**: 첫 번째 가입 사용자가 자동으로 관리자로 설정됩니다.
 
+## 📚 문서
+
+- **[개발 가이드](DEVELOPMENT.md)** - 상세한 개발 및 기술 문서
+- **[유지보수 가이드](MAINTENANCE.md)** - 시스템 운영 및 관리 절차
+- **[변경 로그](CHANGELOG.md)** - 버전별 변경사항
+- **[설치 가이드](SETUP.md)** - 세부 설치 및 설정 방법
+
+## 🏗️ 아키텍처
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Frontend      │    │    Backend      │    │   External      │
+│   (React)       │    │  (Node.js)      │    │   Services      │
+│                 │    │                 │    │                 │
+│ ┌─────────────┐ │◄──►│ ┌─────────────┐ │◄──►│ ┌─────────────┐ │
+│ │ Dashboard   │ │    │ │ Express API │ │    │ │ ComfyUI     │ │
+│ │ Admin Panel │ │    │ │ Auth System │ │    │ │ Server      │ │
+│ │ Gallery     │ │    │ │ Job Queue   │ │    │ └─────────────┘ │
+│ │ Workboards  │ │    │ │ File Mgmt   │ │    │ ┌─────────────┐ │
+│ └─────────────┘ │    │ └─────────────┘ │    │ │ Redis       │ │
+└─────────────────┘    └─────────────────┘    │ │ MongoDB     │ │
+        │                       │              │ └─────────────┘ │
+        v                       v              └─────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                        Nginx (Port 80)                         │
+│  ┌─────────────────────┐    ┌─────────────────────────────────┐│
+│  │ Static Files        │    │ API Proxy                       ││
+│  │ (React Build)       │    │ (/api/* → backend:3000)        ││
+│  │                     │    │ (/uploads/* → backend:3000)    ││
+│  └─────────────────────┘    └─────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## 👥 사용자 역할
+
+### 일반 사용자 (User)
+- 작업판을 선택하여 이미지 생성 요청
+- 생성된 이미지 갤러리 조회 및 다운로드
+- 작업 히스토리 확인 및 관리
+- 레퍼런스 이미지 업로드 및 사용
+
+### 관리자 (Admin)
+- **모든 일반 사용자 기능** + 추가 관리 기능
+- 작업판 생성, 수정, 삭제
+- 시스템 전체 통계 및 모니터링
+- 사용자 관리 및 시스템 설정
+- 전체 이미지 및 작업 관리
+
+## 🔧 주요 설정
+
+### 환경 변수
+
+#### 백엔드 (.env)
 ```bash
-# Start only database services for development
-docker-compose -f docker-compose.dev.yml up mongodb redis -d
+# 데이터베이스
+MONGODB_URI=mongodb://admin:password@mongodb:27017/vcc-manager?authSource=admin
 
-# Install backend dependencies
-npm install
+# 인증
+JWT_SECRET=your-secure-jwt-secret-key
+JWT_EXPIRES_IN=7d
 
-# Install frontend dependencies
-cd frontend && npm install && cd ..
+# Redis (작업 큐)
+REDIS_URL=redis://:redispassword@redis:6379
+REDIS_PASSWORD=redispassword
 
-# Start backend (development mode)
+# 파일 업로드
+UPLOAD_PATH=./uploads
+MAX_FILE_SIZE=10485760  # 10MB
+
+# 서버 설정
+PORT=3000
+NODE_ENV=production
+FRONTEND_URL=http://localhost
+```
+
+#### 프론트엔드 (frontend/.env)
+```bash
+# API 설정
+REACT_APP_API_URL=/api
+
+# 모니터링 업데이트 주기 (밀리초)
+REACT_APP_QUEUE_STATUS_INTERVAL=5000    # 작업 큐: 5초
+REACT_APP_RECENT_JOBS_INTERVAL=15000    # 최근 작업: 15초
+REACT_APP_USER_STATS_INTERVAL=30000     # 통계: 30초
+```
+
+## 🛡️ 보안 기능
+
+- **JWT 토큰 기반 인증** - 안전한 세션 관리
+- **역할 기반 접근 제어** - 관리자/사용자 권한 분리
+- **파일 업로드 검증** - 타입 및 크기 제한
+- **CORS 정책** - 크로스 오리진 요청 제한
+- **Helmet.js** - 보안 헤더 설정
+- **Rate Limiting** - API 요청 제한
+
+## 🔄 개발 워크플로우
+
+### 로컬 개발 환경
+```bash
+# 백엔드 개발
 npm run dev
 
-# Start frontend (in another terminal)
+# 프론트엔드 개발
 cd frontend && npm start
+
+# 데이터베이스 초기화
+npm run db:seed
 ```
 
-### 4. Start Production Environment
-
+### 프로덕션 빌드
 ```bash
-# Copy production environment
-cp .env.production .env
+# 전체 빌드
+docker-compose build
 
-# Edit .env with your production values
-
-# Start all services
+# 프로덕션 배포
 docker-compose up -d
 ```
 
-The application will be available at:
-- Production: http://localhost (port 80)
-- Development: http://localhost:3001 (frontend), http://localhost:3000 (backend API)
+## 📊 모니터링 대시보드
 
-## Configuration
+### 시스템 통계
+- 전체 사용자 수 및 활성 사용자
+- 작업판 개수 및 사용률
+- 이미지 생성 통계 및 용량
+- 작업 큐 상태 (대기/처리/완료/실패)
 
-### Google OAuth Setup
+### 실시간 모니터링
+- 현재 처리 중인 작업
+- 최근 완료된 작업
+- 시스템 리소스 사용량
+- 에러 및 알림 상태
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project or select existing one
-3. Enable Google+ API
-4. Create OAuth 2.0 credentials
-5. Add authorized redirect URI: `http://localhost/auth/google/callback`
-6. Copy Client ID and Client Secret to `.env`
+## 🚨 문제 해결
 
-### ComfyUI Integration
+### 일반적인 문제들
 
-1. Install and run ComfyUI server
-2. Export workflows as API format from ComfyUI
-3. Create workboards in the admin panel using the exported JSON
-4. Use mustache templates for dynamic values (e.g., `{{##prompt##}}`)
-
-### Workboard Configuration
-
-Workboards define the workflow templates for image generation. They contain:
-
-- **Base Input Fields**: Standard fields like model, prompt, image size
-- **Additional Input Fields**: Custom fields defined by admin
-- **Workflow Data**: ComfyUI workflow JSON with mustache template variables
-
-Example workflow template variable injection:
-```json
-{
-  "prompt": "{{##prompt##}}",
-  "negative_prompt": "{{##negative_prompt##}}",
-  "model": "{{##model##}}",
-  "width": "{{##width##}}",
-  "height": "{{##height##}}"
-}
-```
-
-## API Documentation
-
-### Authentication
-- `GET /api/auth/google` - Initiate Google OAuth
-- `GET /api/auth/me` - Get current user
-- `POST /api/auth/logout` - Logout
-
-### User Management
-- `GET /api/users/profile` - Get user profile
-- `PUT /api/users/profile` - Update user profile
-- `GET /api/users/stats` - Get user statistics
-
-### Workboards
-- `GET /api/workboards` - List workboards
-- `GET /api/workboards/:id` - Get workboard details
-- `POST /api/workboards` - Create workboard (admin)
-- `PUT /api/workboards/:id` - Update workboard (admin)
-
-### Image Generation
-- `POST /api/jobs/generate` - Create generation job
-- `GET /api/jobs/my` - Get user's jobs
-- `GET /api/jobs/:id` - Get job details
-- `DELETE /api/jobs/:id` - Delete job
-
-### Image Management
-- `POST /api/images/upload` - Upload reference image
-- `GET /api/images/uploaded` - List uploaded images
-- `GET /api/images/generated` - List generated images
-
-## File Structure
-
-```
-├── src/                 # Backend source code
-│   ├── models/         # MongoDB schemas
-│   ├── routes/         # API endpoints
-│   ├── services/       # Business logic
-│   ├── middleware/     # Express middleware
-│   ├── config/         # Configuration files
-│   └── utils/          # Utility functions
-├── frontend/           # React frontend
-│   ├── src/
-│   │   ├── components/ # React components
-│   │   ├── pages/      # Page components
-│   │   ├── services/   # API clients
-│   │   └── contexts/   # React contexts
-├── uploads/            # File storage
-├── docker-compose.yml  # Production compose
-├── docker-compose.dev.yml # Development compose
-└── README.md
-```
-
-## Development
-
-### Backend Development
+#### 이미지가 표시되지 않는 경우
 ```bash
-npm run dev          # Start with nodemon
-npm test             # Run tests
-```
-
-### Frontend Development
-```bash
-cd frontend
-npm start            # Start development server
-npm run build        # Build for production
-npm test             # Run tests
-```
-
-### Database Management
-```bash
-# Connect to MongoDB
-docker exec -it vcc-mongodb mongo -u admin -p password
-
-# Connect to Redis
-docker exec -it vcc-redis redis-cli
-```
-
-## Production Deployment
-
-1. Set up production environment variables
-2. Configure reverse proxy (Nginx included)
-3. Set up SSL certificates
-4. Configure ComfyUI server
-5. Run with Docker Compose
-
-```bash
-# Production deployment
-docker-compose up -d
-
-# View logs
-docker-compose logs -f
-
-# Scale services
-docker-compose up -d --scale backend=3
-```
-
-## Security Considerations
-
-- Use strong, unique secrets for SESSION_SECRET and JWT_SECRET
-- Regularly update dependencies
-- Use HTTPS in production
-- Implement rate limiting
-- Monitor file uploads for malicious content
-- Regularly backup database
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Google OAuth Error**: Verify redirect URI matches exactly
-2. **ComfyUI Connection Failed**: Check COMFY_UI_BASE_URL and network connectivity
-3. **File Upload Issues**: Verify upload directory permissions
-4. **Database Connection**: Check MongoDB connection string and credentials
-
-### Logs
-
-```bash
-# View all logs
-docker-compose logs
-
-# View specific service logs
-docker-compose logs backend
+# nginx 설정 확인
 docker-compose logs frontend
+
+# 파일 존재 확인
+docker-compose exec backend ls -la uploads/generated/
+
+# 권한 확인
+docker-compose exec backend chmod 755 uploads/
 ```
 
-## Contributing
+#### 작업이 처리되지 않는 경우
+```bash
+# Redis 연결 확인
+docker-compose exec redis redis-cli -a redispassword ping
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+# 큐 상태 확인
+curl http://localhost/api/jobs/queue/stats
 
-## License
+# 백엔드 재시작
+docker-compose restart backend
+```
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+#### ComfyUI 연결 문제
+```bash
+# ComfyUI 서버 상태 확인
+curl http://your-comfyui-server:8188/system_stats
 
-## Support
+# 워크플로우 유효성 검증
+# 관리자 패널에서 작업판 테스트 기능 사용
+```
 
-For issues and questions:
-1. Check the troubleshooting section
-2. Review existing issues
-3. Create a new issue with detailed information
+## 🤝 기여하기
 
-## Changelog
+1. Fork 및 Clone
+2. 기능 브랜치 생성 (`git checkout -b feature/AmazingFeature`)
+3. 변경사항 커밋 (`git commit -m 'Add some AmazingFeature'`)
+4. 브랜치에 Push (`git push origin feature/AmazingFeature`)
+5. Pull Request 생성
 
-### v1.0.0
-- Initial release
-- Google SSO authentication
-- Basic workboard management
-- Image generation queue
-- File upload system
-- Admin panel
-- Docker deployment
+### 커밋 메시지 규칙
+- **feat**: 새로운 기능 추가
+- **fix**: 버그 수정
+- **docs**: 문서 변경
+- **style**: 코드 스타일 변경
+- **refactor**: 리팩토링
+- **test**: 테스트 코드 추가
+
+## 📄 라이선스
+
+이 프로젝트는 [MIT 라이선스](LICENSE)를 따릅니다.
+
+## 📞 지원 및 문의
+
+- **이슈 리포트**: [GitHub Issues](../../issues)
+- **기능 요청**: [GitHub Discussions](../../discussions)
+- **문서**: [Wiki](../../wiki)
+
+---
+
+**개발**: Claude Code Assistant  
+**마지막 업데이트**: 2026년 1월 22일

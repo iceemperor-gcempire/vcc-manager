@@ -99,7 +99,7 @@ const processImageGeneration = async (job) => {
   try {
     job.progress(10);
     
-    const workflowJson = injectInputsIntoWorkflow(workboardData.workflowData, inputData);
+    const workflowJson = injectInputsIntoWorkflow(workboardData.workflowData, inputData, workboardData);
     job.progress(20);
     
     console.log(`Submitting workflow to ComfyUI for job ${jobId}`);
@@ -125,9 +125,10 @@ const processImageGeneration = async (job) => {
   }
 };
 
-const injectInputsIntoWorkflow = (workflowTemplate, inputData) => {
+const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null) => {
   let workflowString = workflowTemplate;
   
+  // 기본 고정 형식 문자열들
   const replacements = {
     '{{##prompt##}}': inputData.prompt || '',
     '{{##negative_prompt##}}': inputData.negativePrompt || '',
@@ -138,11 +139,24 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData) => {
     '{{##steps##}}': inputData.additionalParams?.steps || 20,
     '{{##cfg##}}': inputData.additionalParams?.cfg || 7,
     '{{##sampler##}}': inputData.additionalParams?.sampler || 'euler',
-    '{{##scheduler##}}': inputData.additionalParams?.scheduler || 'normal'
+    '{{##scheduler##}}': inputData.additionalParams?.scheduler || 'normal',
+    '{{##reference_method##}}': inputData.referenceImageMethod || '',
+    '{{##upscale_method##}}': inputData.upscaleMethod || '',
+    '{{##base_style##}}': inputData.baseStyle || ''
   };
+
+  // 추가 입력 필드들의 커스톰 형식 문자열 처리
+  if (workboard && workboard.additionalInputFields) {
+    workboard.additionalInputFields.forEach(field => {
+      const fieldName = field.name;
+      const formatString = field.formatString || `{{##${fieldName}##}}`;
+      const value = inputData[fieldName] || field.defaultValue || '';
+      replacements[formatString] = value;
+    });
+  }
   
   Object.keys(replacements).forEach(key => {
-    workflowString = workflowString.replace(new RegExp(key, 'g'), replacements[key]);
+    workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacements[key]);
   });
   
   return JSON.parse(workflowString);
@@ -245,7 +259,8 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
       jobId: job._id.toString(),
       workboardData: {
         serverUrl: workboard.serverUrl,
-        workflowData: workboard.workflowData
+        workflowData: workboard.workflowData,
+        additionalInputFields: workboard.additionalInputFields
       },
       inputData: {
         ...inputData,

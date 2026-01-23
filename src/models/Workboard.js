@@ -33,6 +33,12 @@ const inputFieldSchema = new mongoose.Schema({
   defaultValue: mongoose.Schema.Types.Mixed,
   placeholder: String,
   description: String,
+  formatString: {
+    type: String,
+    default: function() {
+      return `{{##${this.name}##}}`;
+    }
+  },
   validation: {
     min: Number,
     max: Number,
