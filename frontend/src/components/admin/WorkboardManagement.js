@@ -1170,12 +1170,36 @@ function WorkboardManagement() {
   const createMutation = useMutation(
     workboardAPI.create,
     {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        console.log('✨ New workboard created, updating cache immediately');
         toast.success('작업판이 생성되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
+        
+        // 즉시 캐시 업데이트 - 새 작업판을 목록에 추가
+        queryClient.setQueryData('adminWorkboards', (oldData) => {
+          if (!oldData?.data?.workboards || !response.data?.workboard) {
+            queryClient.refetchQueries('adminWorkboards');
+            return oldData;
+          }
+          
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              workboards: [response.data.workboard, ...oldData.data.workboards],
+              pagination: {
+                ...oldData.data.pagination,
+                total: oldData.data.pagination.total + 1
+              }
+            }
+          };
+        });
+        
+        // 강제 리패치로 정확한 데이터 보장
+        queryClient.refetchQueries('adminWorkboards');
         setDialogOpen(false);
       },
       onError: (error) => {
+        console.error('❌ Workboard creation failed:', error);
         toast.error('생성 실패: ' + error.message);
       }
     }
@@ -1185,15 +1209,39 @@ function WorkboardManagement() {
     ({ id, data }) => workboardAPI.update(id, data),
     {
       onSuccess: (response) => {
+        console.log('🔄 Workboard update success, immediately updating cache');
         toast.success('작업판이 수정되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
+        
+        // 즉시 캐시 업데이트 - 기존 데이터를 새 데이터로 교체
+        queryClient.setQueryData('adminWorkboards', (oldData) => {
+          if (!oldData?.data?.workboards || !response.data?.workboard) return oldData;
+          
+          const updatedWorkboards = oldData.data.workboards.map(wb => 
+            wb._id === response.data.workboard._id ? response.data.workboard : wb
+          );
+          
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              workboards: updatedWorkboards
+            }
+          };
+        });
+        
+        // 강제 리패치도 수행하여 확실히 최신 데이터 보장
+        queryClient.refetchQueries('adminWorkboards');
+        
         // 상세 편집 다이얼로그가 열려있으면 선택된 작업판 데이터를 업데이트
         if (detailDialogOpen && response.data?.workboard) {
           setSelectedWorkboard(response.data.workboard);
         }
         setDialogOpen(false);
+        
+        console.log('✅ Cache updated immediately with new workboard data');
       },
       onError: (error) => {
+        console.error('❌ Workboard update failed:', error);
         toast.error('수정 실패: ' + error.message);
       }
     }
@@ -1202,11 +1250,36 @@ function WorkboardManagement() {
   const deleteMutation = useMutation(
     workboardAPI.delete,
     {
-      onSuccess: () => {
+      onSuccess: (response, deletedId) => {
+        console.log('🗑️ Workboard delete success, immediately updating cache');
         toast.success('작업판이 비활성화되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
+        
+        // 즉시 캐시 업데이트 - 삭제된 작업판을 목록에서 제거 또는 비활성 상태로 변경
+        queryClient.setQueryData('adminWorkboards', (oldData) => {
+          if (!oldData?.data?.workboards) return oldData;
+          
+          const updatedWorkboards = oldData.data.workboards.filter(wb => wb._id !== deletedId);
+          
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              workboards: updatedWorkboards,
+              pagination: {
+                ...oldData.data.pagination,
+                total: Math.max(0, oldData.data.pagination.total - 1)
+              }
+            }
+          };
+        });
+        
+        // 강제 리패치로 정확한 데이터 보장
+        queryClient.refetchQueries('adminWorkboards');
+        
+        console.log('✅ Cache updated immediately - workboard removed from list');
       },
       onError: (error) => {
+        console.error('❌ Workboard deletion failed:', error);
         toast.error('삭제 실패: ' + error.message);
       }
     }
@@ -1215,11 +1288,37 @@ function WorkboardManagement() {
   const duplicateMutation = useMutation(
     ({ id, name }) => workboardAPI.duplicate(id, { name }),
     {
-      onSuccess: () => {
+      onSuccess: (response) => {
+        console.log('📋 Workboard duplicate success, immediately updating cache');
         toast.success('작업판이 복제되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
+        
+        // 즉시 캐시 업데이트 - 새로 복제된 작업판을 목록에 추가
+        queryClient.setQueryData('adminWorkboards', (oldData) => {
+          if (!oldData?.data?.workboards || !response.data?.workboard) {
+            queryClient.refetchQueries('adminWorkboards');
+            return oldData;
+          }
+          
+          return {
+            ...oldData,
+            data: {
+              ...oldData.data,
+              workboards: [response.data.workboard, ...oldData.data.workboards],
+              pagination: {
+                ...oldData.data.pagination,
+                total: oldData.data.pagination.total + 1
+              }
+            }
+          };
+        });
+        
+        // 강제 리패치로 정확한 데이터 보장
+        queryClient.refetchQueries('adminWorkboards');
+        
+        console.log('✅ Cache updated immediately with duplicated workboard');
       },
       onError: (error) => {
+        console.error('❌ Workboard duplication failed:', error);
         toast.error('복제 실패: ' + error.message);
       }
     }
