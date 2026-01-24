@@ -187,96 +187,63 @@ function ImageCard({ image, type, onEdit, onDelete, onView }) {
 }
 
 function ImageDetailDialog({ image, open, onClose, type }) {
-  if (!image) return null;
-
+  console.log('🎭 Dialog render - open:', open, 'hasImage:', !!image);
+  
+  if (!image) {
+    console.log('❌ No image provided');
+    return null;
+  }
+  
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="lg" 
+      fullWidth
+      PaperProps={{
+        sx: { bgcolor: 'black', maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ color: 'white', pb: 1 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">{image.originalName}</Typography>
-          <IconButton onClick={onClose}>
-            <Close />
-          </IconButton>
+          <Typography variant="h6">
+            이미지 상세보기
+          </Typography>
+          <Box>
+            <IconButton onClick={onClose} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
         </Box>
       </DialogTitle>
-      <DialogContent>
-        <Box textAlign="center" mb={3}>
-          <img 
-            src={image.url} 
-            alt={image.originalName}
-            style={{ 
-              maxWidth: '100%', 
-              maxHeight: '400px',
-              objectFit: 'contain'
-            }}
-          />
-        </Box>
+      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
+        <img
+          src={image.url}
+          alt={image.originalName}
+          style={{
+            maxWidth: '100%',
+            maxHeight: '70vh',
+            objectFit: 'contain',
+            borderRadius: '8px'
+          }}
+          onLoad={() => console.log('✅ Image loaded:', image.url)}
+          onError={(e) => {
+            console.error('❌ Image load error:', image.url);
+            console.error('Error event:', e);
+          }}
+        />
         
-        <Grid container spacing={2}>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">크기</Typography>
-            <Typography variant="body1">
-              {image.metadata?.width && image.metadata?.height 
-                ? `${image.metadata.width} x ${image.metadata.height}` 
-                : '크기 정보 없음'}
+        {/* 이미지 정보 */}
+        <Box mt={2} sx={{ color: 'white' }}>
+          <Typography variant="body2">
+            {image.originalName}
+          </Typography>
+          {image.metadata && (
+            <Typography variant="body2">
+              크기: {image.metadata.width} x {image.metadata.height}
             </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">파일 크기</Typography>
-            <Typography variant="body1">
-              {(image.size / 1024 / 1024).toFixed(2)} MB
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">생성일</Typography>
-            <Typography variant="body1">
-              {new Date(image.createdAt).toLocaleString()}
-            </Typography>
-          </Grid>
-          <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">형식</Typography>
-            <Typography variant="body1">
-              {image.metadata?.format || 'PNG'}
-            </Typography>
-          </Grid>
-        </Grid>
-
-        {/* 생성된 이미지의 추가 정보 */}
-        {type === 'generated' && image.generationParams && (
-          <Box mt={3}>
-            <Typography variant="h6" gutterBottom>생성 정보</Typography>
-            <Typography variant="body2" color="textSecondary">프롬프트</Typography>
-            <Typography variant="body1" paragraph>
-              {image.generationParams.prompt}
-            </Typography>
-            
-            {image.generationParams.negativePrompt && (
-              <>
-                <Typography variant="body2" color="textSecondary">부정 프롬프트</Typography>
-                <Typography variant="body1" paragraph>
-                  {image.generationParams.negativePrompt}
-                </Typography>
-              </>
-            )}
-            
-            <Typography variant="body2" color="textSecondary">모델</Typography>
-            <Typography variant="body1">
-              {image.generationParams.model}
-            </Typography>
-          </Box>
-        )}
-
-        {/* 태그 */}
-        {image.tags?.length > 0 && (
-          <Box mt={3}>
-            <Typography variant="body2" color="textSecondary" gutterBottom>태그</Typography>
-            <Box display="flex" flexWrap="wrap" gap={1}>
-              {image.tags.map((tag, index) => (
-                <Chip key={index} label={tag} size="small" />
-              ))}
-            </Box>
-          </Box>
-        )}
+          )}
+        </Box>
       </DialogContent>
     </Dialog>
   );
@@ -423,8 +390,15 @@ function MyImages() {
   };
 
   const handleView = (image) => {
+    console.log('🖼️ Image clicked:', image.originalName);
+    
+    // 먼저 이미지를 설정한 후 다이얼로그를 열기
     setSelectedImage(image);
-    setDetailOpen(true);
+    // 다음 렌더 사이클에서 다이얼로그 열기
+    setTimeout(() => {
+      setDetailOpen(true);
+      console.log('✅ Dialog should be open now');
+    }, 10);
   };
 
   const handleEdit = (image) => {

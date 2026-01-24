@@ -35,9 +35,20 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = (token) => {
+  const login = async (token) => {
+    console.log('🍪 Setting token in cookies');
     Cookies.set('token', token, { expires: 7 });
-    checkAuth();
+    
+    try {
+      console.log('👤 Fetching user profile');
+      const response = await authAPI.getProfile();
+      setUser(response.data.user);
+      console.log('✅ User profile set:', response.data.user.email);
+    } catch (error) {
+      console.error('❌ Failed to fetch profile after login:', error);
+      Cookies.remove('token');
+      throw error;
+    }
   };
 
   const logout = async () => {
