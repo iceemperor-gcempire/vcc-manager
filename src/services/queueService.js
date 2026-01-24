@@ -213,6 +213,23 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   console.log('📏 Parsed dimensions:', { width, height });
   
   // 기본 고정 형식 문자열들과 타입 정보
+  // 업스케일 메서드 값 추출 (다양한 필드명과 소스에서 시도)
+  let upscaleMethodValue = '';
+  if (inputData.upscaleMethod) {
+    upscaleMethodValue = extractValue(inputData.upscaleMethod);
+  } else if (inputData.additionalParams?.upscaleMethod) {
+    upscaleMethodValue = extractValue(inputData.additionalParams.upscaleMethod);
+  } else if (inputData.additionalParams?.upscale) {
+    upscaleMethodValue = extractValue(inputData.additionalParams.upscale);
+  }
+  
+  console.log('📈 Upscale method detection:', {
+    'inputData.upscaleMethod': inputData.upscaleMethod,
+    'inputData.additionalParams?.upscaleMethod': inputData.additionalParams?.upscaleMethod,
+    'inputData.additionalParams?.upscale': inputData.additionalParams?.upscale,
+    'final_value': upscaleMethodValue
+  });
+
   const replacements = {
     '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
     '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
@@ -225,7 +242,8 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
     '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
     '{{##scheduler##}}': { value: inputData.additionalParams?.scheduler || 'normal', type: 'string' },
     '{{##reference_method##}}': { value: extractValue(inputData.referenceImageMethod), type: 'string' },
-    '{{##upscale_method##}}': { value: extractValue(inputData.upscaleMethod), type: 'string' },
+    '{{##upscale_method##}}': { value: upscaleMethodValue, type: 'string' },
+    '{{##upscale##}}': { value: upscaleMethodValue, type: 'string' },  // 별칭 추가
     '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' }
   };
   
@@ -286,6 +304,15 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   }
 };
 
+// JSON 문자열에서 안전하게 사용할 수 있도록 값을 이스케이핑하는 함수
+const escapeForJsonString = (value) => {
+  if (typeof value === 'string') {
+    // 역슬래시를 JSON 문자열에서 안전하게 사용할 수 있도록 이스케이핑
+    return value.replace(/\\/g, '\\\\');
+  }
+  return value;
+};
+
 // JSON 객체 내에서 재귀적으로 값을 치환하는 함수
 const replaceInObject = (obj, replacements, seedValue = null) => {
   if (typeof obj === 'string') {
@@ -299,7 +326,14 @@ const replaceInObject = (obj, replacements, seedValue = null) => {
     let result = obj;
     Object.keys(replacements).forEach(key => {
       if (result.includes(key)) {
-        result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), replacements[key].value);
+        // 치환할 값에 역슬래시가 있다면 이스케이핑 (JSON 문자열에서 안전하게 사용하기 위해)
+        const value = replacements[key].value;
+        const escapedValue = escapeForJsonString(value);
+        result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), escapedValue);
+        
+        if (value !== escapedValue) {
+          console.log(`🔧 Auto-escaped backslashes in placeholder "${key}": "${value}" → "${escapedValue}"`);
+        }
       }
     });
     return result;
@@ -321,13 +355,19 @@ const replaceInObject = (obj, replacements, seedValue = null) => {
   return obj;
 };
 
-// 기존 문자열 치환 방식 (fallback)
+// 기존 문자열 치환 방식 (fallback) - 역슬래시 자동 이스케이핑 적용
 const fallbackStringReplacement = (workflowTemplate, replacements) => {
   let workflowString = workflowTemplate;
   
   Object.keys(replacements).forEach(key => {
     const { value } = replacements[key];
-    workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+    // JSON 문자열에서 안전하게 사용할 수 있도록 값을 이스케이핑
+    const escapedValue = escapeForJsonString(value);
+    workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), escapedValue);
+    
+    if (value !== escapedValue) {
+      console.log(`🔧 Auto-escaped backslashes in value: "${value}" → "${escapedValue}"`);
+    }
   });
   
   return JSON.parse(workflowString);

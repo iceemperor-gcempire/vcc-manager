@@ -85,14 +85,20 @@ const extractValue = (field) => {
 
 #### B. Seed 값 처리 로직
 ```javascript
-// 사용자 지정 또는 랜덤 생성
+// 사용자 지정 또는 랜덤 생성 (UInt64 범위)
 let seedValue;
 if (inputData.seed !== undefined && inputData.seed !== null && inputData.seed !== '') {
   const extractedSeed = extractValue(inputData.seed);
   const parsedSeed = parseInt(extractedSeed);
   
   if (!isNaN(parsedSeed)) {
-    seedValue = parsedSeed;
+    // ComfyUI는 음수 seed를 받지 않으므로 절댓값으로 변환
+    if (parsedSeed < 0) {
+      seedValue = Math.abs(parsedSeed);
+      console.log(`🔄 Converted negative seed ${parsedSeed} to positive ${seedValue}`);
+    } else {
+      seedValue = parsedSeed;
+    }
   } else {
     seedValue = generateRandomSeed(); // 64비트 부호없는 랜덤 정수
   }
@@ -118,7 +124,7 @@ const replacements = {
   '{{##model##}}': { value: extractValue(inputData.aiModel), type: 'string' },
   '{{##width##}}': { value: width, type: 'number' },
   '{{##height##}}': { value: height, type: 'number' },
-  '{{##seed##}}': { value: seedValue, type: 'number' },
+  '{{##seed##}}': { value: seedValue, type: 'number' },  // 플레이스홀더 방식
   '{{##steps##}}': { value: parseInt(inputData.additionalParams?.steps) || 20, type: 'number' },
   '{{##cfg##}}': { value: parseFloat(inputData.additionalParams?.cfg) || 7, type: 'number' },
   '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
@@ -129,11 +135,11 @@ const replacements = {
 
 ### 2.3 워크플로우 JSON 치환 로직
 
-#### A. 재귀적 객체 순회
+#### A. 재귀적 객체 순회 (이중 Seed 지원)
 ```javascript
 const replaceInObject = (obj, replacements, seedValue = null) => {
   if (typeof obj === 'string') {
-    // 플레이스홀더 문자열 치환
+    // 플레이스홀더 문자열 치환 ({{##seed##}} 방식)
     const replacement = replacements[obj];
     if (replacement) return replacement.value;
     
@@ -152,7 +158,7 @@ const replaceInObject = (obj, replacements, seedValue = null) => {
   else if (obj && typeof obj === 'object') {
     const result = {};
     Object.keys(obj).forEach(key => {
-      // 🎲 핵심: seed 키 자동 치환 로직
+      // 🎲 핵심: 하드코딩된 seed 키 자동 치환 로직
       if (key === 'seed' && seedValue !== null && typeof obj[key] === 'number') {
         console.log(`🎲 Auto-replacing hardcoded seed ${obj[key]} with generated seed ${seedValue}`);
         result[key] = seedValue;
@@ -165,6 +171,10 @@ const replaceInObject = (obj, replacements, seedValue = null) => {
   return obj;
 };
 ```
+
+**🎯 Seed 처리 방식 2가지 지원:**
+1. **플레이스홀더 방식**: `"seed": "{{##seed##}}"` → 문자열 치환으로 처리
+2. **자동 치환 방식**: `"seed": 12345` → 하드코딩된 숫자값 자동 교체
 
 #### B. 처리 방식
 1. **JSON 파싱 시도**: `JSON.parse(workflowTemplate)`
@@ -239,25 +249,67 @@ const saveGeneratedImages = async (jobId, comfyImages, inputData) => {
 
 ### 5.1 Seed 값 처리 시나리오
 
-#### A. 사용자 지정 시드
+#### A. 사용자 지정 시드 (UInt64)
 ```javascript
 // 입력: inputData.seed = 12345
 // 결과: seedValue = 12345
-// 워크플로우: "seed": 12345 (하드코딩된 값도 덮어씀)
+// 워크플로우: 모든 seed 키가 12345로 치환됨
 ```
 
-#### B. 랜덤 시드
+#### B. 랜덤 시드 (UInt64)
 ```javascript
 // 입력: inputData.seed = undefined 또는 randomSeed = true
-// 결과: seedValue = generateRandomSeed() // 예: -8234567891234567890
-// 워크플로우: "seed": -8234567891234567890
+// 결과: seedValue = generateRandomSeed() // 예: 8234567891234567890
+// 워크플로우: 모든 seed 키가 랜덤값으로 치환됨
 ```
 
 #### C. 키-값 객체 시드
 ```javascript
 // 입력: inputData.seed = {key: "고정 시드", value: "99999"}
 // 결과: seedValue = 99999
-// 워크플로우: "seed": 99999
+// 워크플로우: 모든 seed 키가 99999로 치환됨
+```
+
+#### D. 음수 시드 자동 변환
+```javascript
+// 입력: inputData.seed = -12345
+// 결과: seedValue = 12345 (절댓값으로 변환)
+// 로그: "🔄 Converted negative seed -12345 to positive 12345"
+```
+
+#### E. 이중 Seed 처리 방식 예제
+```javascript
+// 워크플로우 입력:
+{
+  "sampler1": {
+    "inputs": {
+      "seed": 11111,           // 하드코딩된 seed → 자동 교체
+      "steps": 20
+    }
+  },
+  "sampler2": {
+    "inputs": {
+      "seed": "{{##seed##}}",  // 플레이스홀더 seed → 문자열 치환
+      "cfg": "{{##cfg##}}"
+    }
+  }
+}
+
+// 결과 (inputData.seed = 99999):
+{
+  "sampler1": {
+    "inputs": {
+      "seed": 99999,           // 자동 교체됨
+      "steps": 20
+    }
+  },
+  "sampler2": {
+    "inputs": {
+      "seed": 99999,           // 플레이스홀더 치환됨
+      "cfg": 8
+    }
+  }
+}
 ```
 
 ### 5.2 에러 처리
