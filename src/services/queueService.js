@@ -264,7 +264,7 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   // JSON 객체로 파싱 후 재귀적으로 치환
   try {
     const workflowObj = JSON.parse(workflowTemplate);
-    const replacedObj = replaceInObject(workflowObj, replacements);
+    const replacedObj = replaceInObject(workflowObj, replacements, seedValue);
     return {
       workflowJson: replacedObj,
       actualSeed: seedValue
@@ -281,7 +281,7 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
 };
 
 // JSON 객체 내에서 재귀적으로 값을 치환하는 함수
-const replaceInObject = (obj, replacements) => {
+const replaceInObject = (obj, replacements, seedValue = null) => {
   if (typeof obj === 'string') {
     // 문자열 내 플레이스홀더 확인 및 치환
     const replacement = replacements[obj];
@@ -298,11 +298,17 @@ const replaceInObject = (obj, replacements) => {
     });
     return result;
   } else if (Array.isArray(obj)) {
-    return obj.map(item => replaceInObject(item, replacements));
+    return obj.map(item => replaceInObject(item, replacements, seedValue));
   } else if (obj && typeof obj === 'object') {
     const result = {};
     Object.keys(obj).forEach(key => {
-      result[key] = replaceInObject(obj[key], replacements);
+      // seed 키를 발견하면 자동으로 생성된 seedValue로 치환
+      if (key === 'seed' && seedValue !== null && typeof obj[key] === 'number') {
+        console.log(`🎲 Auto-replacing hardcoded seed ${obj[key]} with generated seed ${seedValue}`);
+        result[key] = seedValue;
+      } else {
+        result[key] = replaceInObject(obj[key], replacements, seedValue);
+      }
     });
     return result;
   }
