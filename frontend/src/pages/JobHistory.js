@@ -115,15 +115,15 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
   };
 
   return (
-    <Card sx={{ mb: 2 }}>
-      <CardContent>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
+    <Card sx={{ mb: 1.5, '&:hover': { boxShadow: 2 } }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
           <Box flex={1}>
-            <Typography variant="h6" gutterBottom>
-              {job.inputData?.prompt?.substring(0, 100)}
-              {job.inputData?.prompt?.length > 100 && '...'}
+            <Typography variant="subtitle1" gutterBottom sx={{ lineHeight: 1.3, mb: 0.5 }}>
+              {job.inputData?.prompt?.substring(0, 80)}
+              {job.inputData?.prompt?.length > 80 && '...'}
             </Typography>
-            <Typography variant="body2" color="textSecondary" gutterBottom>
+            <Typography variant="caption" color="textSecondary">
               작업판: {job.workboardId?.name || '알 수 없음'}
             </Typography>
           </Box>
@@ -134,34 +134,34 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 
         {/* 진행률 (처리 중일 때만) */}
         {isProcessing && (
-          <Box mb={2}>
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-              <Typography variant="body2">진행률</Typography>
-              <Typography variant="body2">{job.progress || 0}%</Typography>
+          <Box mb={1.5}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={0.5}>
+              <Typography variant="caption">진행률</Typography>
+              <Typography variant="caption">{job.progress || 0}%</Typography>
             </Box>
             <LinearProgress 
               variant="determinate" 
               value={job.progress || 0}
-              sx={{ height: 6, borderRadius: 3 }}
+              sx={{ height: 4, borderRadius: 2 }}
             />
           </Box>
         )}
 
         {/* 생성된 이미지들 */}
         {job.resultImages?.length > 0 && (
-          <Box mb={2}>
-            <Typography variant="body2" gutterBottom>
+          <Box mb={1.5}>
+            <Typography variant="caption" display="block" gutterBottom>
               생성된 이미지 ({job.resultImages.length}개)
             </Typography>
-            <Box display="flex" gap={1} flexWrap="wrap">
-              {job.resultImages.slice(0, 4).map((image, index) => (
+            <Box display="flex" gap={0.5} flexWrap="wrap">
+              {job.resultImages.slice(0, 6).map((image, index) => (
                 <Avatar
                   key={index}
                   src={image.url}
                   onClick={() => onImageView(job.resultImages, index)}
                   sx={{ 
-                    width: 60, 
-                    height: 60,
+                    width: 48, 
+                    height: 48,
                     cursor: 'pointer',
                     '&:hover': { 
                       opacity: 0.8,
@@ -172,20 +172,21 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                   variant="rounded"
                 />
               ))}
-              {job.resultImages.length > 4 && (
+              {job.resultImages.length > 6 && (
                 <Avatar
-                  onClick={() => onImageView(job.resultImages, 4)}
+                  onClick={() => onImageView(job.resultImages, 6)}
                   sx={{ 
-                    width: 60, 
-                    height: 60, 
+                    width: 48, 
+                    height: 48, 
                     bgcolor: 'grey.200',
                     color: 'grey.600',
                     cursor: 'pointer',
+                    fontSize: '0.75rem',
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
                   variant="rounded"
                 >
-                  +{job.resultImages.length - 4}
+                  +{job.resultImages.length - 6}
                 </Avatar>
               )}
             </Box>
@@ -194,63 +195,64 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 
         {/* 에러 메시지 */}
         {job.status === 'failed' && job.error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {job.error.message}
+          <Alert severity="error" sx={{ mb: 1.5, py: 0.5 }}>
+            <Typography variant="caption">{job.error.message}</Typography>
           </Alert>
         )}
 
-        <Grid container spacing={2}>
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">생성 시간</Typography>
-            <Typography variant="body2">
-              {new Date(job.createdAt).toLocaleString()}
+        <Box display="flex" flexWrap="wrap" gap={2} mb={1.5} sx={{ fontSize: '0.75rem' }}>
+          <Box>
+            <Typography variant="caption" color="textSecondary" display="block">생성 시간</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+              {new Date(job.createdAt).toLocaleDateString()}
             </Typography>
-          </Grid>
+          </Box>
           
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">소요 시간</Typography>
-            <Typography variant="body2">
+          <Box>
+            <Typography variant="caption" color="textSecondary" display="block">소요 시간</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
               {formatDuration(job.actualTime)}
             </Typography>
-          </Grid>
+          </Box>
 
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">AI 모델</Typography>
-            <Typography variant="body2">
+          <Box>
+            <Typography variant="caption" color="textSecondary" display="block">AI 모델</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
               {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key ? 
                 job.inputData.aiModel.key : 
                 job.inputData?.aiModel || '-'}
             </Typography>
-          </Grid>
+          </Box>
 
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">요청 크기</Typography>
-            <Typography variant="body2">
+          <Box>
+            <Typography variant="caption" color="textSecondary" display="block">크기</Typography>
+            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
               {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key ? 
                 job.inputData.imageSize.key : 
                 job.inputData?.imageSize || '-'}
             </Typography>
-          </Grid>
+          </Box>
 
-          <Grid item xs={6} sm={3}>
-            <Typography variant="caption" color="textSecondary">시드</Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+          <Box>
+            <Typography variant="caption" color="textSecondary" display="block">시드</Typography>
+            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
               {job.inputData?.seed !== undefined ? 
                 (job.inputData.seed.toString().length > 8 ? 
                   `${job.inputData.seed.toString().slice(0, 8)}...` : 
                   job.inputData.seed) 
                 : '-'}
             </Typography>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
-        <Box display="flex" justifyContent="flex-end" gap={1} mt={2}>
+        <Box display="flex" justifyContent="flex-end" gap={0.5} mt={1}>
           <Button
             size="small"
             onClick={() => onView(job)}
             startIcon={<Info />}
+            sx={{ minWidth: 'auto', px: 1.5 }}
           >
-            상세보기
+            상세
           </Button>
 
           {canContinue && (
@@ -260,9 +262,9 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               startIcon={<PlayArrow />}
               color="success"
               variant="contained"
-              sx={{ ml: 1 }}
+              sx={{ px: 1.5 }}
             >
-              같은 작업 계속하기
+              계속하기
             </Button>
           )}
 
@@ -272,6 +274,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               onClick={() => onRetry(job)}
               startIcon={<Refresh />}
               color="primary"
+              sx={{ px: 1.5 }}
             >
               재시도
             </Button>
@@ -283,6 +286,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               onClick={() => onCancel(job)}
               startIcon={<Stop />}
               color="warning"
+              sx={{ px: 1.5 }}
             >
               취소
             </Button>
@@ -293,6 +297,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             onClick={() => onDelete(job)}
             startIcon={<Delete />}
             color="error"
+            sx={{ px: 1.5 }}
           >
             삭제
           </Button>

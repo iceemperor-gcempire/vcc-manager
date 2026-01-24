@@ -269,12 +269,11 @@ function ReferenceImageSelector({ value, onChange, workboard }) {
   );
 }
 
-// 64비트 부호있는 정수 범위에서 랜덤 시드 생성
+// 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
-  // JavaScript의 Number.MAX_SAFE_INTEGER는 2^53-1이므로, 64비트 범위로 제한
-  const min = -9223372036854775808; // -2^63
-  const max = 9223372036854775807;  // 2^63-1
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
+  // JavaScript의 안전한 정수 범위 내에서 생성 (0 ~ Number.MAX_SAFE_INTEGER)
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER + 1));
 };
 
 function ImageGeneration() {

@@ -94,7 +94,7 @@ if (inputData.seed !== undefined && inputData.seed !== null && inputData.seed !=
   if (!isNaN(parsedSeed)) {
     seedValue = parsedSeed;
   } else {
-    seedValue = generateRandomSeed(); // 64비트 랜덤 정수
+    seedValue = generateRandomSeed(); // 64비트 부호없는 랜덤 정수
   }
 } else {
   seedValue = generateRandomSeed();
@@ -325,8 +325,9 @@ replacements["{{##customParam##}}"] = { value: 10, type: "number" };
 ## 🚨 8. 주의사항 및 제한사항
 
 ### 8.1 Seed 값 범위
-- ComfyUI: 64비트 부호있는 정수 (-2^63 ~ 2^63-1)
-- JavaScript: Number.MAX_SAFE_INTEGER 범위 내에서 생성
+- ComfyUI: 64비트 부호없는 정수 (0 ~ 2^64-1, 음수 불가)
+- JavaScript: 0 ~ Number.MAX_SAFE_INTEGER 범위에서 생성
+- 음수 입력 시: 자동으로 절댓값으로 변환
 
 ### 8.2 성능 고려사항
 - 큰 워크플로우 JSON 파싱 시 메모리 사용량

@@ -2,6 +2,50 @@ const axios = require('axios');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
+// 히스토리 결과 처리 함수
+const processHistoryResult = async (serverUrl, history) => {
+  const images = [];
+  console.log(`🔍 Processing history outputs...`);
+  
+  if (history.outputs) {
+    console.log(`📋 Found ${Object.keys(history.outputs).length} output nodes`);
+    
+    for (const nodeId of Object.keys(history.outputs)) {
+      const nodeOutput = history.outputs[nodeId];
+      console.log(`🔍 Node ${nodeId} output:`, nodeOutput);
+      
+      if (nodeOutput.images) {
+        console.log(`🖼️ Node ${nodeId} has ${nodeOutput.images.length} images`);
+        
+        for (const imageInfo of nodeOutput.images) {
+          console.log(`⬇️ Downloading image:`, imageInfo);
+          
+          const imageUrl = `${serverUrl}/view?filename=${imageInfo.filename}&subfolder=${imageInfo.subfolder || ''}&type=${imageInfo.type || 'output'}`;
+          console.log(`🔗 Image URL: ${imageUrl}`);
+          
+          const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+          
+          console.log(`✅ Downloaded image: ${imageInfo.filename}, size: ${imageResponse.data.byteLength} bytes`);
+          
+          images.push({
+            buffer: Buffer.from(imageResponse.data),
+            filename: imageInfo.filename,
+            width: imageInfo.width || null,
+            height: imageInfo.height || null
+          });
+        }
+      } else {
+        console.log(`ℹ️ Node ${nodeId} has no images`);
+      }
+    }
+  } else {
+    console.warn('⚠️ No outputs in history');
+  }
+  
+  console.log(`🎉 Successfully processed ${images.length} images`);
+  return { images };
+};
+
 const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
   const clientId = uuidv4();
   
@@ -19,7 +63,31 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
     console.log(`✅ Workflow submitted successfully, Prompt ID: ${promptId}`);
     console.log(`📊 Prompt response:`, promptResponse.data);
     
-    return new Promise((resolve, reject) => {
+    // 캐시된 결과 즉시 확인 (ComfyUI가 즉시 응답하는 경우 대비)
+    const checkCachedResult = async () => {
+      try {
+        const historyResponse = await axios.get(`${serverUrl}/history/${promptId}`);
+        const history = historyResponse.data[promptId];
+        
+        if (history && history.outputs) {
+          console.log(`🚀 Found cached result for prompt ${promptId}`);
+          return await processHistoryResult(serverUrl, history);
+        }
+        return null;
+      } catch (error) {
+        // 히스토리가 아직 없으면 null 반환 (정상적인 상황)
+        return null;
+      }
+    };
+    
+    return new Promise(async (resolve, reject) => {
+      // 먼저 캐시된 결과가 있는지 확인
+      const cachedResult = await checkCachedResult();
+      if (cachedResult) {
+        console.log(`⚡ Using cached result for prompt ${promptId}`);
+        return resolve(cachedResult);
+      }
+      
       const ws = new WebSocket(`${serverUrl.replace('http', 'ws')}/ws?clientId=${clientId}`);
       
       let currentProgress = 0;
@@ -58,48 +126,10 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
                 throw new Error('No history found for prompt');
               }
               
-              const images = [];
-              console.log(`🔍 Processing history outputs...`);
-              
-              if (history.outputs) {
-                console.log(`📋 Found ${Object.keys(history.outputs).length} output nodes`);
-                
-                for (const nodeId of Object.keys(history.outputs)) {
-                  const nodeOutput = history.outputs[nodeId];
-                  console.log(`🔍 Node ${nodeId} output:`, nodeOutput);
-                  
-                  if (nodeOutput.images) {
-                    console.log(`🖼️ Node ${nodeId} has ${nodeOutput.images.length} images`);
-                    
-                    for (const imageInfo of nodeOutput.images) {
-                      console.log(`⬇️ Downloading image:`, imageInfo);
-                      
-                      const imageUrl = `${serverUrl}/view?filename=${imageInfo.filename}&subfolder=${imageInfo.subfolder || ''}&type=${imageInfo.type || 'output'}`;
-                      console.log(`🔗 Image URL: ${imageUrl}`);
-                      
-                      const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
-                      
-                      console.log(`✅ Downloaded image: ${imageInfo.filename}, size: ${imageResponse.data.byteLength} bytes`);
-                      
-                      images.push({
-                        buffer: Buffer.from(imageResponse.data),
-                        filename: imageInfo.filename,
-                        width: imageInfo.width || null,
-                        height: imageInfo.height || null
-                      });
-                    }
-                  } else {
-                    console.log(`ℹ️ Node ${nodeId} has no images`);
-                  }
-                }
-              } else {
-                console.warn('⚠️ No outputs in history');
-              }
-              
-              console.log(`🎉 Successfully processed ${images.length} images`);
+              const result = await processHistoryResult(serverUrl, history);
               
               ws.close();
-              resolve({ images, promptId });
+              resolve({ ...result, promptId });
             } catch (error) {
               ws.close();
               reject(error);

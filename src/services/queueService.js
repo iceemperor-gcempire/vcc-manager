@@ -147,13 +147,13 @@ const processImageGeneration = async (job) => {
   }
 };
 
-// 64비트 부호있는 정수 범위에서 랜덤 시드 생성
+// 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
-  // ComfyUI는 64비트 부호있는 정수를 사용
-  const min = -9223372036854775808; // -2^63
-  const max = 9223372036854775807;  // 2^63-1
-  // JavaScript의 안전한 정수 범위 내에서 생성
-  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER - Number.MIN_SAFE_INTEGER + 1)) + Number.MIN_SAFE_INTEGER;
+  // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
+  const min = 0; // 0
+  const max = 18446744073709551615; // 2^64-1 (UInt64 최대값)
+  // JavaScript의 안전한 정수 범위 내에서 생성 (0 ~ Number.MAX_SAFE_INTEGER)
+  return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER + 1));
 };
 
 const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null) => {
@@ -177,9 +177,15 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
     const extractedSeed = extractValue(inputData.seed);
     const parsedSeed = parseInt(extractedSeed);
     
-    // 유효한 정수인지 확인
+    // 유효한 정수인지 확인 및 UInt64 범위 보정
     if (!isNaN(parsedSeed)) {
-      seedValue = parsedSeed;
+      // ComfyUI는 음수 seed를 받지 않으므로 절댓값으로 변환
+      if (parsedSeed < 0) {
+        seedValue = Math.abs(parsedSeed);
+        console.log(`🔄 Converted negative seed ${parsedSeed} to positive ${seedValue}`);
+      } else {
+        seedValue = parsedSeed;
+      }
     } else {
       console.warn('⚠️ Invalid seed value, using random seed:', extractedSeed);
       seedValue = generateRandomSeed();
