@@ -8,6 +8,7 @@ services:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
       MONGO_INITDB_DATABASE: ${MONGO_DB:-vcc-manager}
+    # 보안상 MongoDB 포트는 개발환경에서만 노출 (프로덕션에서는 docker-compose.prod.yml 사용 권장)
     ports:
       - "${MONGODB_PORT:-27017}:27017"
     volumes:
@@ -21,6 +22,7 @@ services:
     container_name: vcc-redis
     restart: unless-stopped
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispassword}
+    # 보안상 Redis 포트는 개발환경에서만 노출 (프로덕션에서는 docker-compose.prod.yml 사용 권장)
     ports:
       - "${REDIS_PORT:-6379}:6379"
     volumes:

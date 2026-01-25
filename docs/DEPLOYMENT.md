@@ -130,29 +130,47 @@ FRONTEND_URL=https://yourdomain.com
 
 ### 사용 가능한 포트 환경변수
 
-| 환경변수 | 기본값 | 설명 |
-|---------|--------|------|
-| `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 |
-| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 |
-| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 |
-| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 |
-| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) |
-| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) |
+| 환경변수 | 기본값 | 설명 | 보안 권장사항 |
+|---------|--------|------|-------------|
+| `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 | ✅ 외부 노출 안전 |
+| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 | ⚠️ 필요시에만 노출 |
+| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 | ❌ 개발환경에서만 사용 |
+| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 | ❌ 개발환경에서만 사용 |
+| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) | ✅ 외부 노출 안전 |
+| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) | ✅ 외부 노출 안전 |
+
+> **⚠️ 보안 주의사항**: 프로덕션 환경에서는 `MONGODB_PORT`와 `REDIS_PORT`를 설정하지 마세요. 이 포트들은 내부 네트워크에서만 접근 가능해야 합니다.
 
 ### 포트 변경 방법
 
 #### 1. 환경변수 파일을 통한 변경
+
+**개발환경용 (.env)**:
 ```bash
-# .env 파일 편집
+# 개발환경에서는 모든 포트 변경 가능
 cat >> .env << EOF
 FRONTEND_PORT=8080
 BACKEND_PORT=3001
-MONGODB_PORT=27018
-REDIS_PORT=6380
+MONGODB_PORT=27018  # 개발환경에서만 사용
+REDIS_PORT=6380     # 개발환경에서만 사용
 EOF
 
-# 서비스 재시작
 docker-compose up -d
+```
+
+**프로덕션환경용 (.env.production)**:
+```bash
+# 프로덕션에서는 데이터베이스 포트 설정 금지
+cat >> .env.production << EOF
+FRONTEND_PORT=80
+BACKEND_PORT=3000
+HTTP_PORT=80
+HTTPS_PORT=443
+# MONGODB_PORT=27017  # 보안상 설정하지 않음
+# REDIS_PORT=6379     # 보안상 설정하지 않음
+EOF
+
+docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
 ```
 
 #### 2. 일회성 포트 변경
