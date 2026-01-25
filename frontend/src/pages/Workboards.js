@@ -69,7 +69,7 @@ function WorkboardCard({ workboard }) {
         console.warn('Failed to parse continue job data:', error);
       }
     }
-    
+
     navigate(`/generate/${workboard._id}`);
   };
 
@@ -89,7 +89,7 @@ function WorkboardCard({ workboard }) {
           <Typography variant="h6" gutterBottom>
             {workboard.name}
           </Typography>
-          
+
           {workboard.description && (
             <Typography variant="body2" color="textSecondary" paragraph>
               {workboard.description}
@@ -110,13 +110,14 @@ function WorkboardCard({ workboard }) {
             </Typography>
           </Box>
 
-          <Box display="flex" flex-wrap gap={1}>
+          <Box display="flex" flexWrap="wrap" gap={1}>
             {workboard.baseInputFields?.aiModel?.slice(0, 3).map((model, index) => (
               <Chip
                 key={index}
                 label={model.key}
                 size="small"
                 variant="outlined"
+                sx={{ maxWidth: '100%' }}
               />
             ))}
             {workboard.baseInputFields?.aiModel?.length > 3 && (
@@ -128,7 +129,7 @@ function WorkboardCard({ workboard }) {
             )}
           </Box>
         </CardContent>
-        
+
         <CardActions>
           <Button
             size="small"
@@ -156,7 +157,7 @@ function WorkboardCard({ workboard }) {
           <DialogContentText paragraph>
             {workboard.description || '설명이 없습니다.'}
           </DialogContentText>
-          
+
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
             지원 AI 모델
           </Typography>
@@ -304,7 +305,7 @@ function Workboards() {
           <Grid container spacing={3}>
             {workboards.map((workboard) => (
               <Grid item xs={12} sm={6} md={4} key={workboard._id}>
-                <WorkboardCard 
+                <WorkboardCard
                   workboard={workboard}
                 />
               </Grid>

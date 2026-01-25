@@ -1370,9 +1370,13 @@ function WorkboardManagement() {
             { key: 'Default Model', value: 'default.safetensors' }
           ],
           imageSizes: [
-            { key: '512x512', value: '512x512' },
-            { key: '768x768', value: '768x768' },
-            { key: '1024x1024', value: '1024x1024' }
+            { key: '1024x1024', value: '1024x1024' },
+            { key: '896x1152', value: '896x1152' },
+            { key: '1152x896', value: '1152x896' },
+            { key: '832x1216', value: '832x1216' },
+            { key: '1216x832', value: '1216x832' },
+            { key: '768x1344', value: '768x1344' },
+            { key: '1344x768', value: '1344x768' }
           ],
           referenceImageMethods: [
             { key: 'Image to Image', value: 'img2img' },
