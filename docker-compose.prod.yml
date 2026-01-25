@@ -72,6 +72,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      args:
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
     container_name: vcc-frontend
     restart: unless-stopped
     ports:
