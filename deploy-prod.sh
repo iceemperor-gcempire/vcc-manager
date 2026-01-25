@@ -77,8 +77,9 @@ echo -e "${BLUE}🚀 새로운 애플리케이션 컨테이너 시작 중...${NC
 docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d
 
 # 컨테이너 시작 대기
-echo -e "${BLUE}⏳ 컨테이너 시작 대기 중...${NC}"
-sleep 10
+echo -e "${BLUE}⏳ 컨테이너 시작 및 서비스 준비 대기 중...${NC}"
+echo "   데이터베이스 연결 및 서버 초기화를 기다리는 중..."
+sleep 20
 
 # 배포 결과 확인
 echo -e "${BLUE}📊 배포 결과 확인 중...${NC}"
@@ -92,19 +93,44 @@ docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE ps
 echo -e "\n${BLUE}🏥 서비스 헬스 체크:${NC}"
 
 # Backend 헬스 체크
-BACKEND_PORT=$(grep BACKEND_PORT $ENV_FILE | cut -d '=' -f2 || echo "3000")
-if curl -s http://localhost:$BACKEND_PORT/api >/dev/null 2>&1; then
+BACKEND_PORT=$(grep "^BACKEND_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
+if [ -z "$BACKEND_PORT" ]; then
+    BACKEND_PORT="3000"
+fi
+
+# 실제 Docker 컨테이너에서 포트 확인
+ACTUAL_BACKEND_PORT=$(docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE port backend 3000 2>/dev/null | cut -d ':' -f2)
+if [ -n "$ACTUAL_BACKEND_PORT" ]; then
+    BACKEND_PORT=$ACTUAL_BACKEND_PORT
+fi
+
+echo -e "${BLUE}🔍 백엔드 포트: $BACKEND_PORT${NC}"
+if curl -s http://localhost:$BACKEND_PORT/health >/dev/null 2>&1; then
     echo -e "${GREEN}✅ Backend (포트 $BACKEND_PORT): 정상${NC}"
 else
     echo -e "${RED}❌ Backend (포트 $BACKEND_PORT): 응답 없음${NC}"
+    echo "   💡 수동 확인: curl http://localhost:$BACKEND_PORT/health"
+    echo "   📋 컨테이너 로그: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE logs backend"
 fi
 
-# Frontend 헬스 체크
-FRONTEND_PORT=$(grep FRONTEND_PORT $ENV_FILE | cut -d '=' -f2 || echo "80")
+# Frontend 헬스 체크  
+FRONTEND_PORT=$(grep "^FRONTEND_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
+if [ -z "$FRONTEND_PORT" ]; then
+    FRONTEND_PORT="80"
+fi
+
+# 실제 Docker 컨테이너에서 포트 확인
+ACTUAL_FRONTEND_PORT=$(docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE port frontend 80 2>/dev/null | cut -d ':' -f2)
+if [ -n "$ACTUAL_FRONTEND_PORT" ]; then
+    FRONTEND_PORT=$ACTUAL_FRONTEND_PORT
+fi
+
+echo -e "${BLUE}🔍 프론트엔드 포트: $FRONTEND_PORT${NC}"
 if curl -s http://localhost:$FRONTEND_PORT >/dev/null 2>&1; then
     echo -e "${GREEN}✅ Frontend (포트 $FRONTEND_PORT): 정상${NC}"
 else
     echo -e "${RED}❌ Frontend (포트 $FRONTEND_PORT): 응답 없음${NC}"
+    echo "   💡 수동 확인: curl http://localhost:$FRONTEND_PORT"
 fi
 
 # 로그 확인 안내
