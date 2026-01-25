@@ -39,17 +39,14 @@ cp .env.production.example .env.production
 # .env.production 파일을 수정하여 실제 비밀번호 및 도메인 입력
 
 # 2. 보안 설정으로 컨테이너 실행
-# Nginx 리버스 프록시 포함 (SSL 지원)
 docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
 
-# 또는 Cloudflare Tunnel 사용 시 (Nginx 없이)
-docker-compose -f docker-compose.prod-no-nginx.yml --env-file .env.production up -d
-
 # 3. 접속
-# Nginx 사용: http://your-domain (Nginx를 통해)
-# Nginx 미사용: http://your-server:port (직접 접속)
-# Backend API: http://your-domain/api
+# Frontend: http://your-server:port (직접 접속)
+# Backend API: http://your-server:3000/api
 # MongoDB/Redis: 내부 네트워크만 접근 가능
+# 
+# 참고: Nginx/SSL은 별도 외부 서버에서 처리 (Cloudflare Tunnel 등)
 ```
 
 ## 환경 변수 설정

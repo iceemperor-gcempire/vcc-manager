@@ -35,6 +35,12 @@ services:
       dockerfile: Dockerfile.backend
     container_name: vcc-backend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -75,22 +81,7 @@ services:
     networks:
       - vcc-network
 
-  # 🔒 프로덕션용 Nginx 리버스 프록시 (선택사항)
-  nginx:
-    image: nginx:alpine
-    container_name: vcc-nginx
-    restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
-    volumes:
-      - ./nginx/prod.conf:/etc/nginx/nginx.conf
-      - ./ssl:/etc/nginx/ssl
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - vcc-network
+# Nginx 서비스 제거: 외부 nginx 또는 Cloudflare Tunnel에서 처리
 
 volumes:
   mongodb_data:

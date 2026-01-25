@@ -27,11 +27,7 @@ const PORT = process.env.PORT || 3000;
 // Trust proxy for rate limiting (behind nginx/docker)
 app.set('trust proxy', true);
 
-// Connect to MongoDB
-connectDB();
-
-// Initialize job queues
-initializeQueues();
+// Database and queue initialization will be done in startServer function
 
 // Security middleware
 app.use(helmet());
@@ -108,10 +104,63 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
 });
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+// Start server with error handling
+const startServer = async () => {
+  try {
+    console.log('Starting VCC Manager Backend...');
+    
+    // Connect to MongoDB first
+    console.log('Connecting to MongoDB...');
+    await connectDB();
+    
+    // Initialize job queues after database connection
+    console.log('Initializing job queues...');
+    await initializeQueues();
+    
+    // Start HTTP server
+    const server = app.listen(PORT, () => {
+      console.log(`✅ Server is running on port ${PORT}`);
+      console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+      console.log('🚀 VCC Manager Backend started successfully!');
+    });
+
+    // Handle server errors
+    server.on('error', (err) => {
+      console.error('Server error:', err);
+      process.exit(1);
+    });
+
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
 
 module.exports = app;
