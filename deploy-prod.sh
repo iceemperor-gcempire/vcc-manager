@@ -23,6 +23,7 @@ echo "=================================="
 if [ ! -f "$ENV_FILE" ]; then
     echo -e "${RED}❌ 오류: $ENV_FILE 파일이 없습니다!${NC}"
     echo -e "${YELLOW}💡 해결방법: cp .env.production.example $ENV_FILE${NC}"
+    echo -e "${YELLOW}   그 후 파일을 편집하여 실제 비밀번호와 설정을 입력하세요${NC}"
     exit 1
 fi
 

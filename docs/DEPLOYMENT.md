@@ -35,11 +35,11 @@ docker-compose up -d
 
 ```bash
 # 1. 프로덕션 환경 변수 설정
-cp .env.production .env.prod
-# .env.prod 파일을 수정하여 프로덕션 값 입력
+cp .env.production.example .env.production
+# .env.production 파일을 수정하여 실제 비밀번호 및 도메인 입력
 
 # 2. 보안 설정으로 컨테이너 실행
-docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
+docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
 
 # 3. 접속
 # Frontend: http://your-domain (Nginx를 통해)
