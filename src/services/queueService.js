@@ -10,6 +10,20 @@ const GeneratedImage = require('../models/GeneratedImage');
 let imageGenerationQueue;
 let redisClient;
 
+// JSON 문자열에서 안전하게 사용할 수 있도록 값을 이스케이핑하는 함수
+const escapeForJsonString = (value) => {
+  if (typeof value === 'string') {
+    // JSON 문자열에서 안전하게 사용할 수 있도록 특수문자 이스케이핑
+    return value
+      .replace(/\\/g, '\\\\')  // 역슬래시
+      .replace(/"/g, '\\"')    // 큰따옴표
+      .replace(/\n/g, '\\n')   // 줄바꿈
+      .replace(/\r/g, '\\r')   // 캐리지 리턴
+      .replace(/\t/g, '\\t');  // 탭
+  }
+  return value;
+};
+
 const initializeQueues = async () => {
   try {
     // Parse Redis URL or use default
@@ -231,8 +245,8 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   });
 
   const replacements = {
-    '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
-    '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
+    '{{##prompt##}}': { value: escapeForJsonString(inputData.prompt || ''), type: 'string' },
+    '{{##negative_prompt##}}': { value: escapeForJsonString(inputData.negativePrompt || ''), type: 'string' },
     '{{##model##}}': { value: extractValue(inputData.aiModel), type: 'string' },
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
@@ -302,15 +316,6 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
       actualSeed: seedValue
     };
   }
-};
-
-// JSON 문자열에서 안전하게 사용할 수 있도록 값을 이스케이핑하는 함수
-const escapeForJsonString = (value) => {
-  if (typeof value === 'string') {
-    // 역슬래시를 JSON 문자열에서 안전하게 사용할 수 있도록 이스케이핑
-    return value.replace(/\\/g, '\\\\');
-  }
-  return value;
 };
 
 // JSON 객체 내에서 재귀적으로 값을 치환하는 함수
