@@ -1,0 +1,4 @@
+# SSL certificates directory
+# Place your SSL certificate files here:
+# - cert.pem (certificate file)
+# - key.pem (private key file)

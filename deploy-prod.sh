@@ -16,6 +16,14 @@ NC='\033[0m' # No Color
 ENV_FILE=".env.production"
 COMPOSE_FILE="docker-compose.prod.yml"
 
+# 배포 모드 선택 (인자로 전달 가능)
+if [ "$1" == "--no-nginx" ] || [ "$1" == "cloudflare" ]; then
+    COMPOSE_FILE="docker-compose.prod-no-nginx.yml"
+    echo -e "${BLUE}🌐 Cloudflare Tunnel 모드로 배포합니다 (Nginx 없이)${NC}"
+else
+    echo -e "${BLUE}🔒 Nginx 리버스 프록시 모드로 배포합니다${NC}"
+fi
+
 echo -e "${BLUE}🚀 VCC Manager 프로덕션 배포 시작...${NC}"
 echo "=================================="
 
