@@ -245,8 +245,8 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
   });
 
   const replacements = {
-    '{{##prompt##}}': { value: escapeForJsonString(inputData.prompt || ''), type: 'string' },
-    '{{##negative_prompt##}}': { value: escapeForJsonString(inputData.negativePrompt || ''), type: 'string' },
+    '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
+    '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
     '{{##model##}}': { value: extractValue(inputData.aiModel), type: 'string' },
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
@@ -321,23 +321,23 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
 // JSON 객체 내에서 재귀적으로 값을 치환하는 함수
 const replaceInObject = (obj, replacements, seedValue = null) => {
   if (typeof obj === 'string') {
-    // 문자열 내 플레이스홀더 확인 및 치환
+    // 문자열이 완전히 플레이스홀더인 경우 (이스케이핑 없이 원본 값 반환)
     const replacement = replacements[obj];
     if (replacement) {
       return replacement.value;
     }
     
-    // 부분 문자열 치환 (문자열 내 일부만 플레이스홀더인 경우)
+    // 부분 문자열 치환 (문자열 내 일부만 플레이스홀더인 경우 - 이스케이핑 적용)
     let result = obj;
     Object.keys(replacements).forEach(key => {
       if (result.includes(key)) {
-        // 치환할 값에 역슬래시가 있다면 이스케이핑 (JSON 문자열에서 안전하게 사용하기 위해)
         const value = replacements[key].value;
+        // 부분 치환의 경우에만 이스케이핑 적용 (JSON 문자열 안에서 안전하게 사용하기 위해)
         const escapedValue = escapeForJsonString(value);
         result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), escapedValue);
         
         if (value !== escapedValue) {
-          console.log(`🔧 Auto-escaped backslashes in placeholder "${key}": "${value}" → "${escapedValue}"`);
+          console.log(`🔧 Auto-escaped special characters in partial replacement "${key}": "${value}" → "${escapedValue}"`);
         }
       }
     });
