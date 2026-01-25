@@ -216,6 +216,44 @@ lsof -i :3000
 FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
 ```
 
+## 자동 배포 스크립트
+
+프로덕션 배포를 위한 안전한 스크립트를 제공합니다:
+
+### 🚀 자동 배포 스크립트 실행
+```bash
+# 스크립트 실행 (데이터베이스 볼륨 안전 보장)
+./deploy-prod.sh
+```
+
+### 📋 스크립트 주요 기능
+- ✅ **데이터베이스 볼륨 보호**: MongoDB/Redis 데이터 손실 방지
+- 🔄 **노 캐시 빌드**: 최신 코드 반영 보장
+- 🏥 **헬스 체크**: 배포 후 서비스 상태 자동 확인
+- 💾 **백업 안내**: 배포 전 데이터 백업 권장
+- 🎨 **컬러 출력**: 진행 상황을 명확하게 표시
+
+### ⚠️ 안전 배포 원칙
+```bash
+# ❌ 위험한 명령어 (데이터 손실 가능)
+docker-compose down --volumes  # 절대 사용 금지!
+
+# ✅ 안전한 배포
+./deploy-prod.sh  # 데이터베이스 볼륨 보호됨
+```
+
+### 🛠️ 수동 배포 (고급 사용자)
+```bash
+# 1. 애플리케이션만 중지 (DB는 유지)
+docker-compose -f docker-compose.prod.yml --env-file .env.production stop frontend backend
+
+# 2. 캐시 없이 빌드
+docker-compose -f docker-compose.prod.yml build --no-cache
+
+# 3. 애플리케이션 컨테이너만 재생성
+docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
 ## 보안 설정
 
 ### 1. 데이터베이스 보안
