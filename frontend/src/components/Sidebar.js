@@ -18,8 +18,7 @@ import {
   Image,
   History,
   CloudUpload,
-  AdminPanelSettings,
-  BarChart
+  AdminPanelSettings
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,12 +57,6 @@ const adminMenuItems = [
     text: '관리자 패널',
     path: '/admin',
     icon: <AdminPanelSettings />,
-    roles: ['admin']
-  },
-  {
-    text: '시스템 통계',
-    path: '/admin/stats',
-    icon: <BarChart />,
     roles: ['admin']
   }
 ];

@@ -229,11 +229,27 @@ const getQueue = async (serverUrl) => {
   }
 };
 
+const getLoraModels = async (serverUrl) => {
+  try {
+    const response = await axios.get(`${serverUrl}/object_info/LoraLoader`);
+    const loraLoader = response.data?.LoraLoader;
+    
+    if (loraLoader && loraLoader.input && loraLoader.input.required && loraLoader.input.required.lora_name) {
+      return loraLoader.input.required.lora_name[0] || [];
+    }
+    
+    return [];
+  } catch (error) {
+    throw new Error(`Failed to get LoRA models: ${error.message}`);
+  }
+};
+
 module.exports = {
   submitWorkflow,
   getServerInfo,
   getObjectInfo,
   validateWorkflow,
   interruptExecution,
-  getQueue
+  getQueue,
+  getLoraModels
 };
