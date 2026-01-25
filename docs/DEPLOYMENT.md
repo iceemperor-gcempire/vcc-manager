@@ -126,26 +126,77 @@ FRONTEND_URL=https://yourdomain.com
 
 ## 포트 설정
 
+모든 서비스의 포트는 환경변수를 통해 동적으로 설정할 수 있습니다.
+
+### 사용 가능한 포트 환경변수
+
+| 환경변수 | 기본값 | 설명 |
+|---------|--------|------|
+| `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 |
+| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 |
+| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 |
+| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 |
+| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) |
+| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) |
+
 ### 포트 변경 방법
 
+#### 1. 환경변수 파일을 통한 변경
 ```bash
-# Frontend 포트를 3001로 변경 (개발환경)
-echo "FRONTEND_PORT=3001" >> .env
-docker-compose restart frontend
+# .env 파일 편집
+cat >> .env << EOF
+FRONTEND_PORT=8080
+BACKEND_PORT=3001
+MONGODB_PORT=27018
+REDIS_PORT=6380
+EOF
 
-# Frontend 포트를 8080으로 변경 (프로덕션)
-FRONTEND_PORT=8080 docker-compose -f docker-compose.prod.yml up -d
+# 서비스 재시작
+docker-compose up -d
 ```
 
-### 포트 매핑
+#### 2. 일회성 포트 변경
+```bash
+# 개발환경
+FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
 
-| 서비스 | 개발환경 | 프로덕션 | 접근성 |
-|--------|----------|----------|---------|
-| Frontend | 80 | 80 (환경변수로 변경 가능) | 외부 접근 |
-| Backend | 3000 | 3000 | 외부 접근 |
-| MongoDB | 27017 | 없음 | 개발: 외부, 프로덕션: 내부만 |
-| Redis | 6379 | 없음 | 개발: 외부, 프로덕션: 내부만 |
-| Nginx | 없음 | 80, 443 | 프로덕션 전용 |
+# 프로덕션 환경
+FRONTEND_PORT=8080 HTTP_PORT=80 docker-compose -f docker-compose.prod.yml up -d
+```
+
+#### 3. 특정 서비스만 포트 변경 후 재시작
+```bash
+# Frontend 포트만 변경
+echo "FRONTEND_PORT=8080" >> .env
+docker-compose up -d frontend
+
+# Backend 포트만 변경
+echo "BACKEND_PORT=3001" >> .env
+docker-compose up -d backend
+```
+
+### 포트 매핑 테이블
+
+| 서비스 | 개발환경 기본 | 프로덕션 기본 | 환경변수 제어 | 접근성 |
+|--------|---------------|---------------|---------------|---------|
+| Frontend | 80 | 80 | `FRONTEND_PORT` | 외부 접근 |
+| Backend | 3000 | 3000 | `BACKEND_PORT` | 외부 접근 |
+| MongoDB | 27017 | 없음* | `MONGODB_PORT` | 개발: 외부, 프로덕션: 내부만 |
+| Redis | 6379 | 없음* | `REDIS_PORT` | 개발: 외부, 프로덕션: 내부만 |
+| Nginx | 없음 | 80, 443 | `HTTP_PORT`, `HTTPS_PORT` | 프로덕션 전용 |
+
+*프로덕션에서는 보안상 데이터베이스 포트가 외부에 노출되지 않음
+
+### 포트 충돌 해결
+
+```bash
+# 포트 사용 중인 프로세스 확인
+lsof -i :80
+lsof -i :3000
+
+# 사용 중인 포트 변경
+FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
+```
 
 ## 보안 설정
 

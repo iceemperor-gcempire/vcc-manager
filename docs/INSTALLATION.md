@@ -107,6 +107,26 @@ npm start
 | `MONGODB_URI` | MongoDB 연결 URI | `mongodb://localhost:27017/vcc-manager` |
 | `REDIS_URL` | Redis 연결 URL | `redis://localhost:6379` |
 
+### 포트 환경변수 (선택사항)
+
+Docker Compose에서 모든 서비스의 포트를 환경변수로 제어할 수 있습니다:
+
+| 변수명 | 기본값 | 설명 |
+|--------|--------|------|
+| `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 |
+| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 |
+| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 |
+| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 |
+| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) |
+| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) |
+
+```bash
+# 포트 설정 예시
+echo "FRONTEND_PORT=8080" >> .env
+echo "BACKEND_PORT=3001" >> .env
+docker-compose up -d
+```
+
 ### Google OAuth 설정 (선택사항)
 
 1. [Google Cloud Console](https://console.cloud.google.com) 접속
