@@ -14,7 +14,8 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(docker rm:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": [],
     "ask": []
