@@ -6,11 +6,11 @@ VCC Manager는 ComfyUI와 연동된 비주얼 콘텐츠 생성 관리 시스템�
 
 ## 아키텍처
 
-- **Frontend**: React 기반 웹 인터페이스 (포트 80/3001)
-- **Backend**: Node.js API 서버 (포트 3000)
-- **MongoDB**: 데이터베이스 (포트 27017, 프로덕션에서는 내부망만)
-- **Redis**: 작업 큐 및 세션 저장소 (포트 6379, 프로덕션에서는 내부망만)
-- **Nginx**: 리버스 프록시 (프로덕션 전용, 포트 80/443)
+- **Frontend**: React 기반 웹 인터페이스 (개발: 포트 3001, 프로덕션: 포트 80)
+- **Backend**: Node.js API 서버 (개발: 포트 3000, 프로덕션: 사용자 정의 포트)
+- **MongoDB**: 데이터베이스 (내부 포트 27017, 프로덕션에서는 외부 노출 안함)
+- **Redis**: 작업 큐 및 세션 저장소 (내부 포트 6379, 프로덕션에서는 외부 노출 안함)
+- **Nginx**: Frontend 컨테이너 내장 (프록시 처리)
 
 ## 환경별 배포
 
@@ -33,20 +33,60 @@ docker-compose up -d
 
 ### 2. 프로덕션 환경 배포
 
+#### 2-1. 환경 변수 설정
 ```bash
-# 1. 프로덕션 환경 변수 설정
-cp .env.production.example .env.production
-# .env.production 파일을 수정하여 실제 비밀번호 및 도메인 입력
+# .env.example에서 .env 생성
+cp .env.example .env
 
-# 2. 보안 설정으로 컨테이너 실행
-docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+# .env 파일 편집하여 프로덕션 값 설정
+# 주요 설정 항목:
+# - BACKEND_PORT: 백엔드 외부 포트 (예: 3131)
+# - FRONTEND_PORT: 프론트엔드 외부 포트 (예: 80)
+# - MongoDB/Redis 비밀번호 변경
+# - Google OAuth 설정
+# - 도메인 설정
+```
 
-# 3. 접속
-# Frontend: http://your-server:port (직접 접속)
-# Backend API: http://your-server:3000/api
+#### 2-2. 배포 스크립트 사용 (권장)
+```bash
+# 배포 스크립트 실행 권한 부여
+chmod +x deploy-prod.sh
+
+# 안전한 배포 실행 (데이터베이스 보호)
+./deploy-prod.sh
+```
+
+#### 2-3. 수동 배포
+```bash
+# 1. 프로덕션 컨테이너 중지 (데이터베이스 제외)
+docker-compose -f docker-compose.prod.yml stop frontend backend
+
+# 2. 무캐시 빌드 (최신 변경사항 반영)
+docker-compose -f docker-compose.prod.yml build --no-cache frontend backend
+
+# 3. 모든 서비스 시작
+docker-compose -f docker-compose.prod.yml up -d
+
+# 4. 상태 확인
+docker-compose -f docker-compose.prod.yml ps
+docker logs vcc-backend
+docker logs vcc-frontend
+```
+
+#### 2-4. 접속 및 확인
+```bash
+# Frontend 접속 테스트
+curl -f http://localhost:${FRONTEND_PORT}/
+
+# Backend API 접속 테스트  
+curl -f http://localhost:${BACKEND_PORT}/health
+
+# 프로덕션 접속:
+# Frontend: http://your-server:80
+# Backend API: http://your-server:3131/api
 # MongoDB/Redis: 내부 네트워크만 접근 가능
 # 
-# 참고: Nginx/SSL은 별도 외부 서버에서 처리 (Cloudflare Tunnel 등)
+# 참고: SSL은 별도 외부 서버에서 처리 (Cloudflare Tunnel 등)
 ```
 
 ## 환경 변수 설정
@@ -136,12 +176,13 @@ FRONTEND_URL=https://yourdomain.com
 |---------|--------|------|-------------|
 | `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 | ✅ 외부 노출 안전 |
 | `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 | ⚠️ 필요시에만 노출 |
-| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 | ❌ 개발환경에서만 사용 |
-| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 | ❌ 개발환경에서만 사용 |
-| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) | ✅ 외부 노출 안전 |
-| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) | ✅ 외부 노출 안전 |
+| `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 | ❌ 프로덕션에서 노출 금지 |
+| `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 | ❌ 프로덕션에서 노출 금지 |
 
-> **⚠️ 보안 주의사항**: 프로덕션 환경에서는 `MONGODB_PORT`와 `REDIS_PORT`를 설정하지 마세요. 이 포트들은 내부 네트워크에서만 접근 가능해야 합니다.
+> **🔒 보안 주의사항**: 
+> - 프로덕션 환경에서는 `MONGODB_PORT`와 `REDIS_PORT`를 설정하지 마세요. 
+> - `docker-compose.prod.yml`에서 이 포트들은 의도적으로 주석 처리되어 있습니다.
+> - 데이터베이스는 내부 네트워크에서만 접근 가능해야 합니다.
 
 ### 포트 변경 방법
 
@@ -331,55 +372,83 @@ docker-compose pull
 docker-compose up -d --build
 
 # 특정 서비스만 재시작
-docker-compose restart [service_name]
-```
+docker-compose restart
 
 ## 문제 해결
 
-### 1. 일반적인 오류
+### 일반적인 문제들
 
+#### 1. 502 Bad Gateway 오류
+**증상**: 프론트엔드에서 백엔드 API 호출 시 502 오류 발생
+
+**해결 방법**:
 ```bash
-# 포트 충돌 오류
-netstat -tulpn | grep :80
-sudo lsof -i :80
+# 1. 백엔드 로그 확인
+docker logs vcc-backend
 
-# 권한 오류
-sudo chown -R $(whoami):$(whoami) ./uploads
-sudo chmod -R 755 ./uploads
+# 2. MongoDB 연결 확인
+# "MongoDB Connected" 메시지가 있는지 확인
 
-# 메모리 부족
-docker system prune -a
-docker volume prune
+# 3. 컨테이너 재시작
+docker-compose -f docker-compose.prod.yml restart backend
 ```
 
-### 2. 로그 분석
+#### 2. MongoDB 연결 실패
+**증상**: `option buffermaxentries is not supported` 오류
 
+**원인**: 최신 MongoDB 드라이버와 deprecated 옵션 충돌
+
+**해결**: 이미 수정됨 (src/config/database.js에서 bufferMaxEntries 옵션 제거)
+
+#### 3. Workflow JSON 파싱 오류
+**증상**: 프롬프트에 줄바꿈 포함 시 JSON 파싱 에러
+
+**해결**: 이미 수정됨 (특수문자 자동 이스케이핑 적용)
+
+### 로그 확인 방법
 ```bash
-# 상세 로그 확인
-docker-compose logs -f --tail=100 backend
+# 모든 서비스 로그 실시간 모니터링
+docker-compose -f docker-compose.prod.yml logs -f
 
-# 에러만 필터링
-docker-compose logs backend 2>&1 | grep -i error
+# 특정 서비스 로그만 확인
+docker logs vcc-backend --tail 50
+docker logs vcc-frontend --tail 50
 
-# 특정 시간대 로그
-docker-compose logs --since="2024-01-01T00:00:00" --until="2024-01-01T23:59:59"
+# 에러가 포함된 로그만 필터링
+docker logs vcc-backend 2>&1 | grep -i error
 ```
 
-### 3. 성능 최적화
-
+### 헬스체크
 ```bash
-# Docker 메모리 제한 설정
-# docker-compose.yml에서 deploy.resources.limits 사용
+# 백엔드 상태 확인
+curl -f http://localhost:${BACKEND_PORT}/health
 
-# Redis 메모리 최적화
-redis-cli config set maxmemory 256mb
-redis-cli config set maxmemory-policy allkeys-lru
+# 프론트엔드 접근 확인
+curl -f http://localhost:${FRONTEND_PORT}/
+
+# 컨테이너 상태 확인
+docker-compose -f docker-compose.prod.yml ps
 ```
 
-## 추가 참고사항
+### 상세한 문제 해결 가이드
+더 자세한 문제 해결 방법은 [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)를 참조하세요.
 
-- **개발환경**: 빠른 개발을 위해 모든 포트가 외부에 노출됨
-- **프로덕션**: 보안을 위해 데이터베이스 포트는 내부 네트워크만 접근 가능
-- **Nginx**: 프로덕션에서 리버스 프록시 및 SSL 종료점 역할
-- **환경 분리**: `.env` (개발), `.env.prod` (프로덕션)으로 환경별 설정 관리
-- **보안 권장사항**: 강력한 패스워드, 정기적인 업데이트, 모니터링 시스템 구축
+---
+
+## 참고 자료
+
+### 관련 문서
+- [개발 환경 설정](./DEVELOPMENT.md)
+- [설치 가이드](./INSTALLATION.md)  
+- [문제 해결 가이드](./TROUBLESHOOTING.md)
+
+### 외부 의존성
+- [Docker](https://docs.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [MongoDB](https://docs.mongodb.com/)
+- [Redis](https://redis.io/documentation)
+- [ComfyUI](https://github.com/comfyanonymous/ComfyUI)
+
+---
+
+*이 문서는 실제 배포 경험을 바탕으로 작성되었으며, 지속적으로 업데이트됩니다.*
