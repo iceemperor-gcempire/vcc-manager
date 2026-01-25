@@ -1,4 +1,10 @@
-# Visual Content Creator  명세서
+# Visual Content Creator 명세서
+
+> **⚠️ 주의 (Note):**
+> 이 문서는 프로젝트 초기 요구사항 명세서이며, 현재 구현된 실제 기능과 다를 수 있습니다.
+> 최신 정보는 [README.md](./README.md) 및 [API 문서](./docs/API.md)를 참조하세요.
+
+
 
 ## 개요
 
