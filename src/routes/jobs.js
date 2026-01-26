@@ -1,8 +1,10 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
+const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
+const GeneratedImage = require('../models/GeneratedImage');
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -161,7 +163,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const job = await ImageGenerationJob.findById(req.params.id);
+    const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages');
     
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
@@ -175,6 +177,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete job that is currently processing' });
     }
     
+    // 참조 이미지 연결 해제
     if (job.inputData.referenceImages && job.inputData.referenceImages.length > 0) {
       for (const refImg of job.inputData.referenceImages) {
         await UploadedImage.findByIdAndUpdate(refImg.imageId, {
@@ -189,10 +192,38 @@ router.delete('/:id', requireAuth, async (req, res) => {
       }
     }
     
+    // 연결된 생성 이미지들 삭제 (물리적 파일과 DB 레코드)
+    if (job.resultImages && job.resultImages.length > 0) {
+      console.log(`🗑️  Deleting ${job.resultImages.length} generated images for job ${job._id}`);
+      
+      for (const image of job.resultImages) {
+        try {
+          // 물리적 파일 삭제
+          if (image.path) {
+            await deleteFile(image.path);
+            console.log(`✅ Deleted file: ${image.path}`);
+          }
+          
+          // DB에서 이미지 레코드 삭제
+          await GeneratedImage.findByIdAndDelete(image._id);
+          console.log(`✅ Deleted image record: ${image._id}`);
+        } catch (fileError) {
+          console.error(`⚠️  Failed to delete file for image ${image._id}:`, fileError.message);
+          // 파일 삭제에 실패해도 DB 레코드는 삭제
+          await GeneratedImage.findByIdAndDelete(image._id);
+        }
+      }
+    }
+    
+    // 작업 레코드 삭제
     await ImageGenerationJob.findByIdAndDelete(req.params.id);
     
-    res.json({ message: 'Job deleted successfully' });
+    const deletedImagesCount = job.resultImages ? job.resultImages.length : 0;
+    res.json({ 
+      message: `Job and ${deletedImagesCount} associated image(s) deleted successfully`
+    });
   } catch (error) {
+    console.error('Job deletion error:', error);
     res.status(500).json({ message: error.message });
   }
 });

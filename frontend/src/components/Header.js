@@ -11,21 +11,26 @@ import {
   Chip,
   ListItemIcon,
   ListItemText,
-  Divider
+  Divider,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   AccountCircle,
   Settings,
   Logout,
   AdminPanelSettings,
-  Dashboard
+  Dashboard,
+  Menu as MenuIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
-function Header() {
+function Header({ onMobileToggle }) {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -61,13 +66,26 @@ function Header() {
   return (
     <AppBar position="static" sx={{ backgroundColor: '#34495e' }}>
       <Toolbar>
+        {/* 모바일 메뉴 버튼 */}
+        {isMobile && onMobileToggle && (
+          <IconButton
+            color="inherit"
+            aria-label="open drawer"
+            edge="start"
+            onClick={onMobileToggle}
+            sx={{ mr: 2 }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
+        
         <Typography 
           variant="h6" 
           component="div" 
           sx={{ flexGrow: 1, cursor: 'pointer' }}
           onClick={() => navigate('/dashboard')}
         >
-          Visual Content Creator
+          {isMobile ? 'VCCM' : 'Visual Content Creator'}
         </Typography>
         
         {user && (
@@ -121,12 +139,14 @@ function Header() {
               transformOrigin={{ horizontal: 'right', vertical: 'top' }}
               anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
-              <MenuItem onClick={handleDashboard}>
-                <ListItemIcon>
-                  <Dashboard fontSize="small" />
-                </ListItemIcon>
-                <ListItemText>대시보드</ListItemText>
-              </MenuItem>
+              {!isMobile && (
+                <MenuItem onClick={handleDashboard}>
+                  <ListItemIcon>
+                    <Dashboard fontSize="small" />
+                  </ListItemIcon>
+                  <ListItemText>대시보드</ListItemText>
+                </MenuItem>
+              )}
               
               <MenuItem onClick={handleProfile}>
                 <ListItemIcon>

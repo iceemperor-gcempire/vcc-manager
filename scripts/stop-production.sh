@@ -1,46 +1,56 @@
 #!/bin/bash
 
 # VCC Manager Production Stop Script
-# This script stops the production server
+# This script stops the production Docker containers using docker-compose
 
 set -e
 
-echo "🛑 Stopping VCC Manager production server..."
+# 색상 정의
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Get the process ID of the running server
-PID=$(ps aux | grep "node src/server.js" | grep -v grep | awk '{print $2}')
+# 환경 변수 파일 확인
+ENV_FILE=".env.production"
+COMPOSE_FILE="docker-compose.prod.yml"
 
-if [ -z "$PID" ]; then
-    echo "❌ No running VCC Manager server found"
+echo -e "${BLUE}🛑 VCC Manager 프로덕션 서버 중지...${NC}"
+echo "=================================="
+
+# 환경 파일 존재 확인
+if [ ! -f "$ENV_FILE" ]; then
+    echo -e "${RED}❌ 오류: $ENV_FILE 파일이 없습니다!${NC}"
+    echo -e "${YELLOW}💡 해결방법: cp .env.production.example $ENV_FILE${NC}"
     exit 1
 fi
 
-echo "📋 Found server process with PID: $PID"
-
-# Send TERM signal first for graceful shutdown
-echo "📤 Sending TERM signal for graceful shutdown..."
-kill -TERM $PID
-
-# Wait for graceful shutdown
-sleep 5
-
-# Check if process is still running
-if ps -p $PID > /dev/null 2>&1; then
-    echo "⚠️  Graceful shutdown failed, sending KILL signal..."
-    kill -KILL $PID
-    sleep 2
+# Docker Compose 파일 존재 확인
+if [ ! -f "$COMPOSE_FILE" ]; then
+    echo -e "${RED}❌ 오류: $COMPOSE_FILE 파일이 없습니다!${NC}"
+    exit 1
 fi
 
-# Final check
-if ps -p $PID > /dev/null 2>&1; then
-    echo "❌ Failed to stop server process"
-    exit 1
+# 현재 실행 중인 컨테이너 확인
+echo -e "${BLUE}📊 현재 컨테이너 상태 확인 중...${NC}"
+if docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE ps | grep -q "Up"; then
+    echo -e "${GREEN}✅ 실행 중인 컨테이너가 있습니다${NC}"
+    
+    # Docker Compose로 모든 서비스 중지
+    echo -e "${BLUE}⏹️  Docker Compose 서비스 중지 중...${NC}"
+    docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE down
+    
+    echo -e "${GREEN}✅ VCC Manager 프로덕션 서버가 성공적으로 중지되었습니다${NC}"
 else
-    echo "✅ VCC Manager production server stopped successfully"
+    echo -e "${YELLOW}⚠️  실행 중인 컨테이너가 없습니다${NC}"
 fi
 
-echo "🧹 Cleaning up temporary files..."
-# Clean up any temporary files if needed
-rm -rf /tmp/vcc-manager-*
+echo -e "\n${BLUE}📋 유용한 명령어:${NC}"
+echo "🚀 재시작: ./deploy-prod.sh"
+echo "📊 상태 확인: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE ps"
+echo "🔍 로그 확인: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE logs"
 
-echo "🎉 Production server shutdown complete"
+echo -e "\n${GREEN}🎉 프로덕션 서버 중지 완료${NC}"
+echo -e "${YELLOW}💾 참고: 데이터베이스 볼륨과 데이터는 안전하게 보존됩니다${NC}"
+echo -e "\n${BLUE}중지 완료 시각: $(date)${NC}"
