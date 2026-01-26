@@ -22,14 +22,21 @@ import {
   IconButton,
   Alert,
   CircularProgress,
-  TablePagination
+  TablePagination,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
 import {
   Search,
   Delete,
   AdminPanelSettings,
   Person,
-  Refresh
+  Refresh,
+  Check,
+  Close,
+  HourglassEmpty
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -37,6 +44,7 @@ import { adminAPI } from '../../services/api';
 
 function UserManagement() {
   const [search, setSearch] = useState('');
+  const [approvalStatus, setApprovalStatus] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -45,8 +53,8 @@ function UserManagement() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch } = useQuery(
-    ['adminUsers', { search, page: page + 1, limit: rowsPerPage }],
-    () => adminAPI.getUsers({ search, page: page + 1, limit: rowsPerPage }),
+    ['adminUsers', { search, approvalStatus, page: page + 1, limit: rowsPerPage }],
+    () => adminAPI.getUsers({ search, approvalStatus, page: page + 1, limit: rowsPerPage }),
     { keepPreviousData: true }
   );
 
@@ -64,6 +72,32 @@ function UserManagement() {
     }
   );
 
+  const approveMutation = useMutation(
+    adminAPI.approveUser,
+    {
+      onSuccess: () => {
+        toast.success('사용자가 승인되었습니다');
+        queryClient.invalidateQueries('adminUsers');
+      },
+      onError: (error) => {
+        toast.error('승인 실패: ' + error.message);
+      }
+    }
+  );
+
+  const rejectMutation = useMutation(
+    adminAPI.rejectUser,
+    {
+      onSuccess: () => {
+        toast.success('사용자 승인이 거절되었습니다');
+        queryClient.invalidateQueries('adminUsers');
+      },
+      onError: (error) => {
+        toast.error('거절 실패: ' + error.message);
+      }
+    }
+  );
+
   const users = data?.data?.users || [];
   const pagination = data?.data?.pagination || { total: 0, pages: 0 };
 
@@ -75,6 +109,47 @@ function UserManagement() {
   const handleDeleteConfirm = () => {
     if (selectedUser) {
       deleteMutation.mutate(selectedUser._id);
+    }
+  };
+
+  const handleApprove = (userId) => {
+    approveMutation.mutate(userId);
+  };
+
+  const handleReject = (userId) => {
+    rejectMutation.mutate(userId);
+  };
+
+  const getApprovalStatusChip = (user) => {
+    switch (user.approvalStatus) {
+      case 'approved':
+        return (
+          <Chip
+            label="승인됨"
+            color="success"
+            size="small"
+            icon={<Check fontSize="small" />}
+          />
+        );
+      case 'rejected':
+        return (
+          <Chip
+            label="거절됨"
+            color="error"
+            size="small"
+            icon={<Close fontSize="small" />}
+          />
+        );
+      case 'pending':
+      default:
+        return (
+          <Chip
+            label="대기중"
+            color="warning"
+            size="small"
+            icon={<HourglassEmpty fontSize="small" />}
+          />
+        );
     }
   };
 
@@ -102,9 +177,8 @@ function UserManagement() {
 
       <Card>
         <CardContent>
-          <Box mb={3}>
+          <Box mb={3} display="flex" gap={2} flexWrap="wrap">
             <TextField
-              fullWidth
               placeholder="이메일 또는 닉네임으로 검색..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -115,8 +189,21 @@ function UserManagement() {
                   </InputAdornment>
                 ),
               }}
-              sx={{ maxWidth: 400 }}
+              sx={{ minWidth: 300, flex: 1 }}
             />
+            <FormControl sx={{ minWidth: 150 }}>
+              <InputLabel>승인 상태</InputLabel>
+              <Select
+                value={approvalStatus}
+                label="승인 상태"
+                onChange={(e) => setApprovalStatus(e.target.value)}
+              >
+                <MenuItem value="">전체</MenuItem>
+                <MenuItem value="pending">대기중</MenuItem>
+                <MenuItem value="approved">승인됨</MenuItem>
+                <MenuItem value="rejected">거절됨</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
 
           {isLoading ? (
@@ -136,7 +223,8 @@ function UserManagement() {
                       <TableCell>사용자</TableCell>
                       <TableCell>이메일</TableCell>
                       <TableCell>권한</TableCell>
-                      <TableCell>상태</TableCell>
+                      <TableCell>계정 상태</TableCell>
+                      <TableCell>승인 상태</TableCell>
                       <TableCell>가입일</TableCell>
                       <TableCell>마지막 로그인</TableCell>
                       <TableCell align="right">작업</TableCell>
@@ -182,19 +270,48 @@ function UserManagement() {
                           />
                         </TableCell>
                         <TableCell>
+                          {getApprovalStatusChip(user)}
+                        </TableCell>
+                        <TableCell>
                           {new Date(user.createdAt).toLocaleDateString()}
                         </TableCell>
                         <TableCell>
                           {user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : '-'}
                         </TableCell>
                         <TableCell align="right">
-                          <IconButton
-                            color="error"
-                            onClick={() => handleDeleteClick(user)}
-                            disabled={user.isAdmin}
-                          >
-                            <Delete />
-                          </IconButton>
+                          <Box display="flex" gap={1} justifyContent="flex-end">
+                            {user.approvalStatus === 'pending' && (
+                              <>
+                                <IconButton
+                                  color="success"
+                                  onClick={() => handleApprove(user._id)}
+                                  disabled={approveMutation.isLoading}
+                                  size="small"
+                                  title="승인"
+                                >
+                                  <Check />
+                                </IconButton>
+                                <IconButton
+                                  color="error"
+                                  onClick={() => handleReject(user._id)}
+                                  disabled={rejectMutation.isLoading}
+                                  size="small"
+                                  title="거절"
+                                >
+                                  <Close />
+                                </IconButton>
+                              </>
+                            )}
+                            <IconButton
+                              color="error"
+                              onClick={() => handleDeleteClick(user)}
+                              disabled={user.isAdmin}
+                              size="small"
+                              title="삭제"
+                            >
+                              <Delete />
+                            </IconButton>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}

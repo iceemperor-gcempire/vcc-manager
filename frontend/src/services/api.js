@@ -104,6 +104,8 @@ export const imageAPI = {
 export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
+  approveUser: (id) => api.post(`/admin/users/${id}/approve`),
+  rejectUser: (id) => api.post(`/admin/users/${id}/reject`),
   getStats: () => api.get('/admin/stats'),
   getJobs: (params) => api.get('/admin/jobs', { params }),
 };

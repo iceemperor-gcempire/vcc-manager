@@ -11,11 +11,32 @@ router.get('/google',
 
 router.get('/google/callback', 
   passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
-    const token = generateJWT(req.user);
-    
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-    res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+  async (req, res) => {
+    try {
+      const user = req.user;
+      
+      // Update admin status
+      await user.updateAdminStatus();
+      
+      // Check approval status
+      if (user.approvalStatus !== 'approved') {
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+        if (user.approvalStatus === 'pending') {
+          return res.redirect(`${frontendUrl}/login?error=pending`);
+        } else if (user.approvalStatus === 'rejected') {
+          return res.redirect(`${frontendUrl}/login?error=rejected`);
+        }
+      }
+      
+      const token = generateJWT(user);
+      
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+    } catch (error) {
+      console.error('Google auth callback error:', error);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      res.redirect(`${frontendUrl}/login?error=auth_failed`);
+    }
   }
 );
 
@@ -141,9 +162,26 @@ router.post('/signin', authRateLimit, validate(signinSchema), async (req, res) =
       });
     }
     
+    // Update admin status first
+    await user.updateAdminStatus();
+    
+    // Check approval status after admin status update
+    if (user.approvalStatus !== 'approved') {
+      if (user.approvalStatus === 'pending') {
+        return res.status(403).json({
+          message: 'Account pending approval',
+          approvalStatus: 'pending'
+        });
+      } else if (user.approvalStatus === 'rejected') {
+        return res.status(403).json({
+          message: 'Account access denied',
+          approvalStatus: 'rejected'
+        });
+      }
+    }
+    
     // Update last login
     await user.updateLastLogin();
-    await user.updateAdminStatus();
     
     // Generate JWT token
     const token = generateJWT(user);

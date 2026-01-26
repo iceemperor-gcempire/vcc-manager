@@ -3,10 +3,30 @@ const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 
 const requireAuth = (req, res, next) => {
-  if (req.isAuthenticated() || req.user) {
-    return next();
+  if (!req.isAuthenticated() && !req.user) {
+    return res.status(401).json({ message: 'Authentication required' });
   }
-  return res.status(401).json({ message: 'Authentication required' });
+  
+  const user = req.user;
+  if (!user || !user.isActive) {
+    return res.status(401).json({ message: 'User account is inactive' });
+  }
+  
+  if (user.approvalStatus !== 'approved') {
+    if (user.approvalStatus === 'pending') {
+      return res.status(403).json({ 
+        message: 'Account pending approval',
+        approvalStatus: 'pending'
+      });
+    } else if (user.approvalStatus === 'rejected') {
+      return res.status(403).json({ 
+        message: 'Account access denied',
+        approvalStatus: 'rejected'
+      });
+    }
+  }
+  
+  return next();
 };
 
 const requireAdmin = async (req, res, next) => {
@@ -88,6 +108,20 @@ const verifyJWT = async (req, res, next) => {
     
     if (!user || !user.isActive) {
       return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+    
+    if (user.approvalStatus !== 'approved') {
+      if (user.approvalStatus === 'pending') {
+        return res.status(403).json({ 
+          message: 'Account pending approval',
+          approvalStatus: 'pending'
+        });
+      } else if (user.approvalStatus === 'rejected') {
+        return res.status(403).json({ 
+          message: 'Account access denied',
+          approvalStatus: 'rejected'
+        });
+      }
     }
     
     req.user = user;
