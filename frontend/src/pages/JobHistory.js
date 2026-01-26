@@ -461,12 +461,47 @@ function ImageViewerDialog({ images, selectedIndex, open, onClose }) {
 
   const currentImage = images[currentIndex];
   
-  const handleDownload = () => {
-    const link = document.createElement('a');
-    link.href = currentImage.url;
-    link.download = currentImage.originalName || `image_${currentIndex + 1}.png`;
-    link.click();
-    toast.success('다운로드 완료');
+  const handleDownload = async () => {
+    try {
+      // Safari 호환성을 위한 다운로드 방식 개선
+      const response = await fetch(currentImage.url);
+      const blob = await response.blob();
+      
+      // Safari에서 blob URL 생성
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      // iPhone Safari에서 이미지를 새 탭에서 열어 수동 다운로드 유도
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+      
+      if (isIOS && isSafari) {
+        // iOS Safari에서는 새 창으로 이미지를 열어 장기간 누르기로 다운로드 유도
+        const newWindow = window.open(blobUrl, '_blank');
+        if (!newWindow) {
+          // 팝업이 차단된 경우 현재 창에서 열기
+          window.location.href = blobUrl;
+        }
+        toast.success('이미지를 길게 눌러서 저장하세요');
+      } else {
+        // 다른 브라우저에서는 기존 방식 사용
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = currentImage.originalName || `image_${currentIndex + 1}.png`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('다운로드 완료');
+      }
+      
+      // 메모리 누수 방지
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+      
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
+    }
   };
 
   return (

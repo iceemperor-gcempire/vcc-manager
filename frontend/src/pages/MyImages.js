@@ -58,15 +58,39 @@ function ImageCard({ image, type, onEdit, onDelete, onView }) {
       try {
         const response = await imageAPI.downloadGenerated(image._id);
         const blob = new Blob([response.data]);
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = image.originalName;
-        link.click();
-        window.URL.revokeObjectURL(url);
-        toast.success('다운로드 완료');
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // iPhone Safari에서 이미지를 새 탭에서 열어 수동 다운로드 유도
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+        
+        if (isIOS && isSafari) {
+          // iOS Safari에서는 새 창으로 이미지를 열어 장기간 누르기로 다운로드 유도
+          const newWindow = window.open(blobUrl, '_blank');
+          if (!newWindow) {
+            // 팝업이 차단된 경우 현재 창에서 열기
+            window.location.href = blobUrl;
+          }
+          toast.success('이미지를 길게 눌러서 저장하세요');
+        } else {
+          // 다른 브라우저에서는 기존 방식 사용
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = image.originalName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success('다운로드 완료');
+        }
+        
+        // 메모리 누수 방지
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1000);
+        
       } catch (error) {
-        toast.error('다운로드 실패');
+        console.error('Download error:', error);
+        toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
       }
     }
     handleMenuClose();
@@ -194,6 +218,82 @@ function ImageDetailDialog({ image, open, onClose, type }) {
     return null;
   }
   
+  const handleDownload = async () => {
+    if (type === 'generated') {
+      try {
+        const response = await imageAPI.downloadGenerated(image._id);
+        const blob = new Blob([response.data]);
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        // iPhone Safari에서 이미지를 새 탭에서 열어 수동 다운로드 유도
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+        
+        if (isIOS && isSafari) {
+          // iOS Safari에서는 새 창으로 이미지를 열어 장기간 누르기로 다운로드 유도
+          const newWindow = window.open(blobUrl, '_blank');
+          if (!newWindow) {
+            // 팝업이 차단된 경우 현재 창에서 열기
+            window.location.href = blobUrl;
+          }
+          toast.success('이미지를 길게 눌러서 저장하세요');
+        } else {
+          // 다른 브라우저에서는 기존 방식 사용
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = image.originalName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success('다운로드 완료');
+        }
+        
+        // 메모리 누수 방지
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Download error:', error);
+        toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
+      }
+    } else {
+      // 업로드된 이미지의 경우 직접 URL로 다운로드
+      try {
+        const response = await fetch(image.url);
+        const blob = await response.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
+        
+        if (isIOS && isSafari) {
+          const newWindow = window.open(blobUrl, '_blank');
+          if (!newWindow) {
+            window.location.href = blobUrl;
+          }
+          toast.success('이미지를 길게 눌러서 저장하세요');
+        } else {
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = image.originalName;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          toast.success('다운로드 완료');
+        }
+        
+        setTimeout(() => {
+          window.URL.revokeObjectURL(blobUrl);
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Download error:', error);
+        toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
+      }
+    }
+  };
+  
   return (
     <Dialog 
       open={open} 
@@ -210,6 +310,9 @@ function ImageDetailDialog({ image, open, onClose, type }) {
             이미지 상세보기
           </Typography>
           <Box>
+            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
+              <Download />
+            </IconButton>
             <IconButton onClick={onClose} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
