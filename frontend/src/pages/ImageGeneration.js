@@ -786,7 +786,8 @@ function ImageGeneration() {
                 )}
               />
 
-              {/* LoRA 목록 버튼 */}
+              {/* LoRA 목록 버튼 - 임시 비활성화 */}
+              {/* 
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   variant="outlined"
@@ -797,6 +798,7 @@ function ImageGeneration() {
                   LoRA 목록
                 </Button>
               </Box>
+              */}
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
