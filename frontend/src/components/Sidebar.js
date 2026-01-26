@@ -99,6 +99,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
               sx={{
                 borderRadius: 1,
                 mb: 0.5,
+                py: isMobile ? 1.5 : 1, // 모바일에서 터치하기 더 쉽게
                 backgroundColor: isPathActive(item.path) ? '#34495e' : 'transparent',
                 '&:hover': {
                   backgroundColor: '#34495e'
@@ -112,7 +113,8 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                 primary={item.text}
                 sx={{ 
                   '& .MuiListItemText-primary': {
-                    fontSize: '0.9rem'
+                    fontSize: isMobile ? '1rem' : '0.9rem', // 모바일에서 더 큰 텍스트
+                    fontWeight: isMobile ? 500 : 400
                   }
                 }}
               />
@@ -139,6 +141,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                   sx={{
                     borderRadius: 1,
                     mb: 0.5,
+                    py: isMobile ? 1.5 : 1, // 모바일에서 터치하기 더 쉽게
                     backgroundColor: isPathActive(item.path) ? '#34495e' : 'transparent',
                     '&:hover': {
                       backgroundColor: '#34495e'
@@ -152,7 +155,8 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                     primary={item.text}
                     sx={{ 
                       '& .MuiListItemText-primary': {
-                        fontSize: '0.9rem',
+                        fontSize: isMobile ? '1rem' : '0.9rem', // 모바일에서 더 큰 텍스트
+                        fontWeight: isMobile ? 500 : 400,
                         color: '#e74c3c'
                       }
                     }}
@@ -171,41 +175,41 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
       component="nav"
       sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
     >
-      {isMobile ? (
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={onMobileToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', md: 'none' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
-            },
-          }}
-        >
-          {drawer}
-        </Drawer>
-      ) : (
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', md: 'block' },
-            '& .MuiDrawer-paper': {
-              boxSizing: 'border-box',
-              width: DRAWER_WIDTH,
-              position: 'relative',
-              height: '100%'
-            },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      )}
+      {/* 모바일용 temporary drawer */}
+      <Drawer
+        variant="temporary"
+        open={mobileOpen}
+        onClose={onMobileToggle}
+        ModalProps={{
+          keepMounted: true, // 성능 향상
+        }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: DRAWER_WIDTH,
+          },
+        }}
+      >
+        {drawer}
+      </Drawer>
+      
+      {/* 데스크탑용 permanent drawer */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: 'none', md: 'block' },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: DRAWER_WIDTH,
+            position: 'relative',
+            height: '100%'
+          },
+        }}
+        open
+      >
+        {drawer}
+      </Drawer>
     </Box>
   );
 }
