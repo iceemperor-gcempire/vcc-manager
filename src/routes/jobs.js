@@ -102,11 +102,19 @@ router.post('/generate', requireAuth, async (req, res) => {
 
 router.get('/my', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, status = '' } = req.query;
+    const { page = 1, limit = 10, status = '', search = '' } = req.query;
     const skip = (page - 1) * limit;
     
     const filter = { userId: req.user._id };
     if (status) filter.status = status;
+    
+    // 프롬프트 검색 기능 추가
+    if (search) {
+      filter['inputData.prompt'] = { 
+        $regex: search, 
+        $options: 'i' // case insensitive
+      };
+    }
     
     const jobs = await ImageGenerationJob.find(filter)
       .populate('workboardId', 'name')

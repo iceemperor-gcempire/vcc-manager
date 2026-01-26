@@ -46,6 +46,18 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  approvalStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected'],
+    default: 'pending'
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  approvedAt: {
+    type: Date
+  },
   lastLogin: {
     type: Date
   },
@@ -80,6 +92,25 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.updateAdminStatus = function() {
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(email => email.trim());
   this.isAdmin = adminEmails.includes(this.email);
+  // 관리자는 자동으로 승인됨
+  if (this.isAdmin && this.approvalStatus === 'pending') {
+    this.approvalStatus = 'approved';
+    this.approvedAt = new Date();
+  }
+  return this.save();
+};
+
+userSchema.methods.approve = function(approvedByUserId) {
+  this.approvalStatus = 'approved';
+  this.approvedBy = approvedByUserId;
+  this.approvedAt = new Date();
+  return this.save();
+};
+
+userSchema.methods.reject = function(rejectedByUserId) {
+  this.approvalStatus = 'rejected';
+  this.approvedBy = rejectedByUserId;
+  this.approvedAt = new Date();
   return this.save();
 };
 

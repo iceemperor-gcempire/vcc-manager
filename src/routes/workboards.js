@@ -2,6 +2,8 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const Workboard = require('../models/Workboard');
+const LoraCache = require('../models/LoraCache');
+const { getLoraModels } = require('../services/comfyUIService');
 const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
@@ -261,6 +263,106 @@ router.get('/:id/stats', requireAdmin, async (req, res) => {
     };
     
     res.json(stats);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// LoRA 모델 목록 조회 (캐시된 데이터 우선, 없으면 ComfyUI 서버에서 fetch)
+router.get('/:id/lora-models', requireAuth, async (req, res) => {
+  try {
+    const workboard = await Workboard.findById(req.params.id);
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+
+    if (!workboard.isActive) {
+      return res.status(403).json({ message: 'Workboard is not active' });
+    }
+
+    // 캐시된 LoRA 모델 데이터 확인
+    let loraCache = await LoraCache.findOne({ workboardId: req.params.id });
+    
+    if (loraCache) {
+      return res.json({
+        loraModels: loraCache.loraModels,
+        lastFetched: loraCache.lastFetched,
+        fromCache: true
+      });
+    }
+
+    // 캐시가 없으면 ComfyUI 서버에서 fetch
+    try {
+      const loraModels = await getLoraModels(workboard.serverUrl);
+      
+      // 캐시에 저장
+      loraCache = new LoraCache({
+        workboardId: req.params.id,
+        serverUrl: workboard.serverUrl,
+        loraModels: loraModels
+      });
+      await loraCache.save();
+
+      res.json({
+        loraModels: loraModels,
+        lastFetched: loraCache.lastFetched,
+        fromCache: false
+      });
+    } catch (comfyError) {
+      console.error('Failed to fetch LoRA models from ComfyUI:', comfyError);
+      res.status(503).json({ 
+        message: 'Failed to fetch LoRA models from ComfyUI server',
+        error: comfyError.message 
+      });
+    }
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// LoRA 모델 캐시 갱신
+router.post('/:id/lora-models/refresh', requireAuth, async (req, res) => {
+  try {
+    const workboard = await Workboard.findById(req.params.id);
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+
+    if (!workboard.isActive) {
+      return res.status(403).json({ message: 'Workboard is not active' });
+    }
+
+    try {
+      const loraModels = await getLoraModels(workboard.serverUrl);
+      
+      // 캐시 업데이트 또는 생성
+      await LoraCache.findOneAndUpdate(
+        { workboardId: req.params.id },
+        {
+          workboardId: req.params.id,
+          serverUrl: workboard.serverUrl,
+          loraModels: loraModels,
+          lastFetched: new Date()
+        },
+        { 
+          upsert: true, 
+          new: true 
+        }
+      );
+
+      res.json({
+        message: 'LoRA models cache refreshed successfully',
+        loraModels: loraModels,
+        lastFetched: new Date(),
+        fromCache: false
+      });
+    } catch (comfyError) {
+      console.error('Failed to refresh LoRA models from ComfyUI:', comfyError);
+      res.status(503).json({ 
+        message: 'Failed to refresh LoRA models from ComfyUI server',
+        error: comfyError.message 
+      });
+    }
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

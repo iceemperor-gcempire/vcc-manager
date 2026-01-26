@@ -133,12 +133,32 @@ function Signup() {
     authAPI.signup,
     {
       onSuccess: (response) => {
-        login(response.data.token);
-        toast.success(response.data.message);
-        navigate('/dashboard');
+        toast.success('회원가입이 완료되었습니다!', { duration: 6000 });
+        // 별도의 상세 안내 메시지
+        setTimeout(() => {
+          toast('관리자의 승인이 완료된 후 로그인을 진행하실 수 있습니다. 승인까지 다소 시간이 소요될 수 있으니 양해 부탁드립니다.', {
+            icon: '📋',
+            duration: 8000,
+            style: {
+              background: '#e3f2fd',
+              color: '#1565c0',
+            },
+          });
+        }, 1000);
+        
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       },
       onError: (error) => {
-        toast.error(error.response?.data?.message || '회원가입 실패');
+        const errorMessage = error.response?.data?.message || '회원가입 실패';
+        
+        // 비밀번호 관련 오류인지 확인
+        if (errorMessage.includes('password') || errorMessage.includes('비밀번호')) {
+          toast.error('비밀번호 조건을 확인해주세요: 8자 이상, 대문자, 소문자, 숫자, 특수문자 포함');
+        } else {
+          toast.error(errorMessage);
+        }
       }
     }
   );
@@ -261,8 +281,25 @@ function Signup() {
                     message: '비밀번호는 최소 8자 이상이어야 합니다'
                   },
                   validate: (value) => {
-                    const { score } = validatePassword(value);
-                    return score >= 4 || '비밀번호는 대문자, 소문자, 숫자, 특수문자를 포함해야 합니다';
+                    const { requirements, score } = validatePassword(value);
+                    
+                    if (!requirements.length) {
+                      return '비밀번호는 최소 8자 이상이어야 합니다';
+                    }
+                    if (!requirements.uppercase) {
+                      return '비밀번호에 대문자를 포함해야 합니다';
+                    }
+                    if (!requirements.lowercase) {
+                      return '비밀번호에 소문자를 포함해야 합니다';
+                    }
+                    if (!requirements.number) {
+                      return '비밀번호에 숫자를 포함해야 합니다';
+                    }
+                    if (!requirements.special) {
+                      return '비밀번호에 특수문자(!@#$%^&*)를 포함해야 합니다';
+                    }
+                    
+                    return score >= 4 || '비밀번호 조건을 모두 만족해야 합니다';
                   }
                 }}
                 render={({ field }) => (

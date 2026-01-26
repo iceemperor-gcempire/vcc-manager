@@ -9,18 +9,25 @@ const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', approvalStatus = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    const filter = search ? {
-      $or: [
+    const filter = {};
+    
+    if (search) {
+      filter.$or = [
         { email: { $regex: search, $options: 'i' } },
         { nickname: { $regex: search, $options: 'i' } }
-      ]
-    } : {};
+      ];
+    }
+    
+    if (approvalStatus) {
+      filter.approvalStatus = approvalStatus;
+    }
     
     const users = await User.find(filter)
       .select('-googleId')
+      .populate('approvedBy', 'nickname email')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -33,6 +40,72 @@ router.get('/users', requireAdmin, async (req, res) => {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
         total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 사용자 승인
+router.post('/users/:id/approve', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    if (user.approvalStatus === 'approved') {
+      return res.status(400).json({ message: 'User is already approved' });
+    }
+    
+    await user.approve(req.user._id);
+    await user.populate('approvedBy', 'nickname email');
+    
+    res.json({ 
+      message: 'User approved successfully',
+      user: {
+        _id: user._id,
+        email: user.email,
+        nickname: user.nickname,
+        approvalStatus: user.approvalStatus,
+        approvedBy: user.approvedBy,
+        approvedAt: user.approvedAt
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 사용자 승인 거절
+router.post('/users/:id/reject', requireAdmin, async (req, res) => {
+  try {
+    const userId = req.params.id;
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    if (user.approvalStatus === 'rejected') {
+      return res.status(400).json({ message: 'User is already rejected' });
+    }
+    
+    await user.reject(req.user._id);
+    await user.populate('approvedBy', 'nickname email');
+    
+    res.json({ 
+      message: 'User access denied',
+      user: {
+        _id: user._id,
+        email: user.email,
+        nickname: user.nickname,
+        approvalStatus: user.approvalStatus,
+        approvedBy: user.approvedBy,
+        approvedAt: user.approvedAt
       }
     });
   } catch (error) {
@@ -80,7 +153,10 @@ router.get('/stats', requireAdmin, async (req, res) => {
             _id: null,
             total: { $sum: 1 },
             active: { $sum: { $cond: ['$isActive', 1, 0] } },
-            admins: { $sum: { $cond: ['$isAdmin', 1, 0] } }
+            admins: { $sum: { $cond: ['$isAdmin', 1, 0] } },
+            pending: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'pending'] }, 1, 0] } },
+            approved: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'approved'] }, 1, 0] } },
+            rejected: { $sum: { $cond: [{ $eq: ['$approvalStatus', 'rejected'] }, 1, 0] } }
           }
         }
       ]),
@@ -113,7 +189,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
     ]);
     
     const stats = {
-      users: userStats[0] || { total: 0, active: 0, admins: 0 },
+      users: userStats[0] || { total: 0, active: 0, admins: 0, pending: 0, approved: 0, rejected: 0 },
       workboards: workboardStats[0] || { total: 0, active: 0 },
       jobs: {
         total: jobStats.reduce((sum, stat) => sum + stat.count, 0),

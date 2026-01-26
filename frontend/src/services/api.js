@@ -65,6 +65,8 @@ export const workboardAPI = {
   delete: (id) => api.delete(`/workboards/${id}`),
   duplicate: (id, data) => api.post(`/workboards/${id}/duplicate`, data),
   getStats: (id) => api.get(`/workboards/${id}/stats`),
+  getLoraModels: (id) => api.get(`/workboards/${id}/lora-models`),
+  refreshLoraModels: (id) => api.post(`/workboards/${id}/lora-models/refresh`),
 };
 
 export const jobAPI = {
@@ -102,6 +104,8 @@ export const imageAPI = {
 export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
+  approveUser: (id) => api.post(`/admin/users/${id}/approve`),
+  rejectUser: (id) => api.post(`/admin/users/${id}/reject`),
   getStats: () => api.get('/admin/stats'),
   getJobs: (params) => api.get('/admin/jobs', { params }),
 };

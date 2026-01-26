@@ -34,6 +34,36 @@ function Login() {
   const { login } = useAuth();
 
   const from = location.state?.from?.pathname || '/dashboard';
+  
+  // URL 파라미터에서 오류 확인 (Google OAuth 리디렉션용)
+  React.useEffect(() => {
+    const urlParams = new URLSearchParams(location.search);
+    const error = urlParams.get('error');
+    
+    if (error === 'pending') {
+      toast.error('아직 관리자가 승인하지 않았습니다. 승인 완료까지 기다려주세요.', {
+        duration: 6000,
+        icon: '⏳',
+      });
+    } else if (error === 'rejected') {
+      toast.error('가입이 거절되었습니다. 관리자에게 문의하시기 바랍니다.', {
+        duration: 6000,
+        icon: '❌',
+        style: {
+          background: '#ffebee',
+          color: '#c62828',
+        },
+      });
+    } else if (error === 'auth_failed') {
+      toast.error('인증 처리 중 오류가 발생했습니다.');
+    }
+    
+    // URL에서 오류 파라미터 제거
+    if (error) {
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+    }
+  }, [location.search]);
 
   const { control, handleSubmit, formState: { errors } } = useForm();
 
@@ -61,7 +91,25 @@ function Login() {
       },
       onError: (error) => {
         console.error('❌ Login failed:', error.response?.data);
-        toast.error(error.response?.data?.message || '로그인 실패');
+        const errorData = error.response?.data;
+        
+        if (errorData?.approvalStatus === 'pending') {
+          toast.error('아직 관리자가 승인하지 않았습니다. 승인 완료까지 기다려주세요.', {
+            duration: 6000,
+            icon: '⏳',
+          });
+        } else if (errorData?.approvalStatus === 'rejected') {
+          toast.error('가입이 거절되었습니다. 관리자에게 문의하시기 바랍니다.', {
+            duration: 6000,
+            icon: '❌',
+            style: {
+              background: '#ffebee',
+              color: '#c62828',
+            },
+          });
+        } else {
+          toast.error(errorData?.message || '로그인 실패');
+        }
       }
     }
   );

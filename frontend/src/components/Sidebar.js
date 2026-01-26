@@ -17,7 +17,6 @@ import {
   ViewModule,
   Image,
   History,
-  CloudUpload,
   AdminPanelSettings
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
