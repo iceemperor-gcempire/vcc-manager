@@ -32,9 +32,9 @@ import {
   Image as ImageIcon,
   Delete,
   Add,
-  Info,
   ArrowBack,
-  Shuffle
+  Shuffle,
+  ViewList
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -42,6 +42,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI } from '../services/api';
+import LoraListModal from '../components/LoraListModal';
 
 function ImageUploadZone({ onUpload, maxFiles = 5 }) {
   const [uploading, setUploading] = useState(false);
@@ -283,9 +284,24 @@ function ImageGeneration() {
   const [generating, setGenerating] = useState(false);
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
+  const [loraModalOpen, setLoraModalOpen] = useState(false);
   const initializedRef = useRef(null);
 
-  const { control, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm({
+  const handleLoraModalOpen = () => {
+    setLoraModalOpen(true);
+  };
+
+  const handleLoraModalClose = () => {
+    setLoraModalOpen(false);
+  };
+
+  const handleAddLora = (loraString) => {
+    const currentPrompt = getValues('prompt') || '';
+    const newPrompt = currentPrompt ? `${currentPrompt}, ${loraString}` : loraString;
+    setValue('prompt', newPrompt);
+  };
+
+  const { control, handleSubmit, setValue, reset, getValues, formState: { errors } } = useForm({
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true
@@ -575,7 +591,7 @@ function ImageGeneration() {
         }, 100);
       }
     }
-  }, [workboardData, setValue, reset]);
+  }, [workboardData, setValue, reset, getValues]);
 
   const onSubmit = async (formData) => {
     setGenerating(true);
@@ -765,10 +781,22 @@ function ImageGeneration() {
                     placeholder="생성하고 싶은 이미지에 대한 설명을 입력하세요..."
                     error={!!errors.prompt}
                     helperText={errors.prompt?.message}
-                    sx={{ mb: 3 }}
+                    sx={{ mb: 2 }}
                   />
                 )}
               />
+
+              {/* LoRA 목록 버튼 */}
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleLoraModalOpen}
+                  startIcon={<ViewList />}
+                >
+                  LoRA 목록
+                </Button>
+              </Box>
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
@@ -1010,6 +1038,14 @@ function ImageGeneration() {
           </Grid>
         </Grid>
       </form>
+
+      {/* LoRA 목록 모달 */}
+      <LoraListModal
+        open={loraModalOpen}
+        onClose={handleLoraModalClose}
+        workboardId={id}
+        onAddLora={handleAddLora}
+      />
     </Container>
   );
 }
