@@ -115,21 +115,53 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
   };
 
   return (
-    <Card sx={{ mb: 1.5, '&:hover': { boxShadow: 2 } }}>
-      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
-          <Box flex={1}>
-            <Typography variant="subtitle1" gutterBottom sx={{ lineHeight: 1.3, mb: 0.5 }}>
-              {job.inputData?.prompt?.substring(0, 80)}
-              {job.inputData?.prompt?.length > 80 && '...'}
-            </Typography>
-            <Typography variant="caption" color="textSecondary">
-              작업판: {job.workboardId?.name || '알 수 없음'}
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
+    <Card sx={{ 
+      mb: 1.5, 
+      '&:hover': { boxShadow: 2 },
+      maxWidth: '100%',
+      overflow: 'hidden'
+    }}>
+      <CardContent sx={{ 
+        p: { xs: 1.5, sm: 2 }, 
+        '&:last-child': { pb: { xs: 1.5, sm: 2 } }
+      }}>
+        <Box mb={1.5}>
+          {/* 상태 칩 - 상단에 배치 */}
+          <Box display="flex" justifyContent="flex-end" mb={1}>
             <JobStatusChip status={job.status} />
           </Box>
+          
+          {/* 프롬프트 - 전체 폭 사용, 긴 텍스트 처리 */}
+          <Typography 
+            variant="subtitle1" 
+            gutterBottom 
+            sx={{ 
+              lineHeight: 1.3, 
+              mb: 0.5,
+              wordBreak: 'break-word',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical'
+            }}
+          >
+            {job.inputData?.prompt || '프롬프트 없음'}
+          </Typography>
+          
+          {/* 작업판 정보 */}
+          <Typography 
+            variant="caption" 
+            color="textSecondary"
+            sx={{
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            작업판: {job.workboardId?.name || '알 수 없음'}
+          </Typography>
         </Box>
 
         {/* 진행률 (처리 중일 때만) */}
@@ -153,16 +185,25 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             <Typography variant="caption" display="block" gutterBottom>
               생성된 이미지 ({job.resultImages.length}개)
             </Typography>
-            <Box display="flex" gap={0.5} flexWrap="wrap">
+            <Box 
+              sx={{
+                display: 'flex', 
+                gap: 0.5, 
+                flexWrap: 'wrap',
+                maxWidth: '100%',
+                overflow: 'hidden'
+              }}
+            >
               {job.resultImages.slice(0, 6).map((image, index) => (
                 <Avatar
                   key={index}
                   src={image.url}
                   onClick={() => onImageView(job.resultImages, index)}
                   sx={{ 
-                    width: 48, 
-                    height: 48,
+                    width: { xs: 40, sm: 48 }, 
+                    height: { xs: 40, sm: 48 },
                     cursor: 'pointer',
+                    flexShrink: 0,
                     '&:hover': { 
                       opacity: 0.8,
                       transform: 'scale(1.05)',
@@ -176,12 +217,13 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                 <Avatar
                   onClick={() => onImageView(job.resultImages, 6)}
                   sx={{ 
-                    width: 48, 
-                    height: 48, 
+                    width: { xs: 40, sm: 48 }, 
+                    height: { xs: 40, sm: 48 },
                     bgcolor: 'grey.200',
                     color: 'grey.600',
                     cursor: 'pointer',
-                    fontSize: '0.75rem',
+                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    flexShrink: 0,
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
                   variant="rounded"
@@ -200,24 +242,64 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           </Alert>
         )}
 
-        <Box display="flex" flexWrap="wrap" gap={2} mb={1.5} sx={{ fontSize: '0.75rem' }}>
+        {/* 메타데이터 - 모바일에서 수직 정렬 */}
+        <Box 
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: {
+              xs: 'repeat(2, 1fr)',  // 모바일: 2열
+              sm: 'repeat(3, 1fr)',  // 태블릿: 3열
+              md: 'repeat(5, 1fr)'   // 데스크톱: 5열
+            },
+            gap: 1,
+            mb: 1.5,
+            '& > div': {
+              minWidth: 0, // flex children이 축소될 수 있도록
+              overflow: 'hidden'
+            }
+          }}
+        >
           <Box>
             <Typography variant="caption" color="textSecondary" display="block">생성 시간</Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {new Date(job.createdAt).toLocaleDateString()}
             </Typography>
           </Box>
           
           <Box>
             <Typography variant="caption" color="textSecondary" display="block">소요 시간</Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {formatDuration(job.actualTime)}
             </Typography>
           </Box>
 
           <Box>
             <Typography variant="caption" color="textSecondary" display="block">AI 모델</Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key ? 
                 job.inputData.aiModel.key : 
                 job.inputData?.aiModel || '-'}
@@ -226,7 +308,15 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 
           <Box>
             <Typography variant="caption" color="textSecondary" display="block">크기</Typography>
-            <Typography variant="body2" sx={{ fontSize: '0.75rem' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontSize: '0.75rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key ? 
                 job.inputData.imageSize.key : 
                 job.inputData?.imageSize || '-'}
@@ -235,7 +325,16 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 
           <Box>
             <Typography variant="caption" color="textSecondary" display="block">시드</Typography>
-            <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem' }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontFamily: 'monospace', 
+                fontSize: '0.65rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+            >
               {job.inputData?.seed !== undefined ? 
                 (job.inputData.seed.toString().length > 8 ? 
                   `${job.inputData.seed.toString().slice(0, 8)}...` : 
@@ -245,12 +344,31 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           </Box>
         </Box>
 
-        <Box display="flex" justifyContent="flex-end" gap={0.5} mt={1}>
+        {/* 액션 버튼들 - 모바일에서 최적화 */}
+        <Box 
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+            gap: 0.5,
+            mt: 1,
+            '& .MuiButton-root': {
+              fontSize: { xs: '0.75rem', sm: '0.875rem' },
+              px: { xs: 1, sm: 1.5 },
+              minWidth: { xs: 'auto', sm: 'auto' }
+            }
+          }}
+        >
           <Button
             size="small"
             onClick={() => onView(job)}
             startIcon={<Info />}
-            sx={{ minWidth: 'auto', px: 1.5 }}
+            sx={{ 
+              '& .MuiButton-startIcon': { 
+                mx: { xs: 0, sm: '-4px' },
+                mr: { xs: 0.5, sm: 1 }
+              }
+            }}
           >
             상세
           </Button>
@@ -262,9 +380,15 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               startIcon={<PlayArrow />}
               color="success"
               variant="contained"
-              sx={{ px: 1.5 }}
+              sx={{ 
+                '& .MuiButton-startIcon': { 
+                  mx: { xs: 0, sm: '-4px' },
+                  mr: { xs: 0.5, sm: 1 }
+                }
+              }}
             >
-              계속하기
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
             </Button>
           )}
 
@@ -274,9 +398,15 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               onClick={() => onRetry(job)}
               startIcon={<Refresh />}
               color="primary"
-              sx={{ px: 1.5 }}
+              sx={{ 
+                '& .MuiButton-startIcon': { 
+                  mx: { xs: 0, sm: '-4px' },
+                  mr: { xs: 0.5, sm: 1 }
+                }
+              }}
             >
-              재시도
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>재시도</Box>
+              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>재시도</Box>
             </Button>
           )}
 
@@ -286,7 +416,12 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               onClick={() => onCancel(job)}
               startIcon={<Stop />}
               color="warning"
-              sx={{ px: 1.5 }}
+              sx={{ 
+                '& .MuiButton-startIcon': { 
+                  mx: { xs: 0, sm: '-4px' },
+                  mr: { xs: 0.5, sm: 1 }
+                }
+              }}
             >
               취소
             </Button>
@@ -297,7 +432,12 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             onClick={() => onDelete(job)}
             startIcon={<Delete />}
             color="error"
-            sx={{ px: 1.5 }}
+            sx={{ 
+              '& .MuiButton-startIcon': { 
+                mx: { xs: 0, sm: '-4px' },
+                mr: { xs: 0.5, sm: 1 }
+              }
+            }}
           >
             삭제
           </Button>
@@ -586,10 +726,12 @@ function JobHistory() {
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  
+  const ITEMS_PER_PAGE = 10; // 페이지당 항목 수
 
   const { data, isLoading, refetch } = useQuery(
-    ['jobs', { search, status: statusFilter, page }],
-    () => jobAPI.getMy({ search, status: statusFilter, page, limit: 10 }),
+    ['jobs', { search, status: statusFilter, page, limit: ITEMS_PER_PAGE }],
+    () => jobAPI.getMy({ search, status: statusFilter, page, limit: ITEMS_PER_PAGE }),
     { 
       refetchInterval: config.monitoring.recentJobsInterval,
       keepPreviousData: true 
@@ -845,18 +987,80 @@ function JobHistory() {
           ))}
 
           {pagination.pages > 1 && (
-            <Box display="flex" justifyContent="center" mt={4}>
-              <Box display="flex" gap={1}>
-                {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={pageNum === page ? "contained" : "outlined"}
-                    onClick={() => setPage(pageNum)}
-                    size="small"
-                  >
-                    {pageNum}
-                  </Button>
-                ))}
+            <Box 
+              display="flex" 
+              justifyContent="space-between" 
+              alignItems="center" 
+              mt={4}
+              sx={{
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 2, sm: 0 }
+              }}
+            >
+              {/* 페이지 정보 */}
+              <Typography variant="body2" color="textSecondary">
+                페이지 {page} / {pagination.pages} (총 {pagination.total}개)
+              </Typography>
+              
+              {/* 페이지 네비게이션 */}
+              <Box display="flex" alignItems="center" gap={1}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setPage(1)}
+                  disabled={page === 1}
+                  sx={{ minWidth: 'auto', px: 1 }}
+                >
+                  처음
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page === 1}
+                  sx={{ minWidth: 'auto', px: 1 }}
+                >
+                  이전
+                </Button>
+                
+                {/* 현재 페이지 주변 페이지만 표시 */}
+                {(() => {
+                  const maxVisible = 3; // 모바일에서 최대 3개 페이지 버튼
+                  const startPage = Math.max(1, Math.min(page - 1, pagination.pages - maxVisible + 1));
+                  const endPage = Math.min(pagination.pages, startPage + maxVisible - 1);
+                  
+                  return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i)
+                    .map((pageNum) => (
+                      <Button
+                        key={pageNum}
+                        variant={pageNum === page ? "contained" : "outlined"}
+                        onClick={() => setPage(pageNum)}
+                        size="small"
+                        sx={{ minWidth: 'auto', px: 1.5 }}
+                      >
+                        {pageNum}
+                      </Button>
+                    ));
+                })()}
+                
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page === pagination.pages}
+                  sx={{ minWidth: 'auto', px: 1 }}
+                >
+                  다음
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => setPage(pagination.pages)}
+                  disabled={page === pagination.pages}
+                  sx={{ minWidth: 'auto', px: 1 }}
+                >
+                  마지막
+                </Button>
               </Box>
             </Box>
           )}
