@@ -270,6 +270,230 @@ function ReferenceImageSelector({ value, onChange, workboard }) {
   );
 }
 
+// 사용자 정의 이미지 입력 필드 컴포넌트
+function CustomImageField({ field, value, onChange, maxImages = 1 }) {
+  const [selectedImages, setSelectedImages] = useState(value || []);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { data: uploadedImages, isLoading } = useQuery(
+    'uploadedImages',
+    () => imageAPI.getUploaded({ limit: 50 })
+  );
+
+  const images = uploadedImages?.data?.images || [];
+
+  const handleImageSelect = (image) => {
+    const isSelected = selectedImages.find(img => img.imageId === image._id);
+    if (isSelected) {
+      const updated = selectedImages.filter(img => img.imageId !== image._id);
+      setSelectedImages(updated);
+    } else if (selectedImages.length < maxImages) {
+      const updated = [...selectedImages, {
+        imageId: image._id,
+        image: image
+      }];
+      setSelectedImages(updated);
+    } else {
+      toast.error(`최대 ${maxImages}장까지 선택할 수 있습니다.`);
+    }
+  };
+
+  const handleSave = () => {
+    onChange(selectedImages);
+    setDialogOpen(false);
+  };
+
+  const handleRemove = (imageId) => {
+    const updated = selectedImages.filter(img => img.imageId !== imageId);
+    setSelectedImages(updated);
+    onChange(updated);
+  };
+
+  const handleNewUpload = async (files) => {
+    if (files.length === 0) return;
+    
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('image', file);
+        const response = await imageAPI.upload(formData);
+        return response.data.image;
+      });
+
+      const uploadedImgs = await Promise.all(uploadPromises);
+      const newSelections = uploadedImgs.map(image => ({
+        imageId: image._id,
+        image: image
+      }));
+
+      const remainingSlots = maxImages - selectedImages.length;
+      const toAdd = newSelections.slice(0, remainingSlots);
+      
+      const updated = [...selectedImages, ...toAdd];
+      setSelectedImages(updated);
+      onChange(updated);
+      toast.success(`${toAdd.length}개 이미지 업로드 완료`);
+    } catch (error) {
+      toast.error('이미지 업로드 실패');
+    }
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
+    maxFiles: maxImages - selectedImages.length,
+    disabled: selectedImages.length >= maxImages,
+    onDrop: handleNewUpload
+  });
+
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="subtitle2">
+          {field.label} ({selectedImages.length}/{maxImages})
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={() => setDialogOpen(true)}
+          startIcon={<ImageIcon />}
+          size="small"
+          disabled={selectedImages.length >= maxImages}
+        >
+          갤러리에서 선택
+        </Button>
+      </Box>
+
+      {field.description && (
+        <Typography variant="caption" color="textSecondary" display="block" mb={1}>
+          {field.description}
+        </Typography>
+      )}
+
+      {selectedImages.length === 0 ? (
+        <Box
+          {...getRootProps()}
+          sx={{
+            border: '2px dashed',
+            borderColor: isDragActive ? 'primary.main' : 'grey.300',
+            borderRadius: 1,
+            p: 2,
+            textAlign: 'center',
+            cursor: 'pointer',
+            bgcolor: isDragActive ? 'primary.light' : 'grey.50'
+          }}
+        >
+          <input {...getInputProps()} />
+          <ImageIcon sx={{ fontSize: 32, color: 'grey.400', mb: 1 }} />
+          <Typography variant="body2" color="textSecondary">
+            이미지를 드래그하거나 클릭하여 업로드
+          </Typography>
+          <Typography variant="caption" color="textSecondary">
+            최대 {maxImages}장
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={1}>
+          {selectedImages.map((item, index) => (
+            <Grid item xs={4} key={index}>
+              <Card sx={{ position: 'relative' }}>
+                <CardMedia
+                  component="img"
+                  height="80"
+                  image={item.image.url}
+                  alt={`Image ${index + 1}`}
+                  sx={{ objectFit: 'cover' }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => handleRemove(item.imageId)}
+                  sx={{
+                    position: 'absolute',
+                    top: 2,
+                    right: 2,
+                    bgcolor: 'rgba(255,255,255,0.8)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,1)' }
+                  }}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Card>
+            </Grid>
+          ))}
+          {selectedImages.length < maxImages && (
+            <Grid item xs={4}>
+              <Box
+                {...getRootProps()}
+                sx={{
+                  height: 80,
+                  border: '2px dashed',
+                  borderColor: 'grey.300',
+                  borderRadius: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <input {...getInputProps()} />
+                <Add sx={{ color: 'grey.400' }} />
+              </Box>
+            </Grid>
+          )}
+        </Grid>
+      )}
+
+      {/* 갤러리 선택 다이얼로그 */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{field.label} 선택 ({selectedImages.length}/{maxImages})</DialogTitle>
+        <DialogContent>
+          {isLoading ? (
+            <CircularProgress />
+          ) : images.length === 0 ? (
+            <Alert severity="info">업로드된 이미지가 없습니다.</Alert>
+          ) : (
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              {images.map((image) => {
+                const isSelected = selectedImages.find(img => img.imageId === image._id);
+                return (
+                  <Grid item xs={6} sm={4} md={3} key={image._id}>
+                    <Card
+                      sx={{
+                        cursor: 'pointer',
+                        border: isSelected ? '3px solid' : '1px solid',
+                        borderColor: isSelected ? 'primary.main' : 'grey.300',
+                        opacity: !isSelected && selectedImages.length >= maxImages ? 0.5 : 1
+                      }}
+                      onClick={() => handleImageSelect(image)}
+                    >
+                      <CardMedia
+                        component="img"
+                        height="100"
+                        image={image.url}
+                        alt="Uploaded"
+                        sx={{ objectFit: 'cover' }}
+                      />
+                      <CardContent sx={{ p: 1 }}>
+                        <Typography variant="caption" noWrap>
+                          {image.originalName}
+                        </Typography>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDialogOpen(false)}>취소</Button>
+          <Button onClick={handleSave} variant="contained">
+            선택 완료
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  );
+}
+
 // 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
   // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
@@ -942,12 +1166,13 @@ function ImageGeneration() {
                 </Typography>
                 <Grid container spacing={2}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={6} key={field.name}>
+                    <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
                       <Controller
                         name={`additionalParams.${field.name}`}
                         control={control}
                         defaultValue={field.type === 'select' ?
                           (field.defaultValue || field.options?.[0]?.value || '') :
+                          field.type === 'image' ? [] :
                           (field.defaultValue || '')
                         }
                         render={({ field: formField }) => (
@@ -974,6 +1199,13 @@ function ImageGeneration() {
                               label={field.label}
                               placeholder={field.placeholder}
                               helperText={field.description}
+                            />
+                          ) : field.type === 'image' ? (
+                            <CustomImageField
+                              field={field}
+                              value={formField.value || []}
+                              onChange={formField.onChange}
+                              maxImages={field.imageConfig?.maxImages || 1}
                             />
                           ) : (
                             <TextField

@@ -29,7 +29,7 @@ import {
   Add,
   Edit,
   Delete,
-  Health,
+  HelpOutline,
   CheckCircle,
   Error,
   Refresh,
@@ -51,7 +51,7 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck }) {
       case 'unhealthy':
         return <Error color="error" />;
       default:
-        return <Health color="disabled" />;
+        return <HelpOutline color="disabled" />;
     }
   };
 

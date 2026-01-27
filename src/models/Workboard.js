@@ -22,7 +22,7 @@ const inputFieldSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['string', 'select', 'file', 'number', 'boolean'],
+    enum: ['string', 'select', 'file', 'number', 'boolean', 'image'],
     required: true
   },
   required: {
@@ -44,6 +44,15 @@ const inputFieldSchema = new mongoose.Schema({
     max: Number,
     maxLength: Number,
     pattern: String
+  },
+  // 이미지 타입 전용 설정
+  imageConfig: {
+    maxImages: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 3
+    }
   }
 }, { _id: false });
 

@@ -211,7 +211,10 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               formatString: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.formatString || '{{##base_style##}}'
             },
             // 추가 커스톰 필드들
-            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)) || []
+            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)).map(f => ({
+              ...f,
+              imageConfig: f.imageConfig || { maxImages: 1 }
+            })) || []
           };
           
           console.log('Form data to reset with:', formData);
@@ -274,14 +277,25 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     if (data.additionalCustomFields) {
       data.additionalCustomFields.forEach(field => {
         if (field.name && field.label) {
-          additionalInputFields.push({
+          const fieldData = {
             name: field.name,
             label: field.label,
             type: field.type || 'string',
             required: Boolean(field.required),
-            options: field.type === 'select' ? (field.options || []) : undefined,
             formatString: field.formatString || `{{##${field.name}##}}`
-          });
+          };
+          
+          if (field.type === 'select') {
+            fieldData.options = field.options || [];
+          }
+          
+          if (field.type === 'image') {
+            fieldData.imageConfig = {
+              maxImages: field.imageConfig?.maxImages || 1
+            };
+          }
+          
+          additionalInputFields.push(fieldData);
         }
       });
     }
@@ -839,7 +853,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           type: 'string',
                           required: false,
                           formatString: '',
-                          options: []
+                          options: [],
+                          imageConfig: { maxImages: 1 }
                         }]);
                       }}
                       size="small"
@@ -903,6 +918,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   <MenuItem value="number">숫자</MenuItem>
                                   <MenuItem value="select">선택</MenuItem>
                                   <MenuItem value="boolean">체크박스</MenuItem>
+                                  <MenuItem value="image">이미지</MenuItem>
                                 </TextField>
                               )}
                             />
@@ -935,6 +951,34 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
+                          {field.type === 'image' && (
+                            <Grid item xs={12}>
+                              <Typography variant="body2" gutterBottom>
+                                이미지 설정
+                              </Typography>
+                              <Controller
+                                name={`additionalCustomFields.${index}.imageConfig.maxImages`}
+                                control={control}
+                                render={({ field: imageField }) => (
+                                  <TextField
+                                    {...imageField}
+                                    fullWidth
+                                    select
+                                    label="최대 이미지 수"
+                                    size="small"
+                                    value={imageField.value || 1}
+                                  >
+                                    <MenuItem value={1}>1개</MenuItem>
+                                    <MenuItem value={2}>2개</MenuItem>
+                                    <MenuItem value={3}>3개</MenuItem>
+                                  </TextField>
+                                )}
+                              />
+                              <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                                사용자가 선택할 수 있는 참고 이미지의 최대 개수를 설정합니다.
+                              </Typography>
+                            </Grid>
+                          )}
                           {field.type === 'select' && (
                             <Grid item xs={12}>
                               <Typography variant="body2" gutterBottom>
