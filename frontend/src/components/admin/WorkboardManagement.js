@@ -44,6 +44,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
+import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -158,7 +159,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     defaultValues: {
       name: '',
       description: '',
-      serverUrl: '',
+      serverId: '',
       workflowData: '',
       isActive: true,
       aiModels: [],
@@ -187,7 +188,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           const formData = {
             name: fullData.name || '',
             description: fullData.description || '',
-            serverUrl: fullData.serverUrl || '',
+            serverId: fullData.serverId?._id || fullData.serverId || '',
             workflowData: fullData.workflowData || '',
             isActive: fullData.isActive ?? true,
             // 기초 입력값
@@ -303,7 +304,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
-      serverUrl: data.serverUrl?.trim(),
+      serverId: data.serverId,
       workflowData: data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
@@ -345,67 +346,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
           {/* 기본 정보 탭 */}
           {tabValue === 0 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Controller
-                  name="name"
-                  control={control}
-                  rules={{ required: '작업판 이름을 입력해주세요' }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="작업판 이름"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="설명"
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="serverUrl"
-                  control={control}
-                  rules={{ required: 'ComfyUI 서버 URL을 입력해주세요' }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="ComfyUI 서버 URL"
-                      error={!!errors.serverUrl}
-                      helperText={errors.serverUrl?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="isActive"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={<Switch {...field} checked={field.value} />}
-                      label="활성 상태"
-                    />
-                  )}
-                />
-              </Grid>
-            </Grid>
+            <WorkboardBasicInfoForm
+              control={control}
+              errors={errors}
+              showActiveSwitch={true}
+              isDialogOpen={open}
+            />
           )}
 
           {/* 기초 입력값 탭 */}
@@ -1097,11 +1043,10 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
   const isEditing = !!workboard;
   
-  // 서버 목록 조회
   const { data: serversData } = useQuery(
     ['servers'],
     () => serverAPI.getServers({ serverType: 'ComfyUI', outputType: 'Image' }),
-    { enabled: open } // 다이얼로그가 열렸을 때만 조회
+    { enabled: open }
   );
   
   const servers = serversData?.data?.data?.servers || [];
@@ -1111,7 +1056,6 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       name: workboard?.name || '',
       description: workboard?.description || '',
       serverId: workboard?.serverId?._id || '',
-      serverUrl: workboard?.serverUrl || 'http://localhost:8188', // 기존 호환성용
       isActive: workboard?.isActive ?? true
     }
   });
@@ -1122,7 +1066,6 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
         name: workboard?.name || '',
         description: workboard?.description || '',
         serverId: workboard?.serverId?._id || '',
-        serverUrl: workboard?.serverUrl || 'http://localhost:8188', // 기존 호환성용
         isActive: workboard?.isActive ?? true
       });
     }
@@ -1139,85 +1082,17 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       </DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Controller
-                name="name"
-                control={control}
-                rules={{ required: '작업판 이름을 입력해주세요' }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="작업판 이름"
-                    error={!!errors.name}
-                    helperText={errors.name?.message}
-                  />
-                )}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="설명"
-                    placeholder="작업판에 대한 설명을 입력하세요..."
-                  />
-                )}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Controller
-                name="serverId"
-                control={control}
-                rules={{ required: '서버를 선택해주세요' }}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.serverId}>
-                    <InputLabel>서버 선택</InputLabel>
-                    <Select
-                      {...field}
-                      label="서버 선택"
-                      disabled={servers.length === 0}
-                    >
-                      {servers.length === 0 ? (
-                        <MenuItem disabled>
-                          사용 가능한 서버가 없습니다
-                        </MenuItem>
-                      ) : (
-                        servers.map((server) => (
-                          <MenuItem key={server._id} value={server._id}>
-                            {server.name} ({server.serverType}) - {server.outputType}
-                          </MenuItem>
-                        ))
-                      )}
-                    </Select>
-                    {errors.serverId && (
-                      <Typography variant="caption" color="error">
-                        {errors.serverId.message}
-                      </Typography>
-                    )}
-                  </FormControl>
-                )}
-              />
-            </Grid>
-          </Grid>
+          <WorkboardBasicInfoForm
+            control={control}
+            errors={errors}
+            showActiveSwitch={false}
+            isDialogOpen={open}
+          />
 
-          {servers.length === 0 ? (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.
-            </Alert>
-          ) : (
+          {servers.length > 0 && !isEditing && (
             <Alert severity="info" sx={{ mt: 2 }}>
               기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
-              생성 후 편집에서 추가할 수 있습니다.
+              생성 후 상세 편집에서 추가할 수 있습니다.
             </Alert>
           )}
         </DialogContent>
