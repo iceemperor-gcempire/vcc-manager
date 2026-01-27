@@ -584,17 +584,82 @@ function MyImages() {
 
           {currentPagination.pages > 1 && (
             <Box display="flex" justifyContent="center" mt={4}>
-              <Box display="flex" gap={1}>
-                {Array.from({ length: currentPagination.pages }, (_, i) => i + 1).map((pageNum) => (
+              <Box 
+                display="flex" 
+                gap={1} 
+                alignItems="center"
+                sx={{ 
+                  flexWrap: 'wrap', 
+                  justifyContent: 'center',
+                  maxWidth: '100%',
+                  overflow: 'hidden'
+                }}
+              >
+                {/* 이전 페이지 버튼 */}
+                {page > 1 && (
                   <Button
-                    key={pageNum}
-                    variant={pageNum === page ? "contained" : "outlined"}
-                    onClick={() => setPage(pageNum)}
+                    variant="outlined"
+                    onClick={() => setPage(page - 1)}
                     size="small"
+                    sx={{ minWidth: 'auto', px: 1 }}
                   >
-                    {pageNum}
+                    ‹
                   </Button>
-                ))}
+                )}
+
+                {/* 스마트 페이지네이션 - 최대 3개만 표시 */}
+                {(() => {
+                  const totalPages = currentPagination.pages;
+                  const current = page;
+                  let startPage, endPage;
+
+                  if (totalPages <= 3) {
+                    // 총 페이지가 3개 이하면 모두 표시
+                    startPage = 1;
+                    endPage = totalPages;
+                  } else {
+                    // 현재 페이지를 중심으로 3개 표시
+                    if (current <= 2) {
+                      startPage = 1;
+                      endPage = 3;
+                    } else if (current >= totalPages - 1) {
+                      startPage = totalPages - 2;
+                      endPage = totalPages;
+                    } else {
+                      startPage = current - 1;
+                      endPage = current + 1;
+                    }
+                  }
+
+                  const pages = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                  }
+
+                  return pages.map((pageNum) => (
+                    <Button
+                      key={pageNum}
+                      variant={pageNum === current ? "contained" : "outlined"}
+                      onClick={() => setPage(pageNum)}
+                      size="small"
+                      sx={{ minWidth: 'auto', px: 1.5 }}
+                    >
+                      {pageNum}
+                    </Button>
+                  ));
+                })()}
+
+                {/* 다음 페이지 버튼 */}
+                {page < currentPagination.pages && (
+                  <Button
+                    variant="outlined"
+                    onClick={() => setPage(page + 1)}
+                    size="small"
+                    sx={{ minWidth: 'auto', px: 1 }}
+                  >
+                    ›
+                  </Button>
+                )}
               </Box>
             </Box>
           )}
