@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Prompt Data Management System** (#11)
+  - New PromptData model for saving and managing prompts
+  - Fields: name, memo, representative image, prompt, negative prompt, seed
+  - CRUD API for prompt data management
+  - Usage tracking with usage count
+  - Prompt Data list page with grid view, search, and pagination
+  - ImageSelectDialog component for selecting representative images
+  - Save prompt from Job History with auto-populated fields
+  - Load saved prompts in Image Generation form
+  - Quick generate from Prompt Data list with workboard selection
+  - Copy prompt to clipboard functionality
+  - Sidebar menu item for Prompt Data
+
 - **Server Management System** (#5)
   - New Server model supporting multiple server types (ComfyUI, OpenAI Compatible)
   - Server output type configuration (Image, Text)
