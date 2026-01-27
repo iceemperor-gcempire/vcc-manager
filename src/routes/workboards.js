@@ -21,6 +21,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     const workboards = await Workboard.find(filter)
       .populate('createdBy', 'nickname email')
+      .populate('serverId', 'name serverType serverUrl outputType isActive')
       .select('-workflowData')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
@@ -44,7 +45,8 @@ router.get('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
-      .populate('createdBy', 'nickname email');
+      .populate('createdBy', 'nickname email')
+      .populate('serverId', 'name serverType serverUrl outputType isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -64,7 +66,8 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.get('/admin/:id', requireAdmin, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
-      .populate('createdBy', 'nickname email');
+      .populate('createdBy', 'nickname email')
+      .populate('serverId', 'name serverType serverUrl outputType isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -89,16 +92,47 @@ router.post('/', requireAdmin, async (req, res) => {
     const {
       name,
       description,
-      serverUrl,
+      serverId,
+      serverUrl, // 기존 호환성을 위해 유지
       baseInputFields,
       additionalInputFields,
       workflowData
     } = req.body;
     
+    // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
+    let finalServerId = serverId;
+    if (!serverId && serverUrl) {
+      // 기존 serverUrl 방식 지원 (deprecated)
+      console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
+    }
+    
+    // serverId 필수 검증
+    if (!finalServerId) {
+      return res.status(400).json({ 
+        message: 'serverId is required. Please select a server.' 
+      });
+    }
+    
+    // 서버 존재 확인
+    const Server = require('../models/Server');
+    const server = await Server.findById(finalServerId);
+    if (!server) {
+      return res.status(400).json({ 
+        message: 'Selected server not found.' 
+      });
+    }
+    
+    if (!server.isActive) {
+      return res.status(400).json({ 
+        message: 'Selected server is not active.' 
+      });
+    }
+    
     const workboard = new Workboard({
       name: name.trim(),
       description: description?.trim(),
-      serverUrl: serverUrl.trim(),
+      serverId: finalServerId,
+      serverUrl: server.serverUrl, // 서버에서 실제 URL 가져오기
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
       workflowData,
@@ -111,6 +145,7 @@ router.post('/', requireAdmin, async (req, res) => {
     
     await workboard.save();
     await workboard.populate('createdBy', 'nickname email');
+    await workboard.populate('serverId', 'name serverType serverUrl outputType isActive');
     
     res.status(201).json({
       message: 'Workboard created successfully',
@@ -126,7 +161,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const {
       name,
       description,
-      serverUrl,
+      serverId,
+      serverUrl, // 기존 호환성을 위해 유지
       baseInputFields,
       additionalInputFields,
       workflowData,
@@ -146,7 +182,28 @@ router.put('/:id', requireAdmin, async (req, res) => {
     
     if (name) workboard.name = name.trim();
     if (description !== undefined) workboard.description = description?.trim();
-    if (serverUrl) workboard.serverUrl = serverUrl.trim();
+    
+    // 서버 변경 처리
+    if (serverId) {
+      const Server = require('../models/Server');
+      const server = await Server.findById(serverId);
+      if (!server) {
+        return res.status(400).json({ 
+          message: 'Selected server not found.' 
+        });
+      }
+      if (!server.isActive) {
+        return res.status(400).json({ 
+          message: 'Selected server is not active.' 
+        });
+      }
+      workboard.serverId = serverId;
+      workboard.serverUrl = server.serverUrl; // 서버에서 실제 URL 가져오기
+    } else if (serverUrl) {
+      // 기존 호환성 지원 (deprecated)
+      console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
+      workboard.serverUrl = serverUrl.trim();
+    }
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
@@ -161,6 +218,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     console.log('Before save:', workboard.toObject());
     await workboard.save();
     await workboard.populate('createdBy', 'nickname email');
+    await workboard.populate('serverId', 'name serverType serverUrl outputType isActive');
     
     res.json({
       message: 'Workboard updated successfully',

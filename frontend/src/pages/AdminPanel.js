@@ -10,6 +10,7 @@ import {
 import AdminDashboard from '../components/admin/AdminDashboard';
 import UserManagement from '../components/admin/UserManagement';
 import WorkboardManagement from '../components/admin/WorkboardManagement';
+import ServerManagement from '../components/admin/ServerManagement';
 import SystemStats from '../components/admin/SystemStats';
 
 function TabPanel({ children, value, index, ...other }) {
@@ -54,6 +55,7 @@ function AdminPanel() {
           <Tab label="대시보드" />
           <Tab label="사용자 관리" />
           <Tab label="작업판 관리" />
+          <Tab label="서버 관리" />
           <Tab label="시스템 통계" />
         </Tabs>
         
@@ -70,6 +72,10 @@ function AdminPanel() {
         </TabPanel>
         
         <TabPanel value={tab} index={3}>
+          <ServerManagement />
+        </TabPanel>
+        
+        <TabPanel value={tab} index={4}>
           <SystemStats />
         </TabPanel>
       </Paper>

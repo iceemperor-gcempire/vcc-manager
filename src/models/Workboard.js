@@ -57,9 +57,14 @@ const workboardSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  serverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Server',
+    required: true
+  },
+  // 기존 serverUrl은 호환성을 위해 유지하되 deprecated 처리
   serverUrl: {
     type: String,
-    required: true,
     trim: true
   },
   isActive: {
@@ -101,6 +106,20 @@ const workboardSchema = new mongoose.Schema({
 workboardSchema.methods.incrementUsage = function() {
   this.usageCount += 1;
   return this.save();
+};
+
+// 서버 정보와 함께 조회하는 static method
+workboardSchema.statics.findWithServer = function(filter = {}) {
+  return this.find(filter)
+    .populate('serverId', 'name serverType serverUrl outputType isActive')
+    .populate('createdBy', 'email nickname');
+};
+
+// 특정 서버를 사용하는 워크보드 조회
+workboardSchema.statics.findByServer = function(serverId) {
+  return this.find({ serverId, isActive: true })
+    .populate('serverId', 'name serverType serverUrl outputType isActive')
+    .populate('createdBy', 'email nickname');
 };
 
 workboardSchema.methods.validateWorkflowData = function() {

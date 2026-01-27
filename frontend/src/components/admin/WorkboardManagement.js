@@ -7,6 +7,9 @@ import {
   Grid,
   Button,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -40,7 +43,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { workboardAPI } from '../../services/api';
+import { workboardAPI, serverAPI } from '../../services/api';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -75,7 +78,10 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           <Computer fontSize="small" />
           <Typography variant="caption" color="textSecondary">
-            {new URL(workboard.serverUrl).hostname}
+            {workboard.serverId ? 
+              `${workboard.serverId.name} (${workboard.serverId.serverType})` :
+              new URL(workboard.serverUrl).hostname
+            }
           </Typography>
         </Box>
 
@@ -1046,11 +1052,22 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
 function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
   const isEditing = !!workboard;
+  
+  // 서버 목록 조회
+  const { data: serversData } = useQuery(
+    ['servers'],
+    () => serverAPI.getServers({ serverType: 'ComfyUI', outputType: 'Image' }),
+    { enabled: open } // 다이얼로그가 열렸을 때만 조회
+  );
+  
+  const servers = serversData?.data?.data?.servers || [];
+  
   const { control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
       name: workboard?.name || '',
       description: workboard?.description || '',
-      serverUrl: workboard?.serverUrl || 'http://localhost:8188',
+      serverId: workboard?.serverId?._id || '',
+      serverUrl: workboard?.serverUrl || 'http://localhost:8188', // 기존 호환성용
       isActive: workboard?.isActive ?? true
     }
   });
@@ -1060,7 +1077,8 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       reset({
         name: workboard?.name || '',
         description: workboard?.description || '',
-        serverUrl: workboard?.serverUrl || 'http://localhost:8188',
+        serverId: workboard?.serverId?._id || '',
+        serverUrl: workboard?.serverUrl || 'http://localhost:8188', // 기존 호환성용
         isActive: workboard?.isActive ?? true
       });
     }
@@ -1114,37 +1132,58 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
             
             <Grid item xs={12}>
               <Controller
-                name="serverUrl"
+                name="serverId"
                 control={control}
-                rules={{ 
-                  required: 'ComfyUI 서버 URL을 입력해주세요',
-                  pattern: {
-                    value: /^https?:\/\/.+/,
-                    message: '올바른 URL 형식이 아닙니다'
-                  }
-                }}
+                rules={{ required: '서버를 선택해주세요' }}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="ComfyUI 서버 URL"
-                    placeholder="http://localhost:8188"
-                    error={!!errors.serverUrl}
-                    helperText={errors.serverUrl?.message}
-                  />
+                  <FormControl fullWidth error={!!errors.serverId}>
+                    <InputLabel>서버 선택</InputLabel>
+                    <Select
+                      {...field}
+                      label="서버 선택"
+                      disabled={servers.length === 0}
+                    >
+                      {servers.length === 0 ? (
+                        <MenuItem disabled>
+                          사용 가능한 서버가 없습니다
+                        </MenuItem>
+                      ) : (
+                        servers.map((server) => (
+                          <MenuItem key={server._id} value={server._id}>
+                            {server.name} ({server.serverType}) - {server.outputType}
+                          </MenuItem>
+                        ))
+                      )}
+                    </Select>
+                    {errors.serverId && (
+                      <Typography variant="caption" color="error">
+                        {errors.serverId.message}
+                      </Typography>
+                    )}
+                  </FormControl>
                 )}
               />
             </Grid>
           </Grid>
 
-          <Alert severity="info" sx={{ mt: 2 }}>
-            기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
-            생성 후 편집에서 추가할 수 있습니다.
-          </Alert>
+          {servers.length === 0 ? (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.
+            </Alert>
+          ) : (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
+              생성 후 편집에서 추가할 수 있습니다.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>취소</Button>
-          <Button type="submit" variant="contained">
+          <Button 
+            type="submit" 
+            variant="contained"
+            disabled={!isEditing && servers.length === 0}
+          >
             {isEditing ? '수정' : '생성'}
           </Button>
         </DialogActions>
