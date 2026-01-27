@@ -17,7 +17,6 @@ import {
   CardContent,
   CardMedia,
   IconButton,
-  Chip,
   LinearProgress,
   Dialog,
   DialogTitle,
@@ -33,8 +32,7 @@ import {
   Delete,
   Add,
   ArrowBack,
-  Shuffle,
-  ViewList
+  Shuffle
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -43,232 +41,6 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
-
-function ImageUploadZone({ onUpload, maxFiles = 5 }) {
-  const [uploading, setUploading] = useState(false);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp']
-    },
-    maxFiles,
-    onDrop: async (acceptedFiles) => {
-      if (acceptedFiles.length === 0) return;
-
-      setUploading(true);
-      try {
-        const uploadPromises = acceptedFiles.map(async (file) => {
-          const formData = new FormData();
-          formData.append('image', file);
-          const response = await imageAPI.upload(formData);
-          return response.data.image;
-        });
-
-        const uploadedImages = await Promise.all(uploadPromises);
-        onUpload(uploadedImages);
-        toast.success(`${uploadedImages.length}개 이미지 업로드 완료`);
-      } catch (error) {
-        toast.error('이미지 업로드 실패');
-      } finally {
-        setUploading(false);
-      }
-    }
-  });
-
-  return (
-    <Box
-      {...getRootProps()}
-      sx={{
-        border: '2px dashed',
-        borderColor: isDragActive ? 'primary.main' : 'grey.300',
-        borderRadius: 2,
-        p: 3,
-        textAlign: 'center',
-        cursor: 'pointer',
-        bgcolor: isDragActive ? 'primary.light' : 'grey.50',
-        transition: 'all 0.3s',
-        '&:hover': {
-          borderColor: 'primary.main',
-          bgcolor: 'primary.light'
-        }
-      }}
-    >
-      <input {...getInputProps()} />
-      {uploading ? (
-        <CircularProgress />
-      ) : (
-        <>
-          <ImageIcon sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
-          <Typography variant="h6" gutterBottom>
-            {isDragActive ? '이미지를 여기에 놓으세요' : '이미지를 드래그하거나 클릭하여 업로드'}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            JPG, PNG, WebP 형식 지원 (최대 {maxFiles}개)
-          </Typography>
-        </>
-      )}
-    </Box>
-  );
-}
-
-function ReferenceImageSelector({ value, onChange, workboard }) {
-  const [open, setOpen] = useState(false);
-  const [selectedImages, setSelectedImages] = useState(value || []);
-
-  const { data: uploadedImages, isLoading } = useQuery(
-    'uploadedImages',
-    () => imageAPI.getUploaded({ limit: 50 })
-  );
-
-  const images = uploadedImages?.data?.images || [];
-
-  const handleImageSelect = (image) => {
-    const isSelected = selectedImages.find(img => img.imageId === image._id);
-    if (isSelected) {
-      setSelectedImages(selectedImages.filter(img => img.imageId !== image._id));
-    } else {
-      setSelectedImages([...selectedImages, {
-        imageId: image._id,
-        image: image,
-        method: workboard?.baseInputFields?.referenceImageMethods?.[0]?.value || 'img2img'
-      }]);
-    }
-  };
-
-  const handleSave = () => {
-    onChange(selectedImages);
-    setOpen(false);
-  };
-
-  const handleRemove = (imageId) => {
-    const updated = selectedImages.filter(img => img.imageId !== imageId);
-    setSelectedImages(updated);
-    onChange(updated);
-  };
-
-  const handleNewUpload = (newImages) => {
-    const newSelections = newImages.map(image => ({
-      imageId: image._id,
-      image: image,
-      method: workboard?.baseInputFields?.referenceImageMethods?.[0]?.value || 'img2img'
-    }));
-
-    setSelectedImages([...selectedImages, ...newSelections]);
-    onChange([...selectedImages, ...newSelections]);
-  };
-
-  return (
-    <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="subtitle1">참고 이미지</Typography>
-        <Button
-          variant="outlined"
-          onClick={() => setOpen(true)}
-          startIcon={<Add />}
-          size="small"
-        >
-          이미지 선택
-        </Button>
-      </Box>
-
-      {selectedImages.length === 0 ? (
-        <ImageUploadZone onUpload={handleNewUpload} maxFiles={3} />
-      ) : (
-        <Grid container spacing={2}>
-          {selectedImages.map((item, index) => (
-            <Grid item xs={6} sm={4} md={3} key={index}>
-              <Card>
-                <CardMedia
-                  component="img"
-                  height="120"
-                  image={item.image.url}
-                  alt="Reference"
-                />
-                <CardContent sx={{ p: 1 }}>
-                  <IconButton
-                    size="small"
-                    onClick={() => handleRemove(item.imageId)}
-                    sx={{ float: 'right' }}
-                  >
-                    <Delete fontSize="small" />
-                  </IconButton>
-                  <Chip
-                    label={item.method}
-                    size="small"
-                    color="primary"
-                    variant="outlined"
-                  />
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-          <Grid item xs={6} sm={4} md={3}>
-            <Box
-              sx={{
-                height: 200,
-                border: '2px dashed',
-                borderColor: 'grey.300',
-                borderRadius: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer'
-              }}
-              onClick={() => setOpen(true)}
-            >
-              <Add sx={{ fontSize: 48, color: 'grey.400' }} />
-            </Box>
-          </Grid>
-        </Grid>
-      )}
-
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>참고 이미지 선택</DialogTitle>
-        <DialogContent>
-          {isLoading ? (
-            <CircularProgress />
-          ) : (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
-              {images.map((image) => {
-                const isSelected = selectedImages.find(img => img.imageId === image._id);
-                return (
-                  <Grid item xs={6} sm={4} md={3} key={image._id}>
-                    <Card
-                      sx={{
-                        cursor: 'pointer',
-                        border: isSelected ? '2px solid' : '1px solid',
-                        borderColor: isSelected ? 'primary.main' : 'grey.300'
-                      }}
-                      onClick={() => handleImageSelect(image)}
-                    >
-                      <CardMedia
-                        component="img"
-                        height="120"
-                        image={image.url}
-                        alt="Uploaded"
-                      />
-                      <CardContent sx={{ p: 1 }}>
-                        <Typography variant="caption" noWrap>
-                          {image.originalName}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpen(false)}>취소</Button>
-          <Button onClick={handleSave} variant="contained">
-            선택 완료
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
-  );
-}
 
 // 사용자 정의 이미지 입력 필드 컴포넌트
 function CustomImageField({ field, value, onChange, maxImages = 1 }) {
@@ -1140,22 +912,6 @@ function ImageGeneration() {
                   }}
                 />
               </Paper>
-            </Paper>
-
-            {/* 참고 이미지 */}
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Controller
-                name="referenceImages"
-                control={control}
-                defaultValue={[]}
-                render={({ field }) => (
-                  <ReferenceImageSelector
-                    value={field.value}
-                    onChange={field.onChange}
-                    workboard={workboardData}
-                  />
-                )}
-              />
             </Paper>
 
             {/* 추가 설정 */}
