@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const Server = require('../models/Server');
-const { authenticateUser, requireAdmin } = require('../middleware/auth');
+const { verifyJWT, requireAdmin } = require('../middleware/auth');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
-router.get('/', authenticateUser, async (req, res) => {
+router.get('/', verifyJWT, async (req, res) => {
   try {
     const { serverType, outputType, includeInactive = false } = req.query;
     
