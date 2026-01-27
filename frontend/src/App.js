@@ -19,7 +19,13 @@ import ImageGeneration from './pages/ImageGeneration';
 import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
 import Profile from './pages/Profile';
-import AdminPanel from './pages/AdminPanel';
+import {
+  AdminDashboardPage,
+  UserManagementPage,
+  WorkboardManagementPage,
+  ServerManagementPage,
+  SystemStatsPage
+} from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
 import './App.css';
@@ -114,12 +120,48 @@ function MainLayout() {
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/profile" element={<Profile />} />
             <Route
-              path="/admin/*"
+              path="/admin/dashboard"
               element={
                 <AdminRoute>
-                  <AdminPanel />
+                  <AdminDashboardPage />
                 </AdminRoute>
               }
+            />
+            <Route
+              path="/admin/users"
+              element={
+                <AdminRoute>
+                  <UserManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/workboards"
+              element={
+                <AdminRoute>
+                  <WorkboardManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/servers"
+              element={
+                <AdminRoute>
+                  <ServerManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/stats"
+              element={
+                <AdminRoute>
+                  <SystemStatsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={<Navigate to="/admin/dashboard" replace />}
             />
           </Routes>
         </Box>

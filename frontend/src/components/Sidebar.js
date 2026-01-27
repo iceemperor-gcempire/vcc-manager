@@ -17,7 +17,11 @@ import {
   ViewModule,
   Image,
   History,
-  AdminPanelSettings
+  AdminPanelSettings,
+  People,
+  Storage,
+  BarChart,
+  Apps
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -53,9 +57,33 @@ const menuItems = [
 
 const adminMenuItems = [
   {
-    text: '관리자 패널',
-    path: '/admin',
+    text: '관리자 대시보드',
+    path: '/admin/dashboard',
     icon: <AdminPanelSettings />,
+    roles: ['admin']
+  },
+  {
+    text: '사용자 관리',
+    path: '/admin/users',
+    icon: <People />,
+    roles: ['admin']
+  },
+  {
+    text: '작업판 관리',
+    path: '/admin/workboards',
+    icon: <Apps />,
+    roles: ['admin']
+  },
+  {
+    text: '서버 관리',
+    path: '/admin/servers',
+    icon: <Storage />,
+    roles: ['admin']
+  },
+  {
+    text: '시스템 통계',
+    path: '/admin/stats',
+    icon: <BarChart />,
     roles: ['admin']
   }
 ];
