@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Enhanced Pagination System** (#9)
+  - Reusable Pagination component for consistent behavior across all pages
+  - Direct page navigation with input dialog for quick page jumping
+  - Smart pagination algorithm showing maximum 3 pages with current page centered
+  - Enhanced navigation controls with first/last/previous/next buttons
+  - Mobile-responsive design with touch-friendly button sizing
+  - Configurable options for different use cases
+
+### Fixed
+- **My Images Page Pagination Overflow** (#8)
+  - Fixed horizontal overflow issue in My Images page pagination
+  - Applied smart pagination system to prevent layout expansion
+  - Consistent pagination behavior with Job History page
+
+### Enhanced
+- **Code Architecture Improvements**
+  - Componentized pagination functionality for reusability
+  - Reduced code duplication across JobHistory and MyImages pages
+  - Improved maintainability with centralized pagination logic
+
 ## [1.1.0] - 2026-01-27
 
 ### Added
