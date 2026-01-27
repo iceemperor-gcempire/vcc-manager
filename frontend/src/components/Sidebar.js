@@ -21,7 +21,8 @@ import {
   People,
   Storage,
   BarChart,
-  Apps
+  Apps,
+  TextSnippet
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -51,6 +52,12 @@ const menuItems = [
     text: '작업 히스토리',
     path: '/jobs',
     icon: <History />,
+    roles: ['user', 'admin']
+  },
+  {
+    text: '프롬프트 데이터',
+    path: '/prompt-data',
+    icon: <TextSnippet />,
     roles: ['user', 'admin']
   }
 ];

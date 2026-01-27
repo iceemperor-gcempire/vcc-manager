@@ -111,18 +111,22 @@ export const adminAPI = {
 };
 
 export const serverAPI = {
-  // 서버 목록 조회 (일반 사용자도 접근 가능)
   getServers: (params) => api.get('/servers', { params }),
-  
-  // 관리자 전용 기능들
   getServer: (id) => api.get(`/servers/${id}`),
   createServer: (data) => api.post('/servers', data),
   updateServer: (id, data) => api.put(`/servers/${id}`, data),
   deleteServer: (id) => api.delete(`/servers/${id}`),
-  
-  // 헬스체크
   checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
+};
+
+export const promptDataAPI = {
+  getAll: (params) => api.get('/prompt-data', { params }),
+  getById: (id) => api.get(`/prompt-data/${id}`),
+  create: (data) => api.post('/prompt-data', data),
+  update: (id, data) => api.put(`/prompt-data/${id}`, data),
+  delete: (id) => api.delete(`/prompt-data/${id}`),
+  use: (id) => api.post(`/prompt-data/${id}/use`),
 };
 
 export default api;
