@@ -8,6 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Server Management System** (#5)
+  - New Server model supporting multiple server types (ComfyUI, OpenAI Compatible)
+  - Server output type configuration (Image, Text)
+  - Health check functionality with automatic status monitoring
+  - Admin UI for server CRUD operations
+  - Server selection dropdown in workboard configuration
+  - API key and timeout configuration per server
+
+- **Image Type for Additional Input Fields** (#12)
+  - New 'image' type for additionalInputFields in workboard schema
+  - Configurable maxImages setting (1-3) for reference image fields
+  - CustomImageField component with gallery selection and drag-drop upload
+  - Flexible reference image handling per workboard configuration
+
 - **Enhanced Pagination System** (#9)
   - Reusable Pagination component for consistent behavior across all pages
   - Direct page navigation with input dialog for quick page jumping
@@ -16,17 +30,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Mobile-responsive design with touch-friendly button sizing
   - Configurable options for different use cases
 
+### Changed
+- **Admin Panel UI Restructure**
+  - Split AdminPanel tabs into individual sidebar menu items
+  - New admin routes: /admin/dashboard, /admin/users, /admin/workboards, /admin/servers, /admin/stats
+  - Improved navigation UX by removing nested tab navigation
+  - Dedicated pages for each admin function
+
+- **Workboard Form Standardization**
+  - Extracted WorkboardBasicInfoForm as shared component
+  - Consistent form fields across create, edit, and detail edit modes
+  - Replaced serverUrl text field with server selection dropdown
+
 ### Fixed
 - **My Images Page Pagination Overflow** (#8)
   - Fixed horizontal overflow issue in My Images page pagination
   - Applied smart pagination system to prevent layout expansion
   - Consistent pagination behavior with Job History page
 
+- **Server Route Middleware Error**
+  - Fixed authenticateUser → verifyJWT import error in servers route
+  - Resolved backend startup failure due to undefined middleware
+
 ### Enhanced
 - **Code Architecture Improvements**
   - Componentized pagination functionality for reusability
   - Reduced code duplication across JobHistory and MyImages pages
   - Improved maintainability with centralized pagination logic
+  - Modularized workboard form components for consistency
 
 ## [1.1.0] - 2026-01-27
 
