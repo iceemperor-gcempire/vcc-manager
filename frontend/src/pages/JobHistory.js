@@ -50,6 +50,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { jobAPI, workboardAPI } from '../services/api';
 import config from '../config';
+import Pagination from '../components/common/Pagination';
 
 function JobStatusChip({ status }) {
   const statusConfig = {
@@ -1021,84 +1022,18 @@ function JobHistory() {
             />
           ))}
 
-          {pagination.pages > 1 && (
-            <Box 
-              display="flex" 
-              justifyContent="space-between" 
-              alignItems="center" 
-              mt={4}
-              sx={{
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: { xs: 2, sm: 0 }
-              }}
-            >
-              {/* 페이지 정보 */}
-              <Typography variant="body2" color="textSecondary">
-                페이지 {page} / {pagination.pages} (총 {pagination.total}개)
-              </Typography>
-              
-              {/* 페이지 네비게이션 */}
-              <Box display="flex" alignItems="center" gap={1}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setPage(1)}
-                  disabled={page === 1}
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  처음
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page === 1}
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  이전
-                </Button>
-                
-                {/* 현재 페이지 주변 페이지만 표시 */}
-                {(() => {
-                  const maxVisible = 3; // 모바일에서 최대 3개 페이지 버튼
-                  const startPage = Math.max(1, Math.min(page - 1, pagination.pages - maxVisible + 1));
-                  const endPage = Math.min(pagination.pages, startPage + maxVisible - 1);
-                  
-                  return Array.from({ length: endPage - startPage + 1 }, (_, i) => startPage + i)
-                    .map((pageNum) => (
-                      <Button
-                        key={pageNum}
-                        variant={pageNum === page ? "contained" : "outlined"}
-                        onClick={() => setPage(pageNum)}
-                        size="small"
-                        sx={{ minWidth: 'auto', px: 1.5 }}
-                      >
-                        {pageNum}
-                      </Button>
-                    ));
-                })()}
-                
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page === pagination.pages}
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  다음
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setPage(pagination.pages)}
-                  disabled={page === pagination.pages}
-                  sx={{ minWidth: 'auto', px: 1 }}
-                >
-                  마지막
-                </Button>
-              </Box>
-            </Box>
-          )}
+          <Box mt={4}>
+            <Pagination
+              currentPage={page}
+              totalPages={pagination.pages}
+              totalItems={pagination.total}
+              onPageChange={setPage}
+              showInfo={true}
+              showFirstLast={true}
+              showGoToPage={true}
+              maxVisible={3}
+            />
+          </Box>
         </>
       )}
 
