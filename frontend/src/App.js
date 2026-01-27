@@ -18,6 +18,7 @@ import Workboards from './pages/Workboards';
 import ImageGeneration from './pages/ImageGeneration';
 import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
+import PromptDataList from './pages/PromptDataList';
 import Profile from './pages/Profile';
 import {
   AdminDashboardPage,
@@ -118,6 +119,7 @@ function MainLayout() {
             <Route path="/generate/:id" element={<ImageGeneration />} />
             <Route path="/images" element={<MyImages />} />
             <Route path="/jobs" element={<JobHistory />} />
+            <Route path="/prompt-data" element={<PromptDataList />} />
             <Route path="/profile" element={<Profile />} />
             <Route
               path="/admin/dashboard"

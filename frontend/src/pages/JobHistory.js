@@ -43,14 +43,203 @@ import {
   Error as ErrorIcon,
   Cancel,
   ZoomIn,
-  Download
+  Download,
+  Save
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { jobAPI, workboardAPI } from '../services/api';
+import { jobAPI, workboardAPI, promptDataAPI } from '../services/api';
 import config from '../config';
 import Pagination from '../components/common/Pagination';
+import ImageSelectDialog from '../components/common/ImageSelectDialog';
+import { useForm, Controller } from 'react-hook-form';
+
+function SavePromptDialog({ open, onClose, job, onSave }) {
+  const [imageSelectOpen, setImageSelectOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+
+  const { control, handleSubmit, reset, formState: { errors } } = useForm({
+    defaultValues: {
+      name: '',
+      memo: '',
+      prompt: job?.inputData?.prompt || '',
+      negativePrompt: job?.inputData?.negativePrompt || '',
+      seed: job?.inputData?.seed || ''
+    }
+  });
+
+  React.useEffect(() => {
+    if (open && job) {
+      reset({
+        name: '',
+        memo: '',
+        prompt: job.inputData?.prompt || '',
+        negativePrompt: job.inputData?.negativePrompt || '',
+        seed: job.inputData?.seed || ''
+      });
+      if (job.resultImages?.length > 0) {
+        setSelectedImage({
+          imageId: job.resultImages[0]._id,
+          imageType: 'GeneratedImage',
+          url: job.resultImages[0].url
+        });
+      } else {
+        setSelectedImage(null);
+      }
+    }
+  }, [open, job, reset]);
+
+  const onSubmit = (data) => {
+    onSave({
+      ...data,
+      seed: data.seed ? parseInt(data.seed) : undefined,
+      representativeImage: selectedImage
+    });
+  };
+
+  return (
+    <>
+      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+        <DialogTitle>프롬프트 데이터로 저장</DialogTitle>
+        <form onSubmit={handleSubmit(onSubmit)}>
+          <DialogContent>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={4}>
+                <Typography variant="subtitle2" gutterBottom>대표 이미지</Typography>
+                <Box
+                  sx={{
+                    width: '100%',
+                    height: 150,
+                    border: '2px dashed',
+                    borderColor: 'grey.300',
+                    borderRadius: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    overflow: 'hidden',
+                    bgcolor: 'grey.50'
+                  }}
+                  onClick={() => setImageSelectOpen(true)}
+                >
+                  {selectedImage?.url ? (
+                    <img
+                      src={selectedImage.url}
+                      alt="Representative"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <Box textAlign="center">
+                      <ImageIcon sx={{ fontSize: 40, color: 'grey.400' }} />
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        클릭하여 선택
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              </Grid>
+
+              <Grid item xs={12} sm={8}>
+                <Controller
+                  name="name"
+                  control={control}
+                  rules={{ required: '이름을 입력해주세요' }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      label="이름"
+                      error={!!errors.name}
+                      helperText={errors.name?.message}
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+                />
+
+                <Controller
+                  name="memo"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      label="메모"
+                      placeholder="이 프롬프트에 대한 메모..."
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Controller
+                  name="prompt"
+                  control={control}
+                  rules={{ required: '프롬프트를 입력해주세요' }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      rows={4}
+                      label="프롬프트"
+                      error={!!errors.prompt}
+                      helperText={errors.prompt?.message}
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <Controller
+                  name="negativePrompt"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      rows={2}
+                      label="부정 프롬프트"
+                    />
+                  )}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <Controller
+                  name="seed"
+                  control={control}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      type="number"
+                      label="시드 (선택사항)"
+                    />
+                  )}
+                />
+              </Grid>
+            </Grid>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={onClose}>취소</Button>
+            <Button type="submit" variant="contained">저장</Button>
+          </DialogActions>
+        </form>
+      </Dialog>
+
+      <ImageSelectDialog
+        open={imageSelectOpen}
+        onClose={() => setImageSelectOpen(false)}
+        onSelect={setSelectedImage}
+        title="대표 이미지 선택"
+      />
+    </>
+  );
+}
 
 function JobStatusChip({ status }) {
   const statusConfig = {
@@ -94,7 +283,7 @@ function JobStatusChip({ status }) {
   );
 }
 
-function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue }) {
+function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue, onSavePrompt }) {
   const canCancel = ['pending', 'processing'].includes(job.status);
   const canRetry = job.status === 'failed';
   const canContinue = ['completed', 'failed'].includes(job.status);
@@ -375,22 +564,39 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           </Button>
 
           {canContinue && (
-            <Button
-              size="small"
-              onClick={() => onContinue(job)}
-              startIcon={<PlayArrow />}
-              color="success"
-              variant="contained"
-              sx={{ 
-                '& .MuiButton-startIcon': { 
-                  mx: { xs: 0, sm: '-4px' },
-                  mr: { xs: 0.5, sm: 1 }
-                }
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
-              <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
-            </Button>
+            <>
+              <Button
+                size="small"
+                onClick={() => onContinue(job)}
+                startIcon={<PlayArrow />}
+                color="success"
+                variant="contained"
+                sx={{ 
+                  '& .MuiButton-startIcon': { 
+                    mx: { xs: 0, sm: '-4px' },
+                    mr: { xs: 0.5, sm: 1 }
+                  }
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
+              </Button>
+              <Button
+                size="small"
+                onClick={() => onSavePrompt(job)}
+                startIcon={<Save />}
+                color="secondary"
+                sx={{ 
+                  '& .MuiButton-startIcon': { 
+                    mx: { xs: 0, sm: '-4px' },
+                    mr: { xs: 0.5, sm: 1 }
+                  }
+                }}
+              >
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>프롬프트 저장</Box>
+                <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>저장</Box>
+              </Button>
+            </>
           )}
 
           {canRetry && (
@@ -759,6 +965,8 @@ function JobHistory() {
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [viewerImages, setViewerImages] = useState([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [savePromptOpen, setSavePromptOpen] = useState(false);
+  const [savingJob, setSavingJob] = useState(null);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -812,6 +1020,29 @@ function JobHistory() {
       }
     }
   );
+
+  const savePromptMutation = useMutation(
+    promptDataAPI.create,
+    {
+      onSuccess: () => {
+        toast.success('프롬프트 데이터가 저장되었습니다');
+        setSavePromptOpen(false);
+        setSavingJob(null);
+      },
+      onError: (error) => {
+        toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message));
+      }
+    }
+  );
+
+  const handleSavePrompt = (job) => {
+    setSavingJob(job);
+    setSavePromptOpen(true);
+  };
+
+  const handleSavePromptSubmit = (data) => {
+    savePromptMutation.mutate(data);
+  };
 
   const handleView = (job) => {
     setSelectedJob(job);
@@ -1019,6 +1250,7 @@ function JobHistory() {
               onDelete={handleDelete}
               onImageView={handleImageView}
               onContinue={handleContinueJob}
+              onSavePrompt={handleSavePrompt}
             />
           ))}
 
@@ -1049,6 +1281,16 @@ function JobHistory() {
         selectedIndex={selectedImageIndex}
         open={imageViewerOpen}
         onClose={() => setImageViewerOpen(false)}
+      />
+
+      <SavePromptDialog
+        open={savePromptOpen}
+        onClose={() => {
+          setSavePromptOpen(false);
+          setSavingJob(null);
+        }}
+        job={savingJob}
+        onSave={handleSavePromptSubmit}
       />
     </Container>
   );

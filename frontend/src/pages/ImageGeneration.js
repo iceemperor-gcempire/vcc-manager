@@ -32,15 +32,139 @@ import {
   Delete,
   Add,
   ArrowBack,
-  Shuffle
+  Shuffle,
+  FolderOpen
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { workboardAPI, jobAPI, imageAPI } from '../services/api';
+import { workboardAPI, jobAPI, imageAPI, promptDataAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
+import Pagination from '../components/common/Pagination';
+
+function PromptDataSelectDialog({ open, onClose, onSelect }) {
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
+  const limit = 8;
+
+  const { data, isLoading } = useQuery(
+    ['promptDataList', page, limit, search],
+    () => promptDataAPI.getAll({ page, limit, search: search || undefined }),
+    { enabled: open, keepPreviousData: true }
+  );
+
+  const promptDataList = data?.data?.data?.promptDataList || [];
+  const pagination = data?.data?.data?.pagination || { total: 0, pages: 1 };
+
+  const handleSelect = (promptData) => {
+    promptDataAPI.use(promptData._id);
+    onSelect(promptData);
+    onClose();
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>프롬프트 데이터 불러오기</DialogTitle>
+      <DialogContent>
+        <TextField
+          fullWidth
+          placeholder="프롬프트 검색..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          size="small"
+          sx={{ mb: 2 }}
+        />
+
+        {isLoading ? (
+          <Box display="flex" justifyContent="center" py={4}>
+            <CircularProgress />
+          </Box>
+        ) : promptDataList.length === 0 ? (
+          <Alert severity="info">
+            {search ? '검색 결과가 없습니다.' : '저장된 프롬프트 데이터가 없습니다.'}
+          </Alert>
+        ) : (
+          <>
+            <Grid container spacing={2}>
+              {promptDataList.map((item) => (
+                <Grid item xs={12} sm={6} key={item._id}>
+                  <Card
+                    sx={{
+                      cursor: 'pointer',
+                      '&:hover': { boxShadow: 3 },
+                      height: '100%'
+                    }}
+                    onClick={() => handleSelect(item)}
+                  >
+                    <Box sx={{ display: 'flex', height: '100%' }}>
+                      {item.representativeImage?.url ? (
+                        <CardMedia
+                          component="img"
+                          sx={{ width: 80, height: 80, objectFit: 'cover' }}
+                          image={item.representativeImage.url}
+                          alt={item.name}
+                        />
+                      ) : (
+                        <Box
+                          sx={{
+                            width: 80,
+                            height: 80,
+                            bgcolor: 'grey.100',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}
+                        >
+                          <ImageIcon sx={{ color: 'grey.400' }} />
+                        </Box>
+                      )}
+                      <CardContent sx={{ flex: 1, py: 1, px: 1.5 }}>
+                        <Typography variant="subtitle2" noWrap>
+                          {item.name}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          color="textSecondary"
+                          sx={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden'
+                          }}
+                        >
+                          {item.prompt}
+                        </Typography>
+                      </CardContent>
+                    </Box>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+
+            {pagination.pages > 1 && (
+              <Box mt={2}>
+                <Pagination
+                  currentPage={page}
+                  totalPages={pagination.pages}
+                  totalItems={pagination.total}
+                  onPageChange={setPage}
+                />
+              </Box>
+            )}
+          </>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
 
 // 사용자 정의 이미지 입력 필드 컴포넌트
 function CustomImageField({ field, value, onChange, maxImages = 1 }) {
@@ -281,6 +405,7 @@ function ImageGeneration() {
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   const [loraModalOpen, setLoraModalOpen] = useState(false);
+  const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const initializedRef = useRef(null);
 
   const handleLoraModalOpen = () => {
@@ -295,6 +420,16 @@ function ImageGeneration() {
     const currentPrompt = getValues('prompt') || '';
     const newPrompt = currentPrompt ? `${currentPrompt}, ${loraString}` : loraString;
     setValue('prompt', newPrompt);
+  };
+
+  const handlePromptDataSelect = (promptData) => {
+    setValue('prompt', promptData.prompt || '');
+    setValue('negativePrompt', promptData.negativePrompt || '');
+    if (promptData.seed) {
+      setSeedValue(promptData.seed);
+      setRandomSeed(false);
+    }
+    toast.success(`프롬프트 "${promptData.name}" 불러옴`);
   };
 
   const { control, handleSubmit, setValue, reset, getValues, formState: { errors } } = useForm({
@@ -763,6 +898,15 @@ function ImageGeneration() {
               </Typography>
 
               {/* 프롬프트 */}
+              <Box display="flex" justifyContent="flex-end" mb={1}>
+                <Button
+                  size="small"
+                  startIcon={<FolderOpen />}
+                  onClick={() => setPromptDataDialogOpen(true)}
+                >
+                  프롬프트 불러오기
+                </Button>
+              </Box>
               <Controller
                 name="prompt"
                 control={control}
@@ -1035,6 +1179,13 @@ function ImageGeneration() {
         onClose={handleLoraModalClose}
         workboardId={id}
         onAddLora={handleAddLora}
+      />
+
+      {/* 프롬프트 데이터 선택 다이얼로그 */}
+      <PromptDataSelectDialog
+        open={promptDataDialogOpen}
+        onClose={() => setPromptDataDialogOpen(false)}
+        onSelect={handlePromptDataSelect}
       />
     </Container>
   );
