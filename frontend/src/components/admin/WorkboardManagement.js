@@ -7,6 +7,9 @@ import {
   Grid,
   Button,
   TextField,
+  FormControl,
+  InputLabel,
+  Select,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -40,7 +43,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { workboardAPI } from '../../services/api';
+import { workboardAPI, serverAPI } from '../../services/api';
+import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -75,7 +79,10 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           <Computer fontSize="small" />
           <Typography variant="caption" color="textSecondary">
-            {new URL(workboard.serverUrl).hostname}
+            {workboard.serverId ? 
+              `${workboard.serverId.name} (${workboard.serverId.serverType})` :
+              new URL(workboard.serverUrl).hostname
+            }
           </Typography>
         </Box>
 
@@ -152,7 +159,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     defaultValues: {
       name: '',
       description: '',
-      serverUrl: '',
+      serverId: '',
       workflowData: '',
       isActive: true,
       aiModels: [],
@@ -181,7 +188,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           const formData = {
             name: fullData.name || '',
             description: fullData.description || '',
-            serverUrl: fullData.serverUrl || '',
+            serverId: fullData.serverId?._id || fullData.serverId || '',
             workflowData: fullData.workflowData || '',
             isActive: fullData.isActive ?? true,
             // 기초 입력값
@@ -205,7 +212,10 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               formatString: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.formatString || '{{##base_style##}}'
             },
             // 추가 커스톰 필드들
-            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)) || []
+            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)).map(f => ({
+              ...f,
+              imageConfig: f.imageConfig || { maxImages: 1 }
+            })) || []
           };
           
           console.log('Form data to reset with:', formData);
@@ -268,14 +278,25 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     if (data.additionalCustomFields) {
       data.additionalCustomFields.forEach(field => {
         if (field.name && field.label) {
-          additionalInputFields.push({
+          const fieldData = {
             name: field.name,
             label: field.label,
             type: field.type || 'string',
             required: Boolean(field.required),
-            options: field.type === 'select' ? (field.options || []) : undefined,
             formatString: field.formatString || `{{##${field.name}##}}`
-          });
+          };
+          
+          if (field.type === 'select') {
+            fieldData.options = field.options || [];
+          }
+          
+          if (field.type === 'image') {
+            fieldData.imageConfig = {
+              maxImages: field.imageConfig?.maxImages || 1
+            };
+          }
+          
+          additionalInputFields.push(fieldData);
         }
       });
     }
@@ -283,7 +304,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
-      serverUrl: data.serverUrl?.trim(),
+      serverId: data.serverId,
       workflowData: data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
@@ -325,67 +346,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
           {/* 기본 정보 탭 */}
           {tabValue === 0 && (
-            <Grid container spacing={2}>
-              <Grid item xs={12}>
-                <Controller
-                  name="name"
-                  control={control}
-                  rules={{ required: '작업판 이름을 입력해주세요' }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="작업판 이름"
-                      error={!!errors.name}
-                      helperText={errors.name?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="description"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={3}
-                      label="설명"
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="serverUrl"
-                  control={control}
-                  rules={{ required: 'ComfyUI 서버 URL을 입력해주세요' }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      label="ComfyUI 서버 URL"
-                      error={!!errors.serverUrl}
-                      helperText={errors.serverUrl?.message}
-                    />
-                  )}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Controller
-                  name="isActive"
-                  control={control}
-                  render={({ field }) => (
-                    <FormControlLabel
-                      control={<Switch {...field} checked={field.value} />}
-                      label="활성 상태"
-                    />
-                  )}
-                />
-              </Grid>
-            </Grid>
+            <WorkboardBasicInfoForm
+              control={control}
+              errors={errors}
+              showActiveSwitch={true}
+              isDialogOpen={open}
+            />
           )}
 
           {/* 기초 입력값 탭 */}
@@ -833,7 +799,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           type: 'string',
                           required: false,
                           formatString: '',
-                          options: []
+                          options: [],
+                          imageConfig: { maxImages: 1 }
                         }]);
                       }}
                       size="small"
@@ -897,6 +864,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   <MenuItem value="number">숫자</MenuItem>
                                   <MenuItem value="select">선택</MenuItem>
                                   <MenuItem value="boolean">체크박스</MenuItem>
+                                  <MenuItem value="image">이미지</MenuItem>
                                 </TextField>
                               )}
                             />
@@ -929,6 +897,34 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
+                          {field.type === 'image' && (
+                            <Grid item xs={12}>
+                              <Typography variant="body2" gutterBottom>
+                                이미지 설정
+                              </Typography>
+                              <Controller
+                                name={`additionalCustomFields.${index}.imageConfig.maxImages`}
+                                control={control}
+                                render={({ field: imageField }) => (
+                                  <TextField
+                                    {...imageField}
+                                    fullWidth
+                                    select
+                                    label="최대 이미지 수"
+                                    size="small"
+                                    value={imageField.value || 1}
+                                  >
+                                    <MenuItem value={1}>1개</MenuItem>
+                                    <MenuItem value={2}>2개</MenuItem>
+                                    <MenuItem value={3}>3개</MenuItem>
+                                  </TextField>
+                                )}
+                              />
+                              <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                                사용자가 선택할 수 있는 참고 이미지의 최대 개수를 설정합니다.
+                              </Typography>
+                            </Grid>
+                          )}
                           {field.type === 'select' && (
                             <Grid item xs={12}>
                               <Typography variant="body2" gutterBottom>
@@ -1046,11 +1042,20 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
 function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
   const isEditing = !!workboard;
+  
+  const { data: serversData } = useQuery(
+    ['servers'],
+    () => serverAPI.getServers({ serverType: 'ComfyUI', outputType: 'Image' }),
+    { enabled: open }
+  );
+  
+  const servers = serversData?.data?.data?.servers || [];
+  
   const { control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
       name: workboard?.name || '',
       description: workboard?.description || '',
-      serverUrl: workboard?.serverUrl || 'http://localhost:8188',
+      serverId: workboard?.serverId?._id || '',
       isActive: workboard?.isActive ?? true
     }
   });
@@ -1060,7 +1065,7 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       reset({
         name: workboard?.name || '',
         description: workboard?.description || '',
-        serverUrl: workboard?.serverUrl || 'http://localhost:8188',
+        serverId: workboard?.serverId?._id || '',
         isActive: workboard?.isActive ?? true
       });
     }
@@ -1077,74 +1082,27 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       </DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <Controller
-                name="name"
-                control={control}
-                rules={{ required: '작업판 이름을 입력해주세요' }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="작업판 이름"
-                    error={!!errors.name}
-                    helperText={errors.name?.message}
-                  />
-                )}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={3}
-                    label="설명"
-                    placeholder="작업판에 대한 설명을 입력하세요..."
-                  />
-                )}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <Controller
-                name="serverUrl"
-                control={control}
-                rules={{ 
-                  required: 'ComfyUI 서버 URL을 입력해주세요',
-                  pattern: {
-                    value: /^https?:\/\/.+/,
-                    message: '올바른 URL 형식이 아닙니다'
-                  }
-                }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    label="ComfyUI 서버 URL"
-                    placeholder="http://localhost:8188"
-                    error={!!errors.serverUrl}
-                    helperText={errors.serverUrl?.message}
-                  />
-                )}
-              />
-            </Grid>
-          </Grid>
+          <WorkboardBasicInfoForm
+            control={control}
+            errors={errors}
+            showActiveSwitch={false}
+            isDialogOpen={open}
+          />
 
-          <Alert severity="info" sx={{ mt: 2 }}>
-            기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
-            생성 후 편집에서 추가할 수 있습니다.
-          </Alert>
+          {servers.length > 0 && !isEditing && (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
+              생성 후 상세 편집에서 추가할 수 있습니다.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>취소</Button>
-          <Button type="submit" variant="contained">
+          <Button 
+            type="submit" 
+            variant="contained"
+            disabled={!isEditing && servers.length === 0}
+          >
             {isEditing ? '수정' : '생성'}
           </Button>
         </DialogActions>

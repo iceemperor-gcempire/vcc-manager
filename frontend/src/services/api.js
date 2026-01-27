@@ -110,4 +110,19 @@ export const adminAPI = {
   getJobs: (params) => api.get('/admin/jobs', { params }),
 };
 
+export const serverAPI = {
+  // 서버 목록 조회 (일반 사용자도 접근 가능)
+  getServers: (params) => api.get('/servers', { params }),
+  
+  // 관리자 전용 기능들
+  getServer: (id) => api.get(`/servers/${id}`),
+  createServer: (data) => api.post('/servers', data),
+  updateServer: (id, data) => api.put(`/servers/${id}`, data),
+  deleteServer: (id) => api.delete(`/servers/${id}`),
+  
+  // 헬스체크
+  checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
+  checkAllServersHealth: () => api.post('/servers/health-check/all'),
+};
+
 export default api;
