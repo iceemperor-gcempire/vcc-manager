@@ -7,6 +7,142 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Enhanced Pagination System** (#9)
+  - Reusable Pagination component for consistent behavior across all pages
+  - Direct page navigation with input dialog for quick page jumping
+  - Smart pagination algorithm showing maximum 3 pages with current page centered
+  - Enhanced navigation controls with first/last/previous/next buttons
+  - Mobile-responsive design with touch-friendly button sizing
+  - Configurable options for different use cases
+
+### Fixed
+- **My Images Page Pagination Overflow** (#8)
+  - Fixed horizontal overflow issue in My Images page pagination
+  - Applied smart pagination system to prevent layout expansion
+  - Consistent pagination behavior with Job History page
+
+### Enhanced
+- **Code Architecture Improvements**
+  - Componentized pagination functionality for reusability
+  - Reduced code duplication across JobHistory and MyImages pages
+  - Improved maintainability with centralized pagination logic
+
+## [1.1.0] - 2026-01-27
+
+### Added
+
+#### User Experience Improvements
+- **User Approval System**
+  - Comprehensive user approval workflow for new registrations
+  - Admin panel for managing user approval/rejection
+  - Automatic admin status detection based on email configuration
+  - Enhanced authentication flow with approval status checking
+  - Improved error messages for pending/rejected users
+
+- **Mobile Navigation Enhancement**
+  - Hamburger menu button for mobile sidebar access
+  - Responsive header title (VCCM on mobile, full name on desktop) 
+  - Touch-friendly menu item sizing and spacing
+  - Improved mobile drawer functionality with better UX
+
+#### Dashboard Redesign
+- **Streamlined User Dashboard**
+  - Removed unnecessary statistics for regular users
+  - Focus on essential information: server queue status and personal job status
+  - Only show waiting/processing jobs (removed completed/failed from server stats)
+  - Removed recent jobs section for cleaner interface
+  - Responsive quick action buttons with improved layout
+
+#### Data Management
+- **Cascade Delete for Job History**
+  - Automatic deletion of associated generated images when deleting jobs
+  - Physical file cleanup to prevent orphaned data
+  - Comprehensive error handling for file deletion failures
+  - Enhanced logging for deletion process tracking
+
+### Fixed
+
+#### Critical Bug Fixes
+- **iPhone Safari Download Issues** (#1)
+  - Fixed image download failures in iOS Safari browser
+  - Implemented blob-based download approach to prevent CORS issues
+  - Added fallback for popup blocking scenarios
+  - Special handling for iOS Safari with user guidance messages
+  - Improved error handling with user-friendly feedback
+
+- **Production Deployment Scripts** (#4)
+  - Fixed stop-production.sh to use proper Docker Compose shutdown
+  - Replaced process-based termination with safe container management
+  - Added environment file validation and status checking
+  - Consistent styling and messaging with deployment scripts
+
+#### Mobile UI Improvements
+- **Job History Mobile Optimization**
+  - Fixed horizontal overflow issues caused by pagination buttons
+  - Implemented smart pagination with limited visible page numbers (max 3)
+  - Enhanced responsive grid layouts for job metadata display
+  - Improved text truncation and button sizing for mobile devices
+  - Set job history to display exactly 10 items per page
+
+### Enhanced
+
+#### Authentication & User Management
+- **Improved Login Flow**
+  - Clear password validation with step-by-step feedback
+  - Specific error messages for different approval states
+  - Enhanced Google OAuth integration with approval checking
+  - Better user feedback with toast notifications and icons
+
+#### File Management
+- **Reference Image Handling**
+  - Proper cleanup of reference image connections during job deletion
+  - Updated reference tracking when jobs are removed
+  - Maintained data integrity across image relationships
+
+#### Production Infrastructure
+- **Deployment Script Improvements**
+  - Enhanced error handling and user guidance
+  - Consistent color-coded output for better readability
+  - Added data preservation notices and safety checks
+  - Improved Docker Compose integration
+
+### Technical Improvements
+
+#### Code Quality
+- **Component Optimization**
+  - Removed unused components and imports
+  - Streamlined data fetching for improved performance
+  - Better responsive design patterns implementation
+  - Enhanced accessibility for mobile users
+
+#### Error Handling
+- **Enhanced Logging**
+  - Comprehensive deletion process tracking
+  - Better error messages for file operations
+  - Improved debugging information for troubleshooting
+
+### Configuration Updates
+
+#### Mobile Responsiveness
+- **Responsive Breakpoints**
+  - Optimized layouts for different screen sizes
+  - Improved touch targets for mobile interaction
+  - Better text scaling and spacing for readability
+
+#### User Interface
+- **Design System Updates**
+  - Consistent Material-UI component usage
+  - Improved color schemes for status indicators
+  - Enhanced visual hierarchy in dashboard layout
+
+### Bug Fixes by Issue
+
+- **#1**: iPhone Safari image download failures → Fixed with blob-based downloads and iOS-specific handling
+- **#3**: Job deletion should remove associated images → Implemented cascade delete with file cleanup
+- **#4**: Production stop script using wrong shutdown method → Fixed to use Docker Compose properly
+- **#6**: Dashboard redesign for regular users and mobile menu access → Complete UI/UX overhaul
+
 ## [1.0.0] - 2026-01-22
 
 ### Added

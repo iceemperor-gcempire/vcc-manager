@@ -40,6 +40,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { imageAPI } from '../services/api';
+import Pagination from '../components/common/Pagination';
 
 function ImageCard({ image, type, onEdit, onDelete, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -582,22 +583,18 @@ function MyImages() {
             ))}
           </Grid>
 
-          {currentPagination.pages > 1 && (
-            <Box display="flex" justifyContent="center" mt={4}>
-              <Box display="flex" gap={1}>
-                {Array.from({ length: currentPagination.pages }, (_, i) => i + 1).map((pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={pageNum === page ? "contained" : "outlined"}
-                    onClick={() => setPage(pageNum)}
-                    size="small"
-                  >
-                    {pageNum}
-                  </Button>
-                ))}
-              </Box>
-            </Box>
-          )}
+          <Box mt={4}>
+            <Pagination
+              currentPage={page}
+              totalPages={currentPagination.pages}
+              totalItems={currentPagination.total}
+              onPageChange={setPage}
+              showInfo={false}
+              showFirstLast={true}
+              showGoToPage={true}
+              maxVisible={3}
+            />
+          </Box>
         </>
       )}
 
