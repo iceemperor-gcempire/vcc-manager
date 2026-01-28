@@ -204,12 +204,15 @@ function PromptGeneration() {
     },
     {
       onSuccess: (response) => {
+        console.log('Prompt generation response:', response);
+        console.log('Response data:', response.data);
         setGeneratedResult(response.data);
         toast.success('프롬프트가 생성되었습니다!');
         setIsGenerating(false);
       },
       onError: (error) => {
-        toast.error('생성 실패: ' + error.message);
+        console.error('Prompt generation error:', error);
+        toast.error('생성 실패: ' + (error.response?.data?.message || error.message));
         setIsGenerating(false);
       }
     }
