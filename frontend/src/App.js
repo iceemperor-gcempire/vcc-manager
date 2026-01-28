@@ -15,7 +15,9 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Workboards from './pages/Workboards';
+import PromptWorkboards from './pages/PromptWorkboards';
 import ImageGeneration from './pages/ImageGeneration';
+import PromptGeneration from './pages/PromptGeneration';
 import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
 import PromptDataList from './pages/PromptDataList';
@@ -116,7 +118,9 @@ function MainLayout() {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/workboards" element={<Workboards />} />
+            <Route path="/prompt-workboards" element={<PromptWorkboards />} />
             <Route path="/generate/:id" element={<ImageGeneration />} />
+            <Route path="/prompt-generate/:workboardId" element={<PromptGeneration />} />
             <Route path="/images" element={<MyImages />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/prompt-data" element={<PromptDataList />} />

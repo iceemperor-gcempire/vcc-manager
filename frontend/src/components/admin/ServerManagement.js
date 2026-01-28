@@ -194,11 +194,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
     isActive: true,
     configuration: {
       apiKey: '',
-      timeout: 300000,
-      maxRetries: 3,
-      model: '',
-      temperature: 0.7,
-      maxTokens: 1000
+      timeout: 300000
     }
   });
 
@@ -215,11 +211,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
         isActive: server.isActive !== undefined ? server.isActive : true,
         configuration: {
           apiKey: server.configuration?.apiKey || '',
-          timeout: server.configuration?.timeout || 300000,
-          maxRetries: server.configuration?.maxRetries || 3,
-          model: server.configuration?.model || '',
-          temperature: server.configuration?.temperature || 0.7,
-          maxTokens: server.configuration?.maxTokens || 1000
+          timeout: server.configuration?.timeout || 300000
         }
       });
     } else {
@@ -232,11 +224,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
         isActive: true,
         configuration: {
           apiKey: '',
-          timeout: 300000,
-          maxRetries: 3,
-          model: '',
-          temperature: 0.7,
-          maxTokens: 1000
+          timeout: 300000
         }
       });
     }
@@ -396,40 +384,6 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
               />
             </Grid>
 
-            {formData.outputType === 'Text' && formData.serverType === 'OpenAI Compatible' && (
-              <>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="모델 이름"
-                    value={formData.configuration.model}
-                    onChange={(e) => handleConfigChange('model', e.target.value)}
-                    placeholder="gpt-3.5-turbo"
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Temperature"
-                    type="number"
-                    inputProps={{ step: 0.1, min: 0, max: 2 }}
-                    value={formData.configuration.temperature}
-                    onChange={(e) => handleConfigChange('temperature', parseFloat(e.target.value) || 0.7)}
-                  />
-                </Grid>
-                
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    fullWidth
-                    label="Max Tokens"
-                    type="number"
-                    value={formData.configuration.maxTokens}
-                    onChange={(e) => handleConfigChange('maxTokens', parseInt(e.target.value) || 1000)}
-                  />
-                </Grid>
-              </>
-            )}
           </Grid>
         </Box>
       </DialogContent>

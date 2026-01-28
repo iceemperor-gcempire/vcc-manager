@@ -8,10 +8,17 @@ const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '' } = req.query;
+    const { page = 1, limit = 10, search = '', workboardType, includeAll } = req.query;
     const skip = (page - 1) * limit;
     
     const filter = { isActive: true };
+    if (includeAll === 'true') {
+      // 관리자용: 모든 타입 조회
+    } else if (workboardType) {
+      filter.workboardType = workboardType;
+    } else {
+      filter.workboardType = { $in: ['image', null, undefined] };
+    }
     if (search) {
       filter.$or = [
         { name: { $regex: search, $options: 'i' } },
@@ -93,7 +100,8 @@ router.post('/', requireAdmin, async (req, res) => {
       name,
       description,
       serverId,
-      serverUrl, // 기존 호환성을 위해 유지
+      serverUrl,
+      workboardType = 'image',
       baseInputFields,
       additionalInputFields,
       workflowData
@@ -132,10 +140,11 @@ router.post('/', requireAdmin, async (req, res) => {
       name: name.trim(),
       description: description?.trim(),
       serverId: finalServerId,
-      serverUrl: server.serverUrl, // 서버에서 실제 URL 가져오기
+      serverUrl: server.serverUrl,
+      workboardType,
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
-      workflowData,
+      workflowData: workboardType === 'prompt' ? '' : workflowData,
       createdBy: req.user._id
     });
     
@@ -162,7 +171,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
       name,
       description,
       serverId,
-      serverUrl, // 기존 호환성을 위해 유지
+      serverUrl,
+      workboardType,
       baseInputFields,
       additionalInputFields,
       workflowData,
@@ -204,11 +214,12 @@ router.put('/:id', requireAdmin, async (req, res) => {
       console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
       workboard.serverUrl = serverUrl.trim();
     }
+    if (workboardType) workboard.workboardType = workboardType;
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
-      workboard.workflowData = workflowData;
-      if (workflowData && !workboard.validateWorkflowData()) {
+      workboard.workflowData = workboard.workboardType === 'prompt' ? '' : workflowData;
+      if (workboard.workboardType === 'image' && workflowData && !workboard.validateWorkflowData()) {
         return res.status(400).json({ message: 'Invalid workflow data format' });
       }
       workboard.version += 1;

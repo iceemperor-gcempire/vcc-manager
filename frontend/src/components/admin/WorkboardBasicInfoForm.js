@@ -9,16 +9,24 @@ import {
   FormControlLabel,
   Switch,
   Typography,
-  Alert
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
+  Box
 } from '@mui/material';
-import { Controller } from 'react-hook-form';
+import { Image, Chat } from '@mui/icons-material';
+import { Controller, useWatch } from 'react-hook-form';
 import { useQuery } from 'react-query';
 import { serverAPI } from '../../services/api';
 
-function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, isDialogOpen = true }) {
+function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
+  const workboardType = useWatch({ control, name: 'workboardType' }) || 'image';
+  
   const { data: serversData } = useQuery(
-    ['servers'],
-    () => serverAPI.getServers({ serverType: 'ComfyUI', outputType: 'Image' }),
+    ['servers', workboardType],
+    () => serverAPI.getServers({ 
+      outputType: workboardType === 'prompt' ? 'Text' : 'Image' 
+    }),
     { enabled: isDialogOpen }
   );
   
@@ -26,6 +34,45 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, isD
 
   return (
     <Grid container spacing={2}>
+      {showTypeSelector && (
+        <Grid item xs={12}>
+          <Typography variant="subtitle2" gutterBottom>
+            작업판 유형
+          </Typography>
+          <Controller
+            name="workboardType"
+            control={control}
+            render={({ field }) => (
+              <ToggleButtonGroup
+                {...field}
+                exclusive
+                onChange={(e, value) => value && field.onChange(value)}
+                fullWidth
+                sx={{ mb: 1 }}
+              >
+                <ToggleButton value="image">
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Image />
+                    <span>이미지 작업판</span>
+                  </Box>
+                </ToggleButton>
+                <ToggleButton value="prompt">
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <Chat />
+                    <span>프롬프트 작업판</span>
+                  </Box>
+                </ToggleButton>
+              </ToggleButtonGroup>
+            )}
+          />
+          <Typography variant="caption" color="textSecondary">
+            {workboardType === 'prompt' 
+              ? '텍스트 생성 API를 사용하여 프롬프트를 생성합니다.' 
+              : 'ComfyUI를 사용하여 이미지를 생성합니다.'}
+          </Typography>
+        </Grid>
+      )}
+
       <Grid item xs={12}>
         <Controller
           name="name"
@@ -113,7 +160,9 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, isD
       {servers.length === 0 && (
         <Grid item xs={12}>
           <Alert severity="warning">
-            작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.
+            {workboardType === 'prompt' 
+              ? '작업판을 생성하기 전에 서버 관리에서 Text 출력 타입의 서버(OpenAI Compatible 등)를 등록해주세요.'
+              : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
           </Alert>
         </Grid>
       )}

@@ -71,6 +71,7 @@ export const workboardAPI = {
 
 export const jobAPI = {
   create: (data) => api.post('/jobs/generate', data),
+  createPromptJob: (data) => api.post('/jobs/generate-prompt', data),
   getMy: (params) => api.get('/jobs/my', { params }),
   getById: (id) => api.get(`/jobs/${id}`),
   delete: (id) => api.delete(`/jobs/${id}`),

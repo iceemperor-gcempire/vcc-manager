@@ -22,7 +22,8 @@ import {
   Storage,
   BarChart,
   Apps,
-  TextSnippet
+  TextSnippet,
+  Chat
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -37,9 +38,15 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
-    text: '작업판 선택',
+    text: '이미지 작업판',
     path: '/workboards',
     icon: <ViewModule />,
+    roles: ['user', 'admin']
+  },
+  {
+    text: '프롬프트 작업판',
+    path: '/prompt-workboards',
+    icon: <Chat />,
     roles: ['user', 'admin']
   },
   {

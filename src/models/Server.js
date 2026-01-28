@@ -42,23 +42,12 @@ const serverSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  // 서버별 추가 설정
   configuration: {
-    // ComfyUI 서버 설정
     apiKey: String,
     timeout: {
       type: Number,
       default: 300000 // 5분
-    },
-    maxRetries: {
-      type: Number,
-      default: 3
-    },
-    
-    // OpenAI Compatible 서버 설정
-    model: String,
-    temperature: Number,
-    maxTokens: Number
+    }
   },
   // 헬스체크 정보
   healthCheck: {
