@@ -1,10 +1,13 @@
 const express = require('express');
+const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
 const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
+const Workboard = require('../models/Workboard');
+const Server = require('../models/Server');
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -299,6 +302,85 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     
     res.json({ message: 'Job cancelled successfully' });
   } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/generate-prompt', requireAuth, async (req, res) => {
+  try {
+    const { workboardId, inputData } = req.body;
+    
+    if (!workboardId || !inputData?.userPrompt) {
+      return res.status(400).json({
+        message: 'Missing required fields: workboardId, inputData.userPrompt'
+      });
+    }
+    
+    const workboard = await Workboard.findById(workboardId).populate('serverId');
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+    
+    if (workboard.workboardType !== 'prompt') {
+      return res.status(400).json({ message: 'This workboard is not a prompt workboard' });
+    }
+    
+    const server = workboard.serverId;
+    if (!server || !server.isActive) {
+      return res.status(400).json({ message: 'Server is not available' });
+    }
+    
+    const systemPrompt = workboard.baseInputFields?.systemPrompt || '';
+    const model = inputData.model || workboard.baseInputFields?.aiModel?.[0]?.value || 'gpt-4';
+    
+    const messages = [];
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+    messages.push({ role: 'user', content: inputData.userPrompt });
+    
+    const apiUrl = `${server.serverUrl}/v1/chat/completions`;
+    const requestBody = {
+      model,
+      messages,
+      temperature: 0.7,
+      max_tokens: 2000
+    };
+    
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (server.configuration?.apiKey) {
+      headers['Authorization'] = `Bearer ${server.configuration.apiKey}`;
+    }
+    
+    const response = await axios.post(apiUrl, requestBody, { headers, timeout: 60000 });
+    
+    const result = response.data?.choices?.[0]?.message?.content || '';
+    const usage = {
+      promptTokens: response.data?.usage?.prompt_tokens || 0,
+      completionTokens: response.data?.usage?.completion_tokens || 0,
+      totalTokens: response.data?.usage?.total_tokens || 0
+    };
+    
+    await workboard.incrementUsage();
+    
+    res.json({
+      success: true,
+      result,
+      usage,
+      model
+    });
+  } catch (error) {
+    console.error('Prompt generation error:', error);
+    
+    if (error.response) {
+      return res.status(error.response.status).json({
+        message: error.response.data?.error?.message || 'API request failed'
+      });
+    }
+    
     res.status(500).json({ message: error.message });
   }
 });

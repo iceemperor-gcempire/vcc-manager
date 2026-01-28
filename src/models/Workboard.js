@@ -66,6 +66,11 @@ const workboardSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  workboardType: {
+    type: String,
+    enum: ['image', 'prompt'],
+    default: 'image'
+  },
   serverId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Server',
@@ -88,12 +93,22 @@ const workboardSchema = new mongoose.Schema({
     imageSizes: [selectOptionSchema],
     referenceImageMethods: [selectOptionSchema],
     stylePresets: [selectOptionSchema],
-    upscaleMethods: [selectOptionSchema]
+    upscaleMethods: [selectOptionSchema],
+    systemPrompt: {
+      type: String,
+      default: ''
+    },
+    referenceImages: {
+      type: [selectOptionSchema],
+      default: []
+    }
   },
   additionalInputFields: [inputFieldSchema],
   workflowData: {
     type: String,
-    required: true
+    required: function() {
+      return this.workboardType === 'image';
+    }
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -131,10 +146,19 @@ workboardSchema.statics.findByServer = function(serverId) {
     .populate('createdBy', 'email nickname');
 };
 
+// 워크보드 타입별 조회
+workboardSchema.statics.findByType = function(workboardType, filter = {}) {
+  return this.find({ ...filter, workboardType, isActive: true })
+    .populate('serverId', 'name serverType serverUrl outputType isActive')
+    .populate('createdBy', 'email nickname');
+};
+
 workboardSchema.methods.validateWorkflowData = function() {
-  // 템플릿 기반 워크플로우를 위한 관대한 검증
+  if (this.workboardType === 'prompt') {
+    return true;
+  }
+  
   try {
-    // 빈 데이터는 거부
     if (!this.workflowData || this.workflowData.trim().length === 0) {
       return false;
     }

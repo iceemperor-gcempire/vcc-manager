@@ -81,7 +81,7 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
           <Typography variant="caption" color="textSecondary">
             {workboard.serverId ? 
               `${workboard.serverId.name} (${workboard.serverId.serverType})` :
-              new URL(workboard.serverUrl).hostname
+              workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 미설정'
             }
           </Typography>
         </Box>
@@ -93,7 +93,12 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
           </Typography>
         </Box>
 
-        <Box display="flex" flex-wrap gap={1} mb={2}>
+        <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
+          <Chip
+            label={workboard.workboardType === 'prompt' ? '프롬프트' : '이미지'}
+            color={workboard.workboardType === 'prompt' ? 'secondary' : 'primary'}
+            size="small"
+          />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
             color={workboard.isActive ? 'success' : 'default'}
@@ -160,17 +165,22 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       name: '',
       description: '',
       serverId: '',
+      workboardType: 'image',
       workflowData: '',
       isActive: true,
       aiModels: [],
       imageSizes: [],
       referenceImageMethods: [],
+      systemPrompt: '',
+      referenceImages: [],
       negativePromptField: { enabled: false, required: false },
       upscaleMethodField: { enabled: false, required: false, options: [] },
       baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
       additionalCustomFields: []
     }
   });
+  
+  const workboardType = watch('workboardType');
 
   // 관리자 전용 API로 완전한 데이터 로딩
   React.useEffect(() => {
@@ -189,12 +199,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             name: fullData.name || '',
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
+            workboardType: fullData.workboardType || 'image',
             workflowData: fullData.workflowData || '',
             isActive: fullData.isActive ?? true,
-            // 기초 입력값
             aiModels: fullData.baseInputFields?.aiModel?.map(m => ({ key: m.key || '', value: m.value || '' })) || [],
             imageSizes: fullData.baseInputFields?.imageSizes?.map(s => ({ key: s.key || '', value: s.value || '' })) || [],
             referenceImageMethods: fullData.baseInputFields?.referenceImageMethods?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
+            systemPrompt: fullData.baseInputFields?.systemPrompt || '',
+            referenceImages: fullData.baseInputFields?.referenceImages?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
             // 추가 입력값
             negativePromptField: {
               enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
@@ -305,12 +317,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      workflowData: data.workflowData,
+      workboardType: data.workboardType || 'image',
+      workflowData: data.workboardType === 'prompt' ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: (data.imageSizes || []).filter(s => s.key && s.value),
-        referenceImageMethods: (data.referenceImageMethods || []).filter(r => r.key && r.value)
+        imageSizes: data.workboardType === 'image' ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        referenceImageMethods: data.workboardType === 'image' ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
+        systemPrompt: data.workboardType === 'prompt' ? (data.systemPrompt || '') : '',
+        referenceImages: data.workboardType === 'prompt' ? (data.referenceImages || []).filter(r => r.key && r.value) : []
       },
       additionalInputFields
     };
@@ -341,7 +356,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
             <Tab label="추가 입력값" />
-            <Tab label="워크플로우" />
+            {workboardType === 'image' && <Tab label="워크플로우" />}
           </Tabs>
 
           {/* 기본 정보 탭 */}
@@ -350,6 +365,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               control={control}
               errors={errors}
               showActiveSwitch={true}
+              showTypeSelector={true}
               isDialogOpen={open}
             />
           )}
@@ -357,7 +373,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           {/* 기초 입력값 탭 */}
           {tabValue === 1 && (
             <Box>
-              {/* AI 모델 설정 */}
+              {/* AI 모델 설정 - 공통 */}
               <Accordion defaultExpanded>
                 <AccordionSummary expandIcon={<ExpandMore />}>
                   <Typography variant="h6">AI 모델 설정</Typography>
@@ -368,9 +384,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       <Typography variant="body2" color="textSecondary">
                         사용자가 선택할 수 있는 AI 모델들을 설정합니다.
                       </Typography>
-                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                        📝 Workflow JSON 형식: <code>{'{{##model##}}'}</code>
-                      </Typography>
+                      {workboardType === 'image' && (
+                        <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                          Workflow JSON 형식: <code>{'{{##model##}}'}</code>
+                        </Typography>
+                      )}
                     </Box>
                     <Button
                       startIcon={<Add />}
@@ -400,7 +418,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         render={({ field }) => (
                           <TextField
                             {...field}
-                            label="모델 파일 경로"
+                            label={workboardType === 'prompt' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
                             size="small"
                             sx={{ flex: 2 }}
                           />
@@ -418,127 +436,217 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionDetails>
               </Accordion>
 
-              {/* 이미지 크기 설정 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6">이미지 크기 설정</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        이미지 생성 크기 옵션들을 설정합니다.
+              {/* 프롬프트 작업판 전용 설정 */}
+              {workboardType === 'prompt' && (
+                <>
+                  <Accordion defaultExpanded>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="h6">시스템 프롬프트</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography variant="body2" color="textSecondary" mb={2}>
+                        AI에게 전달할 시스템 프롬프트를 설정합니다. 사용자 입력 앞에 이 내용이 추가됩니다.
                       </Typography>
-                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                        📝 Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
-                      </Typography>
-                    </Box>
-                    <Button
-                      startIcon={<Add />}
-                      onClick={() => addArrayItem('imageSizes')}
-                      size="small"
-                    >
-                      크기 추가
-                    </Button>
-                  </Box>
-                  {watch('imageSizes')?.map((size, index) => (
-                    <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
                       <Controller
-                        name={`imageSizes.${index}.key`}
+                        name="systemPrompt"
                         control={control}
                         render={({ field }) => (
                           <TextField
                             {...field}
-                            label="크기 표시명 (예: 512x512)"
-                            size="small"
-                            sx={{ flex: 1 }}
+                            fullWidth
+                            multiline
+                            rows={6}
+                            label="시스템 프롬프트"
+                            placeholder="예: 당신은 창의적인 프롬프트 작성 전문가입니다..."
                           />
                         )}
                       />
-                      <Controller
-                        name={`imageSizes.${index}.value`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="실제 크기 값"
-                            size="small"
-                            sx={{ flex: 1 }}
-                          />
-                        )}
-                      />
-                      <IconButton
-                        onClick={() => removeArrayItem('imageSizes', index)}
-                        color="error"
-                        size="small"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
+                    </AccordionDetails>
+                  </Accordion>
 
-              {/* 참고 이미지 사용방식 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6">참고 이미지 사용방식</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        참고 이미지를 어떻게 활용할지 옵션들을 설정합니다.
-                      </Typography>
-                      <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                        📝 Workflow JSON 형식: <code>{'{{##reference_method##}}'}</code>
-                      </Typography>
-                    </Box>
-                    <Button
-                      startIcon={<Add />}
-                      onClick={() => addArrayItem('referenceImageMethods')}
-                      size="small"
-                    >
-                      방식 추가
-                    </Button>
-                  </Box>
-                  {watch('referenceImageMethods')?.map((method, index) => (
-                    <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                      <Controller
-                        name={`referenceImageMethods.${index}.key`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="방식 표시명"
-                            size="small"
-                            sx={{ flex: 1 }}
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="h6">참고 이미지 설정</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Typography variant="body2" color="textSecondary">
+                          프롬프트 생성 시 참고할 이미지 타입을 설정합니다.
+                        </Typography>
+                        <Button
+                          startIcon={<Add />}
+                          onClick={() => addArrayItem('referenceImages')}
+                          size="small"
+                        >
+                          이미지 타입 추가
+                        </Button>
+                      </Box>
+                      {watch('referenceImages')?.map((ref, index) => (
+                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
+                          <Controller
+                            name={`referenceImages.${index}.key`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="이미지 타입명"
+                                placeholder="예: 캐릭터 참고"
+                                size="small"
+                                sx={{ flex: 1 }}
+                              />
+                            )}
                           />
-                        )}
-                      />
-                      <Controller
-                        name={`referenceImageMethods.${index}.value`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="실제 처리 방식"
-                            size="small"
-                            sx={{ flex: 1 }}
+                          <Controller
+                            name={`referenceImages.${index}.value`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="설명"
+                                placeholder="예: 캐릭터 외형 참고 이미지"
+                                size="small"
+                                sx={{ flex: 2 }}
+                              />
+                            )}
                           />
-                        )}
-                      />
-                      <IconButton
-                        onClick={() => removeArrayItem('referenceImageMethods', index)}
-                        color="error"
-                        size="small"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
+                          <IconButton
+                            onClick={() => removeArrayItem('referenceImages', index)}
+                            color="error"
+                            size="small"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
+                </>
+              )}
+
+              {/* 이미지 작업판 전용 설정 */}
+              {workboardType === 'image' && (
+                <>
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="h6">이미지 크기 설정</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            이미지 생성 크기 옵션들을 설정합니다.
+                          </Typography>
+                          <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                            Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
+                          </Typography>
+                        </Box>
+                        <Button
+                          startIcon={<Add />}
+                          onClick={() => addArrayItem('imageSizes')}
+                          size="small"
+                        >
+                          크기 추가
+                        </Button>
+                      </Box>
+                      {watch('imageSizes')?.map((size, index) => (
+                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
+                          <Controller
+                            name={`imageSizes.${index}.key`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="크기 표시명 (예: 512x512)"
+                                size="small"
+                                sx={{ flex: 1 }}
+                              />
+                            )}
+                          />
+                          <Controller
+                            name={`imageSizes.${index}.value`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="실제 크기 값"
+                                size="small"
+                                sx={{ flex: 1 }}
+                              />
+                            )}
+                          />
+                          <IconButton
+                            onClick={() => removeArrayItem('imageSizes', index)}
+                            color="error"
+                            size="small"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
+
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="h6">참고 이미지 사용방식</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                        <Box>
+                          <Typography variant="body2" color="textSecondary">
+                            참고 이미지를 어떻게 활용할지 옵션들을 설정합니다.
+                          </Typography>
+                          <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                            Workflow JSON 형식: <code>{'{{##reference_method##}}'}</code>
+                          </Typography>
+                        </Box>
+                        <Button
+                          startIcon={<Add />}
+                          onClick={() => addArrayItem('referenceImageMethods')}
+                          size="small"
+                        >
+                          방식 추가
+                        </Button>
+                      </Box>
+                      {watch('referenceImageMethods')?.map((method, index) => (
+                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
+                          <Controller
+                            name={`referenceImageMethods.${index}.key`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="방식 표시명"
+                                size="small"
+                                sx={{ flex: 1 }}
+                              />
+                            )}
+                          />
+                          <Controller
+                            name={`referenceImageMethods.${index}.value`}
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                label="실제 처리 방식"
+                                size="small"
+                                sx={{ flex: 1 }}
+                              />
+                            )}
+                          />
+                          <IconButton
+                            onClick={() => removeArrayItem('referenceImageMethods', index)}
+                            color="error"
+                            size="small"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      ))}
+                    </AccordionDetails>
+                  </Accordion>
+                </>
+              )}
             </Box>
           )}
 
@@ -1004,13 +1112,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </Box>
           )}
 
-          {/* 워크플로우 탭 */}
-          {tabValue === 3 && (
+          {/* 워크플로우 탭 - 이미지 타입만 */}
+          {workboardType === 'image' && tabValue === 3 && (
             <Box>
               <Controller
                 name="workflowData"
                 control={control}
-                rules={{ required: 'Workflow JSON을 입력해주세요' }}
+                rules={{ required: workboardType === 'image' ? 'Workflow JSON을 입력해주세요' : false }}
                 render={({ field }) => (
                   <TextField
                     {...field}
