@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { promptDataAPI, workboardAPI } from '../services/api';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
+import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import Pagination from '../components/common/Pagination';
 
 /* eslint-disable no-unused-vars */
@@ -622,37 +623,14 @@ function PromptDataList() {
         </DialogActions>
       </Dialog>
 
-      <Dialog
+      <ImageViewerDialog
+        images={viewerImageUrl ? [{ url: viewerImageUrl }] : []}
         open={imageViewerOpen}
         onClose={() => setImageViewerOpen(false)}
-        maxWidth="lg"
-        fullWidth
-        PaperProps={{
-          sx: { bgcolor: 'black', maxHeight: '90vh' }
-        }}
-      >
-        <DialogContent sx={{ p: 2, bgcolor: 'black', textAlign: 'center' }}>
-          <img
-            src={viewerImageUrl}
-            alt="Preview"
-            style={{
-              maxWidth: '100%',
-              maxHeight: '80vh',
-              objectFit: 'contain',
-              borderRadius: '8px'
-            }}
-          />
-        </DialogContent>
-        <DialogActions sx={{ bgcolor: 'black', justifyContent: 'center' }}>
-          <Button
-            onClick={() => setImageViewerOpen(false)}
-            variant="contained"
-            color="primary"
-          >
-            닫기
-          </Button>
-        </DialogActions>
-      </Dialog>
+        title="대표 이미지"
+        showNavigation={false}
+        showMetadata={false}
+      />
     </Container>
   );
 }
