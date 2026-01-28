@@ -41,6 +41,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { promptDataAPI, workboardAPI } from '../services/api';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
+import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import Pagination from '../components/common/Pagination';
 
 /* eslint-disable no-unused-vars */
@@ -303,6 +304,8 @@ function PromptDataList() {
   const [selectedPromptData, setSelectedPromptData] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuPromptData, setMenuPromptData] = useState(null);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [viewerImageUrl, setViewerImageUrl] = useState('');
   const limit = 12;
 
   const { data, isLoading, error } = useQuery(
@@ -404,6 +407,12 @@ function PromptDataList() {
     handleMenuClose();
   };
 
+  const handleImageClick = (imageUrl, e) => {
+    e.stopPropagation();
+    setViewerImageUrl(imageUrl);
+    setImageViewerOpen(true);
+  };
+
   if (error) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -467,7 +476,12 @@ function PromptDataList() {
                       height="140"
                       image={item.representativeImage.url}
                       alt={item.name}
-                      sx={{ objectFit: 'cover' }}
+                      onClick={(e) => handleImageClick(item.representativeImage.url, e)}
+                      sx={{ 
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.9 }
+                      }}
                     />
                   ) : (
                     <Box
@@ -608,6 +622,15 @@ function PromptDataList() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ImageViewerDialog
+        images={viewerImageUrl ? [{ url: viewerImageUrl }] : []}
+        open={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        title="대표 이미지"
+        showNavigation={false}
+        showMetadata={false}
+      />
     </Container>
   );
 }
