@@ -332,6 +332,17 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     
     const systemPrompt = workboard.baseInputFields?.systemPrompt || '';
     const model = inputData.model || workboard.baseInputFields?.aiModel?.[0]?.value || 'gpt-4';
+    const temperature = workboard.baseInputFields?.temperature ?? 0.7;
+    const maxTokens = workboard.baseInputFields?.maxTokens ?? 2000;
+    
+    console.log('Prompt generation request:', {
+      workboardId,
+      model,
+      temperature,
+      maxTokens,
+      serverUrl: server.serverUrl,
+      hasApiKey: !!server.configuration?.apiKey
+    });
     
     const messages = [];
     if (systemPrompt) {
@@ -343,8 +354,8 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     const requestBody = {
       model,
       messages,
-      temperature: 0.7,
-      max_tokens: 2000
+      temperature,
+      max_tokens: maxTokens
     };
     
     const headers = {

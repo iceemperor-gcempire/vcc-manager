@@ -8,11 +8,13 @@ const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', workboardType } = req.query;
+    const { page = 1, limit = 10, search = '', workboardType, includeAll } = req.query;
     const skip = (page - 1) * limit;
     
     const filter = { isActive: true };
-    if (workboardType) {
+    if (includeAll === 'true') {
+      // 관리자용: 모든 타입 조회
+    } else if (workboardType) {
       filter.workboardType = workboardType;
     } else {
       filter.workboardType = { $in: ['image', null, undefined] };

@@ -101,6 +101,14 @@ const workboardSchema = new mongoose.Schema({
     referenceImages: {
       type: [selectOptionSchema],
       default: []
+    },
+    temperature: {
+      type: Number,
+      default: 0.7
+    },
+    maxTokens: {
+      type: Number,
+      default: 2000
     }
   },
   additionalInputFields: [inputFieldSchema],

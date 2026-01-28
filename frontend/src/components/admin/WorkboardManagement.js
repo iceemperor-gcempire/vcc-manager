@@ -173,6 +173,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       referenceImageMethods: [],
       systemPrompt: '',
       referenceImages: [],
+      temperature: 0.7,
+      maxTokens: 2000,
       negativePromptField: { enabled: false, required: false },
       upscaleMethodField: { enabled: false, required: false, options: [] },
       baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
@@ -207,6 +209,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             referenceImageMethods: fullData.baseInputFields?.referenceImageMethods?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
             systemPrompt: fullData.baseInputFields?.systemPrompt || '',
             referenceImages: fullData.baseInputFields?.referenceImages?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
+            temperature: fullData.baseInputFields?.temperature ?? 0.7,
+            maxTokens: fullData.baseInputFields?.maxTokens ?? 2000,
             // 추가 입력값
             negativePromptField: {
               enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
@@ -325,7 +329,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
         imageSizes: data.workboardType === 'image' ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
         referenceImageMethods: data.workboardType === 'image' ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
         systemPrompt: data.workboardType === 'prompt' ? (data.systemPrompt || '') : '',
-        referenceImages: data.workboardType === 'prompt' ? (data.referenceImages || []).filter(r => r.key && r.value) : []
+        referenceImages: data.workboardType === 'prompt' ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
+        temperature: data.workboardType === 'prompt' ? (parseFloat(data.temperature) || 0.7) : undefined,
+        maxTokens: data.workboardType === 'prompt' ? (parseInt(data.maxTokens) || 2000) : undefined
       },
       additionalInputFields
     };
@@ -461,6 +467,51 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           />
                         )}
                       />
+                    </AccordionDetails>
+                  </Accordion>
+
+                  <Accordion>
+                    <AccordionSummary expandIcon={<ExpandMore />}>
+                      <Typography variant="h6">생성 설정</Typography>
+                    </AccordionSummary>
+                    <AccordionDetails>
+                      <Typography variant="body2" color="textSecondary" mb={2}>
+                        프롬프트 생성 시 사용할 파라미터를 설정합니다.
+                      </Typography>
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Controller
+                            name="temperature"
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                type="number"
+                                label="Temperature"
+                                inputProps={{ step: 0.1, min: 0, max: 2 }}
+                                helperText="창의성 수준 (0~2, 높을수록 다양한 결과)"
+                              />
+                            )}
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Controller
+                            name="maxTokens"
+                            control={control}
+                            render={({ field }) => (
+                              <TextField
+                                {...field}
+                                fullWidth
+                                type="number"
+                                label="Max Tokens"
+                                inputProps={{ min: 100, max: 16000 }}
+                                helperText="최대 출력 토큰 수"
+                              />
+                            )}
+                          />
+                        </Grid>
+                      </Grid>
                     </AccordionDetails>
                   </Accordion>
 
@@ -1223,7 +1274,7 @@ function WorkboardManagement() {
 
   const { data, isLoading } = useQuery(
     ['adminWorkboards', { search }],
-    () => workboardAPI.getAll({ search, limit: 50 }),
+    () => workboardAPI.getAll({ search, limit: 50, includeAll: true }),
     { keepPreviousData: true }
   );
 
