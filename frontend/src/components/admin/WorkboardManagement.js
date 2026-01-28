@@ -1151,18 +1151,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
   const isEditing = !!workboard;
   
-  const { data: serversData } = useQuery(
-    ['servers'],
-    () => serverAPI.getServers({ serverType: 'ComfyUI', outputType: 'Image' }),
-    { enabled: open }
-  );
-  
-  const servers = serversData?.data?.data?.servers || [];
-  
-  const { control, handleSubmit, reset, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm({
     defaultValues: {
       name: workboard?.name || '',
       description: workboard?.description || '',
+      workboardType: workboard?.workboardType || 'image',
       serverId: workboard?.serverId?._id || '',
       isActive: workboard?.isActive ?? true
     }
@@ -1173,6 +1166,7 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       reset({
         name: workboard?.name || '',
         description: workboard?.description || '',
+        workboardType: workboard?.workboardType || 'image',
         serverId: workboard?.serverId?._id || '',
         isActive: workboard?.isActive ?? true
       });
@@ -1194,10 +1188,11 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
             control={control}
             errors={errors}
             showActiveSwitch={false}
+            showTypeSelector={!isEditing}
             isDialogOpen={open}
           />
 
-          {servers.length > 0 && !isEditing && (
+          {!isEditing && (
             <Alert severity="info" sx={{ mt: 2 }}>
               기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
               생성 후 상세 편집에서 추가할 수 있습니다.
@@ -1209,7 +1204,6 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
           <Button 
             type="submit" 
             variant="contained"
-            disabled={!isEditing && servers.length === 0}
           >
             {isEditing ? '수정' : '생성'}
           </Button>
@@ -1428,10 +1422,18 @@ function WorkboardManagement() {
     if (selectedWorkboard) {
       updateMutation.mutate({ id: selectedWorkboard._id, data });
     } else {
-      // 기본 작업판 구조 생성
+      const isPromptType = data.workboardType === 'prompt';
+      
       const workboardData = {
         ...data,
-        baseInputFields: {
+        baseInputFields: isPromptType ? {
+          aiModel: [
+            { key: 'GPT-4', value: 'gpt-4' },
+            { key: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }
+          ],
+          systemPrompt: '',
+          referenceImages: []
+        } : {
           aiModel: [
             { key: 'Default Model', value: 'default.safetensors' }
           ],
@@ -1450,7 +1452,7 @@ function WorkboardManagement() {
           ]
         },
         additionalInputFields: [],
-        workflowData: JSON.stringify({
+        workflowData: isPromptType ? '' : JSON.stringify({
           "prompt": "{{##prompt##}}",
           "negative_prompt": "{{##negative_prompt##}}",
           "model": "{{##model##}}",
