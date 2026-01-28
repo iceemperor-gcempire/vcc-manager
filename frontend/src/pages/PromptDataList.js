@@ -303,6 +303,8 @@ function PromptDataList() {
   const [selectedPromptData, setSelectedPromptData] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [menuPromptData, setMenuPromptData] = useState(null);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [viewerImageUrl, setViewerImageUrl] = useState('');
   const limit = 12;
 
   const { data, isLoading, error } = useQuery(
@@ -404,6 +406,12 @@ function PromptDataList() {
     handleMenuClose();
   };
 
+  const handleImageClick = (imageUrl, e) => {
+    e.stopPropagation();
+    setViewerImageUrl(imageUrl);
+    setImageViewerOpen(true);
+  };
+
   if (error) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -467,7 +475,12 @@ function PromptDataList() {
                       height="140"
                       image={item.representativeImage.url}
                       alt={item.name}
-                      sx={{ objectFit: 'cover' }}
+                      onClick={(e) => handleImageClick(item.representativeImage.url, e)}
+                      sx={{ 
+                        objectFit: 'cover',
+                        cursor: 'pointer',
+                        '&:hover': { opacity: 0.9 }
+                      }}
                     />
                   ) : (
                     <Box
@@ -605,6 +618,38 @@ function PromptDataList() {
             variant="contained"
           >
             삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        maxWidth="lg"
+        fullWidth
+        PaperProps={{
+          sx: { bgcolor: 'black', maxHeight: '90vh' }
+        }}
+      >
+        <DialogContent sx={{ p: 2, bgcolor: 'black', textAlign: 'center' }}>
+          <img
+            src={viewerImageUrl}
+            alt="Preview"
+            style={{
+              maxWidth: '100%',
+              maxHeight: '80vh',
+              objectFit: 'contain',
+              borderRadius: '8px'
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: 'black', justifyContent: 'center' }}>
+          <Button
+            onClick={() => setImageViewerOpen(false)}
+            variant="contained"
+            color="primary"
+          >
+            닫기
           </Button>
         </DialogActions>
       </Dialog>
