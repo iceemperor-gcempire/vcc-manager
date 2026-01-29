@@ -281,7 +281,9 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
     const duplicatedWorkboard = new Workboard({
       name: name?.trim() || `${originalWorkboard.name} (Copy)`,
       description: originalWorkboard.description,
+      serverId: originalWorkboard.serverId,
       serverUrl: originalWorkboard.serverUrl,
+      workboardType: originalWorkboard.workboardType,
       baseInputFields: originalWorkboard.baseInputFields,
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,
