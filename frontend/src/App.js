@@ -33,7 +33,7 @@ import AuthCallback from './pages/AuthCallback';
 
 import './App.css';
 
-const queryClient = new QueryClient({
+export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,

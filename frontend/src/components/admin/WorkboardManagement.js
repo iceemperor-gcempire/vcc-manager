@@ -371,7 +371,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               control={control}
               errors={errors}
               showActiveSwitch={true}
-              showTypeSelector={true}
+              showTypeSelector={false}
               isDialogOpen={open}
             />
           )}

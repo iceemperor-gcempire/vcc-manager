@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import Cookies from 'js-cookie';
 import { authAPI } from '../services/api';
+import { queryClient } from '../App';
 
 const AuthContext = createContext();
 
@@ -39,6 +40,9 @@ export function AuthProvider({ children }) {
     console.log('🍪 Setting token in cookies');
     Cookies.set('token', token, { expires: 7 });
     
+    queryClient.clear();
+    console.log('🧹 Cleared all query cache on login');
+    
     try {
       console.log('👤 Fetching user profile');
       const response = await authAPI.getProfile();
@@ -59,6 +63,8 @@ export function AuthProvider({ children }) {
     } finally {
       setUser(null);
       Cookies.remove('token');
+      queryClient.clear();
+      console.log('🧹 Cleared all query cache on logout');
     }
   };
 
