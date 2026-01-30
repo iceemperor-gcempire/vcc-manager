@@ -81,7 +81,7 @@ function PromptGeneration() {
       <PromptGeneratorPanel
         workboard={workboard}
         showHeader={false}
-        showSystemPrompt={true}
+        showSystemPrompt={false}
         compact={false}
       />
     </Container>

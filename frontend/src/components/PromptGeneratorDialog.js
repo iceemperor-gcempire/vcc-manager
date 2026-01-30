@@ -154,7 +154,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
               workboard={selectedWorkboard}
               onResultChange={handleResultChange}
               showHeader={false}
-              showSystemPrompt={true}
+              showSystemPrompt={false}
               compact={false}
             />
           )}
