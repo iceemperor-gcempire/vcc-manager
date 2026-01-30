@@ -22,12 +22,14 @@ import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
 import PromptDataList from './pages/PromptDataList';
 import Profile from './pages/Profile';
+import TagSearch from './pages/TagSearch';
 import {
   AdminDashboardPage,
   UserManagementPage,
   WorkboardManagementPage,
   ServerManagementPage,
-  SystemStatsPage
+  SystemStatsPage,
+  TagManagementPage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
@@ -124,6 +126,7 @@ function MainLayout() {
             <Route path="/images" element={<MyImages />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
+            <Route path="/tags" element={<TagSearch />} />
             <Route path="/profile" element={<Profile />} />
             <Route
               path="/admin/dashboard"
@@ -162,6 +165,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <SystemStatsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/tags"
+              element={
+                <AdminRoute>
+                  <TagManagementPage />
                 </AdminRoute>
               }
             />

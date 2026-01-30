@@ -23,7 +23,8 @@ import {
   BarChart,
   Apps,
   TextSnippet,
-  Chat
+  Chat,
+  LocalOffer
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,6 +67,12 @@ const menuItems = [
     path: '/prompt-data',
     icon: <TextSnippet />,
     roles: ['user', 'admin']
+  },
+  {
+    text: '태그 검색',
+    path: '/tags',
+    icon: <LocalOffer />,
+    roles: ['user', 'admin']
   }
 ];
 
@@ -98,6 +105,12 @@ const adminMenuItems = [
     text: '시스템 통계',
     path: '/admin/stats',
     icon: <BarChart />,
+    roles: ['admin']
+  },
+  {
+    text: '태그 관리',
+    path: '/admin/tags',
+    icon: <LocalOffer />,
     roles: ['admin']
   }
 ];

@@ -58,7 +58,10 @@ const generatedImageSchema = new mongoose.Schema({
     referenceImageMethod: mongoose.Schema.Types.Mixed,
     additionalParams: mongoose.Schema.Types.Mixed
   },
-  tags: [String],
+  tags: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tag'
+  }],
   isPublic: {
     type: Boolean,
     default: false

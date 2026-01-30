@@ -130,4 +130,13 @@ export const promptDataAPI = {
   use: (id) => api.post(`/prompt-data/${id}/use`),
 };
 
+export const tagAPI = {
+  getAll: (params) => api.get('/tags', { params }),
+  create: (data) => api.post('/tags', data),
+  update: (id, data) => api.put(`/tags/${id}`, data),
+  delete: (id) => api.delete(`/tags/${id}`),
+  search: (params) => api.get('/tags/search', { params }),
+  getStats: () => api.get('/tags/stats'),
+};
+
 export default api;
