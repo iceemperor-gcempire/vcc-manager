@@ -41,6 +41,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { imageAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
+import TagInput from '../components/common/TagInput';
 
 function ImageCard({ image, type, onEdit, onDelete, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -134,13 +135,17 @@ function ImageCard({ image, type, onEdit, onDelete, onView }) {
         {/* 태그 */}
         {image.tags?.length > 0 && (
           <Box mt={1}>
-            {image.tags.slice(0, 2).map((tag, index) => (
+            {image.tags.slice(0, 2).map((tag) => (
               <Chip
-                key={index}
-                label={tag}
+                key={tag._id || tag}
+                label={tag.name || tag}
                 size="small"
-                variant="outlined"
-                sx={{ mr: 0.5, mb: 0.5 }}
+                sx={{ 
+                  mr: 0.5, 
+                  mb: 0.5,
+                  bgcolor: tag.color || undefined,
+                  color: tag.color ? 'white' : undefined
+                }}
               />
             ))}
             {image.tags.length > 2 && (
@@ -353,6 +358,78 @@ function ImageDetailDialog({ image, open, onClose, type }) {
   );
 }
 
+function ImageEditDialog({ image, open, onClose, type, onSuccess }) {
+  const [tags, setTags] = useState([]);
+  const queryClient = useQueryClient();
+
+  React.useEffect(() => {
+    if (image) {
+      setTags(image.tags || []);
+    }
+  }, [image]);
+
+  const updateMutation = useMutation(
+    (data) => type === 'uploaded' 
+      ? imageAPI.updateUploaded(image._id, data)
+      : imageAPI.updateGenerated(image._id, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(type === 'uploaded' ? 'uploadedImages' : 'generatedImages');
+        toast.success('이미지 정보가 수정되었습니다');
+        onSuccess?.();
+        onClose();
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '수정 실패');
+      }
+    }
+  );
+
+  const handleSave = () => {
+    updateMutation.mutate({ 
+      tags: tags.map(t => t._id) 
+    });
+  };
+
+  if (!image) return null;
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>이미지 편집</DialogTitle>
+      <DialogContent>
+        <Box sx={{ mb: 2, textAlign: 'center' }}>
+          <img
+            src={image.url}
+            alt={image.originalName}
+            style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+          />
+        </Box>
+        <Typography variant="subtitle2" gutterBottom>
+          {image.originalName}
+        </Typography>
+        <Box sx={{ mt: 2 }}>
+          <TagInput
+            value={tags}
+            onChange={setTags}
+            label="태그"
+            placeholder="태그 추가..."
+          />
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button 
+          variant="contained" 
+          onClick={handleSave}
+          disabled={updateMutation.isLoading}
+        >
+          저장
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function UploadDialog({ open, onClose, onSuccess }) {
   const [uploading, setUploading] = useState(false);
 
@@ -446,6 +523,8 @@ function MyImages() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editImage, setEditImage] = useState(null);
   
   const queryClient = useQueryClient();
 
@@ -506,8 +585,8 @@ function MyImages() {
   };
 
   const handleEdit = (image) => {
-    // 편집 기능 구현 (태그 편집 등)
-    console.log('Edit image:', image);
+    setEditImage(image);
+    setEditOpen(true);
   };
 
   const handleDelete = (image) => {
@@ -621,6 +700,13 @@ function MyImages() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onSuccess={handleUploadSuccess}
+      />
+
+      <ImageEditDialog
+        image={editImage}
+        open={editOpen}
+        onClose={() => { setEditOpen(false); setEditImage(null); }}
+        type={tab === 1 ? 'uploaded' : 'generated'}
       />
     </Container>
   );

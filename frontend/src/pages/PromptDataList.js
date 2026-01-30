@@ -43,6 +43,7 @@ import { promptDataAPI, workboardAPI } from '../services/api';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import Pagination from '../components/common/Pagination';
+import TagInput from '../components/common/TagInput';
 
 /* eslint-disable no-unused-vars */
 
@@ -50,6 +51,7 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
   const isEditing = !!promptData;
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(promptData?.representativeImage || null);
+  const [tags, setTags] = useState(promptData?.tags || []);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
@@ -71,6 +73,7 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
         seed: promptData?.seed || ''
       });
       setSelectedImage(promptData?.representativeImage || null);
+      setTags(promptData?.tags || []);
     }
   }, [open, promptData, reset]);
 
@@ -78,7 +81,8 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
     onSave({
       ...data,
       seed: data.seed ? parseInt(data.seed) : undefined,
-      representativeImage: selectedImage
+      representativeImage: selectedImage,
+      tags: tags.map(t => t._id)
     });
   };
 
@@ -217,6 +221,15 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                       placeholder="비워두면 랜덤"
                     />
                   )}
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <TagInput
+                  value={tags}
+                  onChange={setTags}
+                  label="태그"
+                  placeholder="태그 추가..."
                 />
               </Grid>
             </Grid>
@@ -525,13 +538,36 @@ function PromptDataList() {
                     >
                       {item.prompt}
                     </Typography>
-                    {item.seed && (
-                      <Chip
-                        label={`Seed: ${item.seed}`}
-                        size="small"
-                        sx={{ mt: 1 }}
-                      />
-                    )}
+                    <Box mt={1}>
+                      {item.seed && (
+                        <Chip
+                          label={`Seed: ${item.seed}`}
+                          size="small"
+                          sx={{ mr: 0.5, mb: 0.5 }}
+                        />
+                      )}
+                      {item.tags?.slice(0, 3).map((tag) => (
+                        <Chip
+                          key={tag._id || tag}
+                          label={tag.name || tag}
+                          size="small"
+                          sx={{ 
+                            mr: 0.5, 
+                            mb: 0.5,
+                            bgcolor: tag.color || undefined,
+                            color: tag.color ? 'white' : undefined
+                          }}
+                        />
+                      ))}
+                      {item.tags?.length > 3 && (
+                        <Chip
+                          label={`+${item.tags.length - 3}`}
+                          size="small"
+                          variant="outlined"
+                          sx={{ mb: 0.5 }}
+                        />
+                      )}
+                    </Box>
                   </CardContent>
                   <CardActions>
                     <Button
