@@ -4,9 +4,13 @@ const tagSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     maxlength: 50
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   },
   color: {
     type: String,
@@ -25,8 +29,8 @@ const tagSchema = new mongoose.Schema({
   timestamps: true
 });
 
-tagSchema.index({ name: 1 });
-tagSchema.index({ usageCount: -1 });
+tagSchema.index({ userId: 1, name: 1 }, { unique: true });
+tagSchema.index({ userId: 1, usageCount: -1 });
 
 tagSchema.methods.incrementUsage = function() {
   this.usageCount += 1;

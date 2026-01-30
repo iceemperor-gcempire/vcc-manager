@@ -73,6 +73,12 @@ const menuItems = [
     path: '/tags',
     icon: <LocalOffer />,
     roles: ['user', 'admin']
+  },
+  {
+    text: '내 태그 관리',
+    path: '/tags/manage',
+    icon: <LocalOffer />,
+    roles: ['user', 'admin']
   }
 ];
 
@@ -105,12 +111,6 @@ const adminMenuItems = [
     text: '시스템 통계',
     path: '/admin/stats',
     icon: <BarChart />,
-    roles: ['admin']
-  },
-  {
-    text: '태그 관리',
-    path: '/admin/tags',
-    icon: <LocalOffer />,
     roles: ['admin']
   }
 ];

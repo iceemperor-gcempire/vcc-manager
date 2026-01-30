@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Container,
   Box,
   Paper,
   Typography,
@@ -28,7 +29,7 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { tagAPI } from '../../services/api';
+import { tagAPI } from '../services/api';
 
 function TagEditDialog({ open, onClose, tag }) {
   const [name, setName] = useState(tag?.name || '');
@@ -39,7 +40,7 @@ function TagEditDialog({ open, onClose, tag }) {
     (data) => tagAPI.update(tag._id, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('adminTags');
+        queryClient.invalidateQueries('myTags');
         queryClient.invalidateQueries('tags');
         toast.success('태그가 수정되었습니다');
         onClose();
@@ -115,7 +116,7 @@ function TagCreateDialog({ open, onClose }) {
     (data) => tagAPI.create(data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('adminTags');
+        queryClient.invalidateQueries('myTags');
         queryClient.invalidateQueries('tags');
         toast.success('태그가 생성되었습니다');
         setName('');
@@ -184,15 +185,15 @@ function TagManagement() {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery(
-    'adminTags',
-    () => tagAPI.getStats()
+    'myTags',
+    () => tagAPI.getMy()
   );
 
   const deleteMutation = useMutation(
     (id) => tagAPI.delete(id),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries('adminTags');
+        queryClient.invalidateQueries('myTags');
         queryClient.invalidateQueries('tags');
         toast.success('태그가 삭제되었습니다');
         setDeleteConfirmTag(null);
@@ -208,22 +209,28 @@ function TagManagement() {
 
   if (isLoading) {
     return (
-      <Box display="flex" justifyContent="center" py={4}>
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Box display="flex" justifyContent="center" py={4}>
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
   if (error) {
-    return <Alert severity="error">태그를 불러오는 중 오류가 발생했습니다.</Alert>;
+    return (
+      <Container maxWidth="lg" sx={{ mt: 4 }}>
+        <Alert severity="error">태그를 불러오는 중 오류가 발생했습니다.</Alert>
+      </Container>
+    );
   }
 
   return (
-    <Box>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box display="flex" alignItems="center" gap={1}>
-          <LocalOffer color="primary" />
-          <Typography variant="h5">태그 관리</Typography>
+          <LocalOffer color="primary" sx={{ fontSize: 32 }} />
+          <Typography variant="h4">내 태그</Typography>
           <Chip label={`총 ${totalTags}개`} size="small" />
         </Box>
         <Button
@@ -314,7 +321,7 @@ function TagManagement() {
             태그를 삭제하시겠습니까?
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-            이 태그는 모든 작업판, 이미지, 프롬프트 데이터에서 제거됩니다.
+            이 태그는 모든 이미지, 프롬프트 데이터에서 제거됩니다.
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -329,7 +336,7 @@ function TagManagement() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
   );
 }
 

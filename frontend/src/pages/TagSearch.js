@@ -16,12 +16,10 @@ import {
 } from '@mui/material';
 import {
   LocalOffer,
-  ViewModule,
   Image as ImageIcon,
   TextSnippet
 } from '@mui/icons-material';
 import { useQuery } from 'react-query';
-import { useNavigate } from 'react-router-dom';
 import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 
@@ -36,7 +34,6 @@ function TabPanel({ children, value, index }) {
 function TagSearch() {
   const [selectedTags, setSelectedTags] = useState([]);
   const [tabValue, setTabValue] = useState(0);
-  const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery(
     ['tagSearch', selectedTags.map(t => t._id).join(',')],
@@ -45,12 +42,11 @@ function TagSearch() {
   );
 
   const results = data?.data?.results || {};
-  const workboards = results.workboards || [];
   const generatedImages = results.generatedImages || [];
   const uploadedImages = results.uploadedImages || [];
   const promptData = results.promptData || [];
 
-  const totalResults = workboards.length + generatedImages.length + uploadedImages.length + promptData.length;
+  const totalResults = generatedImages.length + uploadedImages.length + promptData.length;
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -73,7 +69,7 @@ function TagSearch() {
 
       {selectedTags.length === 0 ? (
         <Alert severity="info">
-          태그를 선택하면 해당 태그가 붙은 작업판, 이미지, 프롬프트 데이터를 검색합니다.
+          태그를 선택하면 해당 태그가 붙은 이미지, 프롬프트 데이터를 검색합니다.
         </Alert>
       ) : isLoading ? (
         <Box display="flex" justifyContent="center" py={4}>
@@ -86,11 +82,6 @@ function TagSearch() {
       ) : (
         <Paper sx={{ p: 2 }}>
           <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
-            <Tab 
-              icon={<ViewModule />} 
-              label={`작업판 (${workboards.length})`} 
-              iconPosition="start" 
-            />
             <Tab 
               icon={<ImageIcon />} 
               label={`생성 이미지 (${generatedImages.length})`} 
@@ -109,46 +100,6 @@ function TagSearch() {
           </Tabs>
 
           <TabPanel value={tabValue} index={0}>
-            {workboards.length === 0 ? (
-              <Typography color="textSecondary">결과 없음</Typography>
-            ) : (
-              <Grid container spacing={2}>
-                {workboards.map((wb) => (
-                  <Grid item xs={12} sm={6} md={4} key={wb._id}>
-                    <Card 
-                      sx={{ cursor: 'pointer', '&:hover': { boxShadow: 3 } }}
-                      onClick={() => navigate(wb.workboardType === 'prompt' ? `/prompt-generate/${wb._id}` : `/generate/${wb._id}`)}
-                    >
-                      <CardContent>
-                        <Typography variant="h6" noWrap>{wb.name}</Typography>
-                        <Typography variant="body2" color="textSecondary" noWrap>
-                          {wb.description}
-                        </Typography>
-                        <Box mt={1}>
-                          <Chip 
-                            size="small" 
-                            label={wb.workboardType === 'prompt' ? '프롬프트' : '이미지'} 
-                            color={wb.workboardType === 'prompt' ? 'secondary' : 'primary'}
-                            sx={{ mr: 1 }}
-                          />
-                          {wb.tags?.map(tag => (
-                            <Chip
-                              key={tag._id}
-                              size="small"
-                              label={tag.name}
-                              sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5 }}
-                            />
-                          ))}
-                        </Box>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </TabPanel>
-
-          <TabPanel value={tabValue} index={1}>
             {generatedImages.length === 0 ? (
               <Typography color="textSecondary">결과 없음</Typography>
             ) : (
@@ -185,7 +136,7 @@ function TagSearch() {
             )}
           </TabPanel>
 
-          <TabPanel value={tabValue} index={2}>
+          <TabPanel value={tabValue} index={1}>
             {uploadedImages.length === 0 ? (
               <Typography color="textSecondary">결과 없음</Typography>
             ) : (
@@ -222,7 +173,7 @@ function TagSearch() {
             )}
           </TabPanel>
 
-          <TabPanel value={tabValue} index={3}>
+          <TabPanel value={tabValue} index={2}>
             {promptData.length === 0 ? (
               <Typography color="textSecondary">결과 없음</Typography>
             ) : (

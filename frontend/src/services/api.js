@@ -136,7 +136,7 @@ export const tagAPI = {
   update: (id, data) => api.put(`/tags/${id}`, data),
   delete: (id) => api.delete(`/tags/${id}`),
   search: (params) => api.get('/tags/search', { params }),
-  getStats: () => api.get('/tags/stats'),
+  getMy: () => api.get('/tags/my'),
 };
 
 export default api;
