@@ -33,7 +33,8 @@ import {
   Add,
   ArrowBack,
   Shuffle,
-  FolderOpen
+  FolderOpen,
+  AutoAwesome
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -43,6 +44,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
 import Pagination from '../components/common/Pagination';
+import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -406,6 +408,7 @@ function ImageGeneration() {
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   const [loraModalOpen, setLoraModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
+  const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const initializedRef = useRef(null);
 
   const handleLoraModalOpen = () => {
@@ -430,6 +433,11 @@ function ImageGeneration() {
       setRandomSeed(false);
     }
     toast.success(`프롬프트 "${promptData.name}" 불러옴`);
+  };
+
+  const handleGeneratedPromptApply = (generatedPrompt) => {
+    setValue('prompt', generatedPrompt);
+    toast.success('AI 생성 프롬프트가 적용되었습니다');
   };
 
   const { control, handleSubmit, setValue, reset, getValues, formState: { errors } } = useForm({
@@ -898,13 +906,22 @@ function ImageGeneration() {
               </Typography>
 
               {/* 프롬프트 */}
-              <Box display="flex" justifyContent="flex-end" mb={1}>
+              <Box display="flex" justifyContent="flex-end" gap={1} mb={1}>
                 <Button
                   size="small"
                   startIcon={<FolderOpen />}
                   onClick={() => setPromptDataDialogOpen(true)}
                 >
                   프롬프트 불러오기
+                </Button>
+                <Button
+                  size="small"
+                  color="secondary"
+                  variant="outlined"
+                  startIcon={<AutoAwesome />}
+                  onClick={() => setPromptGeneratorDialogOpen(true)}
+                >
+                  AI 프롬프트 생성
                 </Button>
               </Box>
               <Controller
@@ -1186,6 +1203,13 @@ function ImageGeneration() {
         open={promptDataDialogOpen}
         onClose={() => setPromptDataDialogOpen(false)}
         onSelect={handlePromptDataSelect}
+      />
+
+      {/* AI 프롬프트 생성 다이얼로그 */}
+      <PromptGeneratorDialog
+        open={promptGeneratorDialogOpen}
+        onClose={() => setPromptGeneratorDialogOpen(false)}
+        onApply={handleGeneratedPromptApply}
       />
     </Container>
   );
