@@ -7,6 +7,7 @@ const comfyUIService = require('./comfyUIService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
+const UploadedImage = require('../models/UploadedImage');
 
 let imageGenerationQueue;
 let redisClient;
@@ -117,9 +118,22 @@ const processImageGeneration = async (job) => {
   const { jobId, workboardData, inputData } = job.data;
   
   try {
-    job.progress(10);
+    job.progress(5);
     
-    const { workflowJson, actualSeed } = injectInputsIntoWorkflow(workboardData.workflowData, inputData, workboardData);
+    // 이미지 타입 필드들을 ComfyUI에 업로드
+    const uploadedImageMap = await uploadImageFieldsToComfyUI(
+      workboardData.serverUrl,
+      workboardData.additionalInputFields || [],
+      inputData
+    );
+    job.progress(15);
+    
+    const { workflowJson, actualSeed } = await injectInputsIntoWorkflow(
+      workboardData.workflowData, 
+      inputData, 
+      workboardData,
+      uploadedImageMap
+    );
     job.progress(20);
     
     // 실제 사용된 시드 값을 inputData에 추가
@@ -182,6 +196,77 @@ const processImageGeneration = async (job) => {
   }
 };
 
+// 이미지 타입 필드들을 ComfyUI에 업로드하고 파일명 맵 반환
+const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData) => {
+  const uploadedImageMap = {};
+  
+  if (!additionalInputFields || additionalInputFields.length === 0) {
+    return uploadedImageMap;
+  }
+  
+  // 이미지 타입 필드 찾기
+  const imageFields = additionalInputFields.filter(field => field.type === 'image');
+  
+  for (const field of imageFields) {
+    const fieldName = field.name;
+    let fieldValue = inputData.additionalParams?.[fieldName] || inputData[fieldName];
+    
+    if (!fieldValue) {
+      console.log(`⏭️ Image field "${fieldName}" is empty, skipping`);
+      continue;
+    }
+    
+    // 배열인 경우 첫 번째 이미지만 사용 (단일 이미지 필드)
+    if (Array.isArray(fieldValue)) {
+      fieldValue = fieldValue[0];
+    }
+    
+    const imageId = fieldValue.imageId || fieldValue;
+    
+    if (!imageId) {
+      console.log(`⏭️ Image field "${fieldName}" has no imageId, skipping`);
+      continue;
+    }
+    
+    try {
+      console.log(`🔍 Looking up image for field "${fieldName}": ${imageId}`);
+      
+      // 이미지 정보 조회 (GeneratedImage 또는 UploadedImage)
+      let imageDoc = await GeneratedImage.findById(imageId);
+      if (!imageDoc) {
+        imageDoc = await UploadedImage.findById(imageId);
+      }
+      
+      if (!imageDoc) {
+        console.warn(`⚠️ Image not found for field "${fieldName}": ${imageId}`);
+        continue;
+      }
+      
+      // 이미지 파일 읽기
+      const imagePath = imageDoc.path;
+      if (!fs.existsSync(imagePath)) {
+        console.warn(`⚠️ Image file not found: ${imagePath}`);
+        continue;
+      }
+      
+      const imageBuffer = await fs.promises.readFile(imagePath);
+      const filename = `vcc_${fieldName}_${Date.now()}_${path.basename(imagePath)}`;
+      
+      // ComfyUI에 업로드
+      const uploadResult = await comfyUIService.uploadImage(serverUrl, imageBuffer, filename);
+      
+      // 업로드된 파일명 저장
+      uploadedImageMap[fieldName] = uploadResult.name;
+      console.log(`✅ Uploaded image for field "${fieldName}": ${uploadResult.name}`);
+      
+    } catch (error) {
+      console.error(`❌ Failed to upload image for field "${fieldName}":`, error.message);
+    }
+  }
+  
+  return uploadedImageMap;
+};
+
 // 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
   // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
@@ -191,9 +276,10 @@ const generateRandomSeed = () => {
   return Math.floor(Math.random() * (Number.MAX_SAFE_INTEGER + 1));
 };
 
-const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null) => {
+const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard = null, uploadedImageMap = {}) => {
   console.log('🔄 Injecting inputs into workflow...');
   console.log('📝 Input data received:', JSON.stringify(inputData, null, 2));
+  console.log('🖼️ Uploaded image map:', uploadedImageMap);
   
   // 값 추출 헬퍼 함수: 키-값 객체에서 값만 추출하거나 문자열 그대로 반환
   const extractValue = (field) => {
@@ -308,6 +394,16 @@ const injectInputsIntoWorkflow = (workflowTemplate, inputData, workboard = null)
           break;
         case 'boolean':
           value = Boolean(value);
+          break;
+        case 'image':
+          // 이미지 필드는 업로드된 파일명 사용
+          if (uploadedImageMap[fieldName]) {
+            value = uploadedImageMap[fieldName];
+            console.log(`🖼️ Using uploaded image for field "${fieldName}": ${value}`);
+          } else {
+            value = '';
+            console.log(`⚠️ No uploaded image found for field "${fieldName}"`);
+          }
           break;
         case 'string':
         case 'select':
