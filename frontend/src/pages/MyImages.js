@@ -34,7 +34,8 @@ import {
   Edit,
   Info,
   Close,
-  Share
+  Share,
+  Videocam
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useDropzone } from 'react-dropzone';
@@ -216,6 +217,170 @@ function ImageCard({ image, type, onEdit, onDelete, onView }) {
   );
 }
 
+function VideoCard({ video, onEdit, onDelete, onView }) {
+  const [anchorEl, setAnchorEl] = useState(null);
+  const menuOpen = Boolean(anchorEl);
+
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleDownload = async () => {
+    try {
+      const response = await imageAPI.downloadVideo(video._id);
+      const blob = new Blob([response.data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = video.originalName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('다운로드 완료');
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('다운로드 실패');
+    }
+    handleMenuClose();
+  };
+
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  return (
+    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box
+        sx={{
+          position: 'relative',
+          height: 200,
+          bgcolor: 'black',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer'
+        }}
+        onClick={() => onView(video)}
+      >
+        <video
+          src={video.url}
+          style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+          muted
+          onMouseEnter={(e) => e.target.play()}
+          onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            bgcolor: 'rgba(0,0,0,0.6)',
+            borderRadius: 1,
+            px: 1,
+            py: 0.5
+          }}
+        >
+          <Videocam sx={{ color: 'white', fontSize: 20 }} />
+        </Box>
+      </Box>
+      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
+        <Typography variant="subtitle2" noWrap gutterBottom>
+          {video.originalName}
+        </Typography>
+        <Typography variant="caption" color="textSecondary" display="block">
+          {video.metadata?.width && video.metadata?.height 
+            ? `${video.metadata.width}x${video.metadata.height}` 
+            : '크기 정보 없음'}
+        </Typography>
+        <Typography variant="caption" color="textSecondary" display="block">
+          {formatFileSize(video.size)}
+        </Typography>
+        <Typography variant="caption" color="textSecondary" display="block">
+          {new Date(video.createdAt).toLocaleDateString()}
+        </Typography>
+
+        {video.tags?.length > 0 && (
+          <Box mt={1}>
+            {video.tags.slice(0, 2).map((tag) => (
+              <Chip
+                key={tag._id || tag}
+                label={tag.name || tag}
+                size="small"
+                sx={{ 
+                  mr: 0.5, 
+                  mb: 0.5,
+                  bgcolor: tag.color || undefined,
+                  color: tag.color ? 'white' : undefined
+                }}
+              />
+            ))}
+            {video.tags.length > 2 && (
+              <Chip
+                label={`+${video.tags.length - 2}`}
+                size="small"
+                variant="outlined"
+              />
+            )}
+          </Box>
+        )}
+
+        {video.isPublic && (
+          <Chip
+            label="공개"
+            color="success"
+            size="small"
+            variant="outlined"
+            sx={{ mt: 1 }}
+          />
+        )}
+      </CardContent>
+      <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
+        <Button size="small" onClick={() => onView(video)} startIcon={<Info />}>
+          상세보기
+        </Button>
+        <IconButton size="small" onClick={handleMenuOpen}>
+          <MoreVert />
+        </IconButton>
+        
+        <Menu
+          anchorEl={anchorEl}
+          open={menuOpen}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => { onEdit(video); handleMenuClose(); }}>
+            <Edit sx={{ mr: 1 }} fontSize="small" />
+            편집
+          </MenuItem>
+          <MenuItem onClick={handleDownload}>
+            <Download sx={{ mr: 1 }} fontSize="small" />
+            다운로드
+          </MenuItem>
+          <MenuItem 
+            onClick={() => { onDelete(video); handleMenuClose(); }}
+            sx={{ color: 'error.main' }}
+          >
+            <Delete sx={{ mr: 1 }} fontSize="small" />
+            삭제
+          </MenuItem>
+        </Menu>
+      </CardActions>
+    </Card>
+  );
+}
+
 function ImageDetailDialog({ image, open, onClose, type }) {
   console.log('🎭 Dialog render - open:', open, 'hasImage:', !!image);
   
@@ -358,7 +523,85 @@ function ImageDetailDialog({ image, open, onClose, type }) {
   );
 }
 
-function ImageEditDialog({ image, open, onClose, type, onSuccess }) {
+function VideoDetailDialog({ video, open, onClose }) {
+  if (!video) return null;
+  
+  const handleDownload = async () => {
+    try {
+      const response = await imageAPI.downloadVideo(video._id);
+      const blob = new Blob([response.data]);
+      const blobUrl = window.URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = video.originalName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('다운로드 완료');
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(blobUrl);
+      }, 1000);
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('다운로드 실패');
+    }
+  };
+  
+  return (
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="lg" 
+      fullWidth
+      PaperProps={{
+        sx: { bgcolor: 'black', maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ color: 'white', pb: 1 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6">
+            동영상 상세보기
+          </Typography>
+          <Box>
+            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
+              <Download />
+            </IconButton>
+            <IconButton onClick={onClose} sx={{ color: 'white' }}>
+              <Close />
+            </IconButton>
+          </Box>
+        </Box>
+      </DialogTitle>
+      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
+        <video
+          src={video.url}
+          controls
+          autoPlay
+          style={{
+            maxWidth: '100%',
+            maxHeight: '70vh',
+            borderRadius: '8px'
+          }}
+        />
+        
+        <Box mt={2} sx={{ color: 'white' }}>
+          <Typography variant="body2">
+            {video.originalName}
+          </Typography>
+          {video.metadata && (
+            <Typography variant="body2">
+              크기: {video.metadata.width} x {video.metadata.height}
+            </Typography>
+          )}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = false }) {
   const [tags, setTags] = useState([]);
   const queryClient = useQueryClient();
 
@@ -368,14 +611,24 @@ function ImageEditDialog({ image, open, onClose, type, onSuccess }) {
     }
   }, [image]);
 
+  const getUpdateFn = () => {
+    if (isVideo) return imageAPI.updateVideo;
+    if (type === 'uploaded') return imageAPI.updateUploaded;
+    return imageAPI.updateGenerated;
+  };
+
+  const getQueryKey = () => {
+    if (isVideo) return 'generatedVideos';
+    if (type === 'uploaded') return 'uploadedImages';
+    return 'generatedImages';
+  };
+
   const updateMutation = useMutation(
-    (data) => type === 'uploaded' 
-      ? imageAPI.updateUploaded(image._id, data)
-      : imageAPI.updateGenerated(image._id, data),
+    (data) => getUpdateFn()(image._id, data),
     {
       onSuccess: () => {
-        queryClient.invalidateQueries(type === 'uploaded' ? 'uploadedImages' : 'generatedImages');
-        toast.success('이미지 정보가 수정되었습니다');
+        queryClient.invalidateQueries(getQueryKey());
+        toast.success(`${isVideo ? '동영상' : '이미지'} 정보가 수정되었습니다`);
         onSuccess?.();
         onClose();
       },
@@ -395,14 +648,23 @@ function ImageEditDialog({ image, open, onClose, type, onSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>이미지 편집</DialogTitle>
+      <DialogTitle>{isVideo ? '동영상' : '이미지'} 편집</DialogTitle>
       <DialogContent>
         <Box sx={{ mb: 2, textAlign: 'center' }}>
-          <img
-            src={image.url}
-            alt={image.originalName}
-            style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
-          />
+          {isVideo ? (
+            <video
+              src={image.url}
+              style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+              muted
+              controls
+            />
+          ) : (
+            <img
+              src={image.url}
+              alt={image.originalName}
+              style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+            />
+          )}
         </Box>
         <Typography variant="subtitle2" gutterBottom>
           {image.originalName}
@@ -517,7 +779,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
 }
 
 function MyImages() {
-  const [tab, setTab] = useState(0); // 생성된 이미지를 기본으로 표시
+  const [tab, setTab] = useState(0); // 0: 생성된 이미지, 1: 업로드된 이미지, 2: 생성된 동영상
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -540,6 +802,12 @@ function MyImages() {
     { enabled: tab === 0 }
   );
 
+  const { data: generatedVideos, isLoading: videosLoading } = useQuery(
+    ['generatedVideos', search, page],
+    () => imageAPI.getVideos({ search, page, limit: 12 }),
+    { enabled: tab === 2 }
+  );
+
   const deleteUploadedMutation = useMutation(
     imageAPI.deleteUploaded,
     {
@@ -559,6 +827,19 @@ function MyImages() {
       onSuccess: () => {
         toast.success('이미지가 삭제되었습니다');
         queryClient.invalidateQueries('generatedImages');
+      },
+      onError: () => {
+        toast.error('삭제 실패');
+      }
+    }
+  );
+
+  const deleteVideoMutation = useMutation(
+    ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
+    {
+      onSuccess: () => {
+        toast.success('동영상이 삭제되었습니다');
+        queryClient.invalidateQueries('generatedVideos');
       },
       onError: () => {
         toast.error('삭제 실패');
@@ -589,14 +870,17 @@ function MyImages() {
     setEditOpen(true);
   };
 
-  const handleDelete = (image) => {
+  const handleDelete = (item) => {
     if (tab === 1) {
       if (window.confirm('이미지를 삭제하시겠습니까?')) {
-        deleteUploadedMutation.mutate(image._id);
+        deleteUploadedMutation.mutate(item._id);
       }
+    } else if (tab === 2) {
+      const deleteJob = window.confirm('동영상과 함께 생성 작업도 삭제하시겠습니까?');
+      deleteVideoMutation.mutate({ id: item._id, deleteJob });
     } else {
       const deleteJob = window.confirm('이미지와 함께 생성 작업도 삭제하시겠습니까?');
-      deleteGeneratedMutation.mutate({ id: image._id, deleteJob });
+      deleteGeneratedMutation.mutate({ id: item._id, deleteJob });
     }
   };
 
@@ -604,9 +888,31 @@ function MyImages() {
     queryClient.invalidateQueries('uploadedImages');
   };
 
-  const currentImages = tab === 1 ? uploadedImages?.data?.images || [] : generatedImages?.data?.images || [];
-  const currentPagination = tab === 1 ? uploadedImages?.data?.pagination || {} : generatedImages?.data?.pagination || {};
-  const isLoading = tab === 1 ? uploadedLoading : generatedLoading;
+  const getCurrentData = () => {
+    if (tab === 1) {
+      return {
+        items: uploadedImages?.data?.images || [],
+        pagination: uploadedImages?.data?.pagination || {},
+        loading: uploadedLoading,
+        type: 'uploaded'
+      };
+    } else if (tab === 2) {
+      return {
+        items: generatedVideos?.data?.videos || [],
+        pagination: generatedVideos?.data?.pagination || {},
+        loading: videosLoading,
+        type: 'video'
+      };
+    }
+    return {
+      items: generatedImages?.data?.images || [],
+      pagination: generatedImages?.data?.pagination || {},
+      loading: generatedLoading,
+      type: 'generated'
+    };
+  };
+
+  const { items: currentItems, pagination: currentPagination, loading: isLoading, type: currentType } = getCurrentData();
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -618,6 +924,7 @@ function MyImages() {
         <Tabs value={tab} onChange={handleTabChange}>
           <Tab label="생성된 이미지" />
           <Tab label="업로드된 이미지" />
+          <Tab icon={<Videocam />} label="생성된 동영상" iconPosition="start" />
         </Tabs>
       </Box>
 
@@ -642,22 +949,31 @@ function MyImages() {
         <Box display="flex" justifyContent="center" mt={8}>
           <CircularProgress />
         </Box>
-      ) : currentImages.length === 0 ? (
+      ) : currentItems.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : `${tab === 1 ? '업로드된' : '생성된'} 이미지가 없습니다.`}
+          {search ? '검색 결과가 없습니다.' : `${tab === 2 ? '생성된 동영상' : tab === 1 ? '업로드된 이미지' : '생성된 이미지'}가 없습니다.`}
         </Alert>
       ) : (
         <>
           <Grid container spacing={3}>
-            {currentImages.map((image) => (
-              <Grid item xs={12} sm={6} md={4} lg={3} key={image._id}>
-                <ImageCard
-                  image={image}
-                  type={tab === 1 ? 'uploaded' : 'generated'}
-                  onView={handleView}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                />
+            {currentItems.map((item) => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={item._id}>
+                {currentType === 'video' ? (
+                  <VideoCard
+                    video={item}
+                    onView={handleView}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                ) : (
+                  <ImageCard
+                    image={item}
+                    type={currentType}
+                    onView={handleView}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                  />
+                )}
               </Grid>
             ))}
           </Grid>
@@ -689,12 +1005,20 @@ function MyImages() {
       )}
 
       {/* 다이얼로그들 */}
-      <ImageDetailDialog
-        image={selectedImage}
-        open={detailOpen}
-        onClose={() => setDetailOpen(false)}
-        type={tab === 1 ? 'uploaded' : 'generated'}
-      />
+      {currentType === 'video' ? (
+        <VideoDetailDialog
+          video={selectedImage}
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+        />
+      ) : (
+        <ImageDetailDialog
+          image={selectedImage}
+          open={detailOpen}
+          onClose={() => setDetailOpen(false)}
+          type={currentType}
+        />
+      )}
 
       <UploadDialog
         open={uploadOpen}
@@ -706,7 +1030,8 @@ function MyImages() {
         image={editImage}
         open={editOpen}
         onClose={() => { setEditOpen(false); setEditImage(null); }}
-        type={tab === 1 ? 'uploaded' : 'generated'}
+        type={currentType}
+        isVideo={currentType === 'video'}
       />
     </Container>
   );

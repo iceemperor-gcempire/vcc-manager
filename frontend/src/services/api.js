@@ -100,6 +100,15 @@ export const imageAPI = {
   downloadGenerated: (id) => api.post(`/images/generated/${id}/download`, {}, {
     responseType: 'blob',
   }),
+  getVideos: (params) => api.get('/images/videos', { params }),
+  getVideoById: (id) => api.get(`/images/videos/${id}`),
+  updateVideo: (id, data) => api.put(`/images/videos/${id}`, data),
+  deleteVideo: (id, deleteJob) => api.delete(`/images/videos/${id}`, {
+    params: { deleteJob },
+  }),
+  downloadVideo: (id) => api.post(`/images/videos/${id}/download`, {}, {
+    responseType: 'blob',
+  }),
 };
 
 export const adminAPI = {

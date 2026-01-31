@@ -124,6 +124,7 @@ router.get('/my', requireAuth, async (req, res) => {
     const jobs = await ImageGenerationJob.find(filter)
       .populate('workboardId', 'name')
       .populate('resultImages')
+      .populate('resultVideos')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -148,6 +149,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     const job = await ImageGenerationJob.findById(req.params.id)
       .populate('workboardId', 'name')
       .populate('resultImages')
+      .populate('resultVideos')
       .populate('inputData.referenceImages.imageId');
     
     if (!job) {
@@ -166,7 +168,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages');
+    const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages').populate('resultVideos');
     
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });

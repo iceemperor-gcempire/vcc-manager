@@ -4,7 +4,9 @@ const { requireAuth } = require('../middleware/auth');
 const { upload, processAndSaveImage, deleteFile, validateImageDimensions } = require('../utils/fileUpload');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
+const GeneratedVideo = require('../models/GeneratedVideo');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const Tag = require('../models/Tag');
 const router = express.Router();
 
 router.post('/upload', requireAuth, upload.single('image'), async (req, res) => {
@@ -75,6 +77,7 @@ router.get('/uploaded', requireAuth, async (req, res) => {
     }
     
     const images = await UploadedImage.find(filter)
+      .populate('tags')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -116,6 +119,7 @@ router.get('/generated', requireAuth, async (req, res) => {
     
     const images = await GeneratedImage.find(filter)
       .populate('jobId', 'createdAt')
+      .populate('tags')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -187,11 +191,31 @@ router.put('/uploaded/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    if (tags) {
-      image.tags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    if (tags !== undefined) {
+      const newTags = Array.isArray(tags) ? tags : [];
+      const oldTags = image.tags.map(t => t.toString());
+      
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      const removedTags = oldTags.filter(t => !newTags.includes(t));
+      
+      if (addedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: addedTags } },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+      if (removedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: removedTags } },
+          { $inc: { usageCount: -1 } }
+        );
+      }
+      
+      image.tags = newTags;
     }
     
     await image.save();
+    await image.populate('tags');
     
     res.json({
       message: 'Image updated successfully',
@@ -216,8 +240,27 @@ router.put('/generated/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    if (tags) {
-      image.tags = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
+    if (tags !== undefined) {
+      const newTags = Array.isArray(tags) ? tags : [];
+      const oldTags = image.tags.map(t => t.toString());
+      
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      const removedTags = oldTags.filter(t => !newTags.includes(t));
+      
+      if (addedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: addedTags } },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+      if (removedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: removedTags } },
+          { $inc: { usageCount: -1 } }
+        );
+      }
+      
+      image.tags = newTags;
     }
     
     if (isPublic !== undefined) {
@@ -225,6 +268,7 @@ router.put('/generated/:id', requireAuth, async (req, res) => {
     }
     
     await image.save();
+    await image.populate('tags');
     
     res.json({
       message: 'Image updated successfully',
@@ -351,6 +395,165 @@ router.post('/generated/:id/download', async (req, res) => {
     await image.incrementDownloadCount();
     
     res.download(image.path, image.originalName);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/videos', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const filter = { userId: req.user._id };
+    
+    if (search) {
+      filter.$or = [
+        { originalName: { $regex: search, $options: 'i' } },
+        { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    const videos = await GeneratedVideo.find(filter)
+      .populate('jobId', 'createdAt')
+      .populate('tags')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await GeneratedVideo.countDocuments(filter);
+    
+    res.json({
+      videos,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/videos/:id', requireAuth, async (req, res) => {
+  try {
+    const video = await GeneratedVideo.findById(req.params.id)
+      .populate('jobId')
+      .populate('tags');
+    
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+    
+    if (video.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    res.json({ video });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.put('/videos/:id', requireAuth, async (req, res) => {
+  try {
+    const { tags, isPublic } = req.body;
+    
+    const video = await GeneratedVideo.findById(req.params.id);
+    
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+    
+    if (video.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    if (tags !== undefined) {
+      const newTags = Array.isArray(tags) ? tags : [];
+      const oldTags = video.tags.map(t => t.toString());
+      
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      const removedTags = oldTags.filter(t => !newTags.includes(t));
+      
+      if (addedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: addedTags } },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+      if (removedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: removedTags } },
+          { $inc: { usageCount: -1 } }
+        );
+      }
+      
+      video.tags = newTags;
+    }
+    
+    if (isPublic !== undefined) {
+      video.isPublic = isPublic;
+    }
+    
+    await video.save();
+    await video.populate('tags');
+    
+    res.json({
+      message: 'Video updated successfully',
+      video
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.delete('/videos/:id', requireAuth, async (req, res) => {
+  try {
+    const { deleteJob = false } = req.query;
+    
+    const video = await GeneratedVideo.findById(req.params.id);
+    
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+    
+    if (video.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    await deleteFile(video.path);
+    
+    if (deleteJob === 'true' && video.jobId) {
+      await ImageGenerationJob.findByIdAndDelete(video.jobId);
+    }
+    
+    await GeneratedVideo.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      message: `Video${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/videos/:id/download', async (req, res) => {
+  try {
+    const video = await GeneratedVideo.findById(req.params.id);
+    
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+    
+    if (!video.isPublic && (!req.user || video.userId.toString() !== req.user._id.toString())) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    await video.incrementDownloadCount();
+    
+    res.download(video.path, video.originalName);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

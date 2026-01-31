@@ -6,6 +6,7 @@ const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
+const GeneratedVideo = require('../models/GeneratedVideo');
 
 let imageGenerationQueue;
 let redisClient;
@@ -84,7 +85,11 @@ const initializeQueues = async () => {
       console.log(`Job ${job.id} completed successfully`);
       console.log(`ComfyUI result:`, JSON.stringify(result, null, 2));
       console.log(`Result images count: ${result?.images?.length || 0}`);
-      await updateJobStatus(job.data.jobId, 'completed', { resultImages: result.images });
+      console.log(`Result videos count: ${result?.videos?.length || 0}`);
+      await updateJobStatus(job.data.jobId, 'completed', { 
+        resultImages: result.images,
+        resultVideos: result.videos
+      });
     });
 
     imageGenerationQueue.on('failed', async (job, err) => {
@@ -138,23 +143,39 @@ const processImageGeneration = async (job) => {
     console.log(`📊 ComfyUI result:`, {
       hasImages: !!comfyResult.images,
       imageCount: comfyResult.images?.length || 0,
+      hasVideos: !!comfyResult.videos,
+      videoCount: comfyResult.videos?.length || 0,
       resultKeys: Object.keys(comfyResult),
       fullResult: comfyResult
     });
     
-    if (!comfyResult.images || comfyResult.images.length === 0) {
-      console.error('❌ No images returned from ComfyUI!');
+    const hasImages = comfyResult.images && comfyResult.images.length > 0;
+    const hasVideos = comfyResult.videos && comfyResult.videos.length > 0;
+    
+    if (!hasImages && !hasVideos) {
+      console.error('❌ No images or videos returned from ComfyUI!');
       console.error('🔍 Full ComfyUI result for debugging:', JSON.stringify(comfyResult, null, 2));
-      throw new Error('No images returned from ComfyUI');
+      throw new Error('No media returned from ComfyUI');
     }
     
-    console.log(`💾 Starting to save ${comfyResult.images.length} images...`);
-    const savedImages = await saveGeneratedImages(jobId, comfyResult.images, enhancedInputData);
-    console.log(`✅ Saved ${savedImages.length} images successfully`);
+    let savedImages = [];
+    let savedVideos = [];
+    
+    if (hasImages) {
+      console.log(`💾 Starting to save ${comfyResult.images.length} images...`);
+      savedImages = await saveGeneratedMedia(jobId, comfyResult.images, enhancedInputData, 'image');
+      console.log(`✅ Saved ${savedImages.length} images successfully`);
+    }
+    
+    if (hasVideos) {
+      console.log(`🎬 Starting to save ${comfyResult.videos.length} videos...`);
+      savedVideos = await saveGeneratedMedia(jobId, comfyResult.videos, enhancedInputData, 'video');
+      console.log(`✅ Saved ${savedVideos.length} videos successfully`);
+    }
     
     job.progress(100);
     
-    return { images: savedImages };
+    return { images: savedImages, videos: savedVideos };
   } catch (error) {
     console.error(`Error processing job ${jobId}:`, error);
     throw error;
@@ -378,78 +399,106 @@ const fallbackStringReplacement = (workflowTemplate, replacements) => {
   return JSON.parse(workflowString);
 };
 
-const saveGeneratedImages = async (jobId, comfyImages, inputData) => {
-  console.log(`🖼️ Starting to save ${comfyImages?.length || 0} generated images for job ${jobId}`);
-  console.log('📊 ComfyUI images data:', comfyImages);
+const getExtensionFromMimeType = (mimeType) => {
+  const mimeToExt = {
+    'image/png': 'png',
+    'image/jpeg': 'jpg',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/bmp': 'bmp',
+    'image/tiff': 'tiff',
+    'image/apng': 'apng',
+    'video/mp4': 'mp4',
+    'video/webm': 'webm',
+    'video/quicktime': 'mov',
+    'video/x-msvideo': 'avi',
+    'video/x-matroska': 'mkv'
+  };
+  return mimeToExt[mimeType] || 'bin';
+};
+
+const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
+  const typeLabel = mediaType === 'video' ? 'videos' : 'images';
+  console.log(`🖼️ Starting to save ${mediaItems?.length || 0} generated ${typeLabel} for job ${jobId}`);
+  console.log('📊 Media data:', mediaItems);
   console.log('📋 Input data for saving:', inputData);
   
-  if (!comfyImages || comfyImages.length === 0) {
-    console.warn('⚠️ No images received from ComfyUI to save!');
+  if (!mediaItems || mediaItems.length === 0) {
+    console.warn(`⚠️ No ${typeLabel} received from ComfyUI to save!`);
     return [];
   }
   
-  const savedImages = [];
+  const savedItems = [];
+  const subDir = mediaType === 'video' ? 'videos' : 'generated';
   
-  for (let i = 0; i < comfyImages.length; i++) {
+  for (let i = 0; i < mediaItems.length; i++) {
     try {
-      const imageData = comfyImages[i];
-      console.log(`🔍 Processing image ${i+1}:`, {
-        hasBuffer: !!imageData.buffer,
-        bufferSize: imageData.buffer?.length || 0,
-        imageDataKeys: Object.keys(imageData)
+      const itemData = mediaItems[i];
+      console.log(`🔍 Processing ${mediaType} ${i+1}:`, {
+        hasBuffer: !!itemData.buffer,
+        bufferSize: itemData.buffer?.length || 0,
+        filename: itemData.filename,
+        mimeType: itemData.mimeType,
+        mediaType: itemData.mediaType,
+        itemDataKeys: Object.keys(itemData)
       });
       
-      if (!imageData.buffer) {
-        console.error(`❌ Image ${i+1} has no buffer data!`);
+      if (!itemData.buffer) {
+        console.error(`❌ ${mediaType} ${i+1} has no buffer data!`);
         continue;
       }
       
-      const filename = `generated_${Date.now()}_${i}.png`;
-      const generatedDir = path.join(process.env.UPLOAD_PATH || './uploads', 'generated');
+      const ext = getExtensionFromMimeType(itemData.mimeType) || itemData.filename?.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'png');
+      const filename = `generated_${Date.now()}_${i}.${ext}`;
+      const targetDir = path.join(process.env.UPLOAD_PATH || './uploads', subDir);
       
-      // Ensure directory exists
-      await fs.promises.mkdir(generatedDir, { recursive: true });
-      console.log(`📁 Directory ensured: ${generatedDir}`);
+      await fs.promises.mkdir(targetDir, { recursive: true });
+      console.log(`📁 Directory ensured: ${targetDir}`);
       
-      const imagePath = path.join(generatedDir, filename);
+      const filePath = path.join(targetDir, filename);
       
-      console.log(`💾 Saving image ${i+1}/${comfyImages.length} to ${imagePath}`);
-      await fs.promises.writeFile(imagePath, imageData.buffer);
-      console.log(`✅ Successfully wrote file to disk: ${imagePath}`);
+      console.log(`💾 Saving ${mediaType} ${i+1}/${mediaItems.length} to ${filePath}`);
+      await fs.promises.writeFile(filePath, itemData.buffer);
+      console.log(`✅ Successfully wrote file to disk: ${filePath}`);
       
-      // 실제 이미지 파일에서 크기 정보 추출
-      let imageMetadata = {
-        format: 'png'
+      let metadata = {
+        format: ext
       };
       
-      try {
-        const sharpImage = sharp(imageData.buffer);
-        const { width, height, format } = await sharpImage.metadata();
-        imageMetadata = {
-          width,
-          height,
-          format: format || 'png'
-        };
-        console.log(`Image ${i+1} metadata: ${width}x${height} ${format}`);
-      } catch (metadataError) {
-        console.warn(`Failed to extract metadata for image ${i+1}:`, metadataError.message);
-        // fallback to ComfyUI provided data if available
-        if (imageData.width && imageData.height) {
-          imageMetadata.width = imageData.width;
-          imageMetadata.height = imageData.height;
+      if (mediaType === 'image' || itemData.mediaType === 'animated') {
+        try {
+          const sharpImage = sharp(itemData.buffer);
+          const sharpMeta = await sharpImage.metadata();
+          metadata = {
+            width: sharpMeta.width,
+            height: sharpMeta.height,
+            format: sharpMeta.format || ext
+          };
+          console.log(`${mediaType} ${i+1} metadata: ${metadata.width}x${metadata.height} ${metadata.format}`);
+        } catch (metadataError) {
+          console.warn(`Failed to extract metadata for ${mediaType} ${i+1}:`, metadataError.message);
+          if (itemData.width && itemData.height) {
+            metadata.width = itemData.width;
+            metadata.height = itemData.height;
+          }
+        }
+      } else {
+        if (itemData.width && itemData.height) {
+          metadata.width = itemData.width;
+          metadata.height = itemData.height;
         }
       }
       
-      const generatedImageData = {
+      const generatedData = {
         filename,
-        originalName: filename,
-        mimeType: 'image/png',
-        size: imageData.buffer.length,
-        path: imagePath,
-        url: `/uploads/generated/${filename}`,
+        originalName: itemData.filename || filename,
+        mimeType: itemData.mimeType || (mediaType === 'video' ? 'video/mp4' : 'image/png'),
+        size: itemData.buffer.length,
+        path: filePath,
+        url: `/uploads/${subDir}/${filename}`,
         userId: inputData.userId,
         jobId,
-        metadata: imageMetadata,
+        metadata,
         generationParams: {
           prompt: inputData.prompt,
           negativePrompt: inputData.negativePrompt,
@@ -463,22 +512,27 @@ const saveGeneratedImages = async (jobId, comfyImages, inputData) => {
         }
       };
       
-      console.log(`💾 Creating GeneratedImage with data:`, JSON.stringify(generatedImageData, null, 2));
+      console.log(`💾 Creating Generated${mediaType === 'video' ? 'Video' : 'Image'} with data:`, JSON.stringify(generatedData, null, 2));
       
-      const generatedImage = new GeneratedImage(generatedImageData);
+      let savedItem;
+      if (mediaType === 'video') {
+        savedItem = new GeneratedVideo(generatedData);
+      } else {
+        savedItem = new GeneratedImage(generatedData);
+      }
       
-      console.log(`📝 Saving GeneratedImage to database...`);
-      await generatedImage.save();
+      console.log(`📝 Saving to database...`);
+      await savedItem.save();
       
-      savedImages.push(generatedImage._id);
-      console.log(`✅ Successfully saved image ${generatedImage._id} to database`);
+      savedItems.push(savedItem._id);
+      console.log(`✅ Successfully saved ${mediaType} ${savedItem._id} to database`);
     } catch (error) {
-      console.error(`Error saving image ${i+1}:`, error);
+      console.error(`Error saving ${mediaType} ${i+1}:`, error);
     }
   }
   
-  console.log(`Completed saving ${savedImages.length} images for job ${jobId}`);
-  return savedImages;
+  console.log(`Completed saving ${savedItems.length} ${typeLabel} for job ${jobId}`);
+  return savedItems;
 };
 
 const updateJobStatus = async (jobId, status, data = {}) => {
