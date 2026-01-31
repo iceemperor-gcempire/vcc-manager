@@ -24,7 +24,9 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
-  InputAdornment
+  InputAdornment,
+  Tabs,
+  Tab
 } from '@mui/material';
 import {
   Send,
@@ -172,13 +174,33 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
 function CustomImageField({ field, value, onChange, maxImages = 1 }) {
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [dialogTab, setDialogTab] = useState(0);
 
-  const { data: uploadedImages, isLoading } = useQuery(
-    'uploadedImages',
-    () => imageAPI.getUploaded({ limit: 50 })
+  useEffect(() => {
+    if (value && Array.isArray(value) && value.length > 0) {
+      const hasValidImages = value.every(item => item.imageId && item.image?.url);
+      if (hasValidImages && selectedImages.length === 0) {
+        setSelectedImages(value);
+      }
+    }
+  }, [value]);
+
+  const { data: uploadedImages, isLoading: uploadedLoading } = useQuery(
+    'uploadedImagesForSelect',
+    () => imageAPI.getUploaded({ limit: 50 }),
+    { enabled: dialogOpen && dialogTab === 0 }
   );
 
-  const images = uploadedImages?.data?.images || [];
+  const { data: generatedImages, isLoading: generatedLoading } = useQuery(
+    'generatedImagesForSelect',
+    () => imageAPI.getGenerated({ limit: 50 }),
+    { enabled: dialogOpen && dialogTab === 1 }
+  );
+
+  const images = dialogTab === 0 
+    ? (uploadedImages?.data?.images || [])
+    : (generatedImages?.data?.images || []);
+  const isLoading = dialogTab === 0 ? uploadedLoading : generatedLoading;
 
   const handleImageSelect = (image) => {
     const isSelected = selectedImages.find(img => img.imageId === image._id);
@@ -343,12 +365,21 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{field.label} 선택 ({selectedImages.length}/{maxImages})</DialogTitle>
         <DialogContent>
+          <Tabs value={dialogTab} onChange={(e, v) => setDialogTab(v)} sx={{ mb: 2 }}>
+            <Tab label="업로드한 이미지" />
+            <Tab label="생성한 이미지" />
+          </Tabs>
+
           {isLoading ? (
-            <CircularProgress />
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
           ) : images.length === 0 ? (
-            <Alert severity="info">업로드된 이미지가 없습니다.</Alert>
+            <Alert severity="info">
+              {dialogTab === 0 ? '업로드한 이미지가 없습니다.' : '생성한 이미지가 없습니다.'}
+            </Alert>
           ) : (
-            <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid container spacing={2}>
               {images.map((image) => {
                 const isSelected = selectedImages.find(img => img.imageId === image._id);
                 return (
@@ -366,12 +397,12 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
                         component="img"
                         height="100"
                         image={image.url}
-                        alt="Uploaded"
+                        alt={dialogTab === 0 ? 'Uploaded' : 'Generated'}
                         sx={{ objectFit: 'cover' }}
                       />
                       <CardContent sx={{ p: 1 }}>
                         <Typography variant="caption" noWrap>
-                          {image.originalName}
+                          {image.originalName || new Date(image.createdAt).toLocaleDateString()}
                         </Typography>
                       </CardContent>
                     </Card>

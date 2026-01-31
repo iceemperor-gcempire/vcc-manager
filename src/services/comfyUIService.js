@@ -181,14 +181,14 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
         try {
           const message = JSON.parse(data.toString());
           
-          if (message.type === 'progress') {
+          if (message.type === 'progress' && message.data.prompt_id === promptId) {
             currentProgress = Math.round((message.data.value / message.data.max) * 100);
             if (progressCallback) {
               progressCallback(currentProgress);
             }
           }
           
-          if (message.type === 'executing' && message.data.node === null) {
+          if (message.type === 'executing' && message.data.prompt_id === promptId && message.data.node === null) {
             clearTimeout(timeout);
             
             try {
@@ -213,7 +213,7 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
             }
           }
           
-          if (message.type === 'execution_error') {
+          if (message.type === 'execution_error' && message.data.prompt_id === promptId) {
             clearTimeout(timeout);
             ws.close();
             reject(new Error(`ComfyUI execution error: ${message.data.exception_message || 'Unknown error'}`));
@@ -321,6 +321,40 @@ const getLoraModels = async (serverUrl) => {
   }
 };
 
+const uploadImage = async (serverUrl, imageBuffer, filename) => {
+  const FormData = require('form-data');
+  
+  try {
+    const form = new FormData();
+    form.append('image', imageBuffer, {
+      filename: filename,
+      contentType: 'image/png'
+    });
+    form.append('overwrite', 'true');
+    
+    console.log(`📤 Uploading image to ComfyUI: ${filename}`);
+    
+    const response = await axios.post(`${serverUrl}/upload/image`, form, {
+      headers: {
+        ...form.getHeaders()
+      },
+      timeout: 30000
+    });
+    
+    console.log(`✅ Image uploaded successfully:`, response.data);
+    
+    return {
+      success: true,
+      name: response.data.name,
+      subfolder: response.data.subfolder || '',
+      type: response.data.type || 'input'
+    };
+  } catch (error) {
+    console.error(`❌ Failed to upload image to ComfyUI:`, error.message);
+    throw new Error(`Failed to upload image to ComfyUI: ${error.message}`);
+  }
+};
+
 module.exports = {
   submitWorkflow,
   getServerInfo,
@@ -328,5 +362,6 @@ module.exports = {
   validateWorkflow,
   interruptExecution,
   getQueue,
-  getLoraModels
+  getLoraModels,
+  uploadImage
 };
