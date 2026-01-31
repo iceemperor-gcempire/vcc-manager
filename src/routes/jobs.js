@@ -6,6 +6,7 @@ const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
+const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const router = express.Router();
@@ -220,12 +221,36 @@ router.delete('/:id', requireAuth, async (req, res) => {
       }
     }
     
+    // 연결된 생성 비디오들 삭제 (물리적 파일과 DB 레코드)
+    if (job.resultVideos && job.resultVideos.length > 0) {
+      console.log(`🗑️  Deleting ${job.resultVideos.length} generated videos for job ${job._id}`);
+      
+      for (const video of job.resultVideos) {
+        try {
+          // 물리적 파일 삭제
+          if (video.path) {
+            await deleteFile(video.path);
+            console.log(`✅ Deleted video file: ${video.path}`);
+          }
+          
+          // DB에서 비디오 레코드 삭제
+          await GeneratedVideo.findByIdAndDelete(video._id);
+          console.log(`✅ Deleted video record: ${video._id}`);
+        } catch (fileError) {
+          console.error(`⚠️  Failed to delete file for video ${video._id}:`, fileError.message);
+          // 파일 삭제에 실패해도 DB 레코드는 삭제
+          await GeneratedVideo.findByIdAndDelete(video._id);
+        }
+      }
+    }
+    
     // 작업 레코드 삭제
     await ImageGenerationJob.findByIdAndDelete(req.params.id);
     
     const deletedImagesCount = job.resultImages ? job.resultImages.length : 0;
+    const deletedVideosCount = job.resultVideos ? job.resultVideos.length : 0;
     res.json({ 
-      message: `Job and ${deletedImagesCount} associated image(s) deleted successfully`
+      message: `Job and ${deletedImagesCount} image(s), ${deletedVideosCount} video(s) deleted successfully`
     });
   } catch (error) {
     console.error('Job deletion error:', error);
