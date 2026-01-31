@@ -100,6 +100,15 @@ export const imageAPI = {
   downloadGenerated: (id) => api.post(`/images/generated/${id}/download`, {}, {
     responseType: 'blob',
   }),
+  getVideos: (params) => api.get('/images/videos', { params }),
+  getVideoById: (id) => api.get(`/images/videos/${id}`),
+  updateVideo: (id, data) => api.put(`/images/videos/${id}`, data),
+  deleteVideo: (id, deleteJob) => api.delete(`/images/videos/${id}`, {
+    params: { deleteJob },
+  }),
+  downloadVideo: (id) => api.post(`/images/videos/${id}/download`, {}, {
+    responseType: 'blob',
+  }),
 };
 
 export const adminAPI = {
@@ -128,6 +137,15 @@ export const promptDataAPI = {
   update: (id, data) => api.put(`/prompt-data/${id}`, data),
   delete: (id) => api.delete(`/prompt-data/${id}`),
   use: (id) => api.post(`/prompt-data/${id}/use`),
+};
+
+export const tagAPI = {
+  getAll: (params) => api.get('/tags', { params }),
+  create: (data) => api.post('/tags', data),
+  update: (id, data) => api.put(`/tags/${id}`, data),
+  delete: (id) => api.delete(`/tags/${id}`),
+  search: (params) => api.get('/tags/search', { params }),
+  getMy: () => api.get('/tags/my'),
 };
 
 export default api;

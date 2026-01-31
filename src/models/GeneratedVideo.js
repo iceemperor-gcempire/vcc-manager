@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const generatedImageSchema = new mongoose.Schema({
+const generatedVideoSchema = new mongoose.Schema({
   filename: {
     type: String,
     required: true
@@ -39,21 +39,20 @@ const generatedImageSchema = new mongoose.Schema({
     width: Number,
     height: Number,
     format: String,
-    colorSpace: String,
-    hasAlpha: Boolean,
-    orientation: Number
+    duration: Number,
+    frameRate: Number
   },
   generationParams: {
     prompt: String,
     negativePrompt: String,
-    model: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
-    seed: mongoose.Schema.Types.Mixed, // 64비트 정수 지원
+    model: mongoose.Schema.Types.Mixed,
+    seed: mongoose.Schema.Types.Mixed,
     steps: Number,
     cfg: Number,
     sampler: String,
     scheduler: String,
-    imageSize: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
-    stylePreset: mongoose.Schema.Types.Mixed, // 추가 파라미터들
+    imageSize: mongoose.Schema.Types.Mixed,
+    stylePreset: mongoose.Schema.Types.Mixed,
     upscaleMethod: mongoose.Schema.Types.Mixed,
     referenceImageMethod: mongoose.Schema.Types.Mixed,
     additionalParams: mongoose.Schema.Types.Mixed
@@ -74,13 +73,13 @@ const generatedImageSchema = new mongoose.Schema({
   timestamps: true
 });
 
-generatedImageSchema.methods.incrementDownloadCount = function() {
+generatedVideoSchema.methods.incrementDownloadCount = function() {
   this.downloadCount += 1;
   return this.save();
 };
 
-generatedImageSchema.index({ userId: 1, createdAt: -1 });
-generatedImageSchema.index({ jobId: 1 });
-generatedImageSchema.index({ tags: 1 });
+generatedVideoSchema.index({ userId: 1, createdAt: -1 });
+generatedVideoSchema.index({ jobId: 1 });
+generatedVideoSchema.index({ tags: 1 });
 
-module.exports = mongoose.model('GeneratedImage', generatedImageSchema);
+module.exports = mongoose.model('GeneratedVideo', generatedVideoSchema);

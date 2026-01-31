@@ -17,6 +17,7 @@ const jobRoutes = require('./routes/jobs');
 const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
+const tagRoutes = require('./routes/tags');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT } = require('./middleware/auth');
 const { initializeQueues } = require('./services/queueService');
@@ -94,6 +95,7 @@ app.use('/api/jobs', jobRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/prompt-data', promptDataRoutes);
+app.use('/api/tags', tagRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

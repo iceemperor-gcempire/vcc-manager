@@ -22,6 +22,8 @@ import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
 import PromptDataList from './pages/PromptDataList';
 import Profile from './pages/Profile';
+import TagSearch from './pages/TagSearch';
+import TagManagement from './pages/TagManagement';
 import {
   AdminDashboardPage,
   UserManagementPage,
@@ -124,6 +126,8 @@ function MainLayout() {
             <Route path="/images" element={<MyImages />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
+            <Route path="/tags" element={<TagSearch />} />
+            <Route path="/tags/manage" element={<TagManagement />} />
             <Route path="/profile" element={<Profile />} />
             <Route
               path="/admin/dashboard"

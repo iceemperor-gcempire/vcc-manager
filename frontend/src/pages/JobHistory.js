@@ -44,7 +44,8 @@ import {
   Cancel,
   ZoomIn,
   Download,
-  Save
+  Save,
+  Videocam
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
@@ -426,6 +427,86 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           </Box>
         )}
 
+        {/* 생성된 동영상들 */}
+        {job.resultVideos?.length > 0 && (
+          <Box mb={1.5}>
+            <Typography variant="caption" display="block" gutterBottom>
+              생성된 동영상 ({job.resultVideos.length}개)
+            </Typography>
+            <Box 
+              sx={{
+                display: 'flex', 
+                gap: 0.5, 
+                flexWrap: 'wrap',
+                maxWidth: '100%',
+                overflow: 'hidden'
+              }}
+            >
+              {job.resultVideos.slice(0, 6).map((video, index) => (
+                <Box
+                  key={index}
+                  onClick={() => onImageView(job.resultVideos, index, true)}
+                  sx={{ 
+                    width: { xs: 40, sm: 48 }, 
+                    height: { xs: 40, sm: 48 },
+                    cursor: 'pointer',
+                    flexShrink: 0,
+                    position: 'relative',
+                    borderRadius: 1,
+                    overflow: 'hidden',
+                    bgcolor: 'black',
+                    '&:hover': { 
+                      opacity: 0.8,
+                      transform: 'scale(1.05)',
+                      transition: 'all 0.2s ease'
+                    }
+                  }}
+                >
+                  <video
+                    src={video.url}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover'
+                    }}
+                    muted
+                  />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 2,
+                      right: 2,
+                      bgcolor: 'rgba(0,0,0,0.6)',
+                      borderRadius: 0.5,
+                      p: 0.25
+                    }}
+                  >
+                    <Videocam sx={{ color: 'white', fontSize: 12 }} />
+                  </Box>
+                </Box>
+              ))}
+              {job.resultVideos.length > 6 && (
+                <Avatar
+                  onClick={() => onImageView(job.resultVideos, 6, true)}
+                  sx={{ 
+                    width: { xs: 40, sm: 48 }, 
+                    height: { xs: 40, sm: 48 },
+                    bgcolor: 'grey.200',
+                    color: 'grey.600',
+                    cursor: 'pointer',
+                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    flexShrink: 0,
+                    '&:hover': { bgcolor: 'grey.300' }
+                  }}
+                  variant="rounded"
+                >
+                  +{job.resultVideos.length - 6}
+                </Avatar>
+              )}
+            </Box>
+          </Box>
+        )}
+
         {/* 에러 메시지 */}
         {job.status === 'failed' && job.error && (
           <Alert severity="error" sx={{ mb: 1.5, py: 0.5 }}>
@@ -800,6 +881,56 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
           </Box>
         )}
 
+        {/* 생성된 동영상 */}
+        {job.resultVideos?.length > 0 && (
+          <Box mb={3}>
+            <Typography variant="h6" gutterBottom>생성된 동영상</Typography>
+            <Grid container spacing={2}>
+              {job.resultVideos.map((video, index) => (
+                <Grid item xs={6} sm={4} md={3} key={index}>
+                  <Box
+                    onClick={() => onImageView(job.resultVideos, index, true)}
+                    sx={{
+                      cursor: 'pointer',
+                      borderRadius: '8px',
+                      overflow: 'hidden',
+                      transition: 'all 0.2s ease',
+                      position: 'relative',
+                      bgcolor: 'black',
+                      '&:hover': {
+                        transform: 'scale(1.02)',
+                        boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+                      }
+                    }}
+                  >
+                    <video
+                      src={video.url}
+                      style={{
+                        width: '100%',
+                        height: '120px',
+                        objectFit: 'cover'
+                      }}
+                      muted
+                    />
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        bottom: 4,
+                        right: 4,
+                        bgcolor: 'rgba(0,0,0,0.6)',
+                        borderRadius: 0.5,
+                        p: 0.5
+                      }}
+                    >
+                      <Videocam sx={{ color: 'white', fontSize: 16 }} />
+                    </Box>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
+        )}
+
         {/* 에러 정보 */}
         {job.status === 'failed' && job.error && (
           <Box mb={3}>
@@ -821,6 +952,86 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
   );
 }
 
+function VideoViewerDialog({ videos, selectedIndex, open, onClose }) {
+  const [currentIndex, setCurrentIndex] = useState(selectedIndex);
+
+  React.useEffect(() => {
+    setCurrentIndex(selectedIndex);
+  }, [selectedIndex]);
+
+  if (!videos || videos.length === 0) return null;
+
+  const currentVideo = videos[currentIndex];
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{
+        sx: { bgcolor: 'black', maxHeight: '90vh' }
+      }}
+    >
+      <DialogTitle sx={{ color: 'white', pb: 1 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Typography variant="h6">
+            생성된 동영상 ({currentIndex + 1}/{videos.length})
+          </Typography>
+          <IconButton onClick={onClose} sx={{ color: 'white' }}>
+            <Close />
+          </IconButton>
+        </Box>
+      </DialogTitle>
+      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
+        <video
+          key={currentVideo?.url}
+          src={currentVideo?.url}
+          controls
+          autoPlay
+          style={{
+            maxWidth: '100%',
+            maxHeight: '70vh',
+            borderRadius: '8px'
+          }}
+        />
+        
+        {videos.length > 1 && (
+          <Box display="flex" justifyContent="center" gap={2} mt={2}>
+            <Button
+              variant="outlined"
+              onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
+              disabled={currentIndex === 0}
+              sx={{ color: 'white', borderColor: 'white' }}
+            >
+              이전
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setCurrentIndex(prev => Math.min(videos.length - 1, prev + 1))}
+              disabled={currentIndex === videos.length - 1}
+              sx={{ color: 'white', borderColor: 'white' }}
+            >
+              다음
+            </Button>
+          </Box>
+        )}
+
+        <Box mt={2} sx={{ color: 'white' }}>
+          <Typography variant="body2">
+            {currentVideo?.originalName}
+          </Typography>
+          {currentVideo?.metadata && (
+            <Typography variant="body2">
+              크기: {currentVideo.metadata.width} x {currentVideo.metadata.height}
+            </Typography>
+          )}
+        </Box>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function JobHistory() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -828,8 +1039,11 @@ function JobHistory() {
   const [selectedJob, setSelectedJob] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [videoViewerOpen, setVideoViewerOpen] = useState(false);
   const [viewerImages, setViewerImages] = useState([]);
+  const [viewerVideos, setViewerVideos] = useState([]);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [savingJob, setSavingJob] = useState(null);
 
@@ -932,10 +1146,16 @@ function JobHistory() {
     }
   };
 
-  const handleImageView = (images, index = 0) => {
-    setViewerImages(images);
-    setSelectedImageIndex(index);
-    setImageViewerOpen(true);
+  const handleImageView = (items, index = 0, isVideo = false) => {
+    if (isVideo) {
+      setViewerVideos(items);
+      setSelectedVideoIndex(index);
+      setVideoViewerOpen(true);
+    } else {
+      setViewerImages(items);
+      setSelectedImageIndex(index);
+      setImageViewerOpen(true);
+    }
   };
 
   const handleContinueJob = async (job) => {
@@ -1147,6 +1367,13 @@ function JobHistory() {
         open={imageViewerOpen}
         onClose={() => setImageViewerOpen(false)}
         title="생성된 이미지"
+      />
+
+      <VideoViewerDialog
+        videos={viewerVideos}
+        selectedIndex={selectedVideoIndex}
+        open={videoViewerOpen}
+        onClose={() => setVideoViewerOpen(false)}
       />
 
       <SavePromptDialog

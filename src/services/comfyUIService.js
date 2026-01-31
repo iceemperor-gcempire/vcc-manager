@@ -2,9 +2,42 @@ const axios = require('axios');
 const WebSocket = require('ws');
 const { v4: uuidv4 } = require('uuid');
 
+const getMediaTypeFromFilename = (filename) => {
+  const ext = filename.toLowerCase().split('.').pop();
+  const imageExts = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff'];
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
+  const animatedExts = ['gif', 'webp', 'apng'];
+  
+  if (videoExts.includes(ext)) return 'video';
+  if (animatedExts.includes(ext)) return 'animated';
+  if (imageExts.includes(ext)) return 'image';
+  return 'unknown';
+};
+
+const getMimeType = (filename) => {
+  const ext = filename.toLowerCase().split('.').pop();
+  const mimeTypes = {
+    'png': 'image/png',
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'webp': 'image/webp',
+    'gif': 'image/gif',
+    'bmp': 'image/bmp',
+    'tiff': 'image/tiff',
+    'apng': 'image/apng',
+    'mp4': 'video/mp4',
+    'webm': 'video/webm',
+    'mov': 'video/quicktime',
+    'avi': 'video/x-msvideo',
+    'mkv': 'video/x-matroska'
+  };
+  return mimeTypes[ext] || 'application/octet-stream';
+};
+
 // 히스토리 결과 처리 함수
 const processHistoryResult = async (serverUrl, history) => {
   const images = [];
+  const videos = [];
   console.log(`🔍 Processing history outputs...`);
   
   if (history.outputs) {
@@ -18,32 +51,76 @@ const processHistoryResult = async (serverUrl, history) => {
         console.log(`🖼️ Node ${nodeId} has ${nodeOutput.images.length} images`);
         
         for (const imageInfo of nodeOutput.images) {
-          console.log(`⬇️ Downloading image:`, imageInfo);
+          console.log(`⬇️ Downloading media:`, imageInfo);
           
-          const imageUrl = `${serverUrl}/view?filename=${imageInfo.filename}&subfolder=${imageInfo.subfolder || ''}&type=${imageInfo.type || 'output'}`;
-          console.log(`🔗 Image URL: ${imageUrl}`);
+          const mediaUrl = `${serverUrl}/view?filename=${imageInfo.filename}&subfolder=${imageInfo.subfolder || ''}&type=${imageInfo.type || 'output'}`;
+          console.log(`🔗 Media URL: ${mediaUrl}`);
           
-          const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+          const mediaResponse = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+          const mediaType = getMediaTypeFromFilename(imageInfo.filename);
+          const mimeType = getMimeType(imageInfo.filename);
           
-          console.log(`✅ Downloaded image: ${imageInfo.filename}, size: ${imageResponse.data.byteLength} bytes`);
+          console.log(`✅ Downloaded ${mediaType}: ${imageInfo.filename}, size: ${mediaResponse.data.byteLength} bytes, mime: ${mimeType}`);
           
-          images.push({
-            buffer: Buffer.from(imageResponse.data),
+          const mediaData = {
+            buffer: Buffer.from(mediaResponse.data),
             filename: imageInfo.filename,
             width: imageInfo.width || null,
-            height: imageInfo.height || null
-          });
+            height: imageInfo.height || null,
+            mediaType,
+            mimeType
+          };
+          
+          if (mediaType === 'video') {
+            videos.push(mediaData);
+          } else {
+            images.push(mediaData);
+          }
         }
-      } else {
-        console.log(`ℹ️ Node ${nodeId} has no images`);
+      }
+      
+      if (nodeOutput.gifs) {
+        console.log(`🎬 Node ${nodeId} has ${nodeOutput.gifs.length} gifs/videos`);
+        
+        for (const gifInfo of nodeOutput.gifs) {
+          console.log(`⬇️ Downloading gif/video:`, gifInfo);
+          
+          const mediaUrl = `${serverUrl}/view?filename=${gifInfo.filename}&subfolder=${gifInfo.subfolder || ''}&type=${gifInfo.type || 'output'}`;
+          console.log(`🔗 Media URL: ${mediaUrl}`);
+          
+          const mediaResponse = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+          const mediaType = getMediaTypeFromFilename(gifInfo.filename);
+          const mimeType = getMimeType(gifInfo.filename);
+          
+          console.log(`✅ Downloaded ${mediaType}: ${gifInfo.filename}, size: ${mediaResponse.data.byteLength} bytes, mime: ${mimeType}`);
+          
+          const mediaData = {
+            buffer: Buffer.from(mediaResponse.data),
+            filename: gifInfo.filename,
+            width: gifInfo.width || null,
+            height: gifInfo.height || null,
+            mediaType,
+            mimeType
+          };
+          
+          if (mediaType === 'video' || mediaType === 'animated') {
+            videos.push(mediaData);
+          } else {
+            images.push(mediaData);
+          }
+        }
+      }
+      
+      if (!nodeOutput.images && !nodeOutput.gifs) {
+        console.log(`ℹ️ Node ${nodeId} has no images or gifs`);
       }
     }
   } else {
     console.warn('⚠️ No outputs in history');
   }
   
-  console.log(`🎉 Successfully processed ${images.length} images`);
-  return { images };
+  console.log(`🎉 Successfully processed ${images.length} images and ${videos.length} videos`);
+  return { images, videos };
 };
 
 const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {

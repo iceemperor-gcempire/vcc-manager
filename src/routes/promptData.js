@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const PromptData = require('../models/PromptData');
+const Tag = require('../models/Tag');
 const { verifyJWT } = require('../middleware/auth');
 
 router.get('/', verifyJWT, async (req, res) => {
@@ -20,6 +21,7 @@ router.get('/', verifyJWT, async (req, res) => {
     
     const [promptDataList, total] = await Promise.all([
       PromptData.find(query)
+        .populate('tags')
         .sort({ createdAt: -1 })
         .skip((parseInt(page) - 1) * parseInt(limit))
         .limit(parseInt(limit)),
@@ -64,11 +66,13 @@ router.get('/:id', verifyJWT, async (req, res) => {
 
 router.post('/', verifyJWT, async (req, res) => {
   try {
-    const { name, memo, representativeImage, prompt, negativePrompt, seed } = req.body;
+    const { name, memo, representativeImage, prompt, negativePrompt, seed, tags } = req.body;
     
     if (!name || !prompt) {
       return res.status(400).json({ success: false, message: '이름과 프롬프트는 필수입니다' });
     }
+    
+    const newTags = Array.isArray(tags) ? tags : [];
     
     const promptData = new PromptData({
       name,
@@ -77,10 +81,20 @@ router.post('/', verifyJWT, async (req, res) => {
       prompt,
       negativePrompt,
       seed,
+      tags: newTags,
       createdBy: req.user._id
     });
     
     await promptData.save();
+    
+    if (newTags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: newTags } },
+        { $inc: { usageCount: 1 } }
+      );
+    }
+    
+    await promptData.populate('tags');
     
     res.status(201).json({ success: true, data: { promptData } });
   } catch (error) {
@@ -91,7 +105,7 @@ router.post('/', verifyJWT, async (req, res) => {
 
 router.put('/:id', verifyJWT, async (req, res) => {
   try {
-    const { name, memo, representativeImage, prompt, negativePrompt, seed } = req.body;
+    const { name, memo, representativeImage, prompt, negativePrompt, seed, tags } = req.body;
     
     const promptData = await PromptData.findOne({
       _id: req.params.id,
@@ -109,7 +123,31 @@ router.put('/:id', verifyJWT, async (req, res) => {
     if (negativePrompt !== undefined) promptData.negativePrompt = negativePrompt;
     if (seed !== undefined) promptData.seed = seed;
     
+    if (tags !== undefined) {
+      const newTags = Array.isArray(tags) ? tags : [];
+      const oldTags = promptData.tags.map(t => t.toString());
+      
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      const removedTags = oldTags.filter(t => !newTags.includes(t));
+      
+      if (addedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: addedTags } },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+      if (removedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: removedTags } },
+          { $inc: { usageCount: -1 } }
+        );
+      }
+      
+      promptData.tags = newTags;
+    }
+    
     await promptData.save();
+    await promptData.populate('tags');
     
     res.json({ success: true, data: { promptData } });
   } catch (error) {

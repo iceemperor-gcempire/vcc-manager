@@ -38,7 +38,10 @@ const uploadedImageSchema = new mongoose.Schema({
     hasAlpha: Boolean,
     orientation: Number
   },
-  tags: [String],
+  tags: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tag'
+  }],
   isReferenced: {
     type: Boolean,
     default: false

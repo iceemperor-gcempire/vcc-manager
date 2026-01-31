@@ -58,6 +58,10 @@ const imageGenerationJobSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'GeneratedImage'
   }],
+  resultVideos: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GeneratedVideo'
+  }],
   error: {
     message: String,
     code: String,
@@ -105,6 +109,10 @@ imageGenerationJobSchema.methods.updateStatus = function(status, data = {}) {
   
   if (data.resultImages) {
     this.resultImages = data.resultImages;
+  }
+  
+  if (data.resultVideos) {
+    this.resultVideos = data.resultVideos;
   }
   
   return this.save();
