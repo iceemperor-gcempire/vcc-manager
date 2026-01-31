@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -15,30 +15,42 @@ import {
   Box,
   CircularProgress,
   Alert,
-  TextField,
-  InputAdornment
+  Chip
 } from '@mui/material';
-import { Search } from '@mui/icons-material';
+import { CheckCircle } from '@mui/icons-material';
 import { useQuery } from 'react-query';
 import { imageAPI } from '../../services/api';
 import Pagination from './Pagination';
 
-function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택' }) {
+function ImageSelectDialog({ 
+  open, 
+  onClose, 
+  onSelect, 
+  title = '이미지 선택',
+  multiple = false,
+  maxImages = 1,
+  initialSelected = []
+}) {
   const [tab, setTab] = useState(0);
-  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImages, setSelectedImages] = useState([]);
   const [uploadedPage, setUploadedPage] = useState(1);
   const [generatedPage, setGeneratedPage] = useState(1);
-  const [search, setSearch] = useState('');
   const limit = 12;
 
+  useEffect(() => {
+    if (open) {
+      setSelectedImages(initialSelected);
+    }
+  }, [open, initialSelected]);
+
   const { data: uploadedData, isLoading: uploadedLoading } = useQuery(
-    ['uploadedImages', uploadedPage, limit],
+    ['uploadedImagesForSelect', uploadedPage, limit],
     () => imageAPI.getUploaded({ page: uploadedPage, limit }),
     { enabled: open && tab === 0 }
   );
 
   const { data: generatedData, isLoading: generatedLoading } = useQuery(
-    ['generatedImages', generatedPage, limit],
+    ['generatedImagesForSelect', generatedPage, limit],
     () => imageAPI.getGenerated({ page: generatedPage, limit }),
     { enabled: open && tab === 1 }
   );
@@ -51,28 +63,52 @@ function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택'
 
   const handleTabChange = (event, newValue) => {
     setTab(newValue);
-    setSelectedImage(null);
   };
 
-  const handleImageClick = (image, imageType) => {
-    setSelectedImage({ image, imageType });
+  const handleImageClick = (image) => {
+    const imageType = tab === 0 ? 'UploadedImage' : 'GeneratedImage';
+    
+    if (multiple) {
+      const isSelected = selectedImages.find(img => img.imageId === image._id);
+      if (isSelected) {
+        setSelectedImages(selectedImages.filter(img => img.imageId !== image._id));
+      } else if (selectedImages.length < maxImages) {
+        setSelectedImages([...selectedImages, {
+          imageId: image._id,
+          imageType,
+          image
+        }]);
+      }
+    } else {
+      setSelectedImages([{
+        imageId: image._id,
+        imageType,
+        image
+      }]);
+    }
   };
 
   const handleConfirm = () => {
-    if (selectedImage) {
-      onSelect({
-        imageId: selectedImage.image._id,
-        imageType: selectedImage.imageType,
-        url: selectedImage.image.url
-      });
+    if (selectedImages.length > 0) {
+      if (multiple) {
+        onSelect(selectedImages);
+      } else {
+        const selected = selectedImages[0];
+        onSelect({
+          imageId: selected.imageId,
+          imageType: selected.imageType,
+          url: selected.image.url,
+          image: selected.image
+        });
+      }
       onClose();
-      setSelectedImage(null);
+      setSelectedImages([]);
     }
   };
 
   const handleClose = () => {
     onClose();
-    setSelectedImage(null);
+    setSelectedImages([]);
   };
 
   const isLoading = tab === 0 ? uploadedLoading : generatedLoading;
@@ -81,9 +117,18 @@ function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택'
   const currentPage = tab === 0 ? uploadedPage : generatedPage;
   const setCurrentPage = tab === 0 ? setUploadedPage : setGeneratedPage;
 
+  const isImageSelected = (imageId) => selectedImages.some(img => img.imageId === imageId);
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
-      <DialogTitle>{title}</DialogTitle>
+      <DialogTitle>
+        {title}
+        {multiple && (
+          <Typography variant="body2" color="textSecondary">
+            {selectedImages.length}/{maxImages} 선택됨
+          </Typography>
+        )}
+      </DialogTitle>
       <DialogContent>
         <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2 }}>
           <Tab label="업로드한 이미지" />
@@ -102,7 +147,7 @@ function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택'
           <>
             <Grid container spacing={2}>
               {images.map((image) => {
-                const isSelected = selectedImage?.image._id === image._id;
+                const isSelected = isImageSelected(image._id);
                 return (
                   <Grid item xs={6} sm={4} md={3} key={image._id}>
                     <Card
@@ -111,13 +156,27 @@ function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택'
                         border: isSelected ? '3px solid' : '1px solid',
                         borderColor: isSelected ? 'primary.main' : 'grey.300',
                         transition: 'all 0.2s',
+                        position: 'relative',
                         '&:hover': {
                           borderColor: 'primary.light',
                           transform: 'scale(1.02)'
                         }
                       }}
-                      onClick={() => handleImageClick(image, tab === 0 ? 'UploadedImage' : 'GeneratedImage')}
+                      onClick={() => handleImageClick(image)}
                     >
+                      {isSelected && (
+                        <CheckCircle
+                          sx={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            color: 'primary.main',
+                            bgcolor: 'white',
+                            borderRadius: '50%',
+                            zIndex: 1
+                          }}
+                        />
+                      )}
                       <CardMedia
                         component="img"
                         height="120"
@@ -154,7 +213,7 @@ function ImageSelectDialog({ open, onClose, onSelect, title = '이미지 선택'
         <Button
           onClick={handleConfirm}
           variant="contained"
-          disabled={!selectedImage}
+          disabled={selectedImages.length === 0}
         >
           선택
         </Button>
