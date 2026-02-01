@@ -8,10 +8,16 @@ const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', workboardType, includeAll } = req.query;
+    const { page = 1, limit = 10, search = '', workboardType, includeAll, includeInactive } = req.query;
     const skip = (page - 1) * limit;
-    
-    const filter = { isActive: true };
+
+    const filter = {};
+
+    // 비활성 작업판 포함 여부
+    if (includeInactive !== 'true') {
+      filter.isActive = true;
+    }
+
     if (includeAll === 'true') {
       // 관리자용: 모든 타입 조회
     } else if (workboardType) {
