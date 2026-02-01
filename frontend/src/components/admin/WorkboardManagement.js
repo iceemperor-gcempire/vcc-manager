@@ -35,6 +35,7 @@ import {
   MoreVert,
   ContentCopy,
   Visibility,
+  VisibilityOff,
   Computer,
   TrendingUp,
   Settings,
@@ -49,6 +50,7 @@ import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
+  const isInactive = !workboard.isActive;
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -59,12 +61,31 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
   };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Card
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        ...(isInactive && {
+          opacity: 0.7,
+          bgcolor: 'grey.100',
+          border: '2px dashed',
+          borderColor: 'grey.400'
+        })
+      }}
+    >
       <CardContent sx={{ flexGrow: 1 }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Typography variant="h6" gutterBottom>
-            {workboard.name}
-          </Typography>
+          <Box display="flex" alignItems="center" gap={1}>
+            {isInactive && <VisibilityOff fontSize="small" color="disabled" />}
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ color: isInactive ? 'text.disabled' : 'text.primary', mb: 0 }}
+            >
+              {workboard.name}
+            </Typography>
+          </Box>
           <IconButton size="small" onClick={handleMenuOpen}>
             <MoreVert />
           </IconButton>
@@ -1274,7 +1295,7 @@ function WorkboardManagement() {
 
   const { data, isLoading } = useQuery(
     ['adminWorkboards', { search }],
-    () => workboardAPI.getAll({ search, limit: 50, includeAll: true }),
+    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true }),
     { keepPreviousData: true }
   );
 
