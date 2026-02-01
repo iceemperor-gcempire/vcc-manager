@@ -271,14 +271,14 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
             border: '2px dashed',
             borderColor: isDragActive ? 'primary.main' : 'grey.300',
             borderRadius: 1,
-            p: 2,
+            p: 3,
             textAlign: 'center',
             cursor: 'pointer',
             bgcolor: isDragActive ? 'primary.light' : 'grey.50'
           }}
         >
           <input {...getInputProps()} />
-          <ImageIcon sx={{ fontSize: 32, color: 'grey.400', mb: 1 }} />
+          <ImageIcon sx={{ fontSize: 48, color: 'grey.400', mb: 1 }} />
           <Typography variant="body2" color="textSecondary">
             이미지를 드래그하거나 클릭하여 업로드
           </Typography>
@@ -289,23 +289,26 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
       ) : (
         <Grid container spacing={1}>
           {selectedImages.map((item, index) => (
-            <Grid item xs={4} key={index}>
+            <Grid item xs={6} sm={4} key={index}>
               <Card sx={{ position: 'relative' }}>
                 <CardMedia
                   component="img"
-                  height="80"
                   image={item.image.url}
                   alt={`Image ${index + 1}`}
-                  sx={{ objectFit: 'cover' }}
+                  sx={{
+                    height: 150,
+                    objectFit: 'contain',
+                    bgcolor: 'grey.100'
+                  }}
                 />
                 <IconButton
                   size="small"
                   onClick={() => handleRemove(item.imageId)}
                   sx={{
                     position: 'absolute',
-                    top: 2,
-                    right: 2,
-                    bgcolor: 'rgba(255,255,255,0.8)',
+                    top: 4,
+                    right: 4,
+                    bgcolor: 'rgba(255,255,255,0.9)',
                     '&:hover': { bgcolor: 'rgba(255,255,255,1)' }
                   }}
                 >
@@ -315,22 +318,24 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
             </Grid>
           ))}
           {selectedImages.length < maxImages && (
-            <Grid item xs={4}>
+            <Grid item xs={6} sm={4}>
               <Box
                 {...getRootProps()}
                 sx={{
-                  height: 80,
+                  height: 150,
                   border: '2px dashed',
                   borderColor: 'grey.300',
                   borderRadius: 1,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  bgcolor: 'grey.50',
+                  '&:hover': { borderColor: 'primary.main', bgcolor: 'grey.100' }
                 }}
               >
                 <input {...getInputProps()} />
-                <Add sx={{ color: 'grey.400' }} />
+                <Add sx={{ color: 'grey.400', fontSize: 32 }} />
               </Box>
             </Grid>
           )}
