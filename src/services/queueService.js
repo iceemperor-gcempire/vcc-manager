@@ -2,6 +2,7 @@ const Queue = require('bull');
 const Redis = require('redis');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -267,6 +268,13 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
   return uploadedImageMap;
 };
 
+// 유저 ID를 해시하여 파일명에 안전한 문자열로 변환
+const hashUserId = (userId) => {
+  if (!userId) return 'anonymous';
+  // SHA256 해시 후 처음 8자리만 사용 (파일명 일관성 유지)
+  return crypto.createHash('sha256').update(String(userId)).digest('hex').substring(0, 8);
+};
+
 // 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
   // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
@@ -351,6 +359,9 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     'final_value': upscaleMethodValue
   });
 
+  // 유저 ID 해시 생성
+  const hashedUserId = hashUserId(inputData.userId);
+
   const replacements = {
     '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
     '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
@@ -365,7 +376,8 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     '{{##reference_method##}}': { value: extractValue(inputData.referenceImageMethod), type: 'string' },
     '{{##upscale_method##}}': { value: upscaleMethodValue, type: 'string' },
     '{{##upscale##}}': { value: upscaleMethodValue, type: 'string' },  // 별칭 추가
-    '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' }
+    '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' },
+    '{{##user_id##}}': { value: hashedUserId, type: 'string' }
   };
   
   console.log('🔧 Built replacements object:', JSON.stringify(replacements, null, 2));
