@@ -198,7 +198,13 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (serverType !== undefined) updateFields.serverType = serverType;
     if (serverUrl !== undefined) updateFields.serverUrl = serverUrl;
     if (outputType !== undefined) updateFields.outputType = outputType;
-    if (configuration !== undefined) updateFields.configuration = configuration;
+    if (configuration !== undefined) {
+      // API 키가 비어있으면 기존 값을 유지
+      if (!configuration.apiKey && server.configuration?.apiKey) {
+        configuration.apiKey = server.configuration.apiKey;
+      }
+      updateFields.configuration = configuration;
+    }
     if (isActive !== undefined) updateFields.isActive = isActive;
     
     Object.assign(server, updateFields);

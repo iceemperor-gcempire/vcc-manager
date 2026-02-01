@@ -55,6 +55,7 @@ import config from '../config';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import ImageViewerDialog from '../components/common/ImageViewerDialog';
+import VideoViewerDialog from '../components/common/VideoViewerDialog';
 import { useForm, Controller } from 'react-hook-form';
 
 function SavePromptDialog({ open, onClose, job, onSave }) {
@@ -952,85 +953,6 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
   );
 }
 
-function VideoViewerDialog({ videos, selectedIndex, open, onClose }) {
-  const [currentIndex, setCurrentIndex] = useState(selectedIndex);
-
-  React.useEffect(() => {
-    setCurrentIndex(selectedIndex);
-  }, [selectedIndex]);
-
-  if (!videos || videos.length === 0) return null;
-
-  const currentVideo = videos[currentIndex];
-
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      maxWidth="lg"
-      fullWidth
-      PaperProps={{
-        sx: { bgcolor: 'black', maxHeight: '90vh' }
-      }}
-    >
-      <DialogTitle sx={{ color: 'white', pb: 1 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">
-            생성된 동영상 ({currentIndex + 1}/{videos.length})
-          </Typography>
-          <IconButton onClick={onClose} sx={{ color: 'white' }}>
-            <Close />
-          </IconButton>
-        </Box>
-      </DialogTitle>
-      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
-        <video
-          key={currentVideo?.url}
-          src={currentVideo?.url}
-          controls
-          autoPlay
-          style={{
-            maxWidth: '100%',
-            maxHeight: '70vh',
-            borderRadius: '8px'
-          }}
-        />
-        
-        {videos.length > 1 && (
-          <Box display="flex" justifyContent="center" gap={2} mt={2}>
-            <Button
-              variant="outlined"
-              onClick={() => setCurrentIndex(prev => Math.max(0, prev - 1))}
-              disabled={currentIndex === 0}
-              sx={{ color: 'white', borderColor: 'white' }}
-            >
-              이전
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setCurrentIndex(prev => Math.min(videos.length - 1, prev + 1))}
-              disabled={currentIndex === videos.length - 1}
-              sx={{ color: 'white', borderColor: 'white' }}
-            >
-              다음
-            </Button>
-          </Box>
-        )}
-
-        <Box mt={2} sx={{ color: 'white' }}>
-          <Typography variant="body2">
-            {currentVideo?.originalName}
-          </Typography>
-          {currentVideo?.metadata && (
-            <Typography variant="body2">
-              크기: {currentVideo.metadata.width} x {currentVideo.metadata.height}
-            </Typography>
-          )}
-        </Box>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function JobHistory() {
   const [search, setSearch] = useState('');
@@ -1374,6 +1296,7 @@ function JobHistory() {
         selectedIndex={selectedVideoIndex}
         open={videoViewerOpen}
         onClose={() => setVideoViewerOpen(false)}
+        title="생성된 동영상"
       />
 
       <SavePromptDialog

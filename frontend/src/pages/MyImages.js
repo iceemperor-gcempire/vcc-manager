@@ -43,6 +43,7 @@ import toast from 'react-hot-toast';
 import { imageAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
 import TagInput from '../components/common/TagInput';
+import VideoViewerDialog from '../components/common/VideoViewerDialog';
 
 function ImageCard({ image, type, onEdit, onDelete, onView }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -523,83 +524,6 @@ function ImageDetailDialog({ image, open, onClose, type }) {
   );
 }
 
-function VideoDetailDialog({ video, open, onClose }) {
-  if (!video) return null;
-  
-  const handleDownload = async () => {
-    try {
-      const response = await imageAPI.downloadVideo(video._id);
-      const blob = new Blob([response.data]);
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = video.originalName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('다운로드 완료');
-      
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 1000);
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('다운로드 실패');
-    }
-  };
-  
-  return (
-    <Dialog 
-      open={open} 
-      onClose={onClose} 
-      maxWidth="lg" 
-      fullWidth
-      PaperProps={{
-        sx: { bgcolor: 'black', maxHeight: '90vh' }
-      }}
-    >
-      <DialogTitle sx={{ color: 'white', pb: 1 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h6">
-            동영상 상세보기
-          </Typography>
-          <Box>
-            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
-              <Download />
-            </IconButton>
-            <IconButton onClick={onClose} sx={{ color: 'white' }}>
-              <Close />
-            </IconButton>
-          </Box>
-        </Box>
-      </DialogTitle>
-      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
-        <video
-          src={video.url}
-          controls
-          autoPlay
-          style={{
-            maxWidth: '100%',
-            maxHeight: '70vh',
-            borderRadius: '8px'
-          }}
-        />
-        
-        <Box mt={2} sx={{ color: 'white' }}>
-          <Typography variant="body2">
-            {video.originalName}
-          </Typography>
-          {video.metadata && (
-            <Typography variant="body2">
-              크기: {video.metadata.width} x {video.metadata.height}
-            </Typography>
-          )}
-        </Box>
-      </DialogContent>
-    </Dialog>
-  );
-}
 
 function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = false }) {
   const [tags, setTags] = useState([]);
@@ -1006,10 +930,11 @@ function MyImages() {
 
       {/* 다이얼로그들 */}
       {currentType === 'video' ? (
-        <VideoDetailDialog
-          video={selectedImage}
+        <VideoViewerDialog
+          videos={selectedImage ? [selectedImage] : []}
           open={detailOpen}
           onClose={() => setDetailOpen(false)}
+          title="동영상 상세보기"
         />
       ) : (
         <ImageDetailDialog

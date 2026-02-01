@@ -7,9 +7,11 @@ VCC Manager는 ComfyUI 워크플로우를 관리하고 이미지 생성 작업�
 ### 주요 기능
 - **사용자 관리**: JWT 기반 인증, 역할별 권한 관리 (admin/user)
 - **작업판 관리**: ComfyUI 워크플로우 템플릿 관리 (관리자 전용)
-- **이미지 생성**: 작업 큐를 통한 비동기 이미지 생성
-- **파일 관리**: 레퍼런스 이미지 업로드 및 생성 이미지 관리
+- **이미지/비디오 생성**: 작업 큐를 통한 비동기 이미지 및 비디오 생성
+- **파일 관리**: 레퍼런스 이미지 업로드, 생성 이미지/비디오 관리
+- **ComfyUI 통합**: Load Image 노드용 이미지 자동 업로드
 - **모니터링**: 실시간 작업 상태 및 시스템 통계
+- **태그 시스템**: 이미지/비디오/프롬프트 데이터에 태그 관리
 
 ## 아키텍처
 
@@ -39,6 +41,12 @@ vcc-manager-claude/
 ├── frontend/                 # React 프론트엔드
 │   ├── src/
 │   │   ├── components/      # 공통 컴포넌트
+│   │   │   ├── common/      # 공통 UI 컴포넌트
+│   │   │   │   ├── ImageSelectDialog.js    # 이미지 선택 다이얼로그
+│   │   │   │   ├── ImageViewerDialog.js    # 이미지 뷰어 다이얼로그
+│   │   │   │   ├── VideoViewerDialog.js    # 비디오 뷰어 다이얼로그
+│   │   │   │   ├── Pagination.js           # 페이지네이션
+│   │   │   │   └── TagInput.js             # 태그 입력
 │   │   │   └── admin/       # 관리자 전용 컴포넌트
 │   │   ├── pages/           # 페이지 컴포넌트
 │   │   ├── services/        # API 서비스
@@ -144,11 +152,20 @@ cd frontend && npm start
 - Bull Queue를 통한 비동기 작업 처리
 - ComfyUI WebSocket 통신
 - 진행률 추적 및 상태 관리
+- 이미지 타입 필드 자동 업로드 (ComfyUI Load Image 노드 지원)
+- 비디오 출력 지원 (mp4, webm, gif 등)
 
 #### 4. 파일 관리 (`src/routes/images.js`)
 - Multer를 통한 파일 업로드
-- 이미지 메타데이터 관리
+- 이미지/비디오 메타데이터 관리
 - 레퍼런스 이미지 연결
+- 태그 기반 검색 및 필터링
+
+#### 5. ComfyUI 통합 (`src/services/comfyUIService.js`)
+- 워크플로우 실행 및 WebSocket 모니터링
+- 이미지 업로드 API (`/upload/image`)
+- 미디어 타입 자동 감지 (이미지/비디오/애니메이션)
+- prompt_id 기반 메시지 필터링으로 다중 작업 지원
 
 ### 프론트엔드 컴포넌트
 
@@ -198,10 +215,13 @@ POST /api/jobs/:id/cancel     # 작업 취소
 
 ### 파일 관리
 ```
-GET  /api/images/uploaded     # 업로드된 이미지 목록
-GET  /api/images/generated    # 생성된 이미지 목록
-POST /api/images/upload       # 이미지 업로드
-GET  /uploads/generated/:filename # 생성된 이미지 다운로드
+GET  /api/images/uploaded      # 업로드된 이미지 목록
+GET  /api/images/generated     # 생성된 이미지 목록
+GET  /api/images/videos        # 생성된 비디오 목록
+POST /api/images/upload        # 이미지 업로드
+GET  /api/images/videos/:id/download  # 비디오 다운로드
+GET  /uploads/generated/:filename     # 생성된 이미지 다운로드
+GET  /uploads/videos/:filename        # 생성된 비디오 다운로드
 ```
 
 ## 데이터베이스 스키마
@@ -248,13 +268,36 @@ GET  /uploads/generated/:filename # 생성된 이미지 다운로드
     prompt: String,
     negativePrompt: String,
     aiModel: String,
+    additionalParams: Object, // 이미지 필드 포함
     // ...
   },
-  resultImages: [ObjectId],
+  resultImages: [ObjectId],  // GeneratedImage 참조
+  resultVideos: [ObjectId],  // GeneratedVideo 참조
   progress: Number,
   error: Object,
   createdAt: Date,
   completedAt: Date
+}
+```
+
+### GeneratedVideo 모델
+```javascript
+{
+  jobId: ObjectId,
+  userId: ObjectId,
+  filename: String,
+  originalName: String,
+  mimeType: String,
+  size: Number,
+  path: String,
+  url: String,
+  metadata: {
+    width: Number,
+    height: Number,
+    duration: Number
+  },
+  tags: [String],
+  createdAt: Date
 }
 ```
 
@@ -360,6 +403,40 @@ docker-compose up -d
 
 [라이선스 정보 추가 필요]
 
+## 공통 컴포넌트
+
+### ImageSelectDialog
+이미지 선택을 위한 공통 다이얼로그 컴포넌트입니다.
+
+```jsx
+<ImageSelectDialog
+  open={open}
+  onClose={handleClose}
+  onSelect={handleSelect}
+  title="이미지 선택"
+  multiple={true}        // 다중 선택 활성화
+  maxImages={3}          // 최대 선택 개수
+  initialSelected={[]}   // 초기 선택 이미지
+/>
+```
+
+### VideoViewerDialog
+비디오 뷰어를 위한 공통 다이얼로그 컴포넌트입니다.
+
+```jsx
+<VideoViewerDialog
+  videos={videoList}        // 비디오 배열
+  selectedIndex={0}         // 시작 인덱스
+  open={open}
+  onClose={handleClose}
+  title="동영상 보기"
+/>
+```
+
+- 다운로드 기능 내장
+- 이전/다음 네비게이션 (다중 비디오 시)
+- iOS Safari 호환 다운로드 처리
+
 ---
-**마지막 업데이트**: 2026-01-22
+**마지막 업데이트**: 2026-01-31
 **작성자**: Claude Code Assistant

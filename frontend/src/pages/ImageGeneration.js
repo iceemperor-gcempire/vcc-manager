@@ -24,9 +24,7 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
-  InputAdornment,
-  Tabs,
-  Tab
+  InputAdornment
 } from '@mui/material';
 import {
   Send,
@@ -46,6 +44,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
 import Pagination from '../components/common/Pagination';
+import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
@@ -174,7 +173,6 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
 function CustomImageField({ field, value, onChange, maxImages = 1 }) {
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [dialogTab, setDialogTab] = useState(0);
 
   useEffect(() => {
     if (value && Array.isArray(value) && value.length > 0) {
@@ -184,44 +182,6 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
       }
     }
   }, [value]);
-
-  const { data: uploadedImages, isLoading: uploadedLoading } = useQuery(
-    'uploadedImagesForSelect',
-    () => imageAPI.getUploaded({ limit: 50 }),
-    { enabled: dialogOpen && dialogTab === 0 }
-  );
-
-  const { data: generatedImages, isLoading: generatedLoading } = useQuery(
-    'generatedImagesForSelect',
-    () => imageAPI.getGenerated({ limit: 50 }),
-    { enabled: dialogOpen && dialogTab === 1 }
-  );
-
-  const images = dialogTab === 0 
-    ? (uploadedImages?.data?.images || [])
-    : (generatedImages?.data?.images || []);
-  const isLoading = dialogTab === 0 ? uploadedLoading : generatedLoading;
-
-  const handleImageSelect = (image) => {
-    const isSelected = selectedImages.find(img => img.imageId === image._id);
-    if (isSelected) {
-      const updated = selectedImages.filter(img => img.imageId !== image._id);
-      setSelectedImages(updated);
-    } else if (selectedImages.length < maxImages) {
-      const updated = [...selectedImages, {
-        imageId: image._id,
-        image: image
-      }];
-      setSelectedImages(updated);
-    } else {
-      toast.error(`최대 ${maxImages}장까지 선택할 수 있습니다.`);
-    }
-  };
-
-  const handleSave = () => {
-    onChange(selectedImages);
-    setDialogOpen(false);
-  };
 
   const handleRemove = (imageId) => {
     const updated = selectedImages.filter(img => img.imageId !== imageId);
@@ -258,6 +218,23 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
     }
   };
 
+  const handleGallerySelect = (selected) => {
+    let updated;
+    if (Array.isArray(selected)) {
+      updated = selected.map(item => ({
+        imageId: item.imageId,
+        image: item.image
+      }));
+    } else {
+      updated = [{
+        imageId: selected.imageId,
+        image: selected.image
+      }];
+    }
+    setSelectedImages(updated);
+    onChange(updated);
+  };
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
     maxFiles: maxImages - selectedImages.length,
@@ -276,7 +253,6 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
           onClick={() => setDialogOpen(true)}
           startIcon={<ImageIcon />}
           size="small"
-          disabled={selectedImages.length >= maxImages}
         >
           갤러리에서 선택
         </Button>
@@ -361,64 +337,18 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
         </Grid>
       )}
 
-      {/* 갤러리 선택 다이얼로그 */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>{field.label} 선택 ({selectedImages.length}/{maxImages})</DialogTitle>
-        <DialogContent>
-          <Tabs value={dialogTab} onChange={(e, v) => setDialogTab(v)} sx={{ mb: 2 }}>
-            <Tab label="업로드한 이미지" />
-            <Tab label="생성한 이미지" />
-          </Tabs>
-
-          {isLoading ? (
-            <Box display="flex" justifyContent="center" py={4}>
-              <CircularProgress />
-            </Box>
-          ) : images.length === 0 ? (
-            <Alert severity="info">
-              {dialogTab === 0 ? '업로드한 이미지가 없습니다.' : '생성한 이미지가 없습니다.'}
-            </Alert>
-          ) : (
-            <Grid container spacing={2}>
-              {images.map((image) => {
-                const isSelected = selectedImages.find(img => img.imageId === image._id);
-                return (
-                  <Grid item xs={6} sm={4} md={3} key={image._id}>
-                    <Card
-                      sx={{
-                        cursor: 'pointer',
-                        border: isSelected ? '3px solid' : '1px solid',
-                        borderColor: isSelected ? 'primary.main' : 'grey.300',
-                        opacity: !isSelected && selectedImages.length >= maxImages ? 0.5 : 1
-                      }}
-                      onClick={() => handleImageSelect(image)}
-                    >
-                      <CardMedia
-                        component="img"
-                        height="100"
-                        image={image.url}
-                        alt={dialogTab === 0 ? 'Uploaded' : 'Generated'}
-                        sx={{ objectFit: 'cover' }}
-                      />
-                      <CardContent sx={{ p: 1 }}>
-                        <Typography variant="caption" noWrap>
-                          {image.originalName || new Date(image.createdAt).toLocaleDateString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>취소</Button>
-          <Button onClick={handleSave} variant="contained">
-            선택 완료
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ImageSelectDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSelect={handleGallerySelect}
+        title={`${field.label} 선택`}
+        multiple={maxImages > 1}
+        maxImages={maxImages}
+        initialSelected={selectedImages.map(item => ({
+          imageId: item.imageId,
+          image: item.image
+        }))}
+      />
     </Box>
   );
 }
