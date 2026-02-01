@@ -23,9 +23,7 @@ import {
   Select,
   MenuItem,
   FormHelperText,
-  IconButton,
-  FormControlLabel,
-  Switch
+  IconButton
 } from '@mui/material';
 import {
   Search,
@@ -37,8 +35,7 @@ import {
   MoreVert,
   Add,
   Delete,
-  Close,
-  VisibilityOff
+  Close
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -51,14 +48,8 @@ import toast from 'react-hot-toast';
 function WorkboardCard({ workboard }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
-  const isInactive = !workboard.isActive;
 
   const handleSelect = () => {
-    if (isInactive) {
-      toast.error('비활성화된 작업판은 사용할 수 없습니다.');
-      return;
-    }
-
     // 히스토리에서 온 데이터가 있는지 확인
     const continueJobData = localStorage.getItem('continueJobData');
     if (continueJobData) {
@@ -93,34 +84,11 @@ function WorkboardCard({ workboard }) {
 
   return (
     <>
-      <Card
-        sx={{
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          ...(isInactive && {
-            opacity: 0.6,
-            bgcolor: 'grey.100',
-            border: '1px dashed',
-            borderColor: 'grey.400'
-          })
-        }}
-      >
+      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
         <CardContent sx={{ flexGrow: 1 }}>
-          <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={1}>
-            <Typography variant="h6" sx={{ color: isInactive ? 'text.disabled' : 'text.primary' }}>
-              {workboard.name}
-            </Typography>
-            {isInactive && (
-              <Chip
-                icon={<VisibilityOff fontSize="small" />}
-                label="비활성"
-                size="small"
-                color="default"
-                sx={{ ml: 1 }}
-              />
-            )}
-          </Box>
+          <Typography variant="h6" gutterBottom>
+            {workboard.name}
+          </Typography>
 
           {workboard.description && (
             <Typography variant="body2" color="textSecondary" paragraph>
@@ -175,10 +143,9 @@ function WorkboardCard({ workboard }) {
             variant="contained"
             onClick={handleSelect}
             startIcon={<PlayArrow />}
-            disabled={isInactive}
             sx={{ ml: 'auto' }}
           >
-            {isInactive ? '사용 불가' : '선택하기'}
+            선택하기
           </Button>
         </CardActions>
       </Card>
@@ -268,12 +235,11 @@ function WorkboardCard({ workboard }) {
 function Workboards() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [includeInactive, setIncludeInactive] = useState(false);
   const queryClient = useQueryClient();
 
   const { data, isLoading, error } = useQuery(
-    ['workboards', { search, page, includeInactive }],
-    () => workboardAPI.getAll({ search, page, limit: 12, includeInactive }),
+    ['workboards', { search, page }],
+    () => workboardAPI.getAll({ search, page, limit: 12 }),
     { keepPreviousData: true }
   );
 
@@ -307,9 +273,10 @@ function Workboards() {
         </Typography>
       </Box>
 
-      {/* 검색 및 필터 */}
-      <Box mb={4} display="flex" flexWrap="wrap" alignItems="center" gap={2}>
+      {/* 검색 */}
+      <Box mb={4}>
         <TextField
+          fullWidth
           placeholder="작업판 이름이나 설명으로 검색..."
           value={search}
           onChange={handleSearchChange}
@@ -320,20 +287,7 @@ function Workboards() {
               </InputAdornment>
             ),
           }}
-          sx={{ maxWidth: 500, flexGrow: 1 }}
-        />
-        <FormControlLabel
-          control={
-            <Switch
-              checked={includeInactive}
-              onChange={(e) => {
-                setIncludeInactive(e.target.checked);
-                setPage(1);
-              }}
-              color="primary"
-            />
-          }
-          label="비활성 작업판 포함"
+          sx={{ maxWidth: 500 }}
         />
       </Box>
 
