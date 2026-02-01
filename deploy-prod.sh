@@ -66,7 +66,7 @@ docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE stop frontend backend nginx
 # 이미지 캐시 없이 빌드
 echo -e "${BLUE}🔨 애플리케이션 이미지를 캐시 없이 빌드 중...${NC}"
 echo "이 과정은 몇 분 소요될 수 있습니다..."
-docker-compose -f $COMPOSE_FILE build --no-cache frontend backend
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE build --no-cache frontend backend
 
 # 기존 애플리케이션 컨테이너 제거 (볼륨과 데이터베이스는 유지)
 echo -e "${BLUE}🗑️  기존 애플리케이션 컨테이너 제거 중...${NC}"
