@@ -41,7 +41,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { workboardAPI, jobAPI, imageAPI, promptDataAPI } from '../services/api';
+import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -417,6 +417,10 @@ function ImageGeneration() {
     () => workboardAPI.getById(id)
   );
 
+  // 사용자 설정 가져오기
+  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const userPreferences = profileData?.data?.user?.preferences || {};
+
   const generateMutation = useMutation(
     jobAPI.create,
     {
@@ -621,7 +625,13 @@ function ImageGeneration() {
         // 시드 값 설정 (있는 경우)
         if (jobInputData.seed !== undefined) {
           setSeedValue(jobInputData.seed);
-          setRandomSeed(false); // 고정 시드 값이 있으면 랜덤 해제
+          // 사용자 설정에 따라 랜덤 시드 적용
+          if (userPreferences.useRandomSeedOnContinue) {
+            setRandomSeed(true);
+            console.log('🎲 Random seed enabled by user preference');
+          } else {
+            setRandomSeed(false); // 고정 시드 값 사용
+          }
         }
 
         toast.success(`이전 작업 설정을 불러왔습니다 (${Object.keys(basicFields).filter(k => basicFields[k]).length}개 필드 적용)`);
@@ -696,7 +706,7 @@ function ImageGeneration() {
         }, 100);
       }
     }
-  }, [workboardData, setValue, reset, getValues]);
+  }, [workboardData, setValue, reset, getValues, userPreferences.useRandomSeedOnContinue]);
 
   const onSubmit = async (formData) => {
     setGenerating(true);

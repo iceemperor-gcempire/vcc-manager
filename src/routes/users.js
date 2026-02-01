@@ -33,6 +33,15 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (preferences.theme) {
         req.user.preferences.theme = preferences.theme;
       }
+      if (typeof preferences.deleteContentWithHistory === 'boolean') {
+        req.user.preferences.deleteContentWithHistory = preferences.deleteContentWithHistory;
+      }
+      if (typeof preferences.deleteHistoryWithContent === 'boolean') {
+        req.user.preferences.deleteHistoryWithContent = preferences.deleteHistoryWithContent;
+      }
+      if (typeof preferences.useRandomSeedOnContinue === 'boolean') {
+        req.user.preferences.useRandomSeedOnContinue = preferences.useRandomSeedOnContinue;
+      }
     }
     
     await req.user.save();

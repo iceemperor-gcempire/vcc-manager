@@ -24,7 +24,8 @@ import {
   Apps,
   TextSnippet,
   Chat,
-  LocalOffer
+  LocalOffer,
+  Settings
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -78,6 +79,12 @@ const menuItems = [
     text: '내 태그 관리',
     path: '/tags/manage',
     icon: <LocalOffer />,
+    roles: ['user', 'admin']
+  },
+  {
+    text: '설정',
+    path: '/settings',
+    icon: <Settings />,
     roles: ['user', 'admin']
   }
 ];

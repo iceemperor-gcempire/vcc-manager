@@ -76,7 +76,9 @@ export const jobAPI = {
   createPromptJob: (data) => api.post('/jobs/generate-prompt', data),
   getMy: (params) => api.get('/jobs/my', { params }),
   getById: (id) => api.get(`/jobs/${id}`),
-  delete: (id) => api.delete(`/jobs/${id}`),
+  delete: (id, deleteContent) => api.delete(`/jobs/${id}`, {
+    params: { deleteContent },
+  }),
   retry: (id) => api.post(`/jobs/${id}/retry`),
   cancel: (id) => api.post(`/jobs/${id}/cancel`),
   getQueueStats: () => api.get('/jobs/queue/stats'),
