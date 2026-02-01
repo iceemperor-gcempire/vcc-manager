@@ -40,7 +40,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { imageAPI } from '../services/api';
+import { imageAPI, userAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
 import TagInput from '../components/common/TagInput';
 import VideoViewerDialog from '../components/common/VideoViewerDialog';
@@ -732,6 +732,10 @@ function MyImages() {
     { enabled: tab === 2 }
   );
 
+  // 사용자 설정 가져오기
+  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const userPreferences = profileData?.data?.user?.preferences || {};
+
   const deleteUploadedMutation = useMutation(
     imageAPI.deleteUploaded,
     {
@@ -795,16 +799,39 @@ function MyImages() {
   };
 
   const handleDelete = (item) => {
+    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
+
     if (tab === 1) {
+      // 업로드된 이미지는 히스토리와 관련 없음
       if (window.confirm('이미지를 삭제하시겠습니까?')) {
         deleteUploadedMutation.mutate(item._id);
       }
     } else if (tab === 2) {
-      const deleteJob = window.confirm('동영상과 함께 생성 작업도 삭제하시겠습니까?');
-      deleteVideoMutation.mutate({ id: item._id, deleteJob });
+      // 생성된 동영상
+      if (deleteHistorySetting && item.jobId) {
+        // 설정이 켜져있고 작업 히스토리가 있는 경우
+        if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+          deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
+        }
+      } else {
+        // 설정이 꺼져있는 경우
+        if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
+          deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
+        }
+      }
     } else {
-      const deleteJob = window.confirm('이미지와 함께 생성 작업도 삭제하시겠습니까?');
-      deleteGeneratedMutation.mutate({ id: item._id, deleteJob });
+      // 생성된 이미지
+      if (deleteHistorySetting && item.jobId) {
+        // 설정이 켜져있고 작업 히스토리가 있는 경우
+        if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
+        }
+      } else {
+        // 설정이 꺼져있는 경우
+        if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
+          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
+        }
+      }
     }
   };
 

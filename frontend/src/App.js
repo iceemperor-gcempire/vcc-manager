@@ -22,6 +22,7 @@ import MyImages from './pages/MyImages';
 import JobHistory from './pages/JobHistory';
 import PromptDataList from './pages/PromptDataList';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import TagSearch from './pages/TagSearch';
 import TagManagement from './pages/TagManagement';
 import {
@@ -129,6 +130,7 @@ function MainLayout() {
             <Route path="/tags" element={<TagSearch />} />
             <Route path="/tags/manage" element={<TagManagement />} />
             <Route path="/profile" element={<Profile />} />
+            <Route path="/settings" element={<Settings />} />
             <Route
               path="/admin/dashboard"
               element={

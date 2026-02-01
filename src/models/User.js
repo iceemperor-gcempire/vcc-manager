@@ -70,6 +70,18 @@ const userSchema = new mongoose.Schema({
       type: String,
       enum: ['light', 'dark'],
       default: 'light'
+    },
+    deleteContentWithHistory: {
+      type: Boolean,
+      default: false
+    },
+    deleteHistoryWithContent: {
+      type: Boolean,
+      default: false
+    },
+    useRandomSeedOnContinue: {
+      type: Boolean,
+      default: false
     }
   }
 }, {

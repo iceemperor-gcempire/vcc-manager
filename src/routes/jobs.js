@@ -169,27 +169,30 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
+    const { deleteContent } = req.query;
+    const shouldDeleteContent = deleteContent === 'true';
+
     const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages').populate('resultVideos');
-    
+
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
-    
+
     if (job.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
+
     if (job.status === 'processing') {
       return res.status(400).json({ message: 'Cannot delete job that is currently processing' });
     }
-    
+
     // 참조 이미지 연결 해제
     if (job.inputData.referenceImages && job.inputData.referenceImages.length > 0) {
       for (const refImg of job.inputData.referenceImages) {
         await UploadedImage.findByIdAndUpdate(refImg.imageId, {
           $pull: { referencedBy: { jobId: job._id } }
         });
-        
+
         const updatedImage = await UploadedImage.findById(refImg.imageId);
         if (updatedImage) {
           updatedImage.isReferenced = updatedImage.referencedBy.length > 0;
@@ -197,61 +200,85 @@ router.delete('/:id', requireAuth, async (req, res) => {
         }
       }
     }
-    
-    // 연결된 생성 이미지들 삭제 (물리적 파일과 DB 레코드)
-    if (job.resultImages && job.resultImages.length > 0) {
-      console.log(`🗑️  Deleting ${job.resultImages.length} generated images for job ${job._id}`);
-      
-      for (const image of job.resultImages) {
-        try {
-          // 물리적 파일 삭제
-          if (image.path) {
-            await deleteFile(image.path);
-            console.log(`✅ Deleted file: ${image.path}`);
+
+    let deletedImagesCount = 0;
+    let deletedVideosCount = 0;
+
+    // deleteContent가 true인 경우에만 연결된 컨텐츠 삭제
+    if (shouldDeleteContent) {
+      // 연결된 생성 이미지들 삭제 (물리적 파일과 DB 레코드)
+      if (job.resultImages && job.resultImages.length > 0) {
+        console.log(`🗑️  Deleting ${job.resultImages.length} generated images for job ${job._id}`);
+
+        for (const image of job.resultImages) {
+          try {
+            // 물리적 파일 삭제
+            if (image.path) {
+              await deleteFile(image.path);
+              console.log(`✅ Deleted file: ${image.path}`);
+            }
+
+            // DB에서 이미지 레코드 삭제
+            await GeneratedImage.findByIdAndDelete(image._id);
+            console.log(`✅ Deleted image record: ${image._id}`);
+            deletedImagesCount++;
+          } catch (fileError) {
+            console.error(`⚠️  Failed to delete file for image ${image._id}:`, fileError.message);
+            // 파일 삭제에 실패해도 DB 레코드는 삭제
+            await GeneratedImage.findByIdAndDelete(image._id);
+            deletedImagesCount++;
           }
-          
-          // DB에서 이미지 레코드 삭제
-          await GeneratedImage.findByIdAndDelete(image._id);
-          console.log(`✅ Deleted image record: ${image._id}`);
-        } catch (fileError) {
-          console.error(`⚠️  Failed to delete file for image ${image._id}:`, fileError.message);
-          // 파일 삭제에 실패해도 DB 레코드는 삭제
-          await GeneratedImage.findByIdAndDelete(image._id);
         }
       }
-    }
-    
-    // 연결된 생성 비디오들 삭제 (물리적 파일과 DB 레코드)
-    if (job.resultVideos && job.resultVideos.length > 0) {
-      console.log(`🗑️  Deleting ${job.resultVideos.length} generated videos for job ${job._id}`);
-      
-      for (const video of job.resultVideos) {
-        try {
-          // 물리적 파일 삭제
-          if (video.path) {
-            await deleteFile(video.path);
-            console.log(`✅ Deleted video file: ${video.path}`);
+
+      // 연결된 생성 비디오들 삭제 (물리적 파일과 DB 레코드)
+      if (job.resultVideos && job.resultVideos.length > 0) {
+        console.log(`🗑️  Deleting ${job.resultVideos.length} generated videos for job ${job._id}`);
+
+        for (const video of job.resultVideos) {
+          try {
+            // 물리적 파일 삭제
+            if (video.path) {
+              await deleteFile(video.path);
+              console.log(`✅ Deleted video file: ${video.path}`);
+            }
+
+            // DB에서 비디오 레코드 삭제
+            await GeneratedVideo.findByIdAndDelete(video._id);
+            console.log(`✅ Deleted video record: ${video._id}`);
+            deletedVideosCount++;
+          } catch (fileError) {
+            console.error(`⚠️  Failed to delete file for video ${video._id}:`, fileError.message);
+            // 파일 삭제에 실패해도 DB 레코드는 삭제
+            await GeneratedVideo.findByIdAndDelete(video._id);
+            deletedVideosCount++;
           }
-          
-          // DB에서 비디오 레코드 삭제
-          await GeneratedVideo.findByIdAndDelete(video._id);
-          console.log(`✅ Deleted video record: ${video._id}`);
-        } catch (fileError) {
-          console.error(`⚠️  Failed to delete file for video ${video._id}:`, fileError.message);
-          // 파일 삭제에 실패해도 DB 레코드는 삭제
-          await GeneratedVideo.findByIdAndDelete(video._id);
         }
       }
+    } else {
+      // 컨텐츠를 삭제하지 않는 경우, jobId 참조만 해제
+      if (job.resultImages && job.resultImages.length > 0) {
+        await GeneratedImage.updateMany(
+          { _id: { $in: job.resultImages.map(img => img._id) } },
+          { $unset: { jobId: 1 } }
+        );
+      }
+      if (job.resultVideos && job.resultVideos.length > 0) {
+        await GeneratedVideo.updateMany(
+          { _id: { $in: job.resultVideos.map(vid => vid._id) } },
+          { $unset: { jobId: 1 } }
+        );
+      }
     }
-    
+
     // 작업 레코드 삭제
     await ImageGenerationJob.findByIdAndDelete(req.params.id);
-    
-    const deletedImagesCount = job.resultImages ? job.resultImages.length : 0;
-    const deletedVideosCount = job.resultVideos ? job.resultVideos.length : 0;
-    res.json({ 
-      message: `Job and ${deletedImagesCount} image(s), ${deletedVideosCount} video(s) deleted successfully`
-    });
+
+    const message = shouldDeleteContent
+      ? `Job and ${deletedImagesCount} image(s), ${deletedVideosCount} video(s) deleted successfully`
+      : 'Job deleted successfully (content preserved)';
+
+    res.json({ message, deletedImagesCount, deletedVideosCount });
   } catch (error) {
     console.error('Job deletion error:', error);
     res.status(500).json({ message: error.message });
