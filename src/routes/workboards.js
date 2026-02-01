@@ -247,29 +247,71 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
+// 작업판 비활성화
+router.patch('/:id/deactivate', requireAdmin, async (req, res) => {
+  try {
+    const workboard = await Workboard.findById(req.params.id);
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+
+    workboard.isActive = false;
+    await workboard.save();
+
+    res.json({ message: 'Workboard deactivated successfully', workboard });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 작업판 활성화
+router.patch('/:id/activate', requireAdmin, async (req, res) => {
+  try {
+    const workboard = await Workboard.findById(req.params.id);
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+
+    workboard.isActive = true;
+    await workboard.save();
+
+    res.json({ message: 'Workboard activated successfully', workboard });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 작업판 삭제 (완전 삭제)
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id);
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
     }
-    
+
     const ImageGenerationJob = require('../models/ImageGenerationJob');
     const activeJobs = await ImageGenerationJob.countDocuments({
       workboardId: req.params.id,
       status: { $in: ['pending', 'processing'] }
     });
-    
+
     if (activeJobs > 0) {
       return res.status(400).json({
         message: 'Cannot delete workboard with active jobs'
       });
     }
-    
-    workboard.isActive = false;
-    await workboard.save();
-    
-    res.json({ message: 'Workboard deactivated successfully' });
+
+    // 관련 작업 히스토리 수 확인 (경고용)
+    const totalJobs = await ImageGenerationJob.countDocuments({
+      workboardId: req.params.id
+    });
+
+    await Workboard.findByIdAndDelete(req.params.id);
+
+    res.json({
+      message: 'Workboard deleted permanently',
+      deletedJobsWarning: totalJobs > 0 ? `${totalJobs} related jobs exist in history` : null
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

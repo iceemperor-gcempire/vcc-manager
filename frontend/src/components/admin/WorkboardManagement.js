@@ -39,7 +39,9 @@ import {
   Computer,
   TrendingUp,
   Settings,
-  ExpandMore
+  ExpandMore,
+  ToggleOn,
+  ToggleOff
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
@@ -47,7 +49,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 
-function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
+function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const isInactive = !workboard.isActive;
@@ -164,7 +166,23 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView }) {
           <ContentCopy sx={{ mr: 1 }} fontSize="small" />
           복제
         </MenuItem>
-        <MenuItem 
+        <MenuItem
+          onClick={() => { onToggleActive(workboard); handleMenuClose(); }}
+          sx={{ color: isInactive ? 'success.main' : 'warning.main' }}
+        >
+          {isInactive ? (
+            <>
+              <ToggleOn sx={{ mr: 1 }} fontSize="small" />
+              활성화
+            </>
+          ) : (
+            <>
+              <ToggleOff sx={{ mr: 1 }} fontSize="small" />
+              비활성화
+            </>
+          )}
+        </MenuItem>
+        <MenuItem
           onClick={() => { onDelete(workboard); handleMenuClose(); }}
           sx={{ color: 'error.main' }}
         >
@@ -1384,14 +1402,14 @@ function WorkboardManagement() {
     {
       onSuccess: (response, deletedId) => {
         console.log('🗑️ Workboard delete success, immediately updating cache');
-        toast.success('작업판이 비활성화되었습니다');
-        
-        // 즉시 캐시 업데이트 - 삭제된 작업판을 목록에서 제거 또는 비활성 상태로 변경
+        toast.success('작업판이 삭제되었습니다');
+
+        // 즉시 캐시 업데이트 - 삭제된 작업판을 목록에서 제거
         queryClient.setQueryData('adminWorkboards', (oldData) => {
           if (!oldData?.data?.workboards) return oldData;
-          
+
           const updatedWorkboards = oldData.data.workboards.filter(wb => wb._id !== deletedId);
-          
+
           return {
             ...oldData,
             data: {
@@ -1404,15 +1422,31 @@ function WorkboardManagement() {
             }
           };
         });
-        
+
         // 강제 리패치로 정확한 데이터 보장
         queryClient.refetchQueries('adminWorkboards');
-        
+
         console.log('✅ Cache updated immediately - workboard removed from list');
       },
       onError: (error) => {
         console.error('❌ Workboard deletion failed:', error);
         toast.error('삭제 실패: ' + error.message);
+      }
+    }
+  );
+
+  const toggleActiveMutation = useMutation(
+    ({ id, isActive }) => isActive ? workboardAPI.deactivate(id) : workboardAPI.activate(id),
+    {
+      onSuccess: (response) => {
+        const workboard = response.data.workboard;
+        const action = workboard.isActive ? '활성화' : '비활성화';
+        toast.success(`작업판이 ${action}되었습니다`);
+        queryClient.refetchQueries('adminWorkboards');
+      },
+      onError: (error) => {
+        console.error('❌ Toggle active failed:', error);
+        toast.error('상태 변경 실패: ' + error.message);
       }
     }
   );
@@ -1473,8 +1507,15 @@ function WorkboardManagement() {
   };
 
   const handleDelete = (workboard) => {
-    if (window.confirm(`"${workboard.name}" 작업판을 비활성화하시겠습니까?`)) {
+    if (window.confirm(`"${workboard.name}" 작업판을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
       deleteMutation.mutate(workboard._id);
+    }
+  };
+
+  const handleToggleActive = (workboard) => {
+    const action = workboard.isActive ? '비활성화' : '활성화';
+    if (window.confirm(`"${workboard.name}" 작업판을 ${action}하시겠습니까?`)) {
+      toggleActiveMutation.mutate({ id: workboard._id, isActive: workboard.isActive });
     }
   };
 
@@ -1584,6 +1625,7 @@ function WorkboardManagement() {
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
                 onView={handleView}
+                onToggleActive={handleToggleActive}
               />
             </Grid>
           ))}
