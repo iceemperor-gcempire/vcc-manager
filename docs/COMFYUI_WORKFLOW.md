@@ -129,6 +129,7 @@ const replacements = {
   '{{##cfg##}}': { value: parseFloat(inputData.additionalParams?.cfg) || 7, type: 'number' },
   '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
   '{{##scheduler##}}': { value: inputData.additionalParams?.scheduler || 'normal', type: 'string' },
+  '{{##user_id##}}': { value: hashedUserId, type: 'string' },  // SHA256 해시 앞 8자리
   // ... 추가 필드들
 };
 ```
