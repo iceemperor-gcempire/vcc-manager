@@ -7,10 +7,6 @@ import {
   Box,
   Alert,
   LinearProgress,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
   IconButton,
   CircularProgress
 } from '@mui/material';
@@ -20,7 +16,6 @@ import {
   Image,
   Queue,
   Refresh,
-  TrendingUp,
   Error as ErrorIcon
 } from '@mui/icons-material';
 import { useQuery } from 'react-query';
@@ -75,12 +70,6 @@ function AdminDashboard() {
     { refetchInterval: config.monitoring.queueStatusInterval }
   );
 
-  const { data: recentJobs, isLoading: jobsLoading } = useQuery(
-    'adminRecentJobs',
-    () => adminAPI.getJobs({ limit: 10 }),
-    { refetchInterval: config.monitoring.recentJobsInterval }
-  );
-
   if (statsLoading) {
     return (
       <Box display="flex" justifyContent="center" py={4}>
@@ -91,7 +80,6 @@ function AdminDashboard() {
 
   const systemStats = stats?.data || {};
   const queue = queueStats?.data?.stats || {};
-  const jobs = recentJobs?.data?.jobs || [];
 
   return (
     <Box>
@@ -146,7 +134,7 @@ function AdminDashboard() {
 
       <Grid container spacing={3}>
         {/* 작업 큐 상태 */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={8} lg={6}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -191,46 +179,6 @@ function AdminDashboard() {
                     </Grid>
                   </Grid>
                 </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 최근 작업 */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                최근 작업
-              </Typography>
-              
-              {jobsLoading ? (
-                <CircularProgress size={24} />
-              ) : jobs.length === 0 ? (
-                <Typography variant="body2" color="textSecondary">
-                  최근 작업이 없습니다.
-                </Typography>
-              ) : (
-                <List dense>
-                  {jobs.slice(0, 5).map((job) => (
-                    <ListItem key={job._id} divider>
-                      <ListItemText
-                        primary={job.inputData?.prompt?.substring(0, 50) + '...' || '프롬프트 없음'}
-                        secondary={`${job.userId?.nickname || '익명'} - ${new Date(job.createdAt).toLocaleString()}`}
-                      />
-                      <Chip
-                        label={job.status}
-                        size="small"
-                        color={
-                          job.status === 'completed' ? 'success' :
-                          job.status === 'processing' ? 'info' :
-                          job.status === 'failed' ? 'error' : 'default'
-                        }
-                        variant="outlined"
-                      />
-                    </ListItem>
-                  ))}
-                </List>
               )}
             </CardContent>
           </Card>
