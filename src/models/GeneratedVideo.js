@@ -33,7 +33,7 @@ const generatedVideoSchema = new mongoose.Schema({
   jobId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'ImageGenerationJob',
-    required: true
+    required: false  // 히스토리 삭제 시 비디오 보존을 위해 optional로 변경
   },
   metadata: {
     width: Number,
