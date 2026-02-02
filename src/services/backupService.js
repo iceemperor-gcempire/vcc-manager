@@ -34,9 +34,21 @@ const COLLECTIONS = {
 const BACKUP_DIR = process.env.BACKUP_PATH || './backups';
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 
-// 암호화 키 (환경변수에서 가져오거나 생성)
-const ENCRYPTION_KEY = process.env.BACKUP_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex');
+// 암호화 키 (환경변수에서 필수로 가져옴)
+const ENCRYPTION_KEY = process.env.BACKUP_ENCRYPTION_KEY;
 const ALGORITHM = 'aes-256-gcm';
+
+/**
+ * 암호화 키 유효성 검사
+ */
+function validateEncryptionKey() {
+  if (!ENCRYPTION_KEY) {
+    throw new Error('BACKUP_ENCRYPTION_KEY 환경변수가 설정되지 않았습니다. 백업을 생성하려면 64자리 hex 키를 설정하세요.');
+  }
+  if (!/^[a-fA-F0-9]{64}$/.test(ENCRYPTION_KEY)) {
+    throw new Error('BACKUP_ENCRYPTION_KEY는 64자리 hex 문자열이어야 합니다. (openssl rand -hex 32 로 생성)');
+  }
+}
 
 /**
  * AES-256-GCM으로 데이터 암호화
@@ -146,6 +158,9 @@ async function exportCollection(collectionName, config, job) {
  * 백업 생성
  */
 async function createBackup(userId) {
+  // 암호화 키 유효성 검사
+  validateEncryptionKey();
+
   // 백업 디렉토리 생성
   if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });

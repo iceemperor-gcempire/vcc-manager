@@ -36,10 +36,22 @@ const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
 const ALGORITHM = 'aes-256-gcm';
 
 /**
+ * 암호화 키 유효성 확인
+ */
+function isEncryptionKeyValid() {
+  return ENCRYPTION_KEY && /^[a-fA-F0-9]{64}$/.test(ENCRYPTION_KEY);
+}
+
+/**
  * AES-256-GCM으로 데이터 복호화
  */
 function decryptData(encryptedObj) {
   if (!encryptedObj || !encryptedObj.encrypted) return null;
+
+  // 암호화 키가 없으면 복호화 불가
+  if (!isEncryptionKeyValid()) {
+    return null;
+  }
 
   try {
     const { iv, authTag, encrypted } = encryptedObj;
@@ -154,9 +166,13 @@ async function validateBackup(zipPath, userId) {
     }
 
     // 암호화 키 확인
-    const currentKeyHash = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest('hex').slice(0, 16);
-    if (metadata.encryptionKeyHash && metadata.encryptionKeyHash !== currentKeyHash) {
-      warnings.push('백업 암호화 키가 현재 시스템과 다릅니다. 암호화된 데이터(API 키 등)가 복구되지 않을 수 있습니다.');
+    if (!isEncryptionKeyValid()) {
+      warnings.push('BACKUP_ENCRYPTION_KEY가 설정되지 않았습니다. 암호화된 데이터(API 키 등)는 복구되지 않습니다.');
+    } else if (metadata.encryptionKeyHash) {
+      const currentKeyHash = crypto.createHash('sha256').update(ENCRYPTION_KEY).digest('hex').slice(0, 16);
+      if (metadata.encryptionKeyHash !== currentKeyHash) {
+        warnings.push('백업 암호화 키가 현재 시스템과 다릅니다. 암호화된 데이터(API 키 등)가 복구되지 않을 수 있습니다.');
+      }
     }
 
     // 컬렉션 확인
