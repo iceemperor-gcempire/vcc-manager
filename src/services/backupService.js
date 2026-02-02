@@ -155,9 +155,9 @@ async function exportCollection(collectionName, config, job) {
 }
 
 /**
- * 백업 생성
+ * 백업 작업 초기화 (DB에 작업 기록만 생성)
  */
-async function createBackup(userId) {
+async function initBackupJob(userId) {
   // 암호화 키 유효성 검사
   validateEncryptionKey();
 
@@ -168,15 +168,32 @@ async function createBackup(userId) {
 
   // 백업 작업 생성
   const job = new BackupJob({
-    status: 'processing',
+    status: 'pending',
     type: 'full',
     createdBy: userId,
     progress: {
       current: 0,
       total: Object.keys(COLLECTIONS).length + 3, // 컬렉션 + 파일 디렉토리 3개
-      stage: '초기화 중...'
+      stage: '대기 중...'
     }
   });
+  await job.save();
+
+  return job;
+}
+
+/**
+ * 백업 실행 (비동기)
+ */
+async function executeBackup(jobId) {
+  const job = await BackupJob.findById(jobId);
+  if (!job) {
+    throw new Error('백업 작업을 찾을 수 없습니다.');
+  }
+
+  // 상태를 processing으로 변경
+  job.status = 'processing';
+  job.progress.stage = '초기화 중...';
   await job.save();
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -199,7 +216,7 @@ async function createBackup(userId) {
     const metadata = {
       version: '1.0',
       createdAt: new Date().toISOString(),
-      createdBy: userId.toString(),
+      createdBy: job.createdBy.toString(),
       collections: {},
       files: {
         generated: 0,
@@ -262,6 +279,7 @@ async function createBackup(userId) {
 
     await job.complete(fileName, filePath, stats.size, statistics);
 
+    console.log(`✅ 백업 완료: ${fileName} (${stats.size} bytes)`);
     return job;
   } catch (error) {
     // 실패 시 파일 삭제
@@ -270,8 +288,17 @@ async function createBackup(userId) {
     }
 
     await job.fail(error);
+    console.error(`❌ 백업 실패: ${error.message}`);
     throw error;
   }
+}
+
+/**
+ * 백업 생성 (동기 - 하위 호환성)
+ */
+async function createBackup(userId) {
+  const job = await initBackupJob(userId);
+  return executeBackup(job._id);
 }
 
 /**
@@ -364,6 +391,8 @@ async function getLastBackupTime(userId) {
 }
 
 module.exports = {
+  initBackupJob,
+  executeBackup,
   createBackup,
   getBackupStatus,
   listBackups,

@@ -5,6 +5,7 @@ const fs = require('fs');
 const { requireAdmin } = require('../middleware/auth');
 const backupService = require('../services/backupService');
 const restoreService = require('../services/restoreService');
+const { startBackupLock, endBackupLock, isBackupInProgress, getCurrentBackupJobId } = require('../middleware/backupLock');
 
 const router = express.Router();
 
@@ -52,11 +53,34 @@ const upload = multer({
 const RATE_LIMIT_MS = 60 * 60 * 1000; // 1시간
 
 /**
+ * GET /api/admin/backup/lock-status
+ * 백업 잠금 상태 조회
+ */
+router.get('/lock-status', requireAdmin, (req, res) => {
+  res.json({
+    success: true,
+    data: {
+      isBackupInProgress: isBackupInProgress(),
+      currentBackupJobId: getCurrentBackupJobId()
+    }
+  });
+});
+
+/**
  * POST /api/admin/backup
  * 백업 생성 시작
  */
 router.post('/', requireAdmin, async (req, res) => {
   try {
+    // 이미 백업 진행 중인지 확인
+    if (isBackupInProgress()) {
+      return res.status(409).json({
+        success: false,
+        message: '이미 백업이 진행 중입니다.',
+        backupJobId: getCurrentBackupJobId()
+      });
+    }
+
     // Rate limit 확인
     const lastBackupTime = await backupService.getLastBackupTime(req.user._id);
     if (lastBackupTime) {
@@ -70,18 +94,36 @@ router.post('/', requireAdmin, async (req, res) => {
       }
     }
 
-    // 백업 시작 (비동기)
-    const job = await backupService.createBackup(req.user._id);
+    // 백업 작업 생성 (DB에만 기록)
+    const job = await backupService.initBackupJob(req.user._id);
+    const jobId = job._id.toString();
 
+    // 백업 잠금 시작
+    startBackupLock(jobId);
+
+    // 즉시 응답 반환
     res.json({
       success: true,
       data: {
         jobId: job._id,
         status: job.status,
-        message: '백업이 시작되었습니다.'
+        message: '백업이 시작되었습니다. 백업 중에는 데이터 변경이 제한됩니다.'
       }
     });
+
+    // 비동기로 백업 실행
+    backupService.executeBackup(job._id)
+      .catch((error) => {
+        console.error('백업 실행 오류:', error);
+      })
+      .finally(() => {
+        // 백업 완료/실패 시 잠금 해제
+        endBackupLock();
+      });
+
   } catch (error) {
+    // 에러 발생 시 잠금 해제
+    endBackupLock();
     console.error('백업 생성 오류:', error);
     res.status(500).json({
       success: false,

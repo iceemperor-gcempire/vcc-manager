@@ -127,6 +127,7 @@ export const adminAPI = {
 export const backupAPI = {
   create: () => api.post('/admin/backup'),
   getStatus: (id) => api.get(`/admin/backup/status/${id}`),
+  getLockStatus: () => api.get('/admin/backup/lock-status'),
   download: (id) => api.get(`/admin/backup/download/${id}`, { responseType: 'blob' }),
   list: (params) => api.get('/admin/backup/list', { params }),
   delete: (id) => api.delete(`/admin/backup/${id}`),
