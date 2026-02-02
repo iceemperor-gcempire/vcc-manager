@@ -1205,6 +1205,65 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           {/* 워크플로우 탭 - 이미지 타입만 */}
           {workboardType === 'image' && tabValue === 3 && (
             <Box>
+              {/* 사용 가능한 변수 목록 */}
+              <Accordion defaultExpanded={false} sx={{ mb: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    사용 가능한 워크플로우 변수
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="body2" color="textSecondary" paragraph>
+                    아래 변수들을 워크플로우 JSON에서 사용할 수 있습니다. 변수는 작업 실행 시 실제 값으로 치환됩니다.
+                  </Typography>
+
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>기본 변수</Typography>
+                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                    <tbody>
+                      <tr><td><code>{'{{##prompt##}}'}</code></td><td>프롬프트 (문자열)</td></tr>
+                      <tr><td><code>{'{{##negative_prompt##}}'}</code></td><td>네거티브 프롬프트 (문자열)</td></tr>
+                      <tr><td><code>{'{{##model##}}'}</code></td><td>AI 모델 (문자열)</td></tr>
+                      <tr><td><code>{'{{##width##}}'}</code></td><td>이미지 너비 (숫자)</td></tr>
+                      <tr><td><code>{'{{##height##}}'}</code></td><td>이미지 높이 (숫자)</td></tr>
+                      <tr><td><code>{'{{##seed##}}'}</code></td><td>시드값 (숫자, 64비트)</td></tr>
+                    </tbody>
+                  </Box>
+
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>샘플링 파라미터</Typography>
+                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                    <tbody>
+                      <tr><td><code>{'{{##steps##}}'}</code></td><td>스텝 수 (숫자, 기본값: 20)</td></tr>
+                      <tr><td><code>{'{{##cfg##}}'}</code></td><td>CFG 스케일 (숫자, 기본값: 7)</td></tr>
+                      <tr><td><code>{'{{##sampler##}}'}</code></td><td>샘플러 (문자열, 기본값: euler)</td></tr>
+                      <tr><td><code>{'{{##scheduler##}}'}</code></td><td>스케줄러 (문자열, 기본값: normal)</td></tr>
+                    </tbody>
+                  </Box>
+
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>추가 기능</Typography>
+                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                    <tbody>
+                      <tr><td><code>{'{{##reference_method##}}'}</code></td><td>참조 이미지 방식 (문자열)</td></tr>
+                      <tr><td><code>{'{{##upscale_method##}}'}</code></td><td>업스케일 방식 (문자열)</td></tr>
+                      <tr><td><code>{'{{##upscale##}}'}</code></td><td>업스케일 방식 별칭 (문자열)</td></tr>
+                      <tr><td><code>{'{{##base_style##}}'}</code></td><td>기본 스타일 (문자열)</td></tr>
+                      <tr><td><code>{'{{##user_id##}}'}</code></td><td>사용자 ID 해시 (문자열, 8자리)</td></tr>
+                    </tbody>
+                  </Box>
+
+                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>사용자 정의 변수</Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    "추가 입력값" 탭에서 정의한 필드는 <code>{'{{##필드명##}}'}</code> 형식으로 사용할 수 있습니다.
+                  </Typography>
+
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.lighter', borderRadius: 1 }}>
+                    <Typography variant="body2" color="info.dark">
+                      <strong>팁:</strong> seed 값은 플레이스홀더 방식(<code>{'{{##seed##}}'}</code>) 외에도,
+                      하드코딩된 숫자값(<code>"seed": 12345</code>)도 자동으로 치환됩니다.
+                    </Typography>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+
               <Controller
                 name="workflowData"
                 control={control}
@@ -1217,7 +1276,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     rows={20}
                     label="ComfyUI Workflow JSON"
                     error={!!errors.workflowData}
-                    helperText={errors.workflowData?.message || "Mustache 형식의 변수를 사용하세요: {{##prompt##}}, {{##model##}}, {{##width##}}, {{##height##}} 등"}
+                    helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
                     sx={{ fontFamily: 'monospace' }}
                   />
                 )}
