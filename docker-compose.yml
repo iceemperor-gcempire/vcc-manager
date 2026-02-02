@@ -48,6 +48,8 @@ services:
       ADMIN_EMAILS: ${ADMIN_EMAILS}
       UPLOAD_PATH: /app/uploads
       MAX_FILE_SIZE: ${MAX_FILE_SIZE:-10485760}
+      BACKUP_PATH: /app/backups
+      BACKUP_ENCRYPTION_KEY: ${BACKUP_ENCRYPTION_KEY}
       COMFY_UI_BASE_URL: ${COMFY_UI_BASE_URL:-http://localhost:8188}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
@@ -56,6 +58,7 @@ services:
       - "${BACKEND_PORT:-3000}:3000"
     volumes:
       - uploads_data:/app/uploads
+      - backups_data:/app/backups
     depends_on:
       - mongodb
       - redis
@@ -81,6 +84,8 @@ volumes:
   redis_data:
     driver: local
   uploads_data:
+    driver: local
+  backups_data:
     driver: local
 
 networks:

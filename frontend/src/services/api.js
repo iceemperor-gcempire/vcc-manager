@@ -124,6 +124,24 @@ export const adminAPI = {
   getJobs: (params) => api.get('/admin/jobs', { params }),
 };
 
+export const backupAPI = {
+  create: () => api.post('/admin/backup'),
+  getStatus: (id) => api.get(`/admin/backup/status/${id}`),
+  download: (id) => api.get(`/admin/backup/download/${id}`, { responseType: 'blob' }),
+  list: (params) => api.get('/admin/backup/list', { params }),
+  delete: (id) => api.delete(`/admin/backup/${id}`),
+  validate: (file) => {
+    const formData = new FormData();
+    formData.append('backup', file);
+    return api.post('/admin/backup/restore/validate', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  restore: (data) => api.post('/admin/backup/restore', data),
+  getRestoreStatus: (id) => api.get(`/admin/backup/restore/status/${id}`),
+  listRestores: (params) => api.get('/admin/backup/restore/list', { params }),
+};
+
 export const serverAPI = {
   getServers: (params) => api.get('/servers', { params }),
   getServer: (id) => api.get(`/servers/${id}`),

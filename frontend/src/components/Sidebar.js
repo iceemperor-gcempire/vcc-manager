@@ -25,7 +25,8 @@ import {
   TextSnippet,
   Chat,
   LocalOffer,
-  Settings
+  Settings,
+  Backup
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -118,6 +119,12 @@ const adminMenuItems = [
     text: '시스템 통계',
     path: '/admin/stats',
     icon: <BarChart />,
+    roles: ['admin']
+  },
+  {
+    text: '백업 / 복구',
+    path: '/admin/backup',
+    icon: <Backup />,
     roles: ['admin']
   }
 ];

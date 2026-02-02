@@ -30,7 +30,8 @@ import {
   UserManagementPage,
   WorkboardManagementPage,
   ServerManagementPage,
-  SystemStatsPage
+  SystemStatsPage,
+  BackupRestorePage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
@@ -168,6 +169,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <SystemStatsPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/backup"
+              element={
+                <AdminRoute>
+                  <BackupRestorePage />
                 </AdminRoute>
               }
             />
