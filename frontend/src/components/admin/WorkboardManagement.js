@@ -1251,9 +1251,24 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   </Box>
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>사용자 정의 변수</Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    "추가 입력값" 탭에서 정의한 필드는 <code>{'{{##필드명##}}'}</code> 형식으로 사용할 수 있습니다.
-                  </Typography>
+                  {watch('additionalCustomFields')?.length > 0 ? (
+                    <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                      <tbody>
+                        {watch('additionalCustomFields').map((field, idx) => (
+                          field.name && (
+                            <tr key={idx}>
+                              <td><code>{field.formatString || `{{##${field.name}##}}`}</code></td>
+                              <td>{field.label || field.name} ({field.type === 'number' ? '숫자' : field.type === 'select' ? '선택' : field.type === 'image' ? '이미지' : '문자열'})</td>
+                            </tr>
+                          )
+                        ))}
+                      </tbody>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      "추가 입력값" 탭에서 필드를 정의하면 여기에 표시됩니다.
+                    </Typography>
+                  )}
 
                   <Box sx={{ mt: 2, p: 1.5, bgcolor: 'info.lighter', borderRadius: 1 }}>
                     <Typography variant="body2" color="info.dark">
