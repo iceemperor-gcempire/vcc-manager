@@ -250,7 +250,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             referenceImages: fullData.baseInputFields?.referenceImages?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
             temperature: fullData.baseInputFields?.temperature ?? 0.7,
             maxTokens: fullData.baseInputFields?.maxTokens ?? 2000,
-            // 추가 입력값
+            // 커스텀 필드
             negativePromptField: {
               enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
               required: fullData.additionalInputFields?.find(f => f.name === 'negativePrompt')?.required || false
@@ -400,7 +400,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
-            <Tab label="추가 입력값" />
+            <Tab label="커스텀 필드" />
             {workboardType === 'image' && <Tab label="워크플로우" />}
           </Tabs>
 
@@ -740,11 +740,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </Box>
           )}
 
-          {/* 추가 입력값 탭 */}
+          {/* 커스텀 필드 탭 */}
           {tabValue === 2 && (
             <Box>
               <Alert severity="info" sx={{ mb: 3 }}>
-                추가 입력값은 관리자가 선택적으로 활성화할 수 있는 입력 필드들입니다.
+                커스텀 필드는 관리자가 선택적으로 활성화할 수 있는 입력 필드들입니다.
               </Alert>
 
               {/* 부정 프롬프트 필드 */}
@@ -1266,7 +1266,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     </Box>
                   ) : (
                     <Typography variant="body2" color="textSecondary">
-                      "추가 입력값" 탭에서 필드를 정의하면 여기에 표시됩니다.
+                      "커스텀 필드" 탭에서 필드를 정의하면 여기에 표시됩니다.
                     </Typography>
                   )}
 
