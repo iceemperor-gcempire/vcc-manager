@@ -26,7 +26,8 @@ import {
   Chat,
   LocalOffer,
   Settings,
-  Backup
+  Backup,
+  AutoFixHigh
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -113,6 +114,12 @@ const adminMenuItems = [
     text: '서버 관리',
     path: '/admin/servers',
     icon: <Storage />,
+    roles: ['admin']
+  },
+  {
+    text: 'LoRA 관리',
+    path: '/admin/loras',
+    icon: <AutoFixHigh />,
     roles: ['admin']
   },
   {

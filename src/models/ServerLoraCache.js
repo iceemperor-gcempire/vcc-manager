@@ -63,7 +63,7 @@ const serverLoraCacheSchema = new mongoose.Schema({
     },
     stage: {
       type: String,
-      enum: ['idle', 'fetching_list', 'calculating_hashes', 'fetching_civitai', 'completed', 'failed'],
+      enum: ['idle', 'checking_node', 'fetching_list', 'fetching_metadata', 'completed', 'failed'],
       default: 'idle'
     }
   },

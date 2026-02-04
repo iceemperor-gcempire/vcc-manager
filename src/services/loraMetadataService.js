@@ -19,6 +19,9 @@ const MAX_PREVIEW_IMAGES = 5;
 // Civitai API 키 (환경변수에서 로드, 선택사항)
 const CIVITAI_API_KEY = process.env.CIVITAI_API_KEY || null;
 
+// 해시 요청 타임아웃 (단일 파일)
+const HASH_REQUEST_TIMEOUT = 60000; // 1분
+
 /**
  * ComfyUI 서버에서 LoRA 파일명 목록 조회 (기본 API)
  */
@@ -44,54 +47,32 @@ const getLoraFilenames = async (serverUrl) => {
  */
 const checkVccLoraHashNodeAvailable = async (serverUrl) => {
   try {
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hashes`, {
-      timeout: 10000
+    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/ping`, {
+      timeout: 5000
     });
     return response.data?.success === true;
   } catch (error) {
-    // 404 또는 연결 실패 = 노드 미설치
     return false;
   }
 };
 
 /**
- * VCC LoRA Hash 노드에서 모든 LoRA 해시 조회
+ * 단일 LoRA 파일의 해시 조회
  */
-const getLoraHashesFromVccNode = async (serverUrl) => {
+const getLoraHash = async (serverUrl, filename) => {
   try {
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hashes`, {
-      timeout: 120000 // 해시 계산에 시간이 걸릴 수 있음
+    const encodedFilename = encodeURIComponent(filename);
+    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/${encodedFilename}`, {
+      timeout: HASH_REQUEST_TIMEOUT
     });
 
-    if (!response.data?.success) {
-      throw new Error(response.data?.error || 'Failed to get LoRA hashes');
+    if (response.data?.success && response.data?.sha256) {
+      return response.data.sha256;
     }
-
-    // filename -> sha256 매핑 생성
-    const hashMap = {};
-    const loras = response.data.loras || [];
-
-    for (const lora of loras) {
-      // relative_path와 filename 모두 매핑
-      if (lora.sha256) {
-        hashMap[lora.filename] = lora.sha256;
-        if (lora.relative_path && lora.relative_path !== lora.filename) {
-          hashMap[lora.relative_path] = lora.sha256;
-        }
-      }
-    }
-
-    return {
-      hashMap,
-      loras: loras.map(l => ({
-        filename: l.filename,
-        relativePath: l.relative_path,
-        hash: l.sha256
-      }))
-    };
+    return null;
   } catch (error) {
-    console.error('Failed to get LoRA hashes from VCC node:', error.message);
-    return { hashMap: {}, loras: [] };
+    console.error(`Failed to get hash for ${filename}:`, error.message);
+    return null;
   }
 };
 
@@ -181,33 +162,18 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
 
     // 1단계: VCC LoRA Hash 노드 확인
     if (progressCallback) progressCallback('checking_node', 0, 0);
+    await cache.updateProgress(0, 0, 'checking_node');
 
     const vccNodeAvailable = await checkVccLoraHashNodeAvailable(serverUrl);
     cache.loraInfoNodeAvailable = vccNodeAvailable;
     console.log(`VCC LoRA Hash node available: ${vccNodeAvailable}`);
 
-    // 2단계: LoRA 목록 및 해시 조회
-    let filenames = [];
-    let hashMap = {};
-    let lorasFromNode = [];
+    // 2단계: ComfyUI에서 LoRA 파일명 목록 조회
+    if (progressCallback) progressCallback('fetching_list', 0, 0);
+    await cache.updateProgress(0, 0, 'fetching_list');
 
-    if (vccNodeAvailable) {
-      // VCC 노드가 있으면 해시 포함된 목록 조회
-      if (progressCallback) progressCallback('fetching_hashes', 0, 0);
-
-      const hashResult = await getLoraHashesFromVccNode(serverUrl);
-      hashMap = hashResult.hashMap;
-      lorasFromNode = hashResult.loras;
-      filenames = lorasFromNode.map(l => l.filename);
-
-      console.log(`Got ${filenames.length} LoRA files with hashes from VCC node`);
-    } else {
-      // VCC 노드가 없으면 기본 API로 파일명만 조회
-      if (progressCallback) progressCallback('fetching_list', 0, 0);
-
-      filenames = await getLoraFilenames(serverUrl);
-      console.log(`Got ${filenames.length} LoRA files from basic API (no hashes)`);
-    }
+    const filenames = await getLoraFilenames(serverUrl);
+    console.log(`Got ${filenames.length} LoRA files from ComfyUI`);
 
     if (filenames.length === 0) {
       cache.loraModels = [];
@@ -215,32 +181,34 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
       return cache;
     }
 
-    // 기존 모델 매핑 (이미 가져온 메타데이터 재사용)
+    // 기존 모델 매핑 (이미 가져온 해시와 메타데이터 재사용)
     const existingModels = {};
     for (const model of cache.loraModels) {
       existingModels[model.filename] = model;
     }
 
-    // 3단계: Civitai 메타데이터 조회
-    if (progressCallback) progressCallback('fetching_civitai', 0, filenames.length);
-    await cache.updateProgress(0, filenames.length, 'fetching_civitai');
+    // 3단계: 해시 조회 및 Civitai 메타데이터 조회
+    const totalSteps = filenames.length;
+    if (progressCallback) progressCallback('fetching_metadata', 0, totalSteps);
+    await cache.updateProgress(0, totalSteps, 'fetching_metadata');
 
     const newLoraModels = [];
+    let processedCount = 0;
     let civitaiCount = 0;
 
-    for (let i = 0; i < filenames.length; i++) {
-      const filename = filenames[i];
-      const loraFromNode = lorasFromNode.find(l => l.filename === filename);
-      const hash = loraFromNode?.hash || hashMap[filename] || null;
+    for (const filename of filenames) {
+      processedCount++;
 
       if (progressCallback) {
-        progressCallback('fetching_civitai', i + 1, filenames.length);
+        progressCallback('fetching_metadata', processedCount, totalSteps);
       }
-      await cache.updateProgress(i + 1, filenames.length, 'fetching_civitai');
+      await cache.updateProgress(processedCount, totalSteps, 'fetching_metadata');
 
-      // 기존 모델 데이터 확인 (해시가 같으면 재사용)
+      // 기존 데이터 확인
       const existing = existingModels[filename];
-      if (existing && existing.hash === hash && existing.civitai?.fetchedAt) {
+
+      // 이미 해시와 Civitai 메타데이터가 있으면 재사용
+      if (existing && existing.hash && existing.civitai?.fetchedAt) {
         newLoraModels.push(existing);
         if (existing.civitai?.found) civitaiCount++;
         continue;
@@ -249,23 +217,37 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
       // 새 모델 데이터 구성
       const loraModel = {
         filename,
-        relativePath: loraFromNode?.relativePath || filename,
-        hash,
-        hashError: hash ? null : (vccNodeAvailable ? 'Hash calculation failed' : 'VCC LoRA Hash node not installed'),
-        civitai: { found: false }
+        relativePath: filename,
+        hash: existing?.hash || null,  // 기존 해시 유지
+        hashError: null,
+        civitai: existing?.civitai || { found: false }
       };
 
-      // Civitai 메타데이터 조회 (해시가 있을 경우)
-      if (hash) {
-        const civitaiData = await getCivitaiMetadataByHash(hash);
+      // VCC 노드가 있고 해시가 없으면 해시 조회
+      if (vccNodeAvailable && !loraModel.hash) {
+        const hash = await getLoraHash(serverUrl, filename);
+        if (hash) {
+          loraModel.hash = hash;
+        } else {
+          loraModel.hashError = 'Hash calculation failed';
+        }
+      } else if (!vccNodeAvailable && !loraModel.hash) {
+        loraModel.hashError = 'VCC LoRA Hash node not installed';
+      }
+
+      // 해시가 있고 Civitai 메타데이터가 없으면 Civitai 조회
+      if (loraModel.hash && !loraModel.civitai?.fetchedAt) {
+        const civitaiData = await getCivitaiMetadataByHash(loraModel.hash);
         loraModel.civitai = civitaiData;
 
         if (civitaiData.found) {
           civitaiCount++;
         }
 
-        // Rate limiting
+        // Civitai Rate limiting
         await delay(CIVITAI_RATE_LIMIT_MS);
+      } else if (loraModel.civitai?.found) {
+        civitaiCount++;
       }
 
       newLoraModels.push(loraModel);
@@ -295,27 +277,16 @@ const getServerLoras = async (serverId, serverUrl) => {
   // 캐시가 없으면 기본 목록만 조회
   if (!cache) {
     try {
+      const filenames = await getLoraFilenames(serverUrl);
+      const loraModels = filenames.map(filename => ({
+        filename,
+        relativePath: filename,
+        hash: null,
+        civitai: { found: false }
+      }));
+
       // VCC 노드 확인
       const vccNodeAvailable = await checkVccLoraHashNodeAvailable(serverUrl);
-
-      let loraModels = [];
-
-      if (vccNodeAvailable) {
-        const hashResult = await getLoraHashesFromVccNode(serverUrl);
-        loraModels = hashResult.loras.map(l => ({
-          filename: l.filename,
-          relativePath: l.relativePath,
-          hash: l.hash,
-          civitai: { found: false }
-        }));
-      } else {
-        const filenames = await getLoraFilenames(serverUrl);
-        loraModels = filenames.map(filename => ({
-          filename,
-          hash: null,
-          civitai: { found: false }
-        }));
-      }
 
       cache = new ServerLoraCache({
         serverId,
@@ -357,6 +328,7 @@ const getSyncStatus = async (serverId) => {
     loraInfoNodeAvailable: cache.loraInfoNodeAvailable,
     totalLoras: cache.loraModels.length,
     lorasWithMetadata: cache.loraModels.filter(l => l.civitai?.found).length,
+    lorasWithHash: cache.loraModels.filter(l => l.hash).length,
     errorMessage: cache.errorMessage
   };
 };
@@ -431,7 +403,7 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, pag
 module.exports = {
   getLoraFilenames,
   checkVccLoraHashNodeAvailable,
-  getLoraHashesFromVccNode,
+  getLoraHash,
   getCivitaiMetadataByHash,
   syncServerLoras,
   getServerLoras,
