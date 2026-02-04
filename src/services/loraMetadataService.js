@@ -229,7 +229,8 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
       const existing = existingModels[filename];
 
       // 이미 해시와 Civitai 메타데이터가 있으면 재사용
-      if (existing && existing.hash && existing.civitai?.fetchedAt) {
+      // (단, nsfw 필드가 있어야 함 - 스키마 업데이트 이전 데이터는 다시 가져옴)
+      if (existing && existing.hash && existing.civitai?.fetchedAt && existing.civitai?.nsfw !== undefined) {
         newLoraModels.push(existing);
         if (existing.civitai?.found) civitaiCount++;
         continue;
