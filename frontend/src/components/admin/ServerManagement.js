@@ -35,14 +35,17 @@ import {
   Refresh,
   Storage,
   TextFields,
-  Computer
+  Computer,
+  Sync as SyncIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 
-function ServerCard({ server, onEdit, onDelete, onHealthCheck }) {
+function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraSyncStatus }) {
   const [healthChecking, setHealthChecking] = useState(false);
+  const isComfyUI = server.serverType === 'ComfyUI';
+  const isSyncing = loraSyncStatus?.status === 'fetching';
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -154,14 +157,36 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck }) {
               )}
             </Box>
           )}
+
+          {/* LoRA 동기화 정보 (ComfyUI 서버만) */}
+          {isComfyUI && loraSyncStatus && (
+            <Box>
+              {loraSyncStatus.totalLoras > 0 ? (
+                <>
+                  <Typography variant="caption" color="textSecondary">
+                    LoRA: {loraSyncStatus.lorasWithMetadata}/{loraSyncStatus.totalLoras}개 (메타데이터 있음)
+                  </Typography>
+                  {loraSyncStatus.lastCivitaiSync && (
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      마지막 동기화: {new Date(loraSyncStatus.lastCivitaiSync).toLocaleString()}
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                <Typography variant="caption" color="textSecondary">
+                  LoRA: 동기화 필요
+                </Typography>
+              )}
+            </Box>
+          )}
         </Stack>
       </CardContent>
       
       <CardActions>
         <Tooltip title="헬스체크">
           <span>
-            <IconButton 
-              size="small" 
+            <IconButton
+              size="small"
               onClick={handleHealthCheck}
               disabled={healthChecking}
             >
@@ -169,6 +194,20 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck }) {
             </IconButton>
           </span>
         </Tooltip>
+        {isComfyUI && (
+          <Tooltip title={isSyncing ? `LoRA 동기화 중... (${loraSyncStatus?.progress?.current || 0}/${loraSyncStatus?.progress?.total || 0})` : 'LoRA 동기화'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onLoraSync(server._id)}
+                disabled={isSyncing}
+                color={loraSyncStatus?.totalLoras > 0 ? 'primary' : 'default'}
+              >
+                {isSyncing ? <CircularProgress size={20} /> : <SyncIcon />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         <Tooltip title="편집">
           <IconButton size="small" onClick={() => onEdit(server)}>
             <Edit />
@@ -402,7 +441,8 @@ function ServerManagement() {
   const [selectedServer, setSelectedServer] = useState(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [serverToDelete, setServerToDelete] = useState(null);
-  
+  const [loraSyncStatuses, setLoraSyncStatuses] = useState({});
+
   const queryClient = useQueryClient();
 
   // 서버 목록 조회
@@ -410,6 +450,37 @@ function ServerManagement() {
     ['servers'],
     () => serverAPI.getServers({ includeInactive: true }),
     { refetchInterval: 30000 } // 30초마다 갱신
+  );
+
+  // ComfyUI 서버들의 LoRA 동기화 상태 조회
+  const servers = serversData?.data?.data?.servers || [];
+  const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
+
+  useQuery(
+    ['loraSyncStatuses', comfyUIServers.map(s => s._id).join(',')],
+    async () => {
+      const statuses = {};
+      for (const server of comfyUIServers) {
+        try {
+          const response = await serverAPI.getLorasSyncStatus(server._id);
+          statuses[server._id] = response.data?.data;
+        } catch (error) {
+          statuses[server._id] = null;
+        }
+      }
+      return statuses;
+    },
+    {
+      enabled: comfyUIServers.length > 0,
+      refetchInterval: (data) => {
+        // 동기화 중인 서버가 있으면 3초마다, 아니면 30초마다
+        const hasSyncing = data && Object.values(data).some(s => s?.status === 'fetching');
+        return hasSyncing ? 3000 : 30000;
+      },
+      onSuccess: (data) => {
+        setLoraSyncStatuses(data || {});
+      }
+    }
   );
 
   // 서버 생성/수정 mutation
@@ -479,6 +550,20 @@ function ServerManagement() {
     }
   );
 
+  // LoRA 동기화 mutation
+  const loraSyncMutation = useMutation(
+    (serverId) => serverAPI.syncLoras(serverId),
+    {
+      onSuccess: () => {
+        toast.success('LoRA 동기화가 시작되었습니다.');
+        queryClient.invalidateQueries(['loraSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || 'LoRA 동기화에 실패했습니다.');
+      }
+    }
+  );
+
   const handleAddServer = () => {
     setSelectedServer(null);
     setDialogOpen(true);
@@ -502,7 +587,9 @@ function ServerManagement() {
     allHealthCheckMutation.mutate();
   };
 
-  const servers = serversData?.data?.data?.servers || [];
+  const handleLoraSync = (serverId) => {
+    loraSyncMutation.mutate(serverId);
+  };
 
   if (isLoading) {
     return (
@@ -548,6 +635,8 @@ function ServerManagement() {
                 onEdit={handleEditServer}
                 onDelete={handleDeleteServer}
                 onHealthCheck={handleHealthCheck}
+                onLoraSync={handleLoraSync}
+                loraSyncStatus={loraSyncStatuses[server._id]}
               />
             </Grid>
           ))}
