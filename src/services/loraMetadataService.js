@@ -259,8 +259,8 @@ const syncServerLoras = async (serverId, serverUrl, { progressCallback = null, f
         loraModel.hashError = 'VCC LoRA Hash node not installed';
       }
 
-      // 해시가 있고 Civitai 메타데이터가 없으면 Civitai 조회
-      if (loraModel.hash && !loraModel.civitai?.fetchedAt) {
+      // 해시가 있고 Civitai 메타데이터가 없으면 Civitai 조회 (강제 새로고침 시 항상 조회)
+      if (loraModel.hash && (forceRefresh || !loraModel.civitai?.fetchedAt)) {
         const civitaiData = await fetchCivitaiMetadataByHash(loraModel.hash, apiKey);
         loraModel.civitai = civitaiData;
 
