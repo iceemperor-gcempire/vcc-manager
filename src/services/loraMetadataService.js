@@ -229,8 +229,10 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
       const existing = existingModels[filename];
 
       // 이미 해시와 Civitai 메타데이터가 있으면 재사용
-      // (단, nsfw 필드가 있어야 함 - 스키마 업데이트 이전 데이터는 다시 가져옴)
-      if (existing && existing.hash && existing.civitai?.fetchedAt && existing.civitai?.nsfw !== undefined) {
+      // (단, 2026-02-04 이후에 가져온 데이터만 신뢰 - nsfw 필드 스키마 수정일)
+      const nsfwSchemaFixDate = new Date('2026-02-04T14:00:00Z');
+      const existingFetchedAt = existing?.civitai?.fetchedAt ? new Date(existing.civitai.fetchedAt) : null;
+      if (existing && existing.hash && existingFetchedAt && existingFetchedAt > nsfwSchemaFixDate) {
         newLoraModels.push(existing);
         if (existing.civitai?.found) civitaiCount++;
         continue;
