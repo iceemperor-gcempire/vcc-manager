@@ -30,10 +30,6 @@ import {
   Divider,
   ToggleButton,
   ToggleButtonGroup,
-  List,
-  ListItem,
-  ListItemAvatar,
-  ListItemText,
   Avatar
 } from '@mui/material';
 import {
@@ -282,99 +278,132 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
   };
 
   return (
-    <ListItem
+    <Box
       sx={{
         border: 1,
         borderColor: 'divider',
         borderRadius: 1,
         mb: 1,
+        p: 1.5,
         overflow: 'hidden',
+        width: '100%',
+        boxSizing: 'border-box',
         '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
       }}
-      secondaryAction={
-        <Stack direction="row" spacing={0.5}>
-          {lora.civitai?.modelUrl && (
-            <Tooltip title="Civitai에서 보기">
-              <IconButton
-                size="small"
-                href={lora.civitai.modelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <OpenInNewIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-          <Tooltip title="LoRA 태그 복사">
-            <IconButton size="small" onClick={handleCopyFilename} color="primary">
-              <CopyIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Stack>
-      }
     >
-      <ListItemAvatar>
+      <Box sx={{ display: 'flex', gap: 1.5, overflow: 'hidden', width: '100%' }}>
+        {/* 썸네일 */}
         {previewImage ? (
           <Avatar
             variant="rounded"
             src={previewImage}
-            sx={{ width: 56, height: 56 }}
+            sx={{ width: 48, height: 48, flexShrink: 0 }}
           />
         ) : (
           <Avatar
             variant="rounded"
-            sx={{ width: 56, height: 56, bgcolor: 'action.hover' }}
+            sx={{ width: 48, height: 48, bgcolor: 'action.hover', flexShrink: 0 }}
           >
             <Typography variant="caption" color="text.secondary">N/A</Typography>
           </Avatar>
         )}
-      </ListItemAvatar>
-      <ListItemText
-        sx={{ ml: 1, overflow: 'hidden', minWidth: 0 }}
-        primary={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', overflow: 'hidden' }}>
-            <Typography variant="subtitle2" component="span" noWrap sx={{ maxWidth: '300px' }} title={name}>{name}</Typography>
+
+        {/* 콘텐츠 영역 */}
+        <Box sx={{ flex: '1 1 0', width: 0, overflow: 'hidden' }}>
+          {/* 이름 + 버튼 */}
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+            <Box sx={{ flex: '1 1 0', width: 0, overflow: 'hidden' }}>
+              <Typography
+                variant="subtitle2"
+                component="div"
+                noWrap
+                title={name}
+              >
+                {name}
+              </Typography>
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                component="div"
+                noWrap
+                title={lora.filename}
+              >
+                {lora.filename}
+              </Typography>
+            </Box>
+
+            {/* 액션 버튼 */}
+            <Stack direction="row" spacing={0.5} flexShrink={0}>
+              {lora.civitai?.modelUrl && (
+                <Tooltip title="Civitai에서 보기">
+                  <IconButton
+                    size="small"
+                    href={lora.civitai.modelUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <OpenInNewIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
+              <Tooltip title="LoRA 태그 복사">
+                <IconButton size="small" onClick={handleCopyFilename} color="primary">
+                  <CopyIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            </Stack>
+          </Box>
+
+          {/* 배지들 */}
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
             {lora.civitai?.baseModel && (
               <Chip
                 label={lora.civitai.baseModel}
                 size="small"
                 color={getBaseModelColor(lora.civitai.baseModel)}
                 variant="outlined"
+                sx={{ height: 20, fontSize: '0.7rem' }}
               />
             )}
             {lora.civitai?.nsfw && (
-              <Chip label="NSFW" size="small" color="error" variant="outlined" />
+              <Chip label="NSFW" size="small" color="error" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
             )}
             {!hasCivitai && (
-              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" />
+              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
             )}
           </Box>
-        }
-        secondary={
-          <Box sx={{ mt: 0.5, overflow: 'hidden' }}>
-            <Typography variant="caption" color="text.secondary" display="block" noWrap title={lora.filename}>
-              {lora.filename}
-            </Typography>
-            {trainedWords.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                {trainedWords.slice(0, 5).map((word, i) => (
-                  <Chip
-                    key={i}
-                    label={word}
-                    size="small"
-                    onClick={() => onCopyTriggerWord(word)}
-                    sx={{ cursor: 'pointer', height: 20, fontSize: '0.7rem' }}
-                  />
-                ))}
-                {trainedWords.length > 5 && (
-                  <Chip label={`+${trainedWords.length - 5}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
-                )}
-              </Box>
-            )}
-          </Box>
-        }
-      />
-    </ListItem>
+
+          {/* 트리거 워드 */}
+          {trainedWords.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+              {trainedWords.slice(0, 5).map((word, i) => (
+                <Chip
+                  key={i}
+                  label={word}
+                  size="small"
+                  onClick={() => onCopyTriggerWord(word)}
+                  title={word}
+                  sx={{
+                    cursor: 'pointer',
+                    height: 20,
+                    fontSize: '0.7rem',
+                    maxWidth: 150,
+                    '& .MuiChip-label': {
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }
+                  }}
+                />
+              ))}
+              {trainedWords.length > 5 && (
+                <Chip label={`+${trainedWords.length - 5}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+              )}
+            </Box>
+          )}
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -617,7 +646,7 @@ function LoraManagementPage() {
   const selectedServer = comfyUIServers.find(s => s._id === selectedServerId);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
       <Typography variant="h5" gutterBottom>
         LoRA 관리
       </Typography>
@@ -970,7 +999,7 @@ function LoraManagementPage() {
                   </Box>
                 ) : (
                   // 리스트 뷰
-                  <List disablePadding sx={{ width: '100%', overflow: 'hidden' }}>
+                  <Box sx={{ width: '100%', overflow: 'hidden' }}>
                     {filteredLoraModels.map((lora, index) => (
                       <LoraListItem
                         key={lora.filename || index}
@@ -980,7 +1009,7 @@ function LoraManagementPage() {
                         nsfwFilter={nsfwFilter}
                       />
                     ))}
-                  </List>
+                  </Box>
                 )}
 
                 {/* 페이지네이션 */}
