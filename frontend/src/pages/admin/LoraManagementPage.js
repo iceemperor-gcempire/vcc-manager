@@ -288,6 +288,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
         borderColor: 'divider',
         borderRadius: 1,
         mb: 1,
+        overflow: 'hidden',
         '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
       }}
       secondaryAction={
@@ -329,10 +330,10 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
         )}
       </ListItemAvatar>
       <ListItemText
-        sx={{ ml: 1 }}
+        sx={{ ml: 1, overflow: 'hidden', minWidth: 0 }}
         primary={
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-            <Typography variant="subtitle2" component="span">{name}</Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', overflow: 'hidden' }}>
+            <Typography variant="subtitle2" component="span" noWrap sx={{ maxWidth: '300px' }} title={name}>{name}</Typography>
             {lora.civitai?.baseModel && (
               <Chip
                 label={lora.civitai.baseModel}
@@ -350,8 +351,8 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
           </Box>
         }
         secondary={
-          <Box sx={{ mt: 0.5 }}>
-            <Typography variant="caption" color="text.secondary" display="block">
+          <Box sx={{ mt: 0.5, overflow: 'hidden' }}>
+            <Typography variant="caption" color="text.secondary" display="block" noWrap title={lora.filename}>
               {lora.filename}
             </Typography>
             {trainedWords.length > 0 && (
@@ -969,7 +970,7 @@ function LoraManagementPage() {
                   </Box>
                 ) : (
                   // 리스트 뷰
-                  <List disablePadding>
+                  <List disablePadding sx={{ width: '100%', overflow: 'hidden' }}>
                     {filteredLoraModels.map((lora, index) => (
                       <LoraListItem
                         key={lora.filename || index}
