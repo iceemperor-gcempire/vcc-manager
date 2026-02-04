@@ -532,7 +532,15 @@ function LoraManagementPage() {
             setSyncing(false);
             if (status.status === 'completed') {
               toast.success('LoRA 동기화가 완료되었습니다.');
-              fetchLoraModels();
+              // 동기화 완료 후 목록 새로고침 (debounce 우회)
+              serverAPI.getLoras(selectedServerId, { page: 1, limit: 24 })
+                .then(response => {
+                  const data = response.data.data;
+                  setLoraModels(data.loraModels || []);
+                  setPagination(data.pagination || { current: 1, pages: 0, total: 0 });
+                  setCacheInfo(data.cacheInfo);
+                })
+                .catch(console.error);
             } else if (status.status === 'failed') {
               toast.error(`동기화 실패: ${status.errorMessage || '알 수 없는 오류'}`);
             }
@@ -545,16 +553,17 @@ function LoraManagementPage() {
     return () => clearInterval(interval);
   }, [syncing, selectedServerId]);
 
-  const fetchLoraModels = useCallback(async (page = 1) => {
-    if (!selectedServerId) return;
+  // LoRA 모델 fetch 함수 (의존성 최소화)
+  const fetchLoraModels = useCallback(async (serverId, search, baseModel, page = 1) => {
+    if (!serverId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const response = await serverAPI.getLoras(selectedServerId, {
-        search: searchQuery,
-        baseModel: baseModelFilter,
+      const response = await serverAPI.getLoras(serverId, {
+        search,
+        baseModel,
         page,
         limit: 24
       });
@@ -568,12 +577,11 @@ function LoraManagementPage() {
     } finally {
       setLoading(false);
     }
-  }, [selectedServerId, searchQuery, baseModelFilter]);
+  }, []);
 
-  // 서버 선택 시 LoRA 목록 및 동기화 상태 조회
+  // 서버 선택 시 동기화 상태만 조회
   useEffect(() => {
     if (selectedServerId) {
-      fetchLoraModels();
       // 동기화 상태 확인
       serverAPI.getLorasSyncStatus(selectedServerId)
         .then(response => {
@@ -585,17 +593,17 @@ function LoraManagementPage() {
         })
         .catch(console.error);
     }
-  }, [selectedServerId, fetchLoraModels]);
+  }, [selectedServerId]);
 
-  // 검색어/필터 변경 시 debounce
+  // 서버/검색어/필터 변경 시 debounce로 단일 fetch
   useEffect(() => {
+    if (!selectedServerId) return;
+
     const timer = setTimeout(() => {
-      if (selectedServerId) {
-        fetchLoraModels(1);
-      }
+      fetchLoraModels(selectedServerId, searchQuery, baseModelFilter, 1);
     }, 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, baseModelFilter]);
+  }, [selectedServerId, searchQuery, baseModelFilter, fetchLoraModels]);
 
   const handleSync = async (forceRefresh = false) => {
     if (!selectedServerId) {
@@ -1018,7 +1026,7 @@ function LoraManagementPage() {
                     <MuiPagination
                       count={pagination.pages}
                       page={pagination.current}
-                      onChange={(e, page) => fetchLoraModels(page)}
+                      onChange={(e, page) => fetchLoraModels(selectedServerId, searchQuery, baseModelFilter, page)}
                       color="primary"
                       size="large"
                     />
