@@ -122,6 +122,9 @@ export const adminAPI = {
   rejectUser: (id) => api.post(`/admin/users/${id}/reject`),
   getStats: () => api.get('/admin/stats'),
   getJobs: (params) => api.get('/admin/jobs', { params }),
+  // LoRA 설정 API
+  getLoraSettings: () => api.get('/admin/settings/lora'),
+  updateLoraSettings: (data) => api.put('/admin/settings/lora', data),
 };
 
 export const backupAPI = {

@@ -23,7 +23,11 @@ import {
   Alert,
   Tooltip,
   Stack,
-  Pagination as MuiPagination
+  Pagination as MuiPagination,
+  Switch,
+  FormControlLabel,
+  Paper,
+  Divider
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
@@ -32,16 +36,24 @@ import {
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
   Info as InfoIcon,
-  ContentCopy as CopyIcon
+  ContentCopy as CopyIcon,
+  Settings as SettingsIcon,
+  Visibility as VisibilityIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Save as SaveIcon,
+  Key as KeyIcon
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { serverAPI } from '../../services/api';
+import { serverAPI, adminAPI } from '../../services/api';
 
 // LoRA 카드 컴포넌트
-function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor }) {
+function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
   const hasCivitai = lora.civitai?.found;
-  const previewImage = lora.civitai?.images?.[0]?.url;
+
+  // NSFW 필터링된 이미지 목록
+  const filteredImages = (lora.civitai?.images || []).filter(img => !nsfwFilter || !img.nsfw);
+  const previewImage = filteredImages[0]?.url;
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
@@ -179,9 +191,9 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
           )}
 
           {/* 추가 미리보기 이미지 */}
-          {lora.civitai?.images?.length > 1 && (
+          {filteredImages.length > 1 && (
             <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
-              {lora.civitai.images.slice(1).map((img, i) => (
+              {filteredImages.slice(1).map((img, i) => (
                 <Box
                   key={i}
                   component="img"
@@ -191,8 +203,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
                     width: 60,
                     height: 60,
                     objectFit: 'cover',
-                    borderRadius: 1,
-                    opacity: img.nsfw ? 0.3 : 1
+                    borderRadius: 1
                   }}
                 />
               ))}
@@ -257,6 +268,66 @@ function LoraManagementPage() {
   const [expandedLora, setExpandedLora] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
+
+  // 전역 설정 상태
+  const [nsfwFilter, setNsfwFilter] = useState(true);
+  const [hasCivitaiApiKey, setHasCivitaiApiKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+  const queryClient = useQueryClient();
+
+  // 전역 설정 조회
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await adminAPI.getLoraSettings();
+        if (response.data.success) {
+          setNsfwFilter(response.data.data.nsfwFilter);
+          setHasCivitaiApiKey(response.data.data.hasCivitaiApiKey);
+        }
+      } catch (err) {
+        console.error('Failed to fetch LoRA settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // NSFW 필터 토글
+  const handleNsfwFilterToggle = async () => {
+    const newValue = !nsfwFilter;
+    setNsfwFilter(newValue);
+    try {
+      await adminAPI.updateLoraSettings({ nsfwFilter: newValue });
+      toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
+    } catch (err) {
+      setNsfwFilter(!newValue); // 롤백
+      toast.error('설정 저장에 실패했습니다.');
+    }
+  };
+
+  // API 키 저장
+  const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim() && !hasCivitaiApiKey) {
+      toast.error('API 키를 입력해주세요.');
+      return;
+    }
+
+    setSavingSettings(true);
+    try {
+      await adminAPI.updateLoraSettings({
+        civitaiApiKey: apiKeyInput.trim() || null
+      });
+      setHasCivitaiApiKey(!!apiKeyInput.trim());
+      setApiKeyInput('');
+      setShowApiKeyInput(false);
+      toast.success(apiKeyInput.trim() ? 'Civitai API 키가 저장되었습니다.' : 'API 키가 삭제되었습니다.');
+    } catch (err) {
+      toast.error('API 키 저장에 실패했습니다.');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
 
   // ComfyUI 서버 목록 조회
   const { data: serversData, isLoading: serversLoading } = useQuery(
@@ -407,6 +478,94 @@ function LoraManagementPage() {
       <Typography variant="h5" gutterBottom>
         LoRA 관리
       </Typography>
+
+      {/* 전역 설정 패널 */}
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+          <SettingsIcon color="action" />
+          <Typography variant="subtitle1" fontWeight="medium">
+            전역 설정
+          </Typography>
+        </Box>
+
+        <Grid container spacing={3} alignItems="center">
+          {/* NSFW 필터 */}
+          <Grid item xs={12} sm={6} md={4}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={nsfwFilter}
+                  onChange={handleNsfwFilterToggle}
+                  color="primary"
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {nsfwFilter ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  <span>NSFW 이미지 숨기기</span>
+                </Box>
+              }
+            />
+          </Grid>
+
+          {/* Civitai API 키 */}
+          <Grid item xs={12} sm={6} md={8}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <KeyIcon color="action" />
+              <Typography variant="body2" color="text.secondary">
+                Civitai API 키:
+              </Typography>
+              {hasCivitaiApiKey ? (
+                <Chip
+                  label="등록됨"
+                  color="success"
+                  size="small"
+                  variant="outlined"
+                />
+              ) : (
+                <Chip
+                  label="미등록"
+                  size="small"
+                  variant="outlined"
+                />
+              )}
+              <Button
+                size="small"
+                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+              >
+                {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
+              </Button>
+            </Box>
+
+            {showApiKeyInput && (
+              <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  type="password"
+                  placeholder={hasCivitaiApiKey ? '새 API 키 입력 (빈칸: 삭제)' : 'API 키 입력'}
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  sx={{ flexGrow: 1, maxWidth: 400 }}
+                  autoComplete="off"
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleSaveApiKey}
+                  disabled={savingSettings}
+                  startIcon={savingSettings ? <CircularProgress size={16} /> : <SaveIcon />}
+                >
+                  저장
+                </Button>
+              </Box>
+            )}
+
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+              API 키 등록 시 메타데이터 조회 속도가 5배 빨라집니다 (1초 → 0.2초 간격)
+            </Typography>
+          </Grid>
+        </Grid>
+      </Paper>
 
       {/* 서버 선택 */}
       <Box sx={{ mb: 3 }}>
@@ -582,6 +741,7 @@ function LoraManagementPage() {
                       )}
                       onCopyTriggerWord={handleCopyTriggerWord}
                       getBaseModelColor={getBaseModelColor}
+                      nsfwFilter={nsfwFilter}
                     />
                   </Grid>
                 ))}

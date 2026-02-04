@@ -1,11 +1,13 @@
 const axios = require('axios');
 const ServerLoraCache = require('../models/ServerLoraCache');
+const SystemSettings = require('../models/SystemSettings');
 
 // Rate limiting을 위한 딜레이 함수
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Civitai API rate limit 간격 (1초 - 보수적 설정)
-const CIVITAI_RATE_LIMIT_MS = 1000;
+// Civitai API rate limit 간격
+const CIVITAI_RATE_LIMIT_MS_NO_KEY = 1000;  // API 키 없음: 1초
+const CIVITAI_RATE_LIMIT_MS_WITH_KEY = 200; // API 키 있음: 200ms
 
 // Rate limit 에러 시 재시도 대기 시간
 const CIVITAI_RETRY_DELAY_MS = 5000;
@@ -16,11 +18,20 @@ const CIVITAI_MAX_RETRIES = 2;
 // 최대 미리보기 이미지 수
 const MAX_PREVIEW_IMAGES = 5;
 
-// Civitai API 키 (환경변수에서 로드, 선택사항)
-const CIVITAI_API_KEY = process.env.CIVITAI_API_KEY || null;
-
 // 해시 요청 타임아웃 (단일 파일)
 const HASH_REQUEST_TIMEOUT = 60000; // 1분
+
+/**
+ * Civitai API 키 조회 (DB 우선, 환경변수 폴백)
+ */
+const getCivitaiApiKey = async () => {
+  try {
+    return await SystemSettings.getCivitaiApiKey();
+  } catch (error) {
+    console.error('Failed to get Civitai API key from DB:', error.message);
+    return process.env.CIVITAI_API_KEY || null;
+  }
+};
 
 /**
  * ComfyUI 서버에서 LoRA 파일명 목록 조회 (기본 API)
@@ -78,16 +89,19 @@ const getLoraHash = async (serverUrl, filename) => {
 
 /**
  * Civitai API를 통해 해시로 모델 정보 조회 (재시도 로직 포함)
+ * @param {string} hash - SHA256 해시
+ * @param {string|null} apiKey - Civitai API 키
+ * @param {number} retryCount - 재시도 횟수
  */
-const getCivitaiMetadataByHash = async (hash, retryCount = 0) => {
+const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) => {
   if (!hash) {
     return { found: false, error: 'No hash provided' };
   }
 
   try {
     const headers = {};
-    if (CIVITAI_API_KEY) {
-      headers['Authorization'] = `Bearer ${CIVITAI_API_KEY}`;
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
     const response = await axios.get(
@@ -104,12 +118,13 @@ const getCivitaiMetadataByHash = async (hash, retryCount = 0) => {
       return { found: false };
     }
 
-    // 미리보기 이미지 처리 (최대 5개)
+    // 미리보기 이미지 처리 (최대 5개, NSFW 정보 포함)
     const images = (data.images || [])
       .slice(0, MAX_PREVIEW_IMAGES)
       .map(img => ({
         url: img.url,
-        nsfw: img.nsfw !== 'None' && img.nsfw !== false
+        nsfw: img.nsfw !== 'None' && img.nsfw !== false,
+        nsfwLevel: img.nsfwLevel || (img.nsfw !== 'None' && img.nsfw !== false ? 'nsfw' : 'safe')
       }));
 
     return {
@@ -121,6 +136,7 @@ const getCivitaiMetadataByHash = async (hash, retryCount = 0) => {
       baseModel: data.baseModel,
       trainedWords: data.trainedWords || [],
       images,
+      nsfw: data.model?.nsfw || false,
       modelUrl: `https://civitai.com/models/${data.modelId}?modelVersionId=${data.id}`,
       fetchedAt: new Date()
     };
@@ -134,7 +150,7 @@ const getCivitaiMetadataByHash = async (hash, retryCount = 0) => {
     if (error.response?.status === 429 && retryCount < CIVITAI_MAX_RETRIES) {
       console.warn(`Civitai rate limit hit, waiting ${CIVITAI_RETRY_DELAY_MS}ms before retry ${retryCount + 1}/${CIVITAI_MAX_RETRIES}`);
       await delay(CIVITAI_RETRY_DELAY_MS);
-      return getCivitaiMetadataByHash(hash, retryCount + 1);
+      return fetchCivitaiMetadataByHash(hash, apiKey, retryCount + 1);
     }
 
     console.error(`Civitai API error for hash ${hash}:`, error.message);
@@ -155,6 +171,11 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
   if (cache.status === 'fetching') {
     throw new Error('Sync already in progress');
   }
+
+  // Civitai API 키 조회 (Rate limiting 결정용)
+  const apiKey = await getCivitaiApiKey();
+  const rateLimit = apiKey ? CIVITAI_RATE_LIMIT_MS_WITH_KEY : CIVITAI_RATE_LIMIT_MS_NO_KEY;
+  console.log(`Using Civitai rate limit: ${rateLimit}ms (API key: ${apiKey ? 'present' : 'absent'})`);
 
   try {
     // 동기화 시작
@@ -237,15 +258,15 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
 
       // 해시가 있고 Civitai 메타데이터가 없으면 Civitai 조회
       if (loraModel.hash && !loraModel.civitai?.fetchedAt) {
-        const civitaiData = await getCivitaiMetadataByHash(loraModel.hash);
+        const civitaiData = await fetchCivitaiMetadataByHash(loraModel.hash, apiKey);
         loraModel.civitai = civitaiData;
 
         if (civitaiData.found) {
           civitaiCount++;
         }
 
-        // Civitai Rate limiting
-        await delay(CIVITAI_RATE_LIMIT_MS);
+        // Civitai Rate limiting (API 키 유무에 따라 다른 간격)
+        await delay(rateLimit);
       } else if (loraModel.civitai?.found) {
         civitaiCount++;
       }
@@ -404,7 +425,8 @@ module.exports = {
   getLoraFilenames,
   checkVccLoraHashNodeAvailable,
   getLoraHash,
-  getCivitaiMetadataByHash,
+  fetchCivitaiMetadataByHash,
+  getCivitaiApiKey,
   syncServerLoras,
   getServerLoras,
   getSyncStatus,
