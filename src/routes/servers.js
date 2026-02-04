@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Server = require('../models/Server');
+const ServerLoraCache = require('../models/ServerLoraCache');
 const { verifyJWT, requireAdmin } = require('../middleware/auth');
+const loraMetadataService = require('../services/loraMetadataService');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
@@ -244,44 +246,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
   }
 });
 
-// 서버 삭제 (관리자만)
-router.delete('/:id', requireAdmin, async (req, res) => {
-  try {
-    const server = await Server.findById(req.params.id);
-    
-    if (!server) {
-      return res.status(404).json({
-        success: false,
-        message: '서버를 찾을 수 없습니다.'
-      });
-    }
-    
-    // 서버를 사용하는 워크보드가 있는지 확인
-    const Workboard = require('../models/Workboard');
-    const workboardCount = await Workboard.countDocuments({ serverId: server._id });
-    
-    if (workboardCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `이 서버를 사용하는 워크보드가 ${workboardCount}개 있어 삭제할 수 없습니다.`
-      });
-    }
-    
-    await Server.findByIdAndDelete(req.params.id);
-    
-    res.json({
-      success: true,
-      message: '서버가 성공적으로 삭제되었습니다.'
-    });
-  } catch (error) {
-    console.error('서버 삭제 오류:', error);
-    res.status(500).json({
-      success: false,
-      message: '서버 삭제에 실패했습니다.'
-    });
-  }
-});
-
 // 서버 헬스체크 (관리자만)
 router.post('/:id/health-check', requireAdmin, async (req, res) => {
   try {
@@ -316,14 +280,14 @@ router.post('/:id/health-check', requireAdmin, async (req, res) => {
 router.post('/health-check/all', requireAdmin, async (req, res) => {
   try {
     const servers = await Server.find({ isActive: true });
-    
+
     const results = await Promise.allSettled(
       servers.map(server => server.checkHealth())
     );
-    
+
     const successCount = results.filter(result => result.status === 'fulfilled').length;
     const failureCount = results.length - successCount;
-    
+
     res.json({
       success: true,
       data: {
@@ -338,6 +302,164 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
     res.status(500).json({
       success: false,
       message: '헬스체크에 실패했습니다.'
+    });
+  }
+});
+
+// ===== LoRA 메타데이터 API =====
+
+// LoRA 목록 조회 (검색 지원)
+router.get('/:id/loras', verifyJWT, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    // ComfyUI 서버만 지원
+    if (server.serverType !== 'ComfyUI') {
+      return res.status(400).json({
+        success: false,
+        message: 'LoRA 목록은 ComfyUI 서버에서만 조회할 수 있습니다.'
+      });
+    }
+
+    const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+
+    const result = await loraMetadataService.searchServerLoras(server._id, {
+      search,
+      hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
+      baseModel,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
+
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    console.error('LoRA 목록 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: 'LoRA 목록을 불러오는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// LoRA 동기화 (메타데이터 포함) - 관리자만
+router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    // ComfyUI 서버만 지원
+    if (server.serverType !== 'ComfyUI') {
+      return res.status(400).json({
+        success: false,
+        message: 'LoRA 동기화는 ComfyUI 서버에서만 사용할 수 있습니다.'
+      });
+    }
+
+    // 비동기로 동기화 시작 (응답은 즉시 반환)
+    loraMetadataService.syncServerLoras(server._id, server.serverUrl)
+      .then(() => {
+        console.log(`LoRA sync completed for server ${server.name}`);
+      })
+      .catch((err) => {
+        console.error(`LoRA sync failed for server ${server.name}:`, err);
+      });
+
+    res.json({
+      success: true,
+      message: 'LoRA 동기화가 시작되었습니다. 상태는 /loras/status에서 확인하세요.'
+    });
+  } catch (error) {
+    console.error('LoRA 동기화 시작 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: 'LoRA 동기화를 시작하는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// LoRA 동기화 상태 조회
+router.get('/:id/loras/status', verifyJWT, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    const status = await loraMetadataService.getSyncStatus(server._id);
+
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('LoRA 동기화 상태 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '동기화 상태를 조회하는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// 서버 삭제 시 LoRA 캐시도 함께 삭제
+router.delete('/:id', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    // 서버를 사용하는 워크보드가 있는지 확인
+    const Workboard = require('../models/Workboard');
+    const workboardCount = await Workboard.countDocuments({ serverId: server._id });
+
+    if (workboardCount > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `이 서버를 사용하는 워크보드가 ${workboardCount}개 있어 삭제할 수 없습니다.`
+      });
+    }
+
+    // LoRA 캐시 삭제
+    await ServerLoraCache.deleteOne({ serverId: server._id });
+
+    await Server.findByIdAndDelete(req.params.id);
+
+    res.json({
+      success: true,
+      message: '서버가 성공적으로 삭제되었습니다.'
+    });
+  } catch (error) {
+    console.error('서버 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '서버 삭제에 실패했습니다.'
     });
   }
 });

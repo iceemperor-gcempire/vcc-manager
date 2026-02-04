@@ -1171,6 +1171,7 @@ function ImageGeneration() {
         open={loraModalOpen}
         onClose={handleLoraModalClose}
         workboardId={id}
+        serverId={workboardData?.serverId?._id || workboardData?.serverId}
         onAddLora={handleAddLora}
       />
 

@@ -151,6 +151,10 @@ export const serverAPI = {
   deleteServer: (id) => api.delete(`/servers/${id}`),
   checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
+  // LoRA 메타데이터 API
+  getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
+  syncLoras: (id) => api.post(`/servers/${id}/loras/sync`),
+  getLorasSyncStatus: (id) => api.get(`/servers/${id}/loras/status`),
 };
 
 export const promptDataAPI = {
