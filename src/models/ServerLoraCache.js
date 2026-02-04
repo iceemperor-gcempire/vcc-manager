@@ -29,6 +29,10 @@ const loraModelItemSchema = new mongoose.Schema({
       url: String,
       nsfw: Boolean
     }],
+    nsfw: {
+      type: Boolean,
+      default: false
+    },
     modelUrl: String,
     fetchedAt: Date,
     error: String
