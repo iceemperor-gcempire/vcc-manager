@@ -356,6 +356,7 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
 router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
+    const { forceRefresh = false } = req.body;
 
     if (!server) {
       return res.status(404).json({
@@ -373,7 +374,7 @@ router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
     }
 
     // 비동기로 동기화 시작 (응답은 즉시 반환)
-    loraMetadataService.syncServerLoras(server._id, server.serverUrl)
+    loraMetadataService.syncServerLoras(server._id, server.serverUrl, { forceRefresh })
       .then(() => {
         console.log(`LoRA sync completed for server ${server.name}`);
       })

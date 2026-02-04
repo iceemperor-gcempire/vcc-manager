@@ -164,7 +164,7 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
 /**
  * 서버의 LoRA 목록 및 메타데이터 동기화
  */
-const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => {
+const syncServerLoras = async (serverId, serverUrl, { progressCallback = null, forceRefresh = false } = {}) => {
   const cache = await ServerLoraCache.findOrCreateByServerId(serverId, serverUrl);
 
   // 이미 동기화 중이면 건너뛰기
@@ -176,6 +176,9 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
   const apiKey = await getCivitaiApiKey();
   const rateLimit = apiKey ? CIVITAI_RATE_LIMIT_MS_WITH_KEY : CIVITAI_RATE_LIMIT_MS_NO_KEY;
   console.log(`Using Civitai rate limit: ${rateLimit}ms (API key: ${apiKey ? 'present' : 'absent'})`);
+  if (forceRefresh) {
+    console.log('Force refresh enabled - will re-fetch all Civitai metadata');
+  }
 
   try {
     // 동기화 시작
@@ -228,11 +231,8 @@ const syncServerLoras = async (serverId, serverUrl, progressCallback = null) => 
       // 기존 데이터 확인
       const existing = existingModels[filename];
 
-      // 이미 해시와 Civitai 메타데이터가 있으면 재사용
-      // (단, 2026-02-04 이후에 가져온 데이터만 신뢰 - nsfw 필드 스키마 수정일)
-      const nsfwSchemaFixDate = new Date('2026-02-04T14:00:00Z');
-      const existingFetchedAt = existing?.civitai?.fetchedAt ? new Date(existing.civitai.fetchedAt) : null;
-      if (existing && existing.hash && existingFetchedAt && existingFetchedAt > nsfwSchemaFixDate) {
+      // 이미 해시와 Civitai 메타데이터가 있으면 재사용 (강제 새로고침이 아닌 경우)
+      if (!forceRefresh && existing && existing.hash && existing.civitai?.fetchedAt) {
         newLoraModels.push(existing);
         if (existing.civitai?.found) civitaiCount++;
         continue;

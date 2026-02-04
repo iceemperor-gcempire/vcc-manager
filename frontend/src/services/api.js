@@ -156,7 +156,7 @@ export const serverAPI = {
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
   // LoRA 메타데이터 API
   getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
-  syncLoras: (id) => api.post(`/servers/${id}/loras/sync`),
+  syncLoras: (id, options = {}) => api.post(`/servers/${id}/loras/sync`, options),
   getLorasSyncStatus: (id) => api.get(`/servers/${id}/loras/status`),
 };
 
