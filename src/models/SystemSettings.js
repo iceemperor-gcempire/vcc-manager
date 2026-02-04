@@ -12,8 +12,13 @@ const systemSettingsSchema = new mongoose.Schema({
     default: 'global'
   },
   lora: {
-    // NSFW 필터링 설정
+    // NSFW 이미지 필터링 설정
     nsfwFilter: {
+      type: Boolean,
+      default: true
+    },
+    // NSFW LoRA 필터링 설정
+    nsfwLoraFilter: {
       type: Boolean,
       default: true
     },
@@ -47,6 +52,9 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
 
   if (updates.nsfwFilter !== undefined) {
     settings.lora.nsfwFilter = updates.nsfwFilter;
+  }
+  if (updates.nsfwLoraFilter !== undefined) {
+    settings.lora.nsfwLoraFilter = updates.nsfwLoraFilter;
   }
   if (updates.civitaiApiKey !== undefined) {
     settings.lora.civitaiApiKey = updates.civitaiApiKey || null;

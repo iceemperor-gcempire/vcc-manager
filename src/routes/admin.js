@@ -248,6 +248,7 @@ router.get('/settings/lora', requireAdmin, async (req, res) => {
       success: true,
       data: {
         nsfwFilter: settings.lora.nsfwFilter,
+        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
         hasCivitaiApiKey: !!settings.lora.civitaiApiKey
       }
     });
@@ -262,11 +263,14 @@ router.get('/settings/lora', requireAdmin, async (req, res) => {
 // LoRA 설정 업데이트
 router.put('/settings/lora', requireAdmin, async (req, res) => {
   try {
-    const { nsfwFilter, civitaiApiKey } = req.body;
+    const { nsfwFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
 
     const updates = {};
     if (nsfwFilter !== undefined) {
       updates.nsfwFilter = nsfwFilter;
+    }
+    if (nsfwLoraFilter !== undefined) {
+      updates.nsfwLoraFilter = nsfwLoraFilter;
     }
     if (civitaiApiKey !== undefined) {
       updates.civitaiApiKey = civitaiApiKey;
@@ -279,6 +283,7 @@ router.put('/settings/lora', requireAdmin, async (req, res) => {
       message: 'Settings updated successfully',
       data: {
         nsfwFilter: settings.lora.nsfwFilter,
+        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
         hasCivitaiApiKey: !!settings.lora.civitaiApiKey
       }
     });
