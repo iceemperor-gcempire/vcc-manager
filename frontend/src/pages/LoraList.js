@@ -9,7 +9,6 @@ import {
   MenuItem,
   TextField,
   InputAdornment,
-  Button,
   Card,
   CardContent,
   CardMedia,
@@ -19,51 +18,46 @@ import {
   IconButton,
   Collapse,
   CircularProgress,
-  LinearProgress,
   Alert,
   Tooltip,
   Stack,
   Pagination as MuiPagination,
-  Switch,
-  FormControlLabel,
-  Paper,
-  Divider,
   ToggleButton,
   ToggleButtonGroup,
-  Avatar
+  Avatar,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
   Search as SearchIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
   Info as InfoIcon,
   ContentCopy as CopyIcon,
-  Settings as SettingsIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Save as SaveIcon,
-  Key as KeyIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
+  AutoFixHigh,
+  VisibilityOff as VisibilityOffIcon,
   Block as BlockIcon
 } from '@mui/icons-material';
-import { useQuery, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { serverAPI, adminAPI } from '../../services/api';
+import { serverAPI, userAPI } from '../services/api';
 
 // LoRA 카드 컴포넌트
-function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
+function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwImageFilter }) {
   const hasCivitai = lora.civitai?.found;
 
   // NSFW 필터링된 이미지 목록
-  const filteredImages = (lora.civitai?.images || []).filter(img => !nsfwFilter || !img.nsfw);
+  const filteredImages = nsfwImageFilter
+    ? (lora.civitai?.images || []).filter(img => !img.nsfw)
+    : (lora.civitai?.images || []);
   const previewImage = filteredImages[0]?.url;
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
-  const handleCopyFilename = () => {
+  const handleCopyLoraTag = () => {
     // 경로에서 파일명만 추출 후 확장자 제거
     const basename = lora.filename.split(/[/\\]/).pop();
     const nameWithoutExt = basename.replace(/\.[^/.]+$/, '');
@@ -155,7 +149,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
         {trainedWords.length > 0 && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              트리거 워드:
+              트리거 워드 (클릭시 복사):
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
               {trainedWords.slice(0, expanded ? undefined : 3).map((word, i) => (
@@ -217,13 +211,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
               ))}
             </Box>
           )}
-
-          {/* 해시 정보 */}
-          {lora.hash && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              SHA256: {lora.hash.substring(0, 16)}...
-            </Typography>
-          )}
         </CardContent>
       </Collapse>
 
@@ -253,7 +240,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
         <Tooltip title="LoRA 태그 복사">
           <IconButton
             size="small"
-            onClick={handleCopyFilename}
+            onClick={handleCopyLoraTag}
             color="primary"
           >
             <CopyIcon fontSize="small" />
@@ -265,14 +252,16 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
 }
 
 // LoRA 리스트 아이템 컴포넌트
-function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
+function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFilter }) {
   const hasCivitai = lora.civitai?.found;
-  const filteredImages = (lora.civitai?.images || []).filter(img => !nsfwFilter || !img.nsfw);
+  const filteredImages = nsfwImageFilter
+    ? (lora.civitai?.images || []).filter(img => !img.nsfw)
+    : (lora.civitai?.images || []);
   const previewImage = filteredImages[0]?.url;
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
-  const handleCopyFilename = () => {
+  const handleCopyLoraTag = () => {
     // 경로에서 파일명만 추출 후 확장자 제거
     const basename = lora.filename.split(/[/\\]/).pop();
     const nameWithoutExt = basename.replace(/\.[^/.]+$/, '');
@@ -351,7 +340,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
                 </Tooltip>
               )}
               <Tooltip title="LoRA 태그 복사">
-                <IconButton size="small" onClick={handleCopyFilename} color="primary">
+                <IconButton size="small" onClick={handleCopyLoraTag} color="primary">
                   <CopyIcon fontSize="small" />
                 </IconButton>
               </Tooltip>
@@ -368,9 +357,6 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
                 variant="outlined"
                 sx={{ height: 20, fontSize: '0.7rem' }}
               />
-            )}
-            {lora.civitai?.nsfw && (
-              <Chip label="NSFW" size="small" color="error" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
             )}
             {!hasCivitai && (
               <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
@@ -411,28 +397,16 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
   );
 }
 
-function LoraManagementPage() {
+function LoraList() {
   const [selectedServerId, setSelectedServerId] = useState('');
   const [loraModels, setLoraModels] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState(null);
   const [cacheInfo, setCacheInfo] = useState(null);
-  const [syncStatus, setSyncStatus] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedLora, setExpandedLora] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
-
-  // 전역 설정 상태
-  const [nsfwFilter, setNsfwFilter] = useState(true);
-  const [nsfwLoraFilter, setNsfwLoraFilter] = useState(true);
-  const [hasCivitaiApiKey, setHasCivitaiApiKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
-
-  // 서버 전체 기본 모델 목록 (API에서 가져옴)
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
 
   // 뷰 모드 상태
@@ -440,70 +414,37 @@ function LoraManagementPage() {
 
   const queryClient = useQueryClient();
 
-  // 전역 설정 조회
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await adminAPI.getLoraSettings();
-        if (response.data.success) {
-          setNsfwFilter(response.data.data.nsfwFilter);
-          setNsfwLoraFilter(response.data.data.nsfwLoraFilter ?? true);
-          setHasCivitaiApiKey(response.data.data.hasCivitaiApiKey);
-        }
-      } catch (err) {
-        console.error('Failed to fetch LoRA settings:', err);
-      }
-    };
-    fetchSettings();
-  }, []);
+  // 사용자 설정 조회
+  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const userPreferences = profileData?.data?.user?.preferences || {};
+  const nsfwLoraFilter = userPreferences.nsfwLoraFilter ?? true;
+  const nsfwImageFilter = userPreferences.nsfwImageFilter ?? true;
 
-  // NSFW 이미지 필터 토글
-  const handleNsfwFilterToggle = async () => {
-    const newValue = !nsfwFilter;
-    setNsfwFilter(newValue);
-    try {
-      await adminAPI.updateLoraSettings({ nsfwFilter: newValue });
-      toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
-    } catch (err) {
-      setNsfwFilter(!newValue); // 롤백
-      toast.error('설정 저장에 실패했습니다.');
+  // 사용자 설정 업데이트 mutation
+  const updatePreferencesMutation = useMutation(
+    (preferences) => userAPI.updateProfile({ preferences }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('userProfile');
+      },
+      onError: (error) => {
+        toast.error('설정 저장 실패: ' + error.message);
+      }
     }
-  };
+  );
 
   // NSFW LoRA 필터 토글
-  const handleNsfwLoraFilterToggle = async () => {
+  const handleNsfwLoraFilterToggle = () => {
     const newValue = !nsfwLoraFilter;
-    setNsfwLoraFilter(newValue);
-    try {
-      await adminAPI.updateLoraSettings({ nsfwLoraFilter: newValue });
-      toast.success(newValue ? 'NSFW LoRA가 숨겨집니다.' : 'NSFW LoRA가 표시됩니다.');
-    } catch (err) {
-      setNsfwLoraFilter(!newValue); // 롤백
-      toast.error('설정 저장에 실패했습니다.');
-    }
+    updatePreferencesMutation.mutate({ nsfwLoraFilter: newValue });
+    toast.success(newValue ? 'NSFW LoRA가 숨겨집니다.' : 'NSFW LoRA가 표시됩니다.');
   };
 
-  // API 키 저장
-  const handleSaveApiKey = async () => {
-    if (!apiKeyInput.trim() && !hasCivitaiApiKey) {
-      toast.error('API 키를 입력해주세요.');
-      return;
-    }
-
-    setSavingSettings(true);
-    try {
-      await adminAPI.updateLoraSettings({
-        civitaiApiKey: apiKeyInput.trim() || null
-      });
-      setHasCivitaiApiKey(!!apiKeyInput.trim());
-      setApiKeyInput('');
-      setShowApiKeyInput(false);
-      toast.success(apiKeyInput.trim() ? 'Civitai API 키가 저장되었습니다.' : 'API 키가 삭제되었습니다.');
-    } catch (err) {
-      toast.error('API 키 저장에 실패했습니다.');
-    } finally {
-      setSavingSettings(false);
-    }
+  // NSFW 이미지 필터 토글
+  const handleNsfwImageFilterToggle = () => {
+    const newValue = !nsfwImageFilter;
+    updatePreferencesMutation.mutate({ nsfwImageFilter: newValue });
+    toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
   };
 
   // ComfyUI 서버 목록 조회
@@ -525,45 +466,7 @@ function LoraManagementPage() {
   const servers = serversData?.data?.data?.servers || [];
   const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
 
-  // 동기화 상태 폴링
-  useEffect(() => {
-    let interval;
-    if (syncing && selectedServerId) {
-      interval = setInterval(async () => {
-        try {
-          const response = await serverAPI.getLorasSyncStatus(selectedServerId);
-          const status = response.data.data;
-          setSyncStatus(status);
-
-          if (status.status === 'completed' || status.status === 'failed' || status.status === 'idle') {
-            setSyncing(false);
-            if (status.status === 'completed') {
-              toast.success('LoRA 동기화가 완료되었습니다.');
-              // 동기화 완료 후 목록 새로고침 (debounce 우회)
-              serverAPI.getLoras(selectedServerId, { page: 1, limit: 24 })
-                .then(response => {
-                  const data = response.data.data;
-                  setLoraModels(data.loraModels || []);
-                  setPagination(data.pagination || { current: 1, pages: 0, total: 0 });
-                  setCacheInfo(data.cacheInfo);
-                  if (data.availableBaseModels) {
-                    setAvailableBaseModels(data.availableBaseModels);
-                  }
-                })
-                .catch(console.error);
-            } else if (status.status === 'failed') {
-              toast.error(`동기화 실패: ${status.errorMessage || '알 수 없는 오류'}`);
-            }
-          }
-        } catch (err) {
-          console.error('Failed to get sync status:', err);
-        }
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [syncing, selectedServerId]);
-
-  // LoRA 모델 fetch 함수 (의존성 최소화)
+  // LoRA 모델 fetch 함수
   const fetchLoraModels = useCallback(async (serverId, search, baseModel, page = 1) => {
     if (!serverId) return;
 
@@ -581,7 +484,7 @@ function LoraManagementPage() {
       setLoraModels(data.loraModels || []);
       setPagination(data.pagination || { current: 1, pages: 0, total: 0 });
       setCacheInfo(data.cacheInfo);
-      // 서버 전체의 기본 모델 목록 저장
+      // 서버에서 받은 전체 기본 모델 목록 설정
       if (data.availableBaseModels) {
         setAvailableBaseModels(data.availableBaseModels);
       }
@@ -593,22 +496,6 @@ function LoraManagementPage() {
     }
   }, []);
 
-  // 서버 선택 시 동기화 상태만 조회
-  useEffect(() => {
-    if (selectedServerId) {
-      // 동기화 상태 확인
-      serverAPI.getLorasSyncStatus(selectedServerId)
-        .then(response => {
-          const status = response.data.data;
-          setSyncStatus(status);
-          if (status.status === 'fetching') {
-            setSyncing(true);
-          }
-        })
-        .catch(console.error);
-    }
-  }, [selectedServerId]);
-
   // 서버/검색어/필터 변경 시 debounce로 단일 fetch
   useEffect(() => {
     if (!selectedServerId) return;
@@ -618,27 +505,6 @@ function LoraManagementPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [selectedServerId, searchQuery, baseModelFilter, fetchLoraModels]);
-
-  const handleSync = async (forceRefresh = false) => {
-    if (!selectedServerId) {
-      toast.error('서버를 선택해주세요.');
-      return;
-    }
-
-    setSyncing(true);
-    setError(null);
-
-    try {
-      await serverAPI.syncLoras(selectedServerId, { forceRefresh });
-      toast.success(forceRefresh
-        ? 'LoRA 강제 새로고침이 시작되었습니다. (모든 메타데이터를 다시 가져옵니다)'
-        : 'LoRA 동기화가 시작되었습니다.');
-    } catch (err) {
-      console.error('Failed to start sync:', err);
-      setSyncing(false);
-      toast.error('동기화 시작에 실패했습니다.');
-    }
-  };
 
   const handleCopyTriggerWord = (word) => {
     navigator.clipboard.writeText(word);
@@ -659,108 +525,21 @@ function LoraManagementPage() {
     return 'default';
   };
 
+  // NSFW LoRA 필터링 적용 (클라이언트 사이드)
+  const filteredLoraModels = nsfwLoraFilter
+    ? loraModels.filter(lora => !lora.civitai?.nsfw)
+    : loraModels;
+
   const selectedServer = comfyUIServers.find(s => s._id === selectedServerId);
 
   return (
     <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
-      <Typography variant="h5" gutterBottom>
-        LoRA 관리
-      </Typography>
-
-      {/* 전역 설정 패널 */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <SettingsIcon color="action" />
-          <Typography variant="subtitle1" fontWeight="medium">
-            전역 설정
-          </Typography>
-        </Box>
-
-        <Grid container spacing={3} alignItems="center">
-          {/* NSFW LoRA 필터 */}
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={nsfwLoraFilter}
-                  onChange={handleNsfwLoraFilterToggle}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BlockIcon fontSize="small" />
-                  <span>NSFW LoRA 숨기기</span>
-                </Box>
-              }
-            />
-          </Grid>
-
-          {/* NSFW 이미지 필터 */}
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={nsfwFilter}
-                  onChange={handleNsfwFilterToggle}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {nsfwFilter ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  <span>NSFW 이미지 숨기기</span>
-                </Box>
-              }
-            />
-          </Grid>
-
-          {/* Civitai API 키 */}
-          <Grid item xs={12} sm={12} md={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <KeyIcon color="action" fontSize="small" />
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                Civitai API 키:
-              </Typography>
-              {hasCivitaiApiKey ? (
-                <Chip label="등록됨" color="success" size="small" variant="outlined" />
-              ) : (
-                <Chip label="미등록" size="small" variant="outlined" />
-              )}
-              <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
-                {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
-              </Button>
-            </Box>
-
-            {showApiKeyInput && (
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <TextField
-                  size="small"
-                  type="password"
-                  placeholder={hasCivitaiApiKey ? '새 API 키 (빈칸=삭제)' : 'API 키 입력'}
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: 400 }}
-                  autoComplete="off"
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleSaveApiKey}
-                  disabled={savingSettings}
-                  startIcon={savingSettings ? <CircularProgress size={16} /> : <SaveIcon />}
-                >
-                  저장
-                </Button>
-              </Box>
-            )}
-
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              API 키 등록 시 조회 속도 5배 향상 (1초→0.2초)
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+        <AutoFixHigh fontSize="large" color="primary" />
+        <Typography variant="h5">
+          LoRA 목록
+        </Typography>
+      </Box>
 
       {/* 서버 선택 */}
       <Box sx={{ mb: 3 }}>
@@ -773,7 +552,6 @@ function LoraManagementPage() {
               setSelectedServerId(e.target.value);
               setLoraModels([]);
               setCacheInfo(null);
-              setSyncStatus(null);
               setSearchQuery('');
               setBaseModelFilter('');
               setAvailableBaseModels([]);
@@ -791,32 +569,50 @@ function LoraManagementPage() {
         </FormControl>
         {comfyUIServers.length === 0 && !serversLoading && (
           <Alert severity="info" sx={{ mt: 2 }}>
-            등록된 ComfyUI 서버가 없습니다. 서버 관리에서 ComfyUI 서버를 추가해주세요.
+            등록된 ComfyUI 서버가 없습니다.
           </Alert>
         )}
       </Box>
 
       {selectedServerId && (
         <>
-          {/* 동기화 진행 표시 */}
-          {syncing && syncStatus && (
-            <Box sx={{ mb: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <CircularProgress size={20} />
-                <Typography variant="body2" color="text.secondary">
-                  동기화 중: {syncStatus.progress?.stage || 'processing'}
-                  {syncStatus.progress?.total > 0 &&
-                    ` (${syncStatus.progress.current}/${syncStatus.progress.total})`}
-                </Typography>
-              </Box>
-              {syncStatus.progress?.total > 0 && (
-                <LinearProgress
-                  variant="determinate"
-                  value={(syncStatus.progress.current / syncStatus.progress.total) * 100}
-                />
-              )}
+          {/* NSFW 필터 설정 */}
+          <Box sx={{ mb: 2, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={nsfwLoraFilter}
+                    onChange={handleNsfwLoraFilterToggle}
+                    disabled={updatePreferencesMutation.isLoading}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <BlockIcon fontSize="small" />
+                    <span>NSFW LoRA 숨기기</span>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={nsfwImageFilter}
+                    onChange={handleNsfwImageFilterToggle}
+                    disabled={updatePreferencesMutation.isLoading}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <VisibilityOffIcon fontSize="small" />
+                    <span>NSFW 이미지 숨기기</span>
+                  </Box>
+                }
+              />
             </Box>
-          )}
+          </Box>
 
           {/* 검색 및 필터 영역 */}
           <Box sx={{ mb: 3 }}>
@@ -836,7 +632,7 @@ function LoraManagementPage() {
                 ),
               }}
             />
-            {/* 필터 및 버튼 */}
+            {/* 필터 및 뷰 모드 */}
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
               {availableBaseModels.length > 0 && (
                 <FormControl size="small" sx={{ minWidth: 120 }}>
@@ -866,29 +662,6 @@ function LoraManagementPage() {
                   <ListViewIcon />
                 </ToggleButton>
               </ToggleButtonGroup>
-              <Box sx={{ flex: 1 }} /> {/* 스페이서 */}
-              <Button
-                variant="contained"
-                onClick={() => handleSync(false)}
-                disabled={syncing || loading}
-                startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
-                size="small"
-              >
-                {syncStatus?.totalLoras > 0 ? '동기화' : '동기화'}
-              </Button>
-              {syncStatus?.totalLoras > 0 && (
-                <Tooltip title="모든 메타데이터를 Civitai에서 새로 가져옵니다">
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => handleSync(true)}
-                    disabled={syncing || loading}
-                    size="small"
-                  >
-                    강제
-                  </Button>
-                </Tooltip>
-              )}
             </Box>
           </Box>
 
@@ -905,18 +678,13 @@ function LoraManagementPage() {
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
                 <Typography variant="caption" color="text.secondary" display="block">
-                  총 LoRA
+                  검색 결과
                 </Typography>
                 <Typography variant="body2">
-                  {syncStatus?.totalLoras || pagination.total || 0}개
-                </Typography>
-              </Grid>
-              <Grid item xs={12} sm={6} md={3}>
-                <Typography variant="caption" color="text.secondary" display="block">
-                  메타데이터 있음
-                </Typography>
-                <Typography variant="body2">
-                  {syncStatus?.lorasWithMetadata || 0}개
+                  {pagination.total || 0}개
+                  {nsfwLoraFilter && loraModels.length !== filteredLoraModels.length && (
+                    <span style={{ color: '#666' }}> (NSFW {loraModels.length - filteredLoraModels.length}개 숨김)</span>
+                  )}
                 </Typography>
               </Grid>
               <Grid item xs={12} sm={6} md={3}>
@@ -924,16 +692,10 @@ function LoraManagementPage() {
                   마지막 동기화
                 </Typography>
                 <Typography variant="body2">
-                  {formatDate(cacheInfo?.lastCivitaiSync || syncStatus?.lastCivitaiSync)}
+                  {formatDate(cacheInfo?.lastCivitaiSync)}
                 </Typography>
               </Grid>
             </Grid>
-            {cacheInfo?.loraInfoNodeAvailable === false && (
-              <Alert severity="warning" sx={{ mt: 2 }}>
-                VCC LoRA Hash 노드가 설치되지 않아 Civitai 메타데이터를 조회할 수 없습니다.
-                ComfyUI에 커스텀 노드를 설치해주세요.
-              </Alert>
-            )}
           </Box>
 
           {/* 에러 표시 */}
@@ -945,11 +707,6 @@ function LoraManagementPage() {
 
           {/* LoRA 목록 */}
           {(() => {
-            // NSFW LoRA 필터링 적용
-            const filteredLoraModels = nsfwLoraFilter
-              ? loraModels.filter(lora => !lora.civitai?.nsfw)
-              : loraModels;
-
             if (loading) {
               return (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -962,13 +719,8 @@ function LoraManagementPage() {
               return (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary" gutterBottom>
-                    {searchQuery || nsfwLoraFilter ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
+                    {searchQuery || baseModelFilter || nsfwLoraFilter ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
                   </Typography>
-                  {!searchQuery && !nsfwLoraFilter && (
-                    <Typography variant="body2" color="text.secondary">
-                      "동기화 시작" 버튼을 클릭하여 서버에서 LoRA 목록을 가져오세요.
-                    </Typography>
-                  )}
                   {nsfwLoraFilter && loraModels.length > 0 && filteredLoraModels.length === 0 && (
                     <Typography variant="body2" color="text.secondary">
                       NSFW 필터가 활성화되어 일부 LoRA가 숨겨졌습니다.
@@ -986,12 +738,12 @@ function LoraManagementPage() {
                     sx={{
                       display: 'grid',
                       gridTemplateColumns: {
-                        xs: 'repeat(auto-fill, minmax(150px, 1fr))', // 모바일: 더 작은 최소폭
-                        sm: 'repeat(auto-fill, minmax(200px, 1fr))'  // 태블릿+: 기존 유지
+                        xs: 'repeat(auto-fill, minmax(150px, 1fr))',
+                        sm: 'repeat(auto-fill, minmax(200px, 1fr))'
                       },
                       gap: 2,
                       '& > *': {
-                        maxWidth: { xs: 'none', sm: 280 } // 모바일에서는 제한 없음
+                        maxWidth: { xs: 'none', sm: 280 }
                       }
                     }}
                   >
@@ -1005,7 +757,7 @@ function LoraManagementPage() {
                           )}
                           onCopyTriggerWord={handleCopyTriggerWord}
                           getBaseModelColor={getBaseModelColor}
-                          nsfwFilter={nsfwFilter}
+                          nsfwImageFilter={nsfwImageFilter}
                         />
                       </Box>
                     ))}
@@ -1019,7 +771,7 @@ function LoraManagementPage() {
                         lora={lora}
                         onCopyTriggerWord={handleCopyTriggerWord}
                         getBaseModelColor={getBaseModelColor}
-                        nsfwFilter={nsfwFilter}
+                        nsfwImageFilter={nsfwImageFilter}
                       />
                     ))}
                   </Box>
@@ -1046,4 +798,4 @@ function LoraManagementPage() {
   );
 }
 
-export default LoraManagementPage;
+export default LoraList;

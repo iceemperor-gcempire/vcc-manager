@@ -366,9 +366,17 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, pag
   if (!cache) {
     return {
       loraModels: [],
-      pagination: { current: 1, pages: 0, total: 0 }
+      pagination: { current: 1, pages: 0, total: 0 },
+      availableBaseModels: []
     };
   }
+
+  // 전체 LoRA 목록에서 사용 가능한 모든 기본 모델 추출 (필터링 전)
+  const availableBaseModels = [...new Set(
+    cache.loraModels
+      .filter(lora => lora.civitai?.baseModel)
+      .map(lora => lora.civitai.baseModel)
+  )].sort();
 
   let filtered = [...cache.loraModels];
 
@@ -415,6 +423,7 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, pag
       pages,
       total
     },
+    availableBaseModels,
     cacheInfo: {
       status: cache.status,
       lastFetched: cache.lastFetched,

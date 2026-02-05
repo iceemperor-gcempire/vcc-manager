@@ -26,7 +26,9 @@ import {
   FormControl,
   Select,
   MenuItem,
-  InputLabel
+  InputLabel,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -37,12 +39,31 @@ import {
   ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
   Info as InfoIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  VisibilityOff as VisibilityOffIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
-import { workboardAPI, serverAPI } from '../services/api';
+import { workboardAPI, serverAPI, userAPI } from '../services/api';
+import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
+import {
+  extractLoraName,
+  insertLoraTag,
+  insertTriggerWordWithLora
+} from '../utils/promptUtils';
 
-function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
+function LoraListModal({
+  open,
+  onClose,
+  workboardId,
+  serverId,
+  onAddLora,
+  // 프롬프트 삽입 모드용 새 props
+  promptRef,
+  currentPrompt,
+  onPromptChange,
+  isAdmin = false
+}) {
   const [loraModels, setLoraModels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -53,6 +74,49 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
   const [expandedLora, setExpandedLora] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
+  const [availableBaseModels, setAvailableBaseModels] = useState([]);
+
+  // 프롬프트 삽입 모드인지 확인
+  const isPromptInsertMode = !!(onPromptChange && currentPrompt !== undefined);
+
+  const queryClient = useQueryClient();
+
+  // 사용자 설정 가져오기
+  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile(), {
+    enabled: open && !isAdmin
+  });
+  const userPreferences = profileData?.data?.user?.preferences || {};
+
+  // NSFW 필터 설정 (관리자가 아니면 사용자 설정 사용)
+  const nsfwLoraFilter = isAdmin ? false : (userPreferences.nsfwLoraFilter ?? true);
+  const nsfwImageFilter = isAdmin ? false : (userPreferences.nsfwImageFilter ?? true);
+
+  // 사용자 설정 업데이트 mutation
+  const updatePreferencesMutation = useMutation(
+    (preferences) => userAPI.updateProfile({ preferences }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('userProfile');
+      },
+      onError: (error) => {
+        toast.error('설정 저장 실패: ' + error.message);
+      }
+    }
+  );
+
+  // NSFW LoRA 필터 토글
+  const handleNsfwLoraFilterToggle = () => {
+    const newValue = !nsfwLoraFilter;
+    updatePreferencesMutation.mutate({ nsfwLoraFilter: newValue });
+    toast.success(newValue ? 'NSFW LoRA가 숨겨집니다.' : 'NSFW LoRA가 표시됩니다.');
+  };
+
+  // NSFW 이미지 필터 토글
+  const handleNsfwImageFilterToggle = () => {
+    const newValue = !nsfwImageFilter;
+    updatePreferencesMutation.mutate({ nsfwImageFilter: newValue });
+    toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
+  };
 
   // 동기화 상태 폴링
   useEffect(() => {
@@ -100,6 +164,10 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
         setLoraModels(data.loraModels || []);
         setPagination(data.pagination || { current: 1, pages: 0, total: 0 });
         setCacheInfo(data.cacheInfo);
+        // 서버에서 받은 전체 기본 모델 목록 설정
+        if (data.availableBaseModels) {
+          setAvailableBaseModels(data.availableBaseModels);
+        }
       } else {
         response = await workboardAPI.getLoraModels(workboardId);
         const data = response.data;
@@ -166,22 +234,77 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
     }
   };
 
+  // LoRA 태그 추가 (프롬프트 삽입 모드 또는 기존 콜백)
   const handleAddLora = (lora) => {
     const filename = lora.filename || lora;
-    const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
-    const loraString = `<lora:${nameWithoutExt}:1>`;
 
-    if (onAddLora) {
+    if (isPromptInsertMode) {
+      // 프롬프트 삽입 모드
+      const cursorPosition = promptRef?.current?.selectionStart ?? (currentPrompt?.length || 0);
+      const result = insertLoraTag(currentPrompt || '', filename, cursorPosition);
+
+      if (!result.added) {
+        const displayName = lora.civitai?.name || extractLoraName(filename);
+        toast.info(`"${displayName}" LoRA가 이미 프롬프트에 있습니다.`);
+        return;
+      }
+
+      onPromptChange(result.newPrompt);
+
+      // 커서 위치 복원
+      setTimeout(() => {
+        if (promptRef?.current) {
+          promptRef.current.focus();
+          promptRef.current.setSelectionRange(result.newCursorPosition, result.newCursorPosition);
+        }
+      }, 0);
+
+      const displayName = lora.civitai?.name || extractLoraName(filename);
+      toast.success(`${displayName} LoRA가 프롬프트에 추가되었습니다.`);
+    } else if (onAddLora) {
+      // 기존 콜백 모드
+      const nameWithoutExt = filename.replace(/\.[^/.]+$/, '');
+      const loraString = `<lora:${nameWithoutExt}:1>`;
       onAddLora(loraString);
-    }
 
-    const displayName = lora.civitai?.name || nameWithoutExt;
-    toast.success(`${displayName} LoRA가 프롬프트에 추가되었습니다.`);
+      const displayName = lora.civitai?.name || nameWithoutExt;
+      toast.success(`${displayName} LoRA가 프롬프트에 추가되었습니다.`);
+    }
   };
 
-  const handleCopyTriggerWord = (word) => {
-    navigator.clipboard.writeText(word);
-    toast.success(`"${word}" 복사됨`);
+  // 트리거 워드 클릭 핸들러
+  const handleCopyTriggerWord = (word, lora) => {
+    if (isPromptInsertMode) {
+      // 프롬프트에 삽입 (LoRA 태그도 자동 추가)
+      const cursorPosition = promptRef?.current?.selectionStart;
+      const result = insertTriggerWordWithLora(currentPrompt || '', word, lora.filename, cursorPosition);
+
+      if (!result.addedTrigger && !result.addedLora) {
+        toast.info(`"${word}"가 이미 프롬프트에 있습니다.`);
+        return;
+      }
+
+      onPromptChange(result.newPrompt);
+
+      // 커서 위치 복원
+      setTimeout(() => {
+        if (promptRef?.current) {
+          promptRef.current.focus();
+        }
+      }, 0);
+
+      if (result.addedLora && result.addedTrigger) {
+        toast.success(`"${word}" + LoRA 태그가 프롬프트에 추가되었습니다.`);
+      } else if (result.addedTrigger) {
+        toast.success(`"${word}"가 프롬프트에 추가되었습니다.`);
+      } else if (result.addedLora) {
+        toast.success(`LoRA 태그가 프롬프트에 추가되었습니다.`);
+      }
+    } else {
+      // 클립보드 복사 모드
+      navigator.clipboard.writeText(word);
+      toast.success(`"${word}" 복사됨`);
+    }
   };
 
   const handleClose = () => {
@@ -205,11 +328,10 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
     return 'default';
   };
 
-  // 고유한 기본 모델 목록 추출
-  const baseModels = [...new Set(loraModels
-    .filter(l => l.civitai?.baseModel)
-    .map(l => l.civitai.baseModel)
-  )].sort();
+  // NSFW 필터링 적용 (클라이언트 사이드)
+  const filteredLoraModels = nsfwLoraFilter
+    ? loraModels.filter(lora => !lora.civitai?.nsfw)
+    : loraModels;
 
   return (
     <Dialog
@@ -262,6 +384,46 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
       )}
 
       <DialogContent dividers sx={{ pt: 2 }}>
+        {/* NSFW 필터 설정 - 일반 사용자에게만 표시 */}
+        {!isAdmin && (
+          <Box sx={{ mb: 2, p: 1.5, bgcolor: 'grey.50', borderRadius: 1 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={nsfwLoraFilter}
+                    onChange={handleNsfwLoraFilterToggle}
+                    disabled={updatePreferencesMutation.isLoading}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <BlockIcon fontSize="small" />
+                    <Typography variant="body2">NSFW LoRA 숨기기</Typography>
+                  </Box>
+                }
+              />
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={nsfwImageFilter}
+                    onChange={handleNsfwImageFilterToggle}
+                    disabled={updatePreferencesMutation.isLoading}
+                    size="small"
+                  />
+                }
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <VisibilityOffIcon fontSize="small" />
+                    <Typography variant="body2">NSFW 이미지 숨기기</Typography>
+                  </Box>
+                }
+              />
+            </Box>
+          </Box>
+        )}
+
         {/* 검색 및 필터 영역 */}
         <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
@@ -278,7 +440,7 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
               ),
             }}
           />
-          {baseModels.length > 0 && (
+          {availableBaseModels.length > 0 && (
             <FormControl size="small" sx={{ minWidth: 150 }}>
               <InputLabel>기본 모델</InputLabel>
               <Select
@@ -287,20 +449,23 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
                 onChange={(e) => setBaseModelFilter(e.target.value)}
               >
                 <MenuItem value="">전체</MenuItem>
-                {baseModels.map(model => (
+                {availableBaseModels.map(model => (
                   <MenuItem key={model} value={model}>{model}</MenuItem>
                 ))}
               </Select>
             </FormControl>
           )}
-          <Button
-            variant="outlined"
-            onClick={handleSync}
-            disabled={syncing || loading || !serverId}
-            startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
-          >
-            동기화
-          </Button>
+          {/* 동기화 버튼 - 관리자만 표시 */}
+          {isAdmin && (
+            <Button
+              variant="outlined"
+              onClick={handleSync}
+              disabled={syncing || loading || !serverId}
+              startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
+            >
+              동기화
+            </Button>
+          )}
         </Box>
 
         {/* 캐시 정보 */}
@@ -314,7 +479,10 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
             </Typography>
           )}
           <Typography variant="caption" color="text.secondary">
-            | 총 {pagination.total}개
+            | 검색 결과 {pagination.total}개
+            {nsfwLoraFilter && loraModels.length !== filteredLoraModels.length && (
+              <span> (NSFW {loraModels.length - filteredLoraModels.length}개 숨김)</span>
+            )}
           </Typography>
         </Box>
 
@@ -328,12 +496,12 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
             <CircularProgress />
           </Box>
-        ) : loraModels.length === 0 ? (
+        ) : filteredLoraModels.length === 0 ? (
           <Box sx={{ textAlign: 'center', py: 4 }}>
             <Typography variant="body1" color="text.secondary" gutterBottom>
-              {searchQuery ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
+              {searchQuery || baseModelFilter || nsfwLoraFilter ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
             </Typography>
-            {!searchQuery && (
+            {!searchQuery && isAdmin && (
               <Typography variant="body2" color="text.secondary">
                 "동기화" 버튼을 클릭하여 서버에서 LoRA 목록을 가져오세요.
               </Typography>
@@ -342,7 +510,7 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
         ) : (
           <>
             <Grid container spacing={2}>
-              {loraModels.map((lora, index) => (
+              {filteredLoraModels.map((lora, index) => (
                 <Grid item xs={12} sm={6} md={4} key={lora.filename || index}>
                   <LoraCard
                     lora={lora}
@@ -351,8 +519,10 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
                       expandedLora === lora.filename ? null : lora.filename
                     )}
                     onAddLora={handleAddLora}
-                    onCopyTriggerWord={handleCopyTriggerWord}
+                    onCopyTriggerWord={(word) => handleCopyTriggerWord(word, lora)}
                     getBaseModelColor={getBaseModelColor}
+                    nsfwImageFilter={nsfwImageFilter}
+                    isPromptInsertMode={isPromptInsertMode}
                   />
                 </Grid>
               ))}
@@ -381,9 +551,23 @@ function LoraListModal({ open, onClose, workboardId, serverId, onAddLora }) {
 }
 
 // LoRA 카드 컴포넌트
-function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord, getBaseModelColor }) {
+function LoraCard({
+  lora,
+  expanded,
+  onToggleExpand,
+  onAddLora,
+  onCopyTriggerWord,
+  getBaseModelColor,
+  nsfwImageFilter,
+  isPromptInsertMode
+}) {
   const hasCivitai = lora.civitai?.found;
-  const previewImage = lora.civitai?.images?.[0]?.url;
+
+  // NSFW 이미지 필터링
+  const filteredImages = nsfwImageFilter
+    ? (lora.civitai?.images || []).filter(img => !img.nsfw)
+    : (lora.civitai?.images || []);
+  const previewImage = filteredImages[0]?.url;
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
@@ -470,7 +654,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord
         {trainedWords.length > 0 && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary">
-              트리거 워드:
+              트리거 워드{isPromptInsertMode ? ' (클릭시 프롬프트에 삽입)' : ' (클릭시 복사)'}:
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
               {trainedWords.slice(0, expanded ? undefined : 3).map((word, i) => (
@@ -480,6 +664,8 @@ function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord
                   size="small"
                   onClick={() => onCopyTriggerWord(word)}
                   sx={{ cursor: 'pointer' }}
+                  color={isPromptInsertMode ? 'primary' : 'default'}
+                  variant={isPromptInsertMode ? 'outlined' : 'filled'}
                 />
               ))}
               {!expanded && trainedWords.length > 3 && (
@@ -514,9 +700,9 @@ function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord
           )}
 
           {/* 추가 미리보기 이미지 */}
-          {lora.civitai?.images?.length > 1 && (
+          {filteredImages.length > 1 && (
             <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
-              {lora.civitai.images.slice(1).map((img, i) => (
+              {filteredImages.slice(1).map((img, i) => (
                 <Box
                   key={i}
                   component="img"
@@ -526,8 +712,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord
                     width: 60,
                     height: 60,
                     objectFit: 'cover',
-                    borderRadius: 1,
-                    opacity: img.nsfw ? 0.3 : 1
+                    borderRadius: 1
                   }}
                 />
               ))}
@@ -561,8 +746,9 @@ function LoraCard({ lora, expanded, onToggleExpand, onAddLora, onCopyTriggerWord
           size="small"
           startIcon={<AddIcon />}
           onClick={() => onAddLora(lora)}
+          variant={isPromptInsertMode ? 'contained' : 'text'}
         >
-          추가
+          {isPromptInsertMode ? '프롬프트에 추가' : '추가'}
         </Button>
       </CardActions>
     </Card>

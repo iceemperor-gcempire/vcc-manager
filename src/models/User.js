@@ -82,6 +82,14 @@ const userSchema = new mongoose.Schema({
     useRandomSeedOnContinue: {
       type: Boolean,
       default: false
+    },
+    nsfwLoraFilter: {
+      type: Boolean,
+      default: true
+    },
+    nsfwImageFilter: {
+      type: Boolean,
+      default: true
     }
   }
 }, {

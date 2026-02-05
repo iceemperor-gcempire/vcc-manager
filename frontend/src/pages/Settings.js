@@ -157,6 +157,59 @@ function Settings() {
             sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
           />
         </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="h6" gutterBottom>
+          LoRA NSFW 필터 설정
+        </Typography>
+        <Typography variant="body2" color="textSecondary" paragraph>
+          LoRA 목록에서 NSFW(성인용) 콘텐츠의 표시 여부를 설정합니다.
+        </Typography>
+
+        <Box sx={{ ml: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={preferences.nsfwLoraFilter ?? true}
+                onChange={handleToggle('nsfwLoraFilter')}
+                disabled={updateMutation.isLoading}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  NSFW LoRA 숨기기
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  이 옵션이 켜져 있으면 NSFW로 분류된 LoRA 모델이 목록에서 숨겨집니다.
+                </Typography>
+              </Box>
+            }
+            sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
+          />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={preferences.nsfwImageFilter ?? true}
+                onChange={handleToggle('nsfwImageFilter')}
+                disabled={updateMutation.isLoading}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  NSFW 미리보기 이미지 숨기기
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  이 옵션이 켜져 있으면 LoRA 카드에서 NSFW로 분류된 미리보기 이미지가 숨겨집니다.
+                </Typography>
+              </Box>
+            }
+            sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
+          />
+        </Box>
       </Paper>
     </Container>
   );

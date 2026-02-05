@@ -84,6 +84,12 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
+    text: 'LoRA 목록',
+    path: '/loras',
+    icon: <AutoFixHigh />,
+    roles: ['user', 'admin']
+  },
+  {
     text: '설정',
     path: '/settings',
     icon: <Settings />,

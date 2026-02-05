@@ -34,7 +34,8 @@ import {
   ArrowBack,
   Shuffle,
   FolderOpen,
-  AutoAwesome
+  AutoAwesome,
+  AutoFixHigh
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -375,7 +376,9 @@ function ImageGeneration() {
   const [loraModalOpen, setLoraModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
+  const [promptValue, setPromptValue] = useState('');
   const initializedRef = useRef(null);
+  const promptInputRef = useRef(null);
 
   const handleLoraModalOpen = () => {
     setLoraModalOpen(true);
@@ -385,9 +388,9 @@ function ImageGeneration() {
     setLoraModalOpen(false);
   };
 
-  const handleAddLora = (loraString) => {
-    const currentPrompt = getValues('prompt') || '';
-    const newPrompt = currentPrompt ? `${currentPrompt}, ${loraString}` : loraString;
+  // LoRA 모달에서 프롬프트 변경 핸들러
+  const handlePromptChangeFromLora = (newPrompt) => {
+    setPromptValue(newPrompt);
     setValue('prompt', newPrompt);
   };
 
@@ -569,6 +572,10 @@ function ImageGeneration() {
             }
           } else {
             safeSetValue(key, inputValue);
+            // 프롬프트 값이면 로컬 상태도 동기화
+            if (key === 'prompt') {
+              setPromptValue(inputValue);
+            }
           }
         });
 
@@ -907,6 +914,7 @@ function ImageGeneration() {
                 render={({ field }) => (
                   <TextField
                     {...field}
+                    inputRef={promptInputRef}
                     fullWidth
                     multiline
                     rows={4}
@@ -915,23 +923,26 @@ function ImageGeneration() {
                     error={!!errors.prompt}
                     helperText={errors.prompt?.message}
                     sx={{ mb: 2 }}
+                    onChange={(e) => {
+                      field.onChange(e);
+                      setPromptValue(e.target.value);
+                    }}
+                    value={promptValue || field.value || ''}
                   />
                 )}
               />
 
-              {/* LoRA 목록 버튼 - 임시 비활성화 */}
-              {/* 
+              {/* LoRA 목록 버튼 */}
               <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={handleLoraModalOpen}
-                  startIcon={<ViewList />}
+                  startIcon={<AutoFixHigh />}
                 >
                   LoRA 목록
                 </Button>
               </Box>
-              */}
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
@@ -1172,7 +1183,9 @@ function ImageGeneration() {
         onClose={handleLoraModalClose}
         workboardId={id}
         serverId={workboardData?.serverId?._id || workboardData?.serverId}
-        onAddLora={handleAddLora}
+        promptRef={promptInputRef}
+        currentPrompt={promptValue}
+        onPromptChange={handlePromptChangeFromLora}
       />
 
       {/* 프롬프트 데이터 선택 다이얼로그 */}
