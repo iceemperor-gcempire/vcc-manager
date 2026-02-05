@@ -25,7 +25,9 @@ import {
   TextSnippet,
   Chat,
   LocalOffer,
-  Settings
+  Settings,
+  Backup,
+  AutoFixHigh
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -82,6 +84,12 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
+    text: 'LoRA 목록',
+    path: '/loras',
+    icon: <AutoFixHigh />,
+    roles: ['user', 'admin']
+  },
+  {
     text: '설정',
     path: '/settings',
     icon: <Settings />,
@@ -115,9 +123,21 @@ const adminMenuItems = [
     roles: ['admin']
   },
   {
+    text: 'LoRA 관리',
+    path: '/admin/loras',
+    icon: <AutoFixHigh />,
+    roles: ['admin']
+  },
+  {
     text: '시스템 통계',
     path: '/admin/stats',
     icon: <BarChart />,
+    roles: ['admin']
+  },
+  {
+    text: '백업 / 복구',
+    path: '/admin/backup',
+    icon: <Backup />,
     roles: ['admin']
   }
 ];

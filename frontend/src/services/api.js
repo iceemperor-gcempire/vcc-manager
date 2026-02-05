@@ -122,6 +122,28 @@ export const adminAPI = {
   rejectUser: (id) => api.post(`/admin/users/${id}/reject`),
   getStats: () => api.get('/admin/stats'),
   getJobs: (params) => api.get('/admin/jobs', { params }),
+  // LoRA 설정 API
+  getLoraSettings: () => api.get('/admin/settings/lora'),
+  updateLoraSettings: (data) => api.put('/admin/settings/lora', data),
+};
+
+export const backupAPI = {
+  create: () => api.post('/admin/backup'),
+  getStatus: (id) => api.get(`/admin/backup/status/${id}`),
+  getLockStatus: () => api.get('/admin/backup/lock-status'),
+  download: (id) => api.get(`/admin/backup/download/${id}`, { responseType: 'blob' }),
+  list: (params) => api.get('/admin/backup/list', { params }),
+  delete: (id) => api.delete(`/admin/backup/${id}`),
+  validate: (file) => {
+    const formData = new FormData();
+    formData.append('backup', file);
+    return api.post('/admin/backup/restore/validate', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+  },
+  restore: (data) => api.post('/admin/backup/restore', data),
+  getRestoreStatus: (id) => api.get(`/admin/backup/restore/status/${id}`),
+  listRestores: (params) => api.get('/admin/backup/restore/list', { params }),
 };
 
 export const serverAPI = {
@@ -132,6 +154,10 @@ export const serverAPI = {
   deleteServer: (id) => api.delete(`/servers/${id}`),
   checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
+  // LoRA 메타데이터 API
+  getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
+  syncLoras: (id, options = {}) => api.post(`/servers/${id}/loras/sync`, options),
+  getLorasSyncStatus: (id) => api.get(`/servers/${id}/loras/status`),
 };
 
 export const promptDataAPI = {

@@ -29,6 +29,8 @@ router.post('/upload', requireAuth, upload.single('image'), async (req, res) => 
       return res.status(400).json({ message: validation.error });
     }
     
+    const parsedTags = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
     const uploadedImage = new UploadedImage({
       filename: result.filename,
       originalName: req.file.originalname,
@@ -38,10 +40,18 @@ router.post('/upload', requireAuth, upload.single('image'), async (req, res) => 
       url: result.url,
       userId: req.user._id,
       metadata: result.metadata,
-      tags: tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+      tags: parsedTags
     });
-    
+
     await uploadedImage.save();
+
+    // 태그 사용 카운트 증가
+    if (parsedTags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: parsedTags } },
+        { $inc: { usageCount: 1 } }
+      );
+    }
     
     res.status(201).json({
       message: 'Image uploaded successfully',
@@ -304,9 +314,17 @@ router.delete('/uploaded/:id', requireAuth, async (req, res) => {
       }
     }
     
+    // 태그 사용 카운트 감소
+    if (image.tags && image.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: image.tags } },
+        { $inc: { usageCount: -1 } }
+      );
+    }
+
     await deleteFile(image.path);
     await UploadedImage.findByIdAndDelete(req.params.id);
-    
+
     res.json({ message: 'Image deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -327,14 +345,22 @@ router.delete('/generated/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
+    // 태그 사용 카운트 감소
+    if (image.tags && image.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: image.tags } },
+        { $inc: { usageCount: -1 } }
+      );
+    }
+
     await deleteFile(image.path);
-    
+
     if (deleteJob === 'true' && image.jobId) {
       await ImageGenerationJob.findByIdAndDelete(image.jobId);
     }
-    
+
     await GeneratedImage.findByIdAndDelete(req.params.id);
-    
+
     res.json({
       message: `Image${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
     });
@@ -522,7 +548,15 @@ router.delete('/videos/:id', requireAuth, async (req, res) => {
     if (video.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    
+
+    // 태그 사용 카운트 감소
+    if (video.tags && video.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: video.tags } },
+        { $inc: { usageCount: -1 } }
+      );
+    }
+
     await deleteFile(video.path);
     
     if (deleteJob === 'true' && video.jobId) {

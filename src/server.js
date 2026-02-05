@@ -18,8 +18,10 @@ const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
 const tagRoutes = require('./routes/tags');
+const backupRoutes = require('./routes/backup');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT } = require('./middleware/auth');
+const { blockDuringBackup } = require('./middleware/backupLock');
 const { initializeQueues } = require('./services/queueService');
 
 dotenv.config();
@@ -72,7 +74,7 @@ app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth/') || req.path === '/health') {
     return next();
   }
-  
+
   // Try JWT first, fall back to session-based auth
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (token) {
@@ -82,6 +84,9 @@ app.use('/api', (req, res, next) => {
     return next();
   }
 });
+
+// 백업 진행 중 데이터 변경 차단 미들웨어
+app.use('/api', blockDuringBackup);
 
 // Static file serving for uploads
 app.use('/uploads', express.static(process.env.UPLOAD_PATH || './uploads'));
@@ -96,6 +101,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/prompt-data', promptDataRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/admin/backup', backupRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

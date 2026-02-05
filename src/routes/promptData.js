@@ -162,11 +162,19 @@ router.delete('/:id', verifyJWT, async (req, res) => {
       _id: req.params.id,
       createdBy: req.user._id
     });
-    
+
     if (!promptData) {
       return res.status(404).json({ success: false, message: '프롬프트 데이터를 찾을 수 없습니다' });
     }
-    
+
+    // 태그 사용 카운트 감소
+    if (promptData.tags && promptData.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: promptData.tags } },
+        { $inc: { usageCount: -1 } }
+      );
+    }
+
     res.json({ success: true, message: '프롬프트 데이터가 삭제되었습니다' });
   } catch (error) {
     console.error('Delete prompt data error:', error);

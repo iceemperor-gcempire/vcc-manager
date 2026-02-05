@@ -42,6 +42,12 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (typeof preferences.useRandomSeedOnContinue === 'boolean') {
         req.user.preferences.useRandomSeedOnContinue = preferences.useRandomSeedOnContinue;
       }
+      if (typeof preferences.nsfwLoraFilter === 'boolean') {
+        req.user.preferences.nsfwLoraFilter = preferences.nsfwLoraFilter;
+      }
+      if (typeof preferences.nsfwImageFilter === 'boolean') {
+        req.user.preferences.nsfwImageFilter = preferences.nsfwImageFilter;
+      }
     }
     
     await req.user.save();

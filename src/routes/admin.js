@@ -5,6 +5,7 @@ const Workboard = require('../models/Workboard');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
+const SystemSettings = require('../models/SystemSettings');
 const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
@@ -211,20 +212,20 @@ router.get('/jobs', requireAdmin, async (req, res) => {
   try {
     const { page = 1, limit = 10, status = '', userId = '' } = req.query;
     const skip = (page - 1) * limit;
-    
+
     const filter = {};
     if (status) filter.status = status;
     if (userId) filter.userId = userId;
-    
+
     const jobs = await ImageGenerationJob.find(filter)
       .populate('userId', 'email nickname')
       .populate('workboardId', 'name')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));
-    
+
     const total = await ImageGenerationJob.countDocuments(filter);
-    
+
     res.json({
       jobs,
       pagination: {
@@ -235,6 +236,62 @@ router.get('/jobs', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// LoRA 설정 조회
+router.get('/settings/lora', requireAdmin, async (req, res) => {
+  try {
+    const settings = await SystemSettings.getGlobal();
+
+    res.json({
+      success: true,
+      data: {
+        nsfwFilter: settings.lora.nsfwFilter,
+        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
+        hasCivitaiApiKey: !!settings.lora.civitaiApiKey
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+});
+
+// LoRA 설정 업데이트
+router.put('/settings/lora', requireAdmin, async (req, res) => {
+  try {
+    const { nsfwFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
+
+    const updates = {};
+    if (nsfwFilter !== undefined) {
+      updates.nsfwFilter = nsfwFilter;
+    }
+    if (nsfwLoraFilter !== undefined) {
+      updates.nsfwLoraFilter = nsfwLoraFilter;
+    }
+    if (civitaiApiKey !== undefined) {
+      updates.civitaiApiKey = civitaiApiKey;
+    }
+
+    const settings = await SystemSettings.updateLoraSettings(updates);
+
+    res.json({
+      success: true,
+      message: 'Settings updated successfully',
+      data: {
+        nsfwFilter: settings.lora.nsfwFilter,
+        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
+        hasCivitaiApiKey: !!settings.lora.civitaiApiKey
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
   }
 });
 
