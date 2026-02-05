@@ -660,7 +660,7 @@ function LoraManagementPage() {
       </Typography>
 
       {/* 전역 설정 패널 */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
           <SettingsIcon color="action" />
           <Typography variant="subtitle1" fontWeight="medium">
@@ -709,42 +709,30 @@ function LoraManagementPage() {
 
           {/* Civitai API 키 */}
           <Grid item xs={12} sm={12} md={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <KeyIcon color="action" />
-              <Typography variant="body2" color="text.secondary">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              <KeyIcon color="action" fontSize="small" />
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                 Civitai API 키:
               </Typography>
               {hasCivitaiApiKey ? (
-                <Chip
-                  label="등록됨"
-                  color="success"
-                  size="small"
-                  variant="outlined"
-                />
+                <Chip label="등록됨" color="success" size="small" variant="outlined" />
               ) : (
-                <Chip
-                  label="미등록"
-                  size="small"
-                  variant="outlined"
-                />
+                <Chip label="미등록" size="small" variant="outlined" />
               )}
-              <Button
-                size="small"
-                onClick={() => setShowApiKeyInput(!showApiKeyInput)}
-              >
+              <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
                 {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
               </Button>
             </Box>
 
             {showApiKeyInput && (
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
                 <TextField
                   size="small"
                   type="password"
-                  placeholder={hasCivitaiApiKey ? '새 API 키 입력 (빈칸: 삭제)' : 'API 키 입력'}
+                  placeholder={hasCivitaiApiKey ? '새 API 키 (빈칸=삭제)' : 'API 키 입력'}
                   value={apiKeyInput}
                   onChange={(e) => setApiKeyInput(e.target.value)}
-                  sx={{ flexGrow: 1, maxWidth: 400 }}
+                  sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: 400 }}
                   autoComplete="off"
                 />
                 <Button
@@ -760,7 +748,7 @@ function LoraManagementPage() {
             )}
 
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              API 키 등록 시 메타데이터 조회 속도가 5배 빨라집니다 (1초 → 0.2초 간격)
+              API 키 등록 시 조회 속도 5배 향상 (1초→0.2초)
             </Typography>
           </Grid>
         </Grid>
@@ -768,7 +756,7 @@ function LoraManagementPage() {
 
       {/* 서버 선택 */}
       <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth sx={{ maxWidth: 400 }}>
+        <FormControl fullWidth>
           <InputLabel>ComfyUI 서버 선택</InputLabel>
           <Select
             value={selectedServerId}
@@ -785,7 +773,9 @@ function LoraManagementPage() {
           >
             {comfyUIServers.map(server => (
               <MenuItem key={server._id} value={server._id}>
-                {server.name} ({server.serverUrl})
+                <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {server.name}
+                </Box>
               </MenuItem>
             ))}
           </Select>
@@ -820,13 +810,15 @@ function LoraManagementPage() {
           )}
 
           {/* 검색 및 필터 영역 */}
-          <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ mb: 3 }}>
+            {/* 검색창 */}
             <TextField
-              placeholder="LoRA 검색 (이름, 설명, 트리거 워드)..."
+              placeholder="LoRA 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               size="small"
-              sx={{ flexGrow: 1, minWidth: 250 }}
+              fullWidth
+              sx={{ mb: 2 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -835,59 +827,60 @@ function LoraManagementPage() {
                 ),
               }}
             />
-            {baseModels.length > 0 && (
-              <FormControl size="small" sx={{ minWidth: 150 }}>
-                <InputLabel>기본 모델</InputLabel>
-                <Select
-                  value={baseModelFilter}
-                  label="기본 모델"
-                  onChange={(e) => setBaseModelFilter(e.target.value)}
-                >
-                  <MenuItem value="">전체</MenuItem>
-                  {baseModels.map(model => (
-                    <MenuItem key={model} value={model}>{model}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            )}
-            <ToggleButtonGroup
-              value={viewMode}
-              exclusive
-              onChange={(e, newMode) => newMode && setViewMode(newMode)}
-              size="small"
-            >
-              <ToggleButton value="grid">
-                <Tooltip title="그리드 보기">
+            {/* 필터 및 버튼 */}
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+              {baseModels.length > 0 && (
+                <FormControl size="small" sx={{ minWidth: 120 }}>
+                  <InputLabel>기본 모델</InputLabel>
+                  <Select
+                    value={baseModelFilter}
+                    label="기본 모델"
+                    onChange={(e) => setBaseModelFilter(e.target.value)}
+                  >
+                    <MenuItem value="">전체</MenuItem>
+                    {baseModels.map(model => (
+                      <MenuItem key={model} value={model}>{model}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
+              <ToggleButtonGroup
+                value={viewMode}
+                exclusive
+                onChange={(e, newMode) => newMode && setViewMode(newMode)}
+                size="small"
+              >
+                <ToggleButton value="grid">
                   <GridViewIcon />
-                </Tooltip>
-              </ToggleButton>
-              <ToggleButton value="list">
-                <Tooltip title="리스트 보기">
+                </ToggleButton>
+                <ToggleButton value="list">
                   <ListViewIcon />
+                </ToggleButton>
+              </ToggleButtonGroup>
+              <Box sx={{ flex: 1 }} /> {/* 스페이서 */}
+              <Button
+                variant="contained"
+                onClick={() => handleSync(false)}
+                disabled={syncing || loading}
+                startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
+                size="small"
+              >
+                {syncStatus?.totalLoras > 0 ? '동기화' : '동기화'}
+              </Button>
+              {syncStatus?.totalLoras > 0 && (
+                <Tooltip title="모든 메타데이터를 Civitai에서 새로 가져옵니다">
+                  <Button
+                    variant="outlined"
+                    color="warning"
+                    onClick={() => handleSync(true)}
+                    disabled={syncing || loading}
+                    size="small"
+                  >
+                    강제
+                  </Button>
                 </Tooltip>
-              </ToggleButton>
-            </ToggleButtonGroup>
-            <Button
-              variant="contained"
-              onClick={() => handleSync(false)}
-              disabled={syncing || loading}
-              startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
-            >
-              {syncStatus?.totalLoras > 0 ? '다시 동기화' : '동기화 시작'}
-            </Button>
-            {syncStatus?.totalLoras > 0 && (
-              <Tooltip title="기존 캐시된 메타데이터를 무시하고 Civitai에서 모든 데이터를 새로 가져옵니다">
-                <Button
-                  variant="outlined"
-                  color="warning"
-                  onClick={() => handleSync(true)}
-                  disabled={syncing || loading}
-                  size="small"
-                >
-                  강제 새로고침
-                </Button>
-              </Tooltip>
-            )}
+              )}
+            </Box>
           </Box>
 
           {/* 상태 정보 */}
