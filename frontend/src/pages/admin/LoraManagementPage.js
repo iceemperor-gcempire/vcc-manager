@@ -23,7 +23,6 @@ import {
   Alert,
   Tooltip,
   Stack,
-  Pagination as MuiPagination,
   Switch,
   FormControlLabel,
   Paper,
@@ -52,6 +51,7 @@ import {
 import { useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, adminAPI } from '../../services/api';
+import Pagination from '../../components/common/Pagination';
 
 // LoRA 카드 컴포넌트
 function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
@@ -1027,13 +1027,16 @@ function LoraManagementPage() {
 
                 {/* 페이지네이션 */}
                 {pagination.pages > 1 && (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                    <MuiPagination
-                      count={pagination.pages}
-                      page={pagination.current}
-                      onChange={(e, page) => fetchLoraModels(selectedServerId, searchQuery, baseModelFilter, page)}
-                      color="primary"
-                      size="large"
+                  <Box sx={{ mt: 4 }}>
+                    <Pagination
+                      currentPage={pagination.current}
+                      totalPages={pagination.pages}
+                      totalItems={pagination.total}
+                      onPageChange={(page) => fetchLoraModels(selectedServerId, searchQuery, baseModelFilter, page)}
+                      showInfo={true}
+                      showFirstLast={true}
+                      showGoToPage={true}
+                      maxVisible={5}
                     />
                   </Box>
                 )}

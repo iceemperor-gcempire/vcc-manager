@@ -22,7 +22,6 @@ import {
   LinearProgress,
   Tooltip,
   Stack,
-  Pagination as MuiPagination,
   FormControl,
   Select,
   MenuItem,
@@ -46,6 +45,7 @@ import {
 import { workboardAPI, serverAPI, userAPI } from '../services/api';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
+import Pagination from './common/Pagination';
 import {
   extractLoraName,
   insertLoraTag,
@@ -530,12 +530,17 @@ function LoraListModal({
 
             {/* 페이지네이션 */}
             {pagination.pages > 1 && (
-              <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                <MuiPagination
-                  count={pagination.pages}
-                  page={pagination.current}
-                  onChange={(e, page) => fetchLoraModels(page)}
-                  color="primary"
+              <Box sx={{ mt: 3 }}>
+                <Pagination
+                  currentPage={pagination.current}
+                  totalPages={pagination.pages}
+                  totalItems={pagination.total}
+                  onPageChange={(page) => fetchLoraModels(page)}
+                  showInfo={false}
+                  showFirstLast={true}
+                  showGoToPage={true}
+                  maxVisible={5}
+                  size="small"
                 />
               </Box>
             )}
