@@ -972,14 +972,17 @@ function LoraManagementPage() {
             return (
               <>
                 {viewMode === 'grid' ? (
-                  // 그리드 뷰 (한 줄에 최대 5개, 최소 너비 200px)
+                  // 그리드 뷰
                   <Box
                     sx={{
                       display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                      gridTemplateColumns: {
+                        xs: 'repeat(auto-fill, minmax(150px, 1fr))', // 모바일: 더 작은 최소폭
+                        sm: 'repeat(auto-fill, minmax(200px, 1fr))'  // 태블릿+: 기존 유지
+                      },
                       gap: 2,
                       '& > *': {
-                        maxWidth: 280
+                        maxWidth: { xs: 'none', sm: 280 } // 모바일에서는 제한 없음
                       }
                     }}
                   >
