@@ -82,10 +82,11 @@ function SavePromptDialog({ open, onClose, job, onSave }) {
         seed: job.inputData?.seed || ''
       });
       if (job.resultImages?.length > 0) {
+        const lastImage = job.resultImages[job.resultImages.length - 1];
         setSelectedImage({
-          imageId: job.resultImages[0]._id,
+          imageId: lastImage._id,
           imageType: 'GeneratedImage',
-          url: job.resultImages[0].url
+          url: lastImage.url
         });
       } else {
         setSelectedImage(null);
