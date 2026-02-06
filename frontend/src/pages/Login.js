@@ -177,7 +177,7 @@ function Login() {
               />
             </Box>
 
-            <Box mb={3}>
+            <Box mb={2}>
               <Controller
                 name="password"
                 control={control}
@@ -212,6 +212,18 @@ function Login() {
                   />
                 )}
               />
+            </Box>
+
+            <Box textAlign="right" mb={3}>
+              <Link
+                component="button"
+                type="button"
+                variant="body2"
+                onClick={() => navigate('/forgot-password')}
+                sx={{ cursor: 'pointer' }}
+              >
+                비밀번호를 잊으셨나요?
+              </Link>
             </Box>
 
             <Button

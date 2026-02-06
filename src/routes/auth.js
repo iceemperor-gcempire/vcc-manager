@@ -1,9 +1,23 @@
 const express = require('express');
 const passport = require('passport');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const { generateJWT, requireAuth, verifyJWT, authRateLimit, signupRateLimit } = require('../middleware/auth');
 const { validate, signupSchema, signinSchema } = require('../utils/validation');
 const User = require('../models/User');
+const { sendPasswordResetEmail } = require('../services/emailService');
 const router = express.Router();
+
+// Rate limit for forgot password - 3 requests per hour per IP
+const forgotPasswordRateLimit = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 3,
+  message: {
+    message: '비밀번호 재설정 요청이 너무 많습니다. 1시간 후에 다시 시도해주세요.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })
@@ -255,6 +269,158 @@ router.get('/status', (req, res) => {
       authProvider: req.user.authProvider
     } : null
   });
+});
+
+// Request password reset
+router.post('/forgot-password', forgotPasswordRateLimit, async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        message: '이메일을 입력해주세요'
+      });
+    }
+
+    // Find user by email (only local auth users can reset password)
+    const user = await User.findOne({
+      email: email.toLowerCase(),
+      authProvider: 'local'
+    });
+
+    // Always return success to prevent email enumeration
+    // But only send email if user exists
+    if (user) {
+      // Generate reset token
+      const resetToken = user.createPasswordResetToken();
+      await user.save({ validateBeforeSave: false });
+
+      // Build reset URL
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
+      const resetUrl = `${frontendUrl}/reset-password/${resetToken}`;
+
+      try {
+        await sendPasswordResetEmail(user.email, resetUrl);
+      } catch (emailError) {
+        // If email fails, clear the token
+        user.clearPasswordResetToken();
+        await user.save({ validateBeforeSave: false });
+        console.error('Failed to send password reset email:', emailError);
+        return res.status(500).json({
+          message: '이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.'
+        });
+      }
+    }
+
+    // Always return success message (for security)
+    res.json({
+      message: '입력하신 이메일로 비밀번호 재설정 링크를 발송했습니다. 이메일을 확인해주세요.'
+    });
+
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      message: '비밀번호 재설정 요청 처리 중 오류가 발생했습니다'
+    });
+  }
+});
+
+// Verify reset token
+router.get('/verify-reset-token/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        valid: false,
+        message: '유효하지 않거나 만료된 토큰입니다'
+      });
+    }
+
+    res.json({
+      valid: true,
+      message: '유효한 토큰입니다'
+    });
+
+  } catch (error) {
+    console.error('Verify reset token error:', error);
+    res.status(500).json({
+      valid: false,
+      message: '토큰 검증 중 오류가 발생했습니다'
+    });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password, confirmPassword } = req.body;
+
+    if (!token || !password || !confirmPassword) {
+      return res.status(400).json({
+        message: '필수 항목을 모두 입력해주세요'
+      });
+    }
+
+    if (password !== confirmPassword) {
+      return res.status(400).json({
+        message: '비밀번호가 일치하지 않습니다'
+      });
+    }
+
+    // Validate password strength
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({
+        message: '비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해야 합니다'
+      });
+    }
+
+    // Hash the token to compare with stored hash
+    const hashedToken = crypto
+      .createHash('sha256')
+      .update(token)
+      .digest('hex');
+
+    // Find user with valid token
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: '유효하지 않거나 만료된 토큰입니다'
+      });
+    }
+
+    // Update password and clear reset token
+    user.password = password;
+    user.clearPasswordResetToken();
+    await user.save();
+
+    res.json({
+      message: '비밀번호가 성공적으로 변경되었습니다. 새 비밀번호로 로그인해주세요.'
+    });
+
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      message: '비밀번호 재설정 중 오류가 발생했습니다'
+    });
+  }
 });
 
 module.exports = router;

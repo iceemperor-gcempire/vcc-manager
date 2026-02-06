@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -91,6 +92,12 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     }
+  },
+  passwordResetToken: {
+    type: String
+  },
+  passwordResetExpires: {
+    type: Date
   }
 }, {
   timestamps: true
@@ -150,6 +157,28 @@ userSchema.methods.isGoogleUser = function() {
 
 userSchema.methods.isLocalUser = function() {
   return this.authProvider === 'local' && !!this.password;
+};
+
+userSchema.methods.createPasswordResetToken = function() {
+  // Generate a random token
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  // Hash the token and store it in the database
+  this.passwordResetToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+
+  // Set expiration to 1 hour from now
+  this.passwordResetExpires = Date.now() + 60 * 60 * 1000;
+
+  // Return the unhashed token to send via email
+  return resetToken;
+};
+
+userSchema.methods.clearPasswordResetToken = function() {
+  this.passwordResetToken = undefined;
+  this.passwordResetExpires = undefined;
 };
 
 module.exports = mongoose.model('User', userSchema);
