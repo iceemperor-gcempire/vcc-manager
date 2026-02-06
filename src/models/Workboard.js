@@ -69,6 +69,17 @@ const workboardSchema = new mongoose.Schema({
   workboardType: {
     type: String,
     enum: ['image', 'prompt'],
+    default: 'image',
+    required: false
+  },
+  apiFormat: {
+    type: String,
+    enum: ['ComfyUI', 'OpenAI Compatible'],
+    default: 'ComfyUI'
+  },
+  outputFormat: {
+    type: String,
+    enum: ['image', 'video', 'text'],
     default: 'image'
   },
   serverId: {
@@ -115,7 +126,7 @@ const workboardSchema = new mongoose.Schema({
   workflowData: {
     type: String,
     required: function() {
-      return this.workboardType === 'image';
+      return this.apiFormat === 'ComfyUI';
     }
   },
   createdBy: {
@@ -165,8 +176,18 @@ workboardSchema.statics.findByType = function(workboardType, filter = {}) {
     .populate('createdBy', 'email nickname');
 };
 
+// API 형식 + 출력 형식별 조회
+workboardSchema.statics.findByFormat = function(apiFormat, outputFormat, filter = {}) {
+  const query = { ...filter, isActive: true };
+  if (apiFormat) query.apiFormat = apiFormat;
+  if (outputFormat) query.outputFormat = outputFormat;
+  return this.find(query)
+    .populate('serverId', 'name serverType serverUrl outputType isActive')
+    .populate('createdBy', 'email nickname');
+};
+
 workboardSchema.methods.validateWorkflowData = function() {
-  if (this.workboardType === 'prompt') {
+  if (this.apiFormat === 'OpenAI Compatible') {
     return true;
   }
   

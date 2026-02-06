@@ -10,67 +10,74 @@ import {
   Switch,
   Typography,
   Alert,
-  ToggleButton,
-  ToggleButtonGroup,
   Box
 } from '@mui/material';
-import { Image, Chat } from '@mui/icons-material';
 import { Controller, useWatch } from 'react-hook-form';
 import { useQuery } from 'react-query';
 import { serverAPI } from '../../services/api';
 
 function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
-  const workboardType = useWatch({ control, name: 'workboardType' }) || 'image';
-  
+  const apiFormat = useWatch({ control, name: 'apiFormat' }) || 'ComfyUI';
+
   const { data: serversData } = useQuery(
-    ['servers', workboardType],
-    () => serverAPI.getServers({ 
-      outputType: workboardType === 'prompt' ? 'Text' : 'Image' 
+    ['servers', apiFormat],
+    () => serverAPI.getServers({
+      serverType: apiFormat === 'OpenAI Compatible' ? 'OpenAI Compatible' : 'ComfyUI'
     }),
     { enabled: isDialogOpen }
   );
-  
+
   const servers = serversData?.data?.data?.servers || [];
 
   return (
     <Grid container spacing={2}>
       {showTypeSelector && (
-        <Grid item xs={12}>
-          <Typography variant="subtitle2" gutterBottom>
-            작업판 유형
-          </Typography>
-          <Controller
-            name="workboardType"
-            control={control}
-            render={({ field }) => (
-              <ToggleButtonGroup
-                {...field}
-                exclusive
-                onChange={(e, value) => value && field.onChange(value)}
-                fullWidth
-                sx={{ mb: 1 }}
-              >
-                <ToggleButton value="image">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Image />
-                    <span>이미지 작업판</span>
-                  </Box>
-                </ToggleButton>
-                <ToggleButton value="prompt">
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Chat />
-                    <span>프롬프트 작업판</span>
-                  </Box>
-                </ToggleButton>
-              </ToggleButtonGroup>
-            )}
-          />
-          <Typography variant="caption" color="textSecondary">
-            {workboardType === 'prompt' 
-              ? '텍스트 생성 API를 사용하여 프롬프트를 생성합니다.' 
-              : 'ComfyUI를 사용하여 이미지를 생성합니다.'}
-          </Typography>
-        </Grid>
+        <>
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="apiFormat"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>AI API 형식</InputLabel>
+                  <Select
+                    {...field}
+                    label="AI API 형식"
+                  >
+                    <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
+                    <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Controller
+              name="outputFormat"
+              control={control}
+              render={({ field }) => (
+                <FormControl fullWidth>
+                  <InputLabel>출력 형식</InputLabel>
+                  <Select
+                    {...field}
+                    label="출력 형식"
+                  >
+                    <MenuItem value="image">이미지</MenuItem>
+                    <MenuItem value="video">비디오</MenuItem>
+                    <MenuItem value="text">텍스트</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="caption" color="textSecondary">
+              {apiFormat === 'OpenAI Compatible'
+                ? 'OpenAI Compatible API를 사용하여 콘텐츠를 생성합니다.'
+                : 'ComfyUI API를 사용하여 콘텐츠를 생성합니다.'}
+            </Typography>
+          </Grid>
+        </>
       )}
 
       <Grid item xs={12}>
@@ -89,7 +96,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
           )}
         />
       </Grid>
-      
+
       <Grid item xs={12}>
         <Controller
           name="description"
@@ -106,7 +113,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
           )}
         />
       </Grid>
-      
+
       <Grid item xs={12}>
         <Controller
           name="serverId"
@@ -127,7 +134,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                 ) : (
                   servers.map((server) => (
                     <MenuItem key={server._id} value={server._id}>
-                      {server.name} ({server.serverType}) - {server.outputType}
+                      {server.name} ({server.serverType === 'ComfyUI' ? 'ComfyUI API' : 'OpenAI Compatible API'})
                     </MenuItem>
                   ))
                 )}
@@ -160,8 +167,8 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
       {servers.length === 0 && (
         <Grid item xs={12}>
           <Alert severity="warning">
-            {workboardType === 'prompt' 
-              ? '작업판을 생성하기 전에 서버 관리에서 Text 출력 타입의 서버(OpenAI Compatible 등)를 등록해주세요.'
+            {apiFormat === 'OpenAI Compatible'
+              ? '작업판을 생성하기 전에 서버 관리에서 OpenAI Compatible 서버를 등록해주세요.'
               : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
           </Alert>
         </Grid>

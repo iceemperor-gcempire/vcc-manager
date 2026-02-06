@@ -34,16 +34,62 @@ const getMimeType = (filename) => {
   return mimeTypes[ext] || 'application/octet-stream';
 };
 
+// 히스토리에서 노드 실행 순서 추출
+const getNodeExecutionOrder = (history) => {
+  // status.messages에서 실행 완료 순서 추출
+  if (history.status && history.status.messages) {
+    const executionOrder = [];
+    for (const message of history.status.messages) {
+      // message 형식: ["execution_cached", { nodes: [...] }] 또는 ["executing", { node: "id" }]
+      if (Array.isArray(message) && message[0] === 'execution_cached' && message[1]?.nodes) {
+        for (const nodeId of message[1].nodes) {
+          if (!executionOrder.includes(String(nodeId))) {
+            executionOrder.push(String(nodeId));
+          }
+        }
+      } else if (Array.isArray(message) && message[0] === 'executing' && message[1]?.node) {
+        const nodeId = String(message[1].node);
+        if (!executionOrder.includes(nodeId)) {
+          executionOrder.push(nodeId);
+        }
+      }
+    }
+    if (executionOrder.length > 0) {
+      return executionOrder;
+    }
+  }
+  // fallback: Object.keys 순서 (숫자 키 오름차순)
+  return null;
+};
+
 // 히스토리 결과 처리 함수
 const processHistoryResult = async (serverUrl, history) => {
   const images = [];
   const videos = [];
   console.log(`🔍 Processing history outputs...`);
-  
+
   if (history.outputs) {
-    console.log(`📋 Found ${Object.keys(history.outputs).length} output nodes`);
-    
-    for (const nodeId of Object.keys(history.outputs)) {
+    // 실행 순서 기반으로 출력 노드 순서 결정
+    const executionOrder = getNodeExecutionOrder(history);
+    const outputNodeIds = Object.keys(history.outputs);
+
+    let orderedNodeIds;
+    if (executionOrder) {
+      // 실행 순서에서 출력이 있는 노드만 필터링 (실행 순서 유지)
+      orderedNodeIds = executionOrder.filter(id => outputNodeIds.includes(id));
+      // 실행 순서에 없는 출력 노드가 있으면 뒤에 추가
+      for (const id of outputNodeIds) {
+        if (!orderedNodeIds.includes(id)) {
+          orderedNodeIds.push(id);
+        }
+      }
+      console.log(`📋 Found ${outputNodeIds.length} output nodes (execution order preserved)`);
+    } else {
+      orderedNodeIds = outputNodeIds;
+      console.log(`📋 Found ${outputNodeIds.length} output nodes (default key order)`);
+    }
+
+    for (const nodeId of orderedNodeIds) {
       const nodeOutput = history.outputs[nodeId];
       console.log(`🔍 Node ${nodeId} output:`, nodeOutput);
       

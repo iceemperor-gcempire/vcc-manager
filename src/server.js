@@ -23,6 +23,8 @@ const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { initializeQueues } = require('./services/queueService');
+const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
+const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 
 dotenv.config();
 
@@ -148,6 +150,11 @@ const startServer = async () => {
     console.log('Connecting to MongoDB...');
     await connectDB();
     
+    // Run migrations
+    console.log('Running migrations...');
+    await migrateWorkboardApiFormat();
+    await migrateMediaOrderIndex();
+
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
     await initializeQueues();

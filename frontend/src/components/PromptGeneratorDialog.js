@@ -27,7 +27,7 @@ import PromptGeneratorPanel from './PromptGeneratorPanel';
 function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
   const { data, isLoading } = useQuery(
     ['promptWorkboards'],
-    () => workboardAPI.getAll({ workboardType: 'prompt', limit: 50 }),
+    () => workboardAPI.getAll({ apiFormat: 'OpenAI Compatible', limit: 50 }),
     { enabled: open }
   );
 

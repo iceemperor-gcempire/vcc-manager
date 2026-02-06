@@ -118,9 +118,15 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView, onTog
 
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
-            label={workboard.workboardType === 'prompt' ? '프롬프트' : '이미지'}
-            color={workboard.workboardType === 'prompt' ? 'secondary' : 'primary'}
+            label={workboard.apiFormat === 'OpenAI Compatible' ? 'OpenAI Compatible API' : 'ComfyUI API'}
+            color={workboard.apiFormat === 'OpenAI Compatible' ? 'secondary' : 'primary'}
             size="small"
+          />
+          <Chip
+            label={workboard.outputFormat === 'text' ? '텍스트' : workboard.outputFormat === 'video' ? '비디오' : '이미지'}
+            color={workboard.outputFormat === 'text' ? 'info' : workboard.outputFormat === 'video' ? 'warning' : 'default'}
+            size="small"
+            variant="outlined"
           />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
@@ -204,7 +210,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       name: '',
       description: '',
       serverId: '',
-      workboardType: 'image',
+      apiFormat: 'ComfyUI',
+      outputFormat: 'image',
       workflowData: '',
       isActive: true,
       aiModels: [],
@@ -220,8 +227,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       additionalCustomFields: []
     }
   });
-  
-  const workboardType = watch('workboardType');
+
+  const apiFormat = watch('apiFormat');
+  const isComfyUI = apiFormat === 'ComfyUI';
 
   // 관리자 전용 API로 완전한 데이터 로딩
   React.useEffect(() => {
@@ -240,7 +248,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             name: fullData.name || '',
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
-            workboardType: fullData.workboardType || 'image',
+            apiFormat: fullData.apiFormat || (fullData.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
+            outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
             isActive: fullData.isActive ?? true,
             aiModels: fullData.baseInputFields?.aiModel?.map(m => ({ key: m.key || '', value: m.value || '' })) || [],
@@ -356,21 +365,23 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       });
     }
 
+    const isComfyUIFormat = data.apiFormat === 'ComfyUI';
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      workboardType: data.workboardType || 'image',
-      workflowData: data.workboardType === 'prompt' ? '' : data.workflowData,
+      apiFormat: data.apiFormat || 'ComfyUI',
+      outputFormat: data.outputFormat || 'image',
+      workflowData: !isComfyUIFormat ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: data.workboardType === 'image' ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
-        referenceImageMethods: data.workboardType === 'image' ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: data.workboardType === 'prompt' ? (data.systemPrompt || '') : '',
-        referenceImages: data.workboardType === 'prompt' ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
-        temperature: data.workboardType === 'prompt' ? (parseFloat(data.temperature) || 0.7) : undefined,
-        maxTokens: data.workboardType === 'prompt' ? (parseInt(data.maxTokens) || 2000) : undefined
+        imageSizes: isComfyUIFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
+        systemPrompt: !isComfyUIFormat ? (data.systemPrompt || '') : '',
+        referenceImages: !isComfyUIFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
+        temperature: !isComfyUIFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
+        maxTokens: !isComfyUIFormat ? (parseInt(data.maxTokens) || 2000) : undefined
       },
       additionalInputFields
     };
@@ -401,7 +412,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
             <Tab label="커스텀 필드" />
-            {workboardType === 'image' && <Tab label="워크플로우" />}
+            {isComfyUI && <Tab label="워크플로우" />}
           </Tabs>
 
           {/* 기본 정보 탭 */}
@@ -410,7 +421,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               control={control}
               errors={errors}
               showActiveSwitch={true}
-              showTypeSelector={false}
+              showTypeSelector={true}
               isDialogOpen={open}
             />
           )}
@@ -429,7 +440,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       <Typography variant="body2" color="textSecondary">
                         사용자가 선택할 수 있는 AI 모델들을 설정합니다.
                       </Typography>
-                      {workboardType === 'image' && (
+                      {isComfyUI && (
                         <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
                           Workflow JSON 형식: <code>{'{{##model##}}'}</code>
                         </Typography>
@@ -463,7 +474,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         render={({ field }) => (
                           <TextField
                             {...field}
-                            label={workboardType === 'prompt' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
+                            label={apiFormat === 'OpenAI Compatible' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
                             size="small"
                             sx={{ flex: 2 }}
                           />
@@ -482,7 +493,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               </Accordion>
 
               {/* 프롬프트 작업판 전용 설정 */}
-              {workboardType === 'prompt' && (
+              {!isComfyUI && (
                 <>
                   <Accordion defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -614,7 +625,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               )}
 
               {/* 이미지 작업판 전용 설정 */}
-              {workboardType === 'image' && (
+              {isComfyUI && (
                 <>
                   <Accordion>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -1203,7 +1214,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           )}
 
           {/* 워크플로우 탭 - 이미지 타입만 */}
-          {workboardType === 'image' && tabValue === 3 && (
+          {isComfyUI && tabValue === 3 && (
             <Box>
               {/* 사용 가능한 변수 목록 */}
               <Accordion defaultExpanded={false} sx={{ mb: 2 }}>
@@ -1282,7 +1293,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               <Controller
                 name="workflowData"
                 control={control}
-                rules={{ required: workboardType === 'image' ? 'Workflow JSON을 입력해주세요' : false }}
+                rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
                 render={({ field }) => (
                   <TextField
                     {...field}
@@ -1319,7 +1330,8 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
     defaultValues: {
       name: workboard?.name || '',
       description: workboard?.description || '',
-      workboardType: workboard?.workboardType || 'image',
+      apiFormat: workboard?.apiFormat || 'ComfyUI',
+      outputFormat: workboard?.outputFormat || 'image',
       serverId: workboard?.serverId?._id || '',
       isActive: workboard?.isActive ?? true
     }
@@ -1330,7 +1342,8 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
       reset({
         name: workboard?.name || '',
         description: workboard?.description || '',
-        workboardType: workboard?.workboardType || 'image',
+        apiFormat: workboard?.apiFormat || (workboard?.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
+        outputFormat: workboard?.outputFormat || (workboard?.workboardType === 'prompt' ? 'text' : 'image'),
         serverId: workboard?.serverId?._id || '',
         isActive: workboard?.isActive ?? true
       });
@@ -1609,11 +1622,11 @@ function WorkboardManagement() {
     if (selectedWorkboard) {
       updateMutation.mutate({ id: selectedWorkboard._id, data });
     } else {
-      const isPromptType = data.workboardType === 'prompt';
-      
+      const isOpenAI = data.apiFormat === 'OpenAI Compatible';
+
       const workboardData = {
         ...data,
-        baseInputFields: isPromptType ? {
+        baseInputFields: isOpenAI ? {
           aiModel: [
             { key: 'GPT-4', value: 'gpt-4' },
             { key: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }
@@ -1639,7 +1652,7 @@ function WorkboardManagement() {
           ]
         },
         additionalInputFields: [],
-        workflowData: isPromptType ? '' : JSON.stringify({
+        workflowData: isOpenAI ? '' : JSON.stringify({
           "prompt": "{{##prompt##}}",
           "negative_prompt": "{{##negative_prompt##}}",
           "model": "{{##model##}}",

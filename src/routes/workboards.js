@@ -8,7 +8,7 @@ const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', workboardType, includeAll, includeInactive } = req.query;
+    const { page = 1, limit = 10, search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
     const skip = (page - 1) * limit;
 
     const filter = {};
@@ -20,10 +20,15 @@ router.get('/', requireAuth, async (req, res) => {
 
     if (includeAll === 'true') {
       // 관리자용: 모든 타입 조회
+    } else if (apiFormat || outputFormat) {
+      // 새로운 필터 방식: apiFormat + outputFormat
+      if (apiFormat) filter.apiFormat = apiFormat;
+      if (outputFormat) filter.outputFormat = outputFormat;
     } else if (workboardType) {
+      // 하위호환: 기존 workboardType 파라미터 지원
       filter.workboardType = workboardType;
     } else {
-      filter.workboardType = { $in: ['image', null, undefined] };
+      // 기본: 모든 타입 반환
     }
     if (search) {
       filter.$or = [
@@ -107,11 +112,18 @@ router.post('/', requireAdmin, async (req, res) => {
       description,
       serverId,
       serverUrl,
-      workboardType = 'image',
+      workboardType,
+      apiFormat,
+      outputFormat,
       baseInputFields,
       additionalInputFields,
       workflowData
     } = req.body;
+
+    // apiFormat 기반으로 workboardType 자동 설정 (하위호환)
+    const resolvedApiFormat = apiFormat || (workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI');
+    const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
+    const resolvedWorkboardType = workboardType || (resolvedApiFormat === 'OpenAI Compatible' ? 'prompt' : 'image');
     
     // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
     let finalServerId = serverId;
@@ -147,10 +159,12 @@ router.post('/', requireAdmin, async (req, res) => {
       description: description?.trim(),
       serverId: finalServerId,
       serverUrl: server.serverUrl,
-      workboardType,
+      workboardType: resolvedWorkboardType,
+      apiFormat: resolvedApiFormat,
+      outputFormat: resolvedOutputFormat,
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
-      workflowData: workboardType === 'prompt' ? '' : workflowData,
+      workflowData: resolvedApiFormat === 'OpenAI Compatible' ? '' : workflowData,
       createdBy: req.user._id
     });
     
@@ -179,6 +193,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
       serverId,
       serverUrl,
       workboardType,
+      apiFormat,
+      outputFormat,
       baseInputFields,
       additionalInputFields,
       workflowData,
@@ -220,12 +236,19 @@ router.put('/:id', requireAdmin, async (req, res) => {
       console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
       workboard.serverUrl = serverUrl.trim();
     }
-    if (workboardType) workboard.workboardType = workboardType;
+    if (apiFormat) {
+      workboard.apiFormat = apiFormat;
+      // workboardType도 동기화 (하위호환)
+      workboard.workboardType = apiFormat === 'OpenAI Compatible' ? 'prompt' : 'image';
+    } else if (workboardType) {
+      workboard.workboardType = workboardType;
+    }
+    if (outputFormat) workboard.outputFormat = outputFormat;
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
-      workboard.workflowData = workboard.workboardType === 'prompt' ? '' : workflowData;
-      if (workboard.workboardType === 'image' && workflowData && !workboard.validateWorkflowData()) {
+      workboard.workflowData = workboard.apiFormat === 'OpenAI Compatible' ? '' : workflowData;
+      if (workboard.apiFormat === 'ComfyUI' && workflowData && !workboard.validateWorkflowData()) {
         return res.status(400).json({ message: 'Invalid workflow data format' });
       }
       workboard.version += 1;
@@ -332,6 +355,8 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       serverId: originalWorkboard.serverId,
       serverUrl: originalWorkboard.serverUrl,
       workboardType: originalWorkboard.workboardType,
+      apiFormat: originalWorkboard.apiFormat,
+      outputFormat: originalWorkboard.outputFormat,
       baseInputFields: originalWorkboard.baseInputFields,
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,

@@ -65,6 +65,10 @@ const generatedVideoSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  orderIndex: {
+    type: Number,
+    default: 0
+  },
   downloadCount: {
     type: Number,
     default: 0
@@ -79,7 +83,7 @@ generatedVideoSchema.methods.incrementDownloadCount = function() {
 };
 
 generatedVideoSchema.index({ userId: 1, createdAt: -1 });
-generatedVideoSchema.index({ jobId: 1 });
+generatedVideoSchema.index({ jobId: 1, orderIndex: 1 });
 generatedVideoSchema.index({ tags: 1 });
 
 module.exports = mongoose.model('GeneratedVideo', generatedVideoSchema);

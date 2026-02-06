@@ -80,10 +80,6 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
     }
   };
 
-  const getOutputTypeColor = (outputType) => {
-    return outputType === 'Image' ? 'primary' : 'secondary';
-  };
-
   const handleHealthCheck = async () => {
     setHealthChecking(true);
     try {
@@ -122,7 +118,7 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
           <Box display="flex" alignItems="center" gap={1}>
             {getTypeIcon(server.serverType)}
             <Typography variant="body2">
-              <strong>타입:</strong> {server.serverType}
+              <strong>AI API 형식:</strong> {server.serverType === 'ComfyUI' ? 'ComfyUI API' : 'OpenAI Compatible API'}
             </Typography>
           </Box>
           
@@ -130,15 +126,6 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
             <strong>URL:</strong> {server.serverUrl}
           </Typography>
           
-          <Box display="flex" alignItems="center" gap={1}>
-            <Chip 
-              label={server.outputType}
-              size="small" 
-              color={getOutputTypeColor(server.outputType)}
-              variant="outlined"
-            />
-          </Box>
-
           {/* 헬스체크 정보 */}
           {server.healthCheck?.lastChecked && (
             <Box>
@@ -229,7 +216,6 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
     description: '',
     serverType: 'ComfyUI',
     serverUrl: '',
-    outputType: 'Image',
     isActive: true,
     configuration: {
       apiKey: '',
@@ -246,7 +232,6 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
         description: server.description || '',
         serverType: server.serverType || 'ComfyUI',
         serverUrl: server.serverUrl || '',
-        outputType: server.outputType || 'Image',
         isActive: server.isActive !== undefined ? server.isActive : true,
         configuration: {
           apiKey: server.configuration?.apiKey || '',
@@ -259,7 +244,6 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
         description: '',
         serverType: 'ComfyUI',
         serverUrl: '',
-        outputType: 'Image',
         isActive: true,
         configuration: {
           apiKey: '',
@@ -334,14 +318,14 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
             
             <Grid item xs={12} sm={6}>
               <FormControl fullWidth>
-                <InputLabel>서버 타입</InputLabel>
+                <InputLabel>AI API 형식</InputLabel>
                 <Select
                   value={formData.serverType}
                   onChange={(e) => setFormData(prev => ({ ...prev, serverType: e.target.value }))}
-                  label="서버 타입"
+                  label="AI API 형식"
                 >
-                  <MenuItem value="ComfyUI">ComfyUI</MenuItem>
-                  <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+                  <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
+                  <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -357,7 +341,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
               />
             </Grid>
             
-            <Grid item xs={12} sm={8}>
+            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="서버 URL"
@@ -368,20 +352,6 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 placeholder="http://localhost:8188"
                 required
               />
-            </Grid>
-            
-            <Grid item xs={12} sm={4}>
-              <FormControl fullWidth>
-                <InputLabel>출력 타입</InputLabel>
-                <Select
-                  value={formData.outputType}
-                  onChange={(e) => setFormData(prev => ({ ...prev, outputType: e.target.value }))}
-                  label="출력 타입"
-                >
-                  <MenuItem value="Image">Image</MenuItem>
-                  <MenuItem value="Text">Text</MenuItem>
-                </Select>
-              </FormControl>
             </Grid>
             
             <Grid item xs={12}>
