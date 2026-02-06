@@ -66,6 +66,10 @@ const generatedImageSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  orderIndex: {
+    type: Number,
+    default: 0
+  },
   downloadCount: {
     type: Number,
     default: 0
@@ -80,7 +84,7 @@ generatedImageSchema.methods.incrementDownloadCount = function() {
 };
 
 generatedImageSchema.index({ userId: 1, createdAt: -1 });
-generatedImageSchema.index({ jobId: 1 });
+generatedImageSchema.index({ jobId: 1, orderIndex: 1 });
 generatedImageSchema.index({ tags: 1 });
 
 module.exports = mongoose.model('GeneratedImage', generatedImageSchema);

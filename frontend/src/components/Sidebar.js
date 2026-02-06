@@ -23,7 +23,6 @@ import {
   BarChart,
   Apps,
   TextSnippet,
-  Chat,
   LocalOffer,
   Settings,
   Backup,
@@ -42,15 +41,9 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
-    text: '이미지 작업판',
+    text: '작업판',
     path: '/workboards',
     icon: <ViewModule />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '프롬프트 작업판',
-    path: '/prompt-workboards',
-    icon: <Chat />,
     roles: ['user', 'admin']
   },
   {

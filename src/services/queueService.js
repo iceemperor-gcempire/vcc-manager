@@ -606,6 +606,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
         url: `/uploads/${subDir}/${filename}`,
         userId: inputData.userId,
         jobId,
+        orderIndex: i,
         metadata,
         generationParams: {
           prompt: inputData.prompt,

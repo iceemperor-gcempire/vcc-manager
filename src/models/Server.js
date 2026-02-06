@@ -35,8 +35,8 @@ const serverSchema = new mongoose.Schema({
   },
   outputType: {
     type: String,
-    enum: ['Image', 'Text'],
-    required: true
+    enum: ['Image', 'Video', 'Text'],
+    required: false
   },
   isActive: {
     type: Boolean,

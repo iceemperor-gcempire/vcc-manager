@@ -81,26 +81,18 @@ router.post('/', requireAdmin, async (req, res) => {
     } = req.body;
     
     // 필수 필드 검증
-    if (!name || !serverType || !serverUrl || !outputType) {
+    if (!name || !serverType || !serverUrl) {
       return res.status(400).json({
         success: false,
         message: '필수 필드가 누락되었습니다.'
       });
     }
-    
+
     // 서버 타입 검증
     if (!['ComfyUI', 'OpenAI Compatible'].includes(serverType)) {
       return res.status(400).json({
         success: false,
         message: '지원하지 않는 서버 타입입니다.'
-      });
-    }
-    
-    // 출력 타입 검증
-    if (!['Image', 'Text'].includes(outputType)) {
-      return res.status(400).json({
-        success: false,
-        message: '지원하지 않는 출력 타입입니다.'
       });
     }
     

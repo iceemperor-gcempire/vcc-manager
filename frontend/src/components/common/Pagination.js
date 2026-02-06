@@ -15,8 +15,6 @@ import {
 import {
   FirstPage,
   LastPage,
-  ChevronLeft,
-  ChevronRight,
   Input as InputIcon
 } from '@mui/icons-material';
 
@@ -119,45 +117,32 @@ function Pagination({
 
       {/* 페이지네이션 버튼들 */}
       <Box display="flex" justifyContent="center" alignItems="center">
-        <Box 
-          display="flex" 
-          gap={1} 
+        <Box
+          display="flex"
+          gap={0.5}
           alignItems="center"
-          sx={{ 
-            flexWrap: 'wrap', 
+          sx={{
+            flexWrap: 'nowrap',
             justifyContent: 'center',
             maxWidth: '100%',
-            overflow: 'hidden'
+            overflowX: 'auto',
+            py: 1
           }}
         >
           {/* 처음 페이지 버튼 */}
-          {showFirstLast && currentPage > 1 && (
+          {showFirstLast && (
             <IconButton
               onClick={() => onPageChange(1)}
               size={size}
               disabled={currentPage === 1}
-              sx={{ 
-                border: 1, 
+              sx={{
+                border: 1,
                 borderColor: 'grey.300',
-                minWidth: 'auto'
+                minWidth: 'auto',
+                flexShrink: 0
               }}
             >
               <FirstPage fontSize="small" />
-            </IconButton>
-          )}
-
-          {/* 이전 페이지 버튼 */}
-          {currentPage > 1 && (
-            <IconButton
-              onClick={() => onPageChange(currentPage - 1)}
-              size={size}
-              sx={{ 
-                border: 1, 
-                borderColor: 'grey.300',
-                minWidth: 'auto'
-              }}
-            >
-              <ChevronLeft fontSize="small" />
             </IconButton>
           )}
 
@@ -168,40 +153,27 @@ function Pagination({
               variant={pageNum === currentPage ? "contained" : "outlined"}
               onClick={() => onPageChange(pageNum)}
               size={size}
-              sx={{ 
-                minWidth: isMobile ? 'auto' : 40,
-                px: isMobile ? 1.5 : 2
+              sx={{
+                minWidth: isMobile ? 36 : 40,
+                px: isMobile ? 1 : 2,
+                flexShrink: 0
               }}
             >
               {pageNum}
             </Button>
           ))}
 
-          {/* 다음 페이지 버튼 */}
-          {currentPage < totalPages && (
-            <IconButton
-              onClick={() => onPageChange(currentPage + 1)}
-              size={size}
-              sx={{ 
-                border: 1, 
-                borderColor: 'grey.300',
-                minWidth: 'auto'
-              }}
-            >
-              <ChevronRight fontSize="small" />
-            </IconButton>
-          )}
-
           {/* 마지막 페이지 버튼 */}
-          {showFirstLast && currentPage < totalPages && (
+          {showFirstLast && (
             <IconButton
               onClick={() => onPageChange(totalPages)}
               size={size}
               disabled={currentPage === totalPages}
-              sx={{ 
-                border: 1, 
+              sx={{
+                border: 1,
                 borderColor: 'grey.300',
-                minWidth: 'auto'
+                minWidth: 'auto',
+                flexShrink: 0
               }}
             >
               <LastPage fontSize="small" />
@@ -213,12 +185,13 @@ function Pagination({
             <IconButton
               onClick={handleGoToPageClick}
               size={size}
-              sx={{ 
-                border: 1, 
+              sx={{
+                border: 1,
                 borderColor: 'primary.main',
                 color: 'primary.main',
                 minWidth: 'auto',
-                ml: 1
+                ml: 0.5,
+                flexShrink: 0
               }}
               title="페이지 직접 이동"
             >

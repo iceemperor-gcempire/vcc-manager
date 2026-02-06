@@ -21,33 +21,26 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem,
-  FormHelperText,
-  IconButton
+  MenuItem
 } from '@mui/material';
 import {
   Search,
   PlayArrow,
   Info,
   TrendingUp,
-  Computer,
-  Edit,
-  MoreVert,
-  Add,
-  Delete,
-  Close
+  Computer
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 
 
 function WorkboardCard({ workboard }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
+
+  const isComfyUI = workboard.apiFormat === 'ComfyUI';
 
   const handleSelect = () => {
     // 히스토리에서 온 데이터가 있는지 확인
@@ -56,7 +49,6 @@ function WorkboardCard({ workboard }) {
       try {
         const parsedData = JSON.parse(continueJobData);
         if (parsedData.fromJobHistory) {
-          // 히스토리에서 온 데이터를 해당 작업판으로 연결
           const updatedData = {
             workboardId: workboard._id,
             inputData: parsedData.inputData,
@@ -70,9 +62,12 @@ function WorkboardCard({ workboard }) {
       }
     }
 
-    navigate(`/generate/${workboard._id}`);
+    if (isComfyUI) {
+      navigate(`/generate/${workboard._id}`);
+    } else {
+      navigate(`/prompt-generate/${workboard._id}`);
+    }
   };
-
 
   const handleInfo = () => {
     setInfoOpen(true);
@@ -80,6 +75,23 @@ function WorkboardCard({ workboard }) {
 
   const handleInfoClose = () => {
     setInfoOpen(false);
+  };
+
+  const getOutputFormatLabel = (format) => {
+    switch (format) {
+      case 'image': return '이미지';
+      case 'video': return '비디오';
+      case 'text': return '텍스트';
+      default: return format;
+    }
+  };
+
+  const getApiFormatLabel = (format) => {
+    switch (format) {
+      case 'ComfyUI': return 'ComfyUI API';
+      case 'OpenAI Compatible': return 'OpenAI Compatible API';
+      default: return format;
+    }
   };
 
   return (
@@ -99,7 +111,7 @@ function WorkboardCard({ workboard }) {
           <Box display="flex" alignItems="center" gap={1} mb={2}>
             <Computer fontSize="small" />
             <Typography variant="caption" color="textSecondary">
-              {new URL(workboard.serverUrl).hostname}
+              {workboard.serverId?.name || (workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 정보 없음')}
             </Typography>
           </Box>
 
@@ -108,6 +120,19 @@ function WorkboardCard({ workboard }) {
             <Typography variant="caption" color="textSecondary">
               사용횟수: {workboard.usageCount || 0}회
             </Typography>
+          </Box>
+
+          <Box display="flex" flexWrap="wrap" gap={0.5} mb={2}>
+            <Chip
+              label={getOutputFormatLabel(workboard.outputFormat || 'image')}
+              size="small"
+              color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
+            />
+            <Chip
+              label={getApiFormatLabel(workboard.apiFormat || 'ComfyUI')}
+              size="small"
+              variant="outlined"
+            />
           </Box>
 
           <Box display="flex" flexWrap="wrap" gap={1}>
@@ -141,6 +166,7 @@ function WorkboardCard({ workboard }) {
           <Button
             size="small"
             variant="contained"
+            color={isComfyUI ? 'primary' : 'secondary'}
             onClick={handleSelect}
             startIcon={<PlayArrow />}
             sx={{ ml: 'auto' }}
@@ -158,6 +184,19 @@ function WorkboardCard({ workboard }) {
             {workboard.description || '설명이 없습니다.'}
           </DialogContentText>
 
+          <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
+            <Chip
+              label={getOutputFormatLabel(workboard.outputFormat || 'image')}
+              size="small"
+              color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
+            />
+            <Chip
+              label={getApiFormatLabel(workboard.apiFormat || 'ComfyUI')}
+              size="small"
+              variant="outlined"
+            />
+          </Box>
+
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
             지원 AI 모델
           </Typography>
@@ -173,22 +212,26 @@ function WorkboardCard({ workboard }) {
             ))}
           </Box>
 
-          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            지원 이미지 크기
-          </Typography>
-          <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-            {workboard.baseInputFields?.imageSizes?.map((size, index) => (
-              <Chip
-                key={index}
-                label={size.key}
-                size="small"
-                color="secondary"
-                variant="outlined"
-              />
-            ))}
-          </Box>
+          {isComfyUI && workboard.baseInputFields?.imageSizes?.length > 0 && (
+            <>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                지원 이미지 크기
+              </Typography>
+              <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
+                {workboard.baseInputFields.imageSizes.map((size, index) => (
+                  <Chip
+                    key={index}
+                    label={size.key}
+                    size="small"
+                    color="secondary"
+                    variant="outlined"
+                  />
+                ))}
+              </Box>
+            </>
+          )}
 
-          {workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
+          {isComfyUI && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 참고 이미지 사용 방식
@@ -204,6 +247,24 @@ function WorkboardCard({ workboard }) {
                   />
                 ))}
               </Box>
+            </>
+          )}
+
+          {!isComfyUI && workboard.baseInputFields?.systemPrompt && (
+            <>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                시스템 프롬프트
+              </Typography>
+              <Typography variant="body2" color="textSecondary" sx={{
+                whiteSpace: 'pre-wrap',
+                backgroundColor: '#f5f5f5',
+                p: 2,
+                borderRadius: 1,
+                maxHeight: 200,
+                overflow: 'auto'
+              }}>
+                {workboard.baseInputFields.systemPrompt}
+              </Typography>
             </>
           )}
 
@@ -223,7 +284,12 @@ function WorkboardCard({ workboard }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleInfoClose}>닫기</Button>
-          <Button onClick={handleSelect} variant="contained" startIcon={<PlayArrow />}>
+          <Button
+            onClick={handleSelect}
+            variant="contained"
+            color={isComfyUI ? 'primary' : 'secondary'}
+            startIcon={<PlayArrow />}
+          >
             선택하기
           </Button>
         </DialogActions>
@@ -235,11 +301,16 @@ function WorkboardCard({ workboard }) {
 function Workboards() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const queryClient = useQueryClient();
+  const [outputFormat, setOutputFormat] = useState('');
+  const [apiFormat, setApiFormat] = useState('');
+
+  const queryParams = { search, page, limit: 12 };
+  if (outputFormat) queryParams.outputFormat = outputFormat;
+  if (apiFormat) queryParams.apiFormat = apiFormat;
 
   const { data, isLoading, error } = useQuery(
-    ['workboards', { search, page }],
-    () => workboardAPI.getAll({ search, page, limit: 12 }),
+    ['workboards', queryParams],
+    () => workboardAPI.getAll(queryParams),
     { keepPreviousData: true }
   );
 
@@ -251,6 +322,15 @@ function Workboards() {
     setPage(1);
   };
 
+  const handleOutputFormatChange = (event) => {
+    setOutputFormat(event.target.value);
+    setPage(1);
+  };
+
+  const handleApiFormatChange = (event) => {
+    setApiFormat(event.target.value);
+    setPage(1);
+  };
 
   if (error) {
     return (
@@ -269,14 +349,13 @@ function Workboards() {
           작업판 선택
         </Typography>
         <Typography variant="body1" color="textSecondary" gutterBottom>
-          이미지 생성을 위해 사용할 작업판을 선택하세요. 각 작업판은 서로 다른 AI 모델과 설정을 제공합니다.
+          사용할 작업판을 선택하세요. 각 작업판은 서로 다른 AI 모델과 설정을 제공합니다.
         </Typography>
       </Box>
 
-      {/* 검색 */}
-      <Box mb={4}>
+      {/* 검색 및 필터 */}
+      <Box mb={4} display="flex" gap={2} flexWrap="wrap" alignItems="center">
         <TextField
-          fullWidth
           placeholder="작업판 이름이나 설명으로 검색..."
           value={search}
           onChange={handleSearchChange}
@@ -287,8 +366,33 @@ function Workboards() {
               </InputAdornment>
             ),
           }}
-          sx={{ maxWidth: 500 }}
+          sx={{ minWidth: 300, flex: 1, maxWidth: 500 }}
         />
+        <FormControl sx={{ minWidth: 150 }} size="small">
+          <InputLabel>출력 형식</InputLabel>
+          <Select
+            value={outputFormat}
+            onChange={handleOutputFormatChange}
+            label="출력 형식"
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="image">이미지</MenuItem>
+            <MenuItem value="video">비디오</MenuItem>
+            <MenuItem value="text">텍스트</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 200 }} size="small">
+          <InputLabel>AI API 형식</InputLabel>
+          <Select
+            value={apiFormat}
+            onChange={handleApiFormatChange}
+            label="AI API 형식"
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
+            <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {/* 작업판 목록 */}
@@ -298,16 +402,14 @@ function Workboards() {
         </Box>
       ) : workboards.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : '사용 가능한 작업판이 없습니다.'}
+          {search || outputFormat || apiFormat ? '검색 결과가 없습니다.' : '사용 가능한 작업판이 없습니다.'}
         </Alert>
       ) : (
         <>
           <Grid container spacing={3}>
             {workboards.map((workboard) => (
               <Grid item xs={12} sm={6} md={4} key={workboard._id}>
-                <WorkboardCard
-                  workboard={workboard}
-                />
+                <WorkboardCard workboard={workboard} />
               </Grid>
             ))}
           </Grid>
@@ -331,7 +433,6 @@ function Workboards() {
           )}
         </>
       )}
-
     </Container>
   );
 }

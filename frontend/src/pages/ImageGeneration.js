@@ -401,6 +401,22 @@ function ImageGeneration() {
       setSeedValue(promptData.seed);
       setRandomSeed(false);
     }
+
+    // 대표 이미지가 있고, 작업판에 이미지 필드가 있으면 자동 첨부
+    if (promptData.representativeImage?.imageId && workboardData?.additionalInputFields) {
+      const imageField = workboardData.additionalInputFields.find(f => f.type === 'image');
+      if (imageField) {
+        const currentValue = getValues(`additionalParams.${imageField.name}`);
+        if (!currentValue || currentValue.length === 0) {
+          const { imageId, imageType, url } = promptData.representativeImage;
+          setValue(`additionalParams.${imageField.name}`, [{
+            imageId,
+            image: { _id: imageId, imageType, url }
+          }]);
+        }
+      }
+    }
+
     toast.success(`프롬프트 "${promptData.name}" 불러옴`);
   };
 

@@ -46,7 +46,10 @@ export const authAPI = {
   signup: (data) => api.post('/auth/signup', data),
   signin: (data) => api.post('/auth/signin', data),
   checkEmail: (email) => api.get(`/auth/check-email/${encodeURIComponent(email)}`),
-  checkNickname: (nickname) => api.get(`/auth/check-nickname/${encodeURIComponent(nickname)}`)
+  checkNickname: (nickname) => api.get(`/auth/check-nickname/${encodeURIComponent(nickname)}`),
+  requestPasswordReset: (email) => api.post('/auth/forgot-password', { email }),
+  verifyResetToken: (token) => api.get(`/auth/verify-reset-token/${token}`),
+  resetPassword: (data) => api.post('/auth/reset-password', data)
 };
 
 export const userAPI = {
