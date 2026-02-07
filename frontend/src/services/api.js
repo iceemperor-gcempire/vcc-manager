@@ -172,6 +172,10 @@ export const promptDataAPI = {
   use: (id) => api.post(`/prompt-data/${id}/use`),
 };
 
+export const updatelogAPI = {
+  get: (majorVersion) => api.get(`/updatelog/${majorVersion}`),
+};
+
 export const tagAPI = {
   getAll: (params) => api.get('/tags', { params }),
   create: (data) => api.post('/tags', data),

@@ -1,0 +1,15 @@
+{
+  "name": "vcc-manager-mcp-server",
+  "version": "1.0.0",
+  "description": "MCP server for VCC Manager - AI image/video generation",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "zod": "^3.24.2"
+  }
+}

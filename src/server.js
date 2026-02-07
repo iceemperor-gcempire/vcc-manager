@@ -19,6 +19,7 @@ const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
 const tagRoutes = require('./routes/tags');
 const backupRoutes = require('./routes/backup');
+const updatelogRoutes = require('./routes/updatelog');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
@@ -104,6 +105,7 @@ app.use('/api/servers', serverRoutes);
 app.use('/api/prompt-data', promptDataRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/admin/backup', backupRoutes);
+app.use('/api/updatelog', updatelogRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {

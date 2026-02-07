@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Container,
   Grid,
@@ -12,16 +12,19 @@ import {
 import {
   CloudUpload,
   History,
-  ViewModule
+  ViewModule,
+  NewReleases
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { jobAPI } from '../services/api';
 import config from '../config';
+import UpdateLogDialog from '../components/common/UpdateLogDialog';
 
 
 function Dashboard() {
   const navigate = useNavigate();
+  const [updateLogOpen, setUpdateLogOpen] = useState(false);
 
   const { data: recentJobs, isLoading: jobsLoading } = useQuery(
     'recentJobs',
@@ -165,11 +168,26 @@ function Dashboard() {
                 >
                   작업 히스토리 보기
                 </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<NewReleases />}
+                  onClick={() => setUpdateLogOpen(true)}
+                  size="large"
+                  sx={{ minWidth: 200 }}
+                >
+                  업데이트 내역 보기
+                </Button>
               </Box>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
+
+      <UpdateLogDialog
+        open={updateLogOpen}
+        onClose={() => setUpdateLogOpen(false)}
+        majorVersion={config.version.major}
+      />
     </Container>
   );
 }

@@ -91,6 +91,14 @@ const userSchema = new mongoose.Schema({
     nsfwImageFilter: {
       type: Boolean,
       default: true
+    },
+    resetWorkboardOutputFormat: {
+      type: Boolean,
+      default: false
+    },
+    resetWorkboardApiFormat: {
+      type: Boolean,
+      default: false
     }
   },
   passwordResetToken: {
