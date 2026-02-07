@@ -22,14 +22,15 @@ import { useQuery } from 'react-query';
 import { imageAPI } from '../../services/api';
 import Pagination from './Pagination';
 
-function ImageSelectDialog({ 
-  open, 
-  onClose, 
-  onSelect, 
+function ImageSelectDialog({
+  open,
+  onClose,
+  onSelect,
   title = '이미지 선택',
   multiple = false,
   maxImages = 1,
-  initialSelected = []
+  initialSelected = [],
+  filterTags = []
 }) {
   const [tab, setTab] = useState(0);
   const [selectedImages, setSelectedImages] = useState([]);
@@ -43,15 +44,17 @@ function ImageSelectDialog({
     }
   }, [open, initialSelected]);
 
+  const tagsParam = filterTags.length > 0 ? filterTags.join(',') : undefined;
+
   const { data: uploadedData, isLoading: uploadedLoading } = useQuery(
-    ['uploadedImagesForSelect', uploadedPage, limit],
-    () => imageAPI.getUploaded({ page: uploadedPage, limit }),
+    ['uploadedImagesForSelect', uploadedPage, limit, tagsParam],
+    () => imageAPI.getUploaded({ page: uploadedPage, limit, tags: tagsParam }),
     { enabled: open && tab === 0 }
   );
 
   const { data: generatedData, isLoading: generatedLoading } = useQuery(
-    ['generatedImagesForSelect', generatedPage, limit],
-    () => imageAPI.getGenerated({ page: generatedPage, limit }),
+    ['generatedImagesForSelect', generatedPage, limit, tagsParam],
+    () => imageAPI.getGenerated({ page: generatedPage, limit, tags: tagsParam }),
     { enabled: open && tab === 1 }
   );
 

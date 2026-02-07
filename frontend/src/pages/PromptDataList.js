@@ -50,6 +50,7 @@ import TagInput from '../components/common/TagInput';
 function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
   const isEditing = !!promptData;
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(promptData?.representativeImage || null);
   const [tags, setTags] = useState(promptData?.tags || []);
 
@@ -109,15 +110,21 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                     justifyContent: 'center',
                     cursor: 'pointer',
                     overflow: 'hidden',
-                    bgcolor: 'grey.50'
+                    bgcolor: selectedImage?.url ? 'grey.100' : 'grey.50'
                   }}
-                  onClick={() => setImageSelectOpen(true)}
+                  onClick={() => {
+                    if (selectedImage?.url) {
+                      setImageViewerOpen(true);
+                    } else {
+                      setImageSelectOpen(true);
+                    }
+                  }}
                 >
                   {selectedImage?.url ? (
                     <img
                       src={selectedImage.url}
                       alt="Representative"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }}
                     />
                   ) : (
                     <Box textAlign="center">
@@ -129,14 +136,21 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                   )}
                 </Box>
                 {selectedImage && (
-                  <Button
-                    size="small"
-                    color="error"
-                    onClick={() => setSelectedImage(null)}
-                    sx={{ mt: 1 }}
-                  >
-                    이미지 제거
-                  </Button>
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                    <Button
+                      size="small"
+                      onClick={() => setImageSelectOpen(true)}
+                    >
+                      이미지 변경
+                    </Button>
+                    <Button
+                      size="small"
+                      color="error"
+                      onClick={() => setSelectedImage(null)}
+                    >
+                      이미지 제거
+                    </Button>
+                  </Box>
                 )}
               </Grid>
 
@@ -165,7 +179,7 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                       {...field}
                       fullWidth
                       multiline
-                      rows={2}
+                      rows={4}
                       label="메모"
                       placeholder="이 프롬프트에 대한 메모..."
                     />
@@ -248,6 +262,16 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
         onClose={() => setImageSelectOpen(false)}
         onSelect={setSelectedImage}
         title="대표 이미지 선택"
+        filterTags={tags.map(t => t._id)}
+      />
+
+      <ImageViewerDialog
+        images={selectedImage?.url ? [{ url: selectedImage.url }] : []}
+        open={imageViewerOpen}
+        onClose={() => setImageViewerOpen(false)}
+        title="대표 이미지"
+        showNavigation={false}
+        showMetadata={false}
       />
     </>
   );
@@ -486,12 +510,13 @@ function PromptDataList() {
                   {item.representativeImage?.url ? (
                     <CardMedia
                       component="img"
-                      height="140"
                       image={item.representativeImage.url}
                       alt={item.name}
                       onClick={(e) => handleImageClick(item.representativeImage.url, e)}
-                      sx={{ 
+                      sx={{
+                        aspectRatio: '1/1',
                         objectFit: 'cover',
+                        objectPosition: 'top',
                         cursor: 'pointer',
                         '&:hover': { opacity: 0.9 }
                       }}
@@ -499,7 +524,7 @@ function PromptDataList() {
                   ) : (
                     <Box
                       sx={{
-                        height: 140,
+                        aspectRatio: '1/1',
                         bgcolor: 'grey.100',
                         display: 'flex',
                         alignItems: 'center',
@@ -521,11 +546,6 @@ function PromptDataList() {
                         <MoreVert />
                       </IconButton>
                     </Box>
-                    {item.memo && (
-                      <Typography variant="body2" color="textSecondary" gutterBottom noWrap>
-                        {item.memo}
-                      </Typography>
-                    )}
                     <Typography
                       variant="body2"
                       sx={{
@@ -536,7 +556,7 @@ function PromptDataList() {
                         color: 'text.secondary'
                       }}
                     >
-                      {item.prompt}
+                      {item.memo || item.prompt}
                     </Typography>
                     <Box mt={1}>
                       {item.seed && (
