@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Grid,
@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { workboardAPI } from '../services/api';
+import { workboardAPI, userAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 
@@ -301,8 +301,32 @@ function WorkboardCard({ workboard }) {
 function Workboards() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [outputFormat, setOutputFormat] = useState('');
-  const [apiFormat, setApiFormat] = useState('');
+  const [outputFormat, setOutputFormat] = useState(
+    () => localStorage.getItem('workboardFilter_outputFormat') || ''
+  );
+  const [apiFormat, setApiFormat] = useState(
+    () => localStorage.getItem('workboardFilter_apiFormat') || ''
+  );
+
+  const { data: profileData } = useQuery(
+    'userProfile',
+    () => userAPI.getProfile(),
+    { staleTime: 5 * 60 * 1000 }
+  );
+
+  useEffect(() => {
+    const prefs = profileData?.data?.user?.preferences;
+    if (!prefs) return;
+
+    if (prefs.resetWorkboardOutputFormat) {
+      setOutputFormat('');
+      localStorage.removeItem('workboardFilter_outputFormat');
+    }
+    if (prefs.resetWorkboardApiFormat) {
+      setApiFormat('');
+      localStorage.removeItem('workboardFilter_apiFormat');
+    }
+  }, [profileData]);
 
   const queryParams = { search, page, limit: 12 };
   if (outputFormat) queryParams.outputFormat = outputFormat;
@@ -323,13 +347,25 @@ function Workboards() {
   };
 
   const handleOutputFormatChange = (event) => {
-    setOutputFormat(event.target.value);
+    const value = event.target.value;
+    setOutputFormat(value);
     setPage(1);
+    if (value) {
+      localStorage.setItem('workboardFilter_outputFormat', value);
+    } else {
+      localStorage.removeItem('workboardFilter_outputFormat');
+    }
   };
 
   const handleApiFormatChange = (event) => {
-    setApiFormat(event.target.value);
+    const value = event.target.value;
+    setApiFormat(value);
     setPage(1);
+    if (value) {
+      localStorage.setItem('workboardFilter_apiFormat', value);
+    } else {
+      localStorage.removeItem('workboardFilter_apiFormat');
+    }
   };
 
   if (error) {

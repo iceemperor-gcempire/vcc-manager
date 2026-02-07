@@ -48,6 +48,12 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (typeof preferences.nsfwImageFilter === 'boolean') {
         req.user.preferences.nsfwImageFilter = preferences.nsfwImageFilter;
       }
+      if (typeof preferences.resetWorkboardOutputFormat === 'boolean') {
+        req.user.preferences.resetWorkboardOutputFormat = preferences.resetWorkboardOutputFormat;
+      }
+      if (typeof preferences.resetWorkboardApiFormat === 'boolean') {
+        req.user.preferences.resetWorkboardApiFormat = preferences.resetWorkboardApiFormat;
+      }
     }
     
     await req.user.save();

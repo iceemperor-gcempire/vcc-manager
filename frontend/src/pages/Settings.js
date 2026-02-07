@@ -210,6 +210,59 @@ function Settings() {
             sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
           />
         </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Typography variant="h6" gutterBottom>
+          작업판 검색 설정
+        </Typography>
+        <Typography variant="body2" color="textSecondary" paragraph>
+          작업판 목록의 검색 필터 조건의 보존 여부를 설정합니다.
+        </Typography>
+
+        <Box sx={{ ml: 2 }}>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={preferences.resetWorkboardOutputFormat || false}
+                onChange={handleToggle('resetWorkboardOutputFormat')}
+                disabled={updateMutation.isLoading}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  작업판 출력 형식 검색 조건 보존하지 않음
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  이 옵션이 켜져 있으면 작업판 목록에 진입할 때 출력 형식 필터가 '전체'로 초기화됩니다.
+                </Typography>
+              </Box>
+            }
+            sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
+          />
+
+          <FormControlLabel
+            control={
+              <Switch
+                checked={preferences.resetWorkboardApiFormat || false}
+                onChange={handleToggle('resetWorkboardApiFormat')}
+                disabled={updateMutation.isLoading}
+              />
+            }
+            label={
+              <Box>
+                <Typography variant="body1">
+                  작업판 AI API 형식 검색 조건 보존하지 않음
+                </Typography>
+                <Typography variant="caption" color="textSecondary">
+                  이 옵션이 켜져 있으면 작업판 목록에 진입할 때 AI API 형식 필터가 '전체'로 초기화됩니다.
+                </Typography>
+              </Box>
+            }
+            sx={{ display: 'flex', alignItems: 'flex-start', my: 2 }}
+          />
+        </Box>
       </Paper>
     </Container>
   );
