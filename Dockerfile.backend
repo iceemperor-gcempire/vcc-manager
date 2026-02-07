@@ -6,6 +6,7 @@ COPY package*.json ./
 RUN npm install --omit=dev
 
 COPY src/ ./src/
+COPY docs/updatelogs/ ./docs/updatelogs/
 
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodeuser -u 1001

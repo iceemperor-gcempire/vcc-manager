@@ -190,6 +190,24 @@ docker-compose logs -f backend
 
 ---
 
+## 업데이트 내역 관리
+
+### 버전 태그 시 업데이트 내역 작성 절차
+
+새로운 버전 태그를 생성할 때 아래 절차를 따른다:
+
+1. `docs/updatelogs/v{major}.md` 파일 확인 (없으면 `# v{major} 업데이트 내역` 제목으로 생성)
+2. 파일 상단(제목 바로 아래)에 `## v{version}` 섹션 추가 (최신이 상단)
+3. 이전 태그 이후 커밋을 분석하여 변경사항을 한국어로 요약 작성
+4. `frontend/src/config.js`의 `version.major` 값이 현재 메이저 버전과 일치하는지 확인
+
+### 파일 위치
+- 업데이트 내역: `docs/updatelogs/v{major}.md`
+- 프론트엔드 버전 설정: `frontend/src/config.js` → `config.version.major`
+- 백엔드 API: `GET /api/updatelog/:majorVersion`
+
+---
+
 ## 문서 참조
 
 - `docs/DEVELOPMENT.md` - 전체 개발 문서
