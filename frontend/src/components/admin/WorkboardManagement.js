@@ -41,8 +41,10 @@ import {
   Settings,
   ExpandMore,
   ToggleOn,
-  ToggleOff
+  ToggleOff,
+  DragIndicator
 } from '@mui/icons-material';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -303,6 +305,18 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     setValue(fieldName, currentItems.filter((_, i) => i !== index));
   };
 
+  const reorderArrayItem = (fieldName, fromIndex, toIndex) => {
+    const currentItems = [...(watch(fieldName) || [])];
+    const [removed] = currentItems.splice(fromIndex, 1);
+    currentItems.splice(toIndex, 0, removed);
+    setValue(fieldName, currentItems);
+  };
+
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    reorderArrayItem(result.type, result.source.index, result.destination.index);
+  };
+
   const onSubmit = (data) => {
     // 추가 입력 필드들을 올바른 형식으로 변환
     const additionalInputFields = [];
@@ -454,41 +468,61 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       모델 추가
                     </Button>
                   </Box>
-                  {watch('aiModels')?.map((model, index) => (
-                    <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                      <Controller
-                        name={`aiModels.${index}.key`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label="모델 표시명"
-                            size="small"
-                            sx={{ flex: 1 }}
-                          />
-                        )}
-                      />
-                      <Controller
-                        name={`aiModels.${index}.value`}
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            label={apiFormat === 'OpenAI Compatible' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
-                            size="small"
-                            sx={{ flex: 2 }}
-                          />
-                        )}
-                      />
-                      <IconButton
-                        onClick={() => removeArrayItem('aiModels', index)}
-                        color="error"
-                        size="small"
-                      >
-                        <Delete />
-                      </IconButton>
-                    </Box>
-                  ))}
+                  <DragDropContext onDragEnd={onDragEnd}>
+                    <Droppable droppableId="aiModels" type="aiModels">
+                      {(provided) => (
+                        <Box ref={provided.innerRef} {...provided.droppableProps}>
+                          {watch('aiModels')?.map((model, index) => (
+                            <Draggable key={index} draggableId={`aiModel-${index}`} index={index}>
+                              {(provided) => (
+                                <Box
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  display="flex" gap={2} mb={2} alignItems="center"
+                                >
+                                  <Controller
+                                    name={`aiModels.${index}.key`}
+                                    control={control}
+                                    render={({ field }) => (
+                                      <TextField
+                                        {...field}
+                                        label="모델 표시명"
+                                        size="small"
+                                        sx={{ flex: 1 }}
+                                      />
+                                    )}
+                                  />
+                                  <Controller
+                                    name={`aiModels.${index}.value`}
+                                    control={control}
+                                    render={({ field }) => (
+                                      <TextField
+                                        {...field}
+                                        label={apiFormat === 'OpenAI Compatible' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
+                                        size="small"
+                                        sx={{ flex: 2 }}
+                                      />
+                                    )}
+                                  />
+                                  <IconButton
+                                    onClick={() => removeArrayItem('aiModels', index)}
+                                    color="error"
+                                    size="small"
+                                  >
+                                    <Delete />
+                                  </IconButton>
+                                  <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
+                                    <DragIndicator />
+                                  </Box>
+                                </Box>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </Box>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
                 </AccordionDetails>
               </Accordion>
 
@@ -842,44 +876,64 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         옵션 추가
                       </Button>
                     </Box>
-                    {watch('upscaleMethodField.options')?.map((option, index) => (
-                      <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                        <Controller
-                          name={`upscaleMethodField.options.${index}.key`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              label="표시명"
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                          )}
-                        />
-                        <Controller
-                          name={`upscaleMethodField.options.${index}.value`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              label="실제 값"
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                          )}
-                        />
-                        <IconButton
-                          onClick={() => {
-                            const current = watch('upscaleMethodField.options') || [];
-                            setValue('upscaleMethodField.options', current.filter((_, i) => i !== index));
-                          }}
-                          color="error"
-                          size="small"
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                    ))}
+                    <DragDropContext onDragEnd={onDragEnd}>
+                      <Droppable droppableId="upscaleMethodOptions" type="upscaleMethodField.options">
+                        {(provided) => (
+                          <Box ref={provided.innerRef} {...provided.droppableProps}>
+                            {watch('upscaleMethodField.options')?.map((option, index) => (
+                              <Draggable key={index} draggableId={`upscaleOption-${index}`} index={index}>
+                                {(provided) => (
+                                  <Box
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    display="flex" gap={2} mb={2} alignItems="center"
+                                  >
+                                    <Controller
+                                      name={`upscaleMethodField.options.${index}.key`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <TextField
+                                          {...field}
+                                          label="표시명"
+                                          size="small"
+                                          sx={{ flex: 1 }}
+                                        />
+                                      )}
+                                    />
+                                    <Controller
+                                      name={`upscaleMethodField.options.${index}.value`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <TextField
+                                          {...field}
+                                          label="실제 값"
+                                          size="small"
+                                          sx={{ flex: 1 }}
+                                        />
+                                      )}
+                                    />
+                                    <IconButton
+                                      onClick={() => {
+                                        const current = watch('upscaleMethodField.options') || [];
+                                        setValue('upscaleMethodField.options', current.filter((_, i) => i !== index));
+                                      }}
+                                      color="error"
+                                      size="small"
+                                    >
+                                      <Delete />
+                                    </IconButton>
+                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
+                                      <DragIndicator />
+                                    </Box>
+                                  </Box>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </Box>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
                   </Box>
                 </AccordionDetails>
               </Accordion>
@@ -946,44 +1000,64 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         스타일 추가
                       </Button>
                     </Box>
-                    {watch('baseStyleField.options')?.map((style, index) => (
-                      <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                        <Controller
-                          name={`baseStyleField.options.${index}.key`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              label="스타일명"
-                              size="small"
-                              sx={{ flex: 1 }}
-                            />
-                          )}
-                        />
-                        <Controller
-                          name={`baseStyleField.options.${index}.value`}
-                          control={control}
-                          render={({ field }) => (
-                            <TextField
-                              {...field}
-                              label="LoRA 경로/설정"
-                              size="small"
-                              sx={{ flex: 2 }}
-                            />
-                          )}
-                        />
-                        <IconButton
-                          onClick={() => {
-                            const current = watch('baseStyleField.options') || [];
-                            setValue('baseStyleField.options', current.filter((_, i) => i !== index));
-                          }}
-                          color="error"
-                          size="small"
-                        >
-                          <Delete />
-                        </IconButton>
-                      </Box>
-                    ))}
+                    <DragDropContext onDragEnd={onDragEnd}>
+                      <Droppable droppableId="baseStyleOptions" type="baseStyleField.options">
+                        {(provided) => (
+                          <Box ref={provided.innerRef} {...provided.droppableProps}>
+                            {watch('baseStyleField.options')?.map((style, index) => (
+                              <Draggable key={index} draggableId={`baseStyleOption-${index}`} index={index}>
+                                {(provided) => (
+                                  <Box
+                                    ref={provided.innerRef}
+                                    {...provided.draggableProps}
+                                    display="flex" gap={2} mb={2} alignItems="center"
+                                  >
+                                    <Controller
+                                      name={`baseStyleField.options.${index}.key`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <TextField
+                                          {...field}
+                                          label="스타일명"
+                                          size="small"
+                                          sx={{ flex: 1 }}
+                                        />
+                                      )}
+                                    />
+                                    <Controller
+                                      name={`baseStyleField.options.${index}.value`}
+                                      control={control}
+                                      render={({ field }) => (
+                                        <TextField
+                                          {...field}
+                                          label="LoRA 경로/설정"
+                                          size="small"
+                                          sx={{ flex: 2 }}
+                                        />
+                                      )}
+                                    />
+                                    <IconButton
+                                      onClick={() => {
+                                        const current = watch('baseStyleField.options') || [];
+                                        setValue('baseStyleField.options', current.filter((_, i) => i !== index));
+                                      }}
+                                      color="error"
+                                      size="small"
+                                    >
+                                      <Delete />
+                                    </IconButton>
+                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
+                                      <DragIndicator />
+                                    </Box>
+                                  </Box>
+                                )}
+                              </Draggable>
+                            ))}
+                            {provided.placeholder}
+                          </Box>
+                        )}
+                      </Droppable>
+                    </DragDropContext>
                   </Box>
                 </AccordionDetails>
               </Accordion>
@@ -1151,44 +1225,64 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   옵션 추가
                                 </Button>
                               </Box>
-                              {watch(`additionalCustomFields.${index}.options`)?.map((option, optionIndex) => (
-                                <Box key={optionIndex} display="flex" gap={1} mb={1} alignItems="center">
-                                  <Controller
-                                    name={`additionalCustomFields.${index}.options.${optionIndex}.key`}
-                                    control={control}
-                                    render={({ field: optionField }) => (
-                                      <TextField
-                                        {...optionField}
-                                        label="표시명"
-                                        size="small"
-                                        sx={{ flex: 1 }}
-                                      />
-                                    )}
-                                  />
-                                  <Controller
-                                    name={`additionalCustomFields.${index}.options.${optionIndex}.value`}
-                                    control={control}
-                                    render={({ field: optionField }) => (
-                                      <TextField
-                                        {...optionField}
-                                        label="실제 값"
-                                        size="small"
-                                        sx={{ flex: 1 }}
-                                      />
-                                    )}
-                                  />
-                                  <IconButton
-                                    onClick={() => {
-                                      const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
-                                      setValue(`additionalCustomFields.${index}.options`, currentOptions.filter((_, i) => i !== optionIndex));
-                                    }}
-                                    color="error"
-                                    size="small"
-                                  >
-                                    <Delete />
-                                  </IconButton>
-                                </Box>
-                              ))}
+                              <DragDropContext onDragEnd={onDragEnd}>
+                                <Droppable droppableId={`customFieldOptions-${index}`} type={`additionalCustomFields.${index}.options`}>
+                                  {(provided) => (
+                                    <Box ref={provided.innerRef} {...provided.droppableProps}>
+                                      {watch(`additionalCustomFields.${index}.options`)?.map((option, optionIndex) => (
+                                        <Draggable key={optionIndex} draggableId={`customFieldOption-${index}-${optionIndex}`} index={optionIndex}>
+                                          {(provided) => (
+                                            <Box
+                                              ref={provided.innerRef}
+                                              {...provided.draggableProps}
+                                              display="flex" gap={1} mb={1} alignItems="center"
+                                            >
+                                              <Controller
+                                                name={`additionalCustomFields.${index}.options.${optionIndex}.key`}
+                                                control={control}
+                                                render={({ field: optionField }) => (
+                                                  <TextField
+                                                    {...optionField}
+                                                    label="표시명"
+                                                    size="small"
+                                                    sx={{ flex: 1 }}
+                                                  />
+                                                )}
+                                              />
+                                              <Controller
+                                                name={`additionalCustomFields.${index}.options.${optionIndex}.value`}
+                                                control={control}
+                                                render={({ field: optionField }) => (
+                                                  <TextField
+                                                    {...optionField}
+                                                    label="실제 값"
+                                                    size="small"
+                                                    sx={{ flex: 1 }}
+                                                  />
+                                                )}
+                                              />
+                                              <IconButton
+                                                onClick={() => {
+                                                  const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
+                                                  setValue(`additionalCustomFields.${index}.options`, currentOptions.filter((_, i) => i !== optionIndex));
+                                                }}
+                                                color="error"
+                                                size="small"
+                                              >
+                                                <Delete />
+                                              </IconButton>
+                                              <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
+                                                <DragIndicator />
+                                              </Box>
+                                            </Box>
+                                          )}
+                                        </Draggable>
+                                      ))}
+                                      {provided.placeholder}
+                                    </Box>
+                                  )}
+                                </Droppable>
+                              </DragDropContext>
                             </Grid>
                           )}
                           <Grid item xs={12}>
@@ -1392,6 +1486,8 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
 
 function WorkboardManagement() {
   const [search, setSearch] = useState('');
+  const [apiFormatFilter, setApiFormatFilter] = useState('');
+  const [outputFormatFilter, setOutputFormatFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
@@ -1399,8 +1495,8 @@ function WorkboardManagement() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery(
-    ['adminWorkboards', { search }],
-    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true }),
+    ['adminWorkboards', { search, apiFormatFilter, outputFormatFilter }],
+    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, apiFormat: apiFormatFilter || undefined, outputFormat: outputFormatFilter || undefined }),
     { keepPreviousData: true }
   );
 
@@ -1684,14 +1780,38 @@ function WorkboardManagement() {
         </Button>
       </Box>
 
-      <Box mb={3}>
+      <Box mb={3} display="flex" gap={2} alignItems="center" flexWrap="wrap">
         <TextField
-          fullWidth
           placeholder="작업판 이름으로 검색..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ maxWidth: 400 }}
+          sx={{ minWidth: 300, flex: 1 }}
         />
+        <FormControl sx={{ minWidth: 180 }}>
+          <InputLabel>AI API 타입</InputLabel>
+          <Select
+            value={apiFormatFilter}
+            label="AI API 타입"
+            onChange={(e) => setApiFormatFilter(e.target.value)}
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="ComfyUI">ComfyUI</MenuItem>
+            <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>출력 타입</InputLabel>
+          <Select
+            value={outputFormatFilter}
+            label="출력 타입"
+            onChange={(e) => setOutputFormatFilter(e.target.value)}
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="image">이미지</MenuItem>
+            <MenuItem value="video">비디오</MenuItem>
+            <MenuItem value="text">텍스트</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {isLoading ? (
@@ -1700,7 +1820,7 @@ function WorkboardManagement() {
         </Box>
       ) : workboards.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
+          {(search || apiFormatFilter || outputFormatFilter) ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
         </Alert>
       ) : (
         <Grid container spacing={3}>

@@ -65,14 +65,8 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
-    text: '태그 검색',
+    text: '태그',
     path: '/tags',
-    icon: <LocalOffer />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '내 태그 관리',
-    path: '/tags/manage',
     icon: <LocalOffer />,
     roles: ['user', 'admin']
   },

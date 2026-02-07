@@ -124,7 +124,8 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
       .map(img => ({
         url: img.url,
         nsfw: img.nsfw !== 'None' && img.nsfw !== false,
-        nsfwLevel: img.nsfwLevel || (img.nsfw !== 'None' && img.nsfw !== false ? 'nsfw' : 'safe')
+        nsfwLevel: img.nsfwLevel || (img.nsfw !== 'None' && img.nsfw !== false ? 'nsfw' : 'safe'),
+        type: img.type === 'video' ? 'video' : 'image'
       }));
 
     return {

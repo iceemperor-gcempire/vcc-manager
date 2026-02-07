@@ -18,17 +18,16 @@ router.get('/', requireAuth, async (req, res) => {
       filter.isActive = true;
     }
 
-    if (includeAll === 'true') {
-      // 관리자용: 모든 타입 조회
-    } else if (apiFormat || outputFormat) {
-      // 새로운 필터 방식: apiFormat + outputFormat
-      if (apiFormat) filter.apiFormat = apiFormat;
-      if (outputFormat) filter.outputFormat = outputFormat;
-    } else if (workboardType) {
-      // 하위호환: 기존 workboardType 파라미터 지원
-      filter.workboardType = workboardType;
-    } else {
-      // 기본: 모든 타입 반환
+    if (apiFormat) filter.apiFormat = apiFormat;
+    if (outputFormat) filter.outputFormat = outputFormat;
+
+    if (!apiFormat && !outputFormat) {
+      if (includeAll === 'true') {
+        // 관리자용: 모든 타입 조회
+      } else if (workboardType) {
+        // 하위호환: 기존 workboardType 파라미터 지원
+        filter.workboardType = workboardType;
+      }
     }
     if (search) {
       filter.$or = [
