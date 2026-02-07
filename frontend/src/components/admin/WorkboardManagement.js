@@ -1392,6 +1392,8 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
 
 function WorkboardManagement() {
   const [search, setSearch] = useState('');
+  const [apiFormatFilter, setApiFormatFilter] = useState('');
+  const [outputFormatFilter, setOutputFormatFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
@@ -1399,8 +1401,8 @@ function WorkboardManagement() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery(
-    ['adminWorkboards', { search }],
-    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true }),
+    ['adminWorkboards', { search, apiFormatFilter, outputFormatFilter }],
+    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, apiFormat: apiFormatFilter || undefined, outputFormat: outputFormatFilter || undefined }),
     { keepPreviousData: true }
   );
 
@@ -1684,14 +1686,38 @@ function WorkboardManagement() {
         </Button>
       </Box>
 
-      <Box mb={3}>
+      <Box mb={3} display="flex" gap={2} alignItems="center" flexWrap="wrap">
         <TextField
-          fullWidth
           placeholder="작업판 이름으로 검색..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ maxWidth: 400 }}
+          sx={{ minWidth: 300, flex: 1 }}
         />
+        <FormControl sx={{ minWidth: 180 }}>
+          <InputLabel>AI API 타입</InputLabel>
+          <Select
+            value={apiFormatFilter}
+            label="AI API 타입"
+            onChange={(e) => setApiFormatFilter(e.target.value)}
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="ComfyUI">ComfyUI</MenuItem>
+            <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl sx={{ minWidth: 150 }}>
+          <InputLabel>출력 타입</InputLabel>
+          <Select
+            value={outputFormatFilter}
+            label="출력 타입"
+            onChange={(e) => setOutputFormatFilter(e.target.value)}
+          >
+            <MenuItem value="">전체</MenuItem>
+            <MenuItem value="image">이미지</MenuItem>
+            <MenuItem value="video">비디오</MenuItem>
+            <MenuItem value="text">텍스트</MenuItem>
+          </Select>
+        </FormControl>
       </Box>
 
       {isLoading ? (
@@ -1700,7 +1726,7 @@ function WorkboardManagement() {
         </Box>
       ) : workboards.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
+          {(search || apiFormatFilter || outputFormatFilter) ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
         </Alert>
       ) : (
         <Grid container spacing={3}>
