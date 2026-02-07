@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -14,11 +14,9 @@ import {
   InputAdornment,
   Card,
   CardContent,
-  CardMedia,
   CardActions,
   Grid,
   IconButton,
-  Collapse,
   LinearProgress,
   Tooltip,
   Stack,
@@ -51,6 +49,60 @@ import {
   insertLoraTag,
   insertTriggerWordWithLora
 } from '../utils/promptUtils';
+
+// 비디오 URL 감지 (type 필드 우선, URL 확장자 폴백)
+function isVideoMedia(img) {
+  if (img?.type === 'video') return true;
+  if (!img?.url) return false;
+  return /\.(mp4|webm|mov)(\?|$)/i.test(img.url);
+}
+
+// 미디어 썸네일 - 비디오는 hover 시에만 재생
+function LoraThumbnail({ image, alt, height, width, sx }) {
+  const videoRef = useRef(null);
+
+  if (!image?.url) return null;
+
+  if (isVideoMedia(image)) {
+    return (
+      <Box
+        component="video"
+        ref={videoRef}
+        src={image.url}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onMouseEnter={(e) => e.target.play().catch(() => {})}
+        onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+        sx={{
+          width: width || '100%',
+          height: height || 140,
+          objectFit: 'cover',
+          display: 'block',
+          cursor: 'pointer',
+          ...sx
+        }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      component="img"
+      src={image.url}
+      alt={alt}
+      loading="lazy"
+      sx={{
+        width: width || '100%',
+        height: height || 140,
+        objectFit: 'cover',
+        display: 'block',
+        ...sx
+      }}
+    />
+  );
+}
 
 function LoraListModal({
   open,
@@ -572,7 +624,7 @@ function LoraCard({
   const filteredImages = nsfwImageFilter
     ? (lora.civitai?.images || []).filter(img => !img.nsfw)
     : (lora.civitai?.images || []);
-  const previewImage = filteredImages[0]?.url;
+  const previewImage = filteredImages[0];
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
@@ -583,18 +635,13 @@ function LoraCard({
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'border-color 0.2s',
         '&:hover': { borderColor: 'primary.main' }
       }}
     >
       {/* 미리보기 이미지 */}
-      {previewImage ? (
-        <CardMedia
-          component="img"
-          height="140"
-          image={previewImage}
-          alt={name}
-          sx={{ objectFit: 'cover' }}
-        />
+      {previewImage?.url ? (
+        <LoraThumbnail image={previewImage} alt={name} height={140} />
       ) : (
         <Box
           sx={{
@@ -685,8 +732,8 @@ function LoraCard({
         )}
       </CardContent>
 
-      {/* 확장 영역 */}
-      <Collapse in={expanded}>
+      {/* 확장 영역 - 펼쳐진 경우에만 렌더링 */}
+      {expanded && (
         <CardContent sx={{ pt: 0 }}>
           {lora.civitai?.description && (
             <Typography
@@ -708,23 +755,19 @@ function LoraCard({
           {filteredImages.length > 1 && (
             <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
               {filteredImages.slice(1).map((img, i) => (
-                <Box
+                <LoraThumbnail
                   key={i}
-                  component="img"
-                  src={img.url}
+                  image={img}
                   alt={`Preview ${i + 2}`}
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    objectFit: 'cover',
-                    borderRadius: 1
-                  }}
+                  width={60}
+                  height={60}
+                  sx={{ borderRadius: 1, flexShrink: 0 }}
                 />
               ))}
             </Box>
           )}
         </CardContent>
-      </Collapse>
+      )}
 
       <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
         <Stack direction="row" spacing={0.5}>

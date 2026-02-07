@@ -27,7 +27,12 @@ const loraModelItemSchema = new mongoose.Schema({
     trainedWords: [String],
     images: [{
       url: String,
-      nsfw: Boolean
+      nsfw: Boolean,
+      type: {
+        type: String,
+        enum: ['image', 'video'],
+        default: 'image'
+      }
     }],
     nsfw: {
       type: Boolean,

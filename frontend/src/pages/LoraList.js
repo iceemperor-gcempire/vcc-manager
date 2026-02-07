@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -11,15 +11,12 @@ import {
   InputAdornment,
   Card,
   CardContent,
-  CardMedia,
   CardActions,
   Grid,
   Chip,
   IconButton,
-  Collapse,
   CircularProgress,
   Alert,
-  Tooltip,
   Stack,
   ToggleButton,
   ToggleButtonGroup,
@@ -45,6 +42,60 @@ import toast from 'react-hot-toast';
 import { serverAPI, userAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
 
+// 비디오 URL 감지 (type 필드 우선, URL 확장자 폴백)
+function isVideoMedia(img) {
+  if (img?.type === 'video') return true;
+  if (!img?.url) return false;
+  return /\.(mp4|webm|mov)(\?|$)/i.test(img.url);
+}
+
+// 미디어 썸네일 - 비디오는 hover 시에만 재생
+function LoraThumbnail({ image, alt, height, width, sx }) {
+  const videoRef = useRef(null);
+
+  if (!image?.url) return null;
+
+  if (isVideoMedia(image)) {
+    return (
+      <Box
+        component="video"
+        ref={videoRef}
+        src={image.url}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onMouseEnter={(e) => e.target.play().catch(() => {})}
+        onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+        sx={{
+          width: width || '100%',
+          height: height || 160,
+          objectFit: 'cover',
+          display: 'block',
+          cursor: 'pointer',
+          ...sx
+        }}
+      />
+    );
+  }
+
+  return (
+    <Box
+      component="img"
+      src={image.url}
+      alt={alt}
+      loading="lazy"
+      sx={{
+        width: width || '100%',
+        height: height || 160,
+        objectFit: 'cover',
+        display: 'block',
+        ...sx
+      }}
+    />
+  );
+}
+
 // LoRA 카드 컴포넌트
 function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwImageFilter }) {
   const hasCivitai = lora.civitai?.found;
@@ -53,7 +104,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
   const filteredImages = nsfwImageFilter
     ? (lora.civitai?.images || []).filter(img => !img.nsfw)
     : (lora.civitai?.images || []);
-  const previewImage = filteredImages[0]?.url;
+  const previewImage = filteredImages[0];
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
@@ -73,18 +124,13 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
+        transition: 'border-color 0.2s',
         '&:hover': { borderColor: 'primary.main' }
       }}
     >
       {/* 미리보기 이미지 */}
-      {previewImage ? (
-        <CardMedia
-          component="img"
-          height="160"
-          image={previewImage}
-          alt={name}
-          sx={{ objectFit: 'cover' }}
-        />
+      {previewImage?.url ? (
+        <LoraThumbnail image={previewImage} alt={name} height={160} />
       ) : (
         <Box
           sx={{
@@ -122,26 +168,27 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
               size="small"
               color={getBaseModelColor(lora.civitai.baseModel)}
               variant="outlined"
+              disableRipple
             />
           )}
           {!hasCivitai && !lora.hash && (
-            <Tooltip title={lora.hashError || '해시 정보 없음'}>
-              <Chip
-                icon={<InfoIcon />}
-                label="메타데이터 없음"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
+            <Chip
+              icon={<InfoIcon />}
+              label="메타데이터 없음"
+              size="small"
+              variant="outlined"
+              title={lora.hashError || '해시 정보 없음'}
+              disableRipple
+            />
           )}
           {lora.hash && !hasCivitai && (
-            <Tooltip title="Civitai에서 찾을 수 없음">
-              <Chip
-                label="미등록"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
+            <Chip
+              label="미등록"
+              size="small"
+              variant="outlined"
+              title="Civitai에서 찾을 수 없음"
+              disableRipple
+            />
           )}
         </Box>
 
@@ -173,8 +220,8 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
         )}
       </CardContent>
 
-      {/* 확장 영역 */}
-      <Collapse in={expanded}>
+      {/* 확장 영역 - 펼쳐진 경우에만 렌더링 */}
+      {expanded && (
         <CardContent sx={{ pt: 0 }}>
           {lora.civitai?.description && (
             <Typography
@@ -196,23 +243,19 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
           {filteredImages.length > 1 && (
             <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
               {filteredImages.slice(1).map((img, i) => (
-                <Box
+                <LoraThumbnail
                   key={i}
-                  component="img"
-                  src={img.url}
+                  image={img}
                   alt={`Preview ${i + 2}`}
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    objectFit: 'cover',
-                    borderRadius: 1
-                  }}
+                  width={60}
+                  height={60}
+                  sx={{ borderRadius: 1, flexShrink: 0 }}
                 />
               ))}
             </Box>
           )}
         </CardContent>
-      </Collapse>
+      )}
 
       <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
         <Stack direction="row" spacing={0.5}>
@@ -220,32 +263,33 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
             <IconButton
               size="small"
               onClick={onToggleExpand}
+              disableRipple
             >
               {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
             </IconButton>
           )}
           {lora.civitai?.modelUrl && (
-            <Tooltip title="Civitai에서 보기">
-              <IconButton
-                size="small"
-                href={lora.civitai.modelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <OpenInNewIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            <IconButton
+              size="small"
+              href={lora.civitai.modelUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Civitai에서 보기"
+              disableRipple
+            >
+              <OpenInNewIcon fontSize="small" />
+            </IconButton>
           )}
         </Stack>
-        <Tooltip title="LoRA 태그 복사">
-          <IconButton
-            size="small"
-            onClick={handleCopyLoraTag}
-            color="primary"
-          >
-            <CopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <IconButton
+          size="small"
+          onClick={handleCopyLoraTag}
+          color="primary"
+          title="LoRA 태그 복사"
+          disableRipple
+        >
+          <CopyIcon fontSize="small" />
+        </IconButton>
       </CardActions>
     </Card>
   );
@@ -257,7 +301,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
   const filteredImages = nsfwImageFilter
     ? (lora.civitai?.images || []).filter(img => !img.nsfw)
     : (lora.civitai?.images || []);
-  const previewImage = filteredImages[0]?.url;
+  const previewImage = filteredImages[0];
   const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
   const trainedWords = lora.civitai?.trainedWords || [];
 
@@ -281,17 +325,16 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
         overflow: 'hidden',
         width: '100%',
         boxSizing: 'border-box',
+        transition: 'border-color 0.2s',
         '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
       }}
     >
       <Box sx={{ display: 'flex', gap: 1.5, overflow: 'hidden', width: '100%' }}>
         {/* 썸네일 */}
-        {previewImage ? (
-          <Avatar
-            variant="rounded"
-            src={previewImage}
-            sx={{ width: 48, height: 48, flexShrink: 0 }}
-          />
+        {previewImage?.url ? (
+          <Box sx={{ width: 48, height: 48, flexShrink: 0, borderRadius: 1, overflow: 'hidden' }}>
+            <LoraThumbnail image={previewImage} alt={name} width={48} height={48} />
+          </Box>
         ) : (
           <Avatar
             variant="rounded"
@@ -328,22 +371,26 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
             {/* 액션 버튼 */}
             <Stack direction="row" spacing={0.5} flexShrink={0}>
               {lora.civitai?.modelUrl && (
-                <Tooltip title="Civitai에서 보기">
-                  <IconButton
-                    size="small"
-                    href={lora.civitai.modelUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <OpenInNewIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-              <Tooltip title="LoRA 태그 복사">
-                <IconButton size="small" onClick={handleCopyLoraTag} color="primary">
-                  <CopyIcon fontSize="small" />
+                <IconButton
+                  size="small"
+                  href={lora.civitai.modelUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Civitai에서 보기"
+                  disableRipple
+                >
+                  <OpenInNewIcon fontSize="small" />
                 </IconButton>
-              </Tooltip>
+              )}
+              <IconButton
+                size="small"
+                onClick={handleCopyLoraTag}
+                color="primary"
+                title="LoRA 태그 복사"
+                disableRipple
+              >
+                <CopyIcon fontSize="small" />
+              </IconButton>
             </Stack>
           </Box>
 
@@ -356,10 +403,11 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
                 color={getBaseModelColor(lora.civitai.baseModel)}
                 variant="outlined"
                 sx={{ height: 20, fontSize: '0.7rem' }}
+                disableRipple
               />
             )}
             {!hasCivitai && (
-              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} disableRipple />
             )}
           </Box>
 
