@@ -5,22 +5,12 @@ import {
   DialogContent,
   DialogActions,
   Button,
-  Grid,
-  Card,
-  CardMedia,
-  CardContent,
   Typography,
   Tabs,
-  Tab,
-  Box,
-  CircularProgress,
-  Alert,
-  Chip
+  Tab
 } from '@mui/material';
-import { CheckCircle } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import MediaGrid from './MediaGrid';
 import { imageAPI } from '../../services/api';
-import Pagination from './Pagination';
 
 function ImageSelectDialog({
   open,
@@ -34,60 +24,23 @@ function ImageSelectDialog({
 }) {
   const [tab, setTab] = useState(0);
   const [selectedImages, setSelectedImages] = useState([]);
-  const [uploadedPage, setUploadedPage] = useState(1);
-  const [generatedPage, setGeneratedPage] = useState(1);
-  const limit = 12;
 
   useEffect(() => {
     if (open) {
       setSelectedImages(initialSelected);
     }
-  }, [open, initialSelected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const tagsParam = filterTags.length > 0 ? filterTags.join(',') : undefined;
 
-  const { data: uploadedData, isLoading: uploadedLoading } = useQuery(
-    ['uploadedImagesForSelect', uploadedPage, limit, tagsParam],
-    () => imageAPI.getUploaded({ page: uploadedPage, limit, tags: tagsParam }),
-    { enabled: open && tab === 0 }
-  );
-
-  const { data: generatedData, isLoading: generatedLoading } = useQuery(
-    ['generatedImagesForSelect', generatedPage, limit, tagsParam],
-    () => imageAPI.getGenerated({ page: generatedPage, limit, tags: tagsParam }),
-    { enabled: open && tab === 1 }
-  );
-
-  const uploadedImages = uploadedData?.data?.images || [];
-  const uploadedPagination = uploadedData?.data?.pagination || { total: 0, pages: 1 };
-  
-  const generatedImages = generatedData?.data?.images || [];
-  const generatedPagination = generatedData?.data?.pagination || { total: 0, pages: 1 };
-
-  const handleTabChange = (event, newValue) => {
-    setTab(newValue);
-  };
-
-  const handleImageClick = (image) => {
-    const imageType = tab === 0 ? 'UploadedImage' : 'GeneratedImage';
-    
+  const handleSelectionChange = (newSelection) => {
     if (multiple) {
-      const isSelected = selectedImages.find(img => img.imageId === image._id);
-      if (isSelected) {
-        setSelectedImages(selectedImages.filter(img => img.imageId !== image._id));
-      } else if (selectedImages.length < maxImages) {
-        setSelectedImages([...selectedImages, {
-          imageId: image._id,
-          imageType,
-          image
-        }]);
+      if (newSelection.length <= maxImages) {
+        setSelectedImages(newSelection);
       }
     } else {
-      setSelectedImages([{
-        imageId: image._id,
-        imageType,
-        image
-      }]);
+      setSelectedImages(newSelection.slice(0, 1));
     }
   };
 
@@ -114,13 +67,14 @@ function ImageSelectDialog({
     setSelectedImages([]);
   };
 
-  const isLoading = tab === 0 ? uploadedLoading : generatedLoading;
-  const images = tab === 0 ? uploadedImages : generatedImages;
-  const pagination = tab === 0 ? uploadedPagination : generatedPagination;
-  const currentPage = tab === 0 ? uploadedPage : generatedPage;
-  const setCurrentPage = tab === 0 ? setUploadedPage : setGeneratedPage;
+  const getType = () => tab === 0 ? 'uploaded' : 'generated';
 
-  const isImageSelected = (imageId) => selectedImages.some(img => img.imageId === imageId);
+  const fetchFn = (params) => {
+    const fetchParams = { ...params };
+    if (tagsParam) fetchParams.tags = tagsParam;
+    if (tab === 0) return imageAPI.getUploaded(fetchParams);
+    return imageAPI.getGenerated(fetchParams);
+  };
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
@@ -133,83 +87,26 @@ function ImageSelectDialog({
         )}
       </DialogTitle>
       <DialogContent>
-        <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 2 }}>
+        <Tabs value={tab} onChange={(e, v) => setTab(v)} sx={{ mb: 2 }}>
           <Tab label="업로드한 이미지" />
           <Tab label="생성한 이미지" />
         </Tabs>
 
-        {isLoading ? (
-          <Box display="flex" justifyContent="center" py={4}>
-            <CircularProgress />
-          </Box>
-        ) : images.length === 0 ? (
-          <Alert severity="info">
-            {tab === 0 ? '업로드한 이미지가 없습니다.' : '생성한 이미지가 없습니다.'}
-          </Alert>
-        ) : (
-          <>
-            <Grid container spacing={2}>
-              {images.map((image) => {
-                const isSelected = isImageSelected(image._id);
-                return (
-                  <Grid item xs={6} sm={4} md={3} key={image._id}>
-                    <Card
-                      sx={{
-                        cursor: 'pointer',
-                        border: isSelected ? '3px solid' : '1px solid',
-                        borderColor: isSelected ? 'primary.main' : 'grey.300',
-                        transition: 'all 0.2s',
-                        position: 'relative',
-                        '&:hover': {
-                          borderColor: 'primary.light',
-                          transform: 'scale(1.02)'
-                        }
-                      }}
-                      onClick={() => handleImageClick(image)}
-                    >
-                      {isSelected && (
-                        <CheckCircle
-                          sx={{
-                            position: 'absolute',
-                            top: 8,
-                            right: 8,
-                            color: 'primary.main',
-                            bgcolor: 'white',
-                            borderRadius: '50%',
-                            zIndex: 1
-                          }}
-                        />
-                      )}
-                      <CardMedia
-                        component="img"
-                        height="120"
-                        image={image.url}
-                        alt={image.originalName || 'Image'}
-                        sx={{ objectFit: 'cover' }}
-                      />
-                      <CardContent sx={{ p: 1 }}>
-                        <Typography variant="caption" noWrap>
-                          {image.originalName || new Date(image.createdAt).toLocaleDateString()}
-                        </Typography>
-                      </CardContent>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-
-            {pagination.pages > 1 && (
-              <Box mt={2}>
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={pagination.pages}
-                  totalItems={pagination.total}
-                  onPageChange={setCurrentPage}
-                />
-              </Box>
-            )}
-          </>
-        )}
+        <MediaGrid
+          key={`select-${tab}-${tagsParam}`}
+          type={getType()}
+          fetchFn={fetchFn}
+          queryKey={`imageSelect-${tab}-${tagsParam}`}
+          selectable
+          multiSelect={multiple}
+          selectedItems={selectedImages}
+          onSelectionChange={handleSelectionChange}
+          showSearch={false}
+          showTags={false}
+          readOnly
+          pageSize={12}
+          columns={{ xs: 6, sm: 4, md: 3 }}
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={handleClose}>취소</Button>

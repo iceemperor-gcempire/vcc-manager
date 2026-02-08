@@ -25,7 +25,8 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
+  Tooltip
 } from '@mui/material';
 import {
   LocalOffer,
@@ -35,7 +36,8 @@ import {
   Delete,
   Add,
   Search,
-  Label
+  Label,
+  FolderSpecial
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -492,31 +494,53 @@ function TagSearch() {
                       tags.map((tag) => (
                         <TableRow key={tag._id}>
                           <TableCell>
-                            <Chip
-                              label={tag.name}
-                              sx={{ bgcolor: tag.color, color: 'white' }}
-                            />
+                            <Box display="flex" alignItems="center" gap={1}>
+                              <Chip
+                                label={tag.name}
+                                sx={{ bgcolor: tag.color, color: 'white' }}
+                              />
+                              {tag.isProjectTag && (
+                                <Tooltip title="프로젝트 태그">
+                                  <FolderSpecial fontSize="small" color="primary" />
+                                </Tooltip>
+                              )}
+                            </Box>
                           </TableCell>
                           <TableCell align="center">{tag.usageCount}</TableCell>
                           <TableCell align="center">
                             {new Date(tag.createdAt).toLocaleDateString()}
                           </TableCell>
                           <TableCell align="center">
-                            <IconButton
-                              size="small"
-                              onClick={() => setEditTag(tag)}
-                              title="수정"
-                            >
-                              <Edit />
-                            </IconButton>
-                            <IconButton
-                              size="small"
-                              color="error"
-                              onClick={() => setDeleteConfirmTag(tag)}
-                              title="삭제"
-                            >
-                              <Delete />
-                            </IconButton>
+                            {tag.isProjectTag ? (
+                              <Tooltip title="프로젝트 태그는 프로젝트에서 관리합니다">
+                                <span>
+                                  <IconButton size="small" disabled>
+                                    <Edit />
+                                  </IconButton>
+                                  <IconButton size="small" disabled>
+                                    <Delete />
+                                  </IconButton>
+                                </span>
+                              </Tooltip>
+                            ) : (
+                              <>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => setEditTag(tag)}
+                                  title="수정"
+                                >
+                                  <Edit />
+                                </IconButton>
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => setDeleteConfirmTag(tag)}
+                                  title="삭제"
+                                >
+                                  <Delete />
+                                </IconButton>
+                              </>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))

@@ -30,17 +30,18 @@ import {
   TrendingUp,
   Computer
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { workboardAPI, userAPI } from '../services/api';
+import { workboardAPI, userAPI, projectAPI } from '../services/api';
 import toast from 'react-hot-toast';
 
 
-function WorkboardCard({ workboard }) {
+function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
   const isComfyUI = workboard.apiFormat === 'ComfyUI';
+  const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
     // 히스토리에서 온 데이터가 있는지 확인
@@ -63,9 +64,9 @@ function WorkboardCard({ workboard }) {
     }
 
     if (isComfyUI) {
-      navigate(`/generate/${workboard._id}`);
+      navigate(`/generate/${workboard._id}${projectQuery}`);
     } else {
-      navigate(`/prompt-generate/${workboard._id}`);
+      navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
     }
   };
 
@@ -299,6 +300,8 @@ function WorkboardCard({ workboard }) {
 }
 
 function Workboards() {
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [outputFormat, setOutputFormat] = useState(
@@ -307,6 +310,14 @@ function Workboards() {
   const [apiFormat, setApiFormat] = useState(
     () => localStorage.getItem('workboardFilter_apiFormat') || ''
   );
+
+  // 프로젝트 컨텍스트
+  const { data: projectData } = useQuery(
+    ['project', projectId],
+    () => projectAPI.getById(projectId),
+    { enabled: !!projectId }
+  );
+  const projectContext = projectData?.data?.data?.project;
 
   const { data: profileData } = useQuery(
     'userProfile',
@@ -387,6 +398,14 @@ function Workboards() {
         <Typography variant="body1" color="textSecondary" gutterBottom>
           사용할 작업판을 선택하세요. 각 작업판은 서로 다른 AI 모델과 설정을 제공합니다.
         </Typography>
+        {projectContext && (
+          <Chip
+            label={`프로젝트: ${projectContext.name}`}
+            color="primary"
+            variant="outlined"
+            sx={{ mt: 1 }}
+          />
+        )}
       </Box>
 
       {/* 검색 및 필터 */}
@@ -445,7 +464,7 @@ function Workboards() {
           <Grid container spacing={3}>
             {workboards.map((workboard) => (
               <Grid item xs={12} sm={6} md={4} key={workboard._id}>
-                <WorkboardCard workboard={workboard} />
+                <WorkboardCard workboard={workboard} projectId={projectId} />
               </Grid>
             ))}
           </Grid>

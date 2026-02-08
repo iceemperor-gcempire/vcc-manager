@@ -24,7 +24,8 @@ import {
   DialogActions,
   FormControlLabel,
   Switch,
-  InputAdornment
+  InputAdornment,
+  Chip
 } from '@mui/material';
 import {
   Send,
@@ -37,12 +38,12 @@ import {
   AutoAwesome,
   AutoFixHigh
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI } from '../services/api';
+import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -370,6 +371,8 @@ function ImageGeneration() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
   const [generating, setGenerating] = useState(false);
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
@@ -377,8 +380,17 @@ function ImageGeneration() {
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const [promptValue, setPromptValue] = useState('');
+  const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
   const promptInputRef = useRef(null);
+
+  // 프로젝트 컨텍스트 조회
+  const { data: projectData } = useQuery(
+    ['project', projectId],
+    () => projectAPI.getById(projectId),
+    { enabled: !!projectId }
+  );
+  const projectContext = projectData?.data?.data?.project;
 
   const handleLoraModalOpen = () => {
     setLoraModalOpen(true);
@@ -645,6 +657,11 @@ function ImageGeneration() {
           safeSetValue('referenceImages', jobInputData.referenceImages);
         }
 
+        // 태그 복원 (계속하기 시 프로젝트 태그 등 유지)
+        if (jobInputData.tags && jobInputData.tags.length > 0) {
+          setContinuedTags(jobInputData.tags);
+        }
+
         // 시드 값 설정 (있는 경우)
         if (jobInputData.seed !== undefined) {
           setSeedValue(jobInputData.seed);
@@ -833,11 +850,16 @@ function ImageGeneration() {
         processedFormData.additionalParams = processedAdditionalParams;
       }
 
+      // 태그 병합: 프로젝트 태그 + 계속하기에서 이어받은 태그 (중복 제거)
+      const projectTags = projectContext?.tagId?._id ? [projectContext.tagId._id] : [];
+      const mergedTags = [...new Set([...projectTags, ...continuedTags])];
+
       const finalPayload = {
         workboardId: id,
         ...processedFormData,
         seed: finalSeedValue,
-        randomSeed
+        randomSeed,
+        ...(mergedTags.length > 0 && { tags: mergedTags })
       };
 
       console.log('📤 Final payload to API:', JSON.stringify(finalPayload, null, 2));
@@ -886,9 +908,20 @@ function ImageGeneration() {
           작업판 목록으로 돌아가기
         </Button>
 
-        <Typography variant="h4" gutterBottom>
-          {workboardData?.name}
-        </Typography>
+        <Box display="flex" alignItems="center" gap={2}>
+          <Typography variant="h4" gutterBottom>
+            {workboardData?.name}
+          </Typography>
+          {projectContext && (
+            <Chip
+              label={`프로젝트: ${projectContext.name}`}
+              color="primary"
+              variant="outlined"
+              size="small"
+              sx={{ mb: 1 }}
+            />
+          )}
+        </Box>
         {workboardData?.description && (
           <Typography variant="body1" color="textSecondary" gutterBottom>
             {workboardData.description}

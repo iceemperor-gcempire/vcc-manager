@@ -20,6 +20,10 @@ const tagSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  isProjectTag: {
+    type: Boolean,
+    default: false
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

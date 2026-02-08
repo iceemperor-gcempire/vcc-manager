@@ -26,7 +26,8 @@ import {
   LocalOffer,
   Settings,
   Backup,
-  AutoFixHigh
+  AutoFixHigh,
+  FolderSpecial
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +45,12 @@ const menuItems = [
     text: '작업판',
     path: '/workboards',
     icon: <ViewModule />,
+    roles: ['user', 'admin']
+  },
+  {
+    text: '프로젝트',
+    path: '/projects',
+    icon: <FolderSpecial />,
     roles: ['user', 'admin']
   },
   {

@@ -41,7 +41,8 @@ const imageGenerationJobSchema = new mongoose.Schema({
     upscaleMethod: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
     additionalParams: mongoose.Schema.Types.Mixed,
     seed: mongoose.Schema.Types.Mixed, // 시드 값 추가
-    randomSeed: Boolean // 랜덤 시드 여부 추가
+    randomSeed: Boolean, // 랜덤 시드 여부 추가
+    tags: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Tag' }]
   },
   workflowData: {
     type: String,

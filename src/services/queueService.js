@@ -597,6 +597,8 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
         }
       }
       
+      const mediaTags = inputData.tags || [];
+
       const generatedData = {
         filename,
         originalName: itemData.filename || filename,
@@ -608,6 +610,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
         jobId,
         orderIndex: i,
         metadata,
+        tags: mediaTags,
         generationParams: {
           prompt: inputData.prompt,
           negativePrompt: inputData.negativePrompt,
@@ -640,6 +643,21 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
     }
   }
   
+  // 태그 usageCount 증가 (미디어가 실제로 저장된 경우에만)
+  const mediaTags = inputData.tags || [];
+  if (savedItems.length > 0 && mediaTags.length > 0) {
+    try {
+      const Tag = require('../models/Tag');
+      await Tag.updateMany(
+        { _id: { $in: mediaTags } },
+        { $inc: { usageCount: savedItems.length } }
+      );
+      console.log(`📊 Incremented usageCount by ${savedItems.length} for ${mediaTags.length} tags`);
+    } catch (tagError) {
+      console.error('Failed to update tag usage counts:', tagError.message);
+    }
+  }
+
   console.log(`Completed saving ${savedItems.length} ${typeLabel} for job ${jobId}`);
   return savedItems;
 };

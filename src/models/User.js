@@ -101,6 +101,10 @@ const userSchema = new mongoose.Schema({
       default: false
     }
   },
+  favoriteProjects: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  }],
   passwordResetToken: {
     type: String
   },

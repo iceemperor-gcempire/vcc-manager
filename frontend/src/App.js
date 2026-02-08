@@ -25,6 +25,8 @@ import PromptDataList from './pages/PromptDataList';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import TagSearch from './pages/TagSearch';
+import ProjectList from './pages/ProjectList';
+import ProjectDetail from './pages/ProjectDetail';
 import LoraList from './pages/LoraList';
 import {
   AdminDashboardPage,
@@ -132,6 +134,8 @@ function MainLayout() {
             <Route path="/images" element={<MyImages />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
+            <Route path="/projects" element={<ProjectList />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/tags" element={<TagSearch />} />
             <Route path="/loras" element={<LoraList />} />
             <Route path="/profile" element={<Profile />} />
