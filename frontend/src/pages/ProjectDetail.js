@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Container,
   Typography,
@@ -14,7 +14,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Tooltip
+  Tooltip,
+  FormControlLabel,
+  Checkbox
 } from '@mui/material';
 import {
   ArrowBack,
@@ -25,7 +27,12 @@ import {
   Image as ImageIcon,
   TextSnippet,
   History,
-  ViewModule
+  ViewModule,
+  CheckBox as CheckBoxIcon,
+  Close,
+  DeleteSweep,
+  SelectAll,
+  Deselect
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -126,6 +133,15 @@ function ImagesTab({ projectId }) {
   const [editIsVideo, setEditIsVideo] = useState(false);
   const queryClient = useQueryClient();
 
+  // Bulk delete 상태
+  const [bulkMode, setBulkMode] = useState(false);
+  const [imageSelectedIds, setImageSelectedIds] = useState(new Set());
+  const [videoSelectedIds, setVideoSelectedIds] = useState(new Set());
+  const [imageMediaState, setImageMediaState] = useState({ items: [], search: '', pagination: {} });
+  const [videoMediaState, setVideoMediaState] = useState({ items: [], search: '', pagination: {} });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleteJobChecked, setDeleteJobChecked] = useState(false);
+
   const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
   const userPreferences = profileData?.data?.user?.preferences || {};
 
@@ -152,6 +168,26 @@ function ImagesTab({ projectId }) {
         queryClient.invalidateQueries(['project', projectId]);
       },
       onError: () => toast.error('삭제 실패')
+    }
+  );
+
+  const bulkDeleteMutation = useMutation(
+    ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
+    {
+      onSuccess: (response) => {
+        const result = response.data?.data || response.data;
+        toast.success(`${result.deleted}개 항목이 삭제되었습니다${result.failed ? ` (${result.failed}개 실패)` : ''}`);
+        queryClient.invalidateQueries(`projectImages-${projectId}`);
+        queryClient.invalidateQueries(`projectVideos-${projectId}`);
+        queryClient.invalidateQueries('generatedImages');
+        queryClient.invalidateQueries('generatedVideos');
+        queryClient.invalidateQueries(['project', projectId]);
+        setBulkMode(false);
+        setImageSelectedIds(new Set());
+        setVideoSelectedIds(new Set());
+        setConfirmOpen(false);
+      },
+      onError: () => toast.error('일괄 삭제 실패')
     }
   );
 
@@ -193,8 +229,91 @@ function ImagesTab({ projectId }) {
     }
   };
 
+  const handleImageBulkToggle = useCallback((id) => {
+    setImageSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleVideoBulkToggle = useCallback((id) => {
+    setVideoSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const totalSelected = imageSelectedIds.size + videoSelectedIds.size;
+
+  const handleBulkDeleteConfirm = () => {
+    const items = [
+      ...Array.from(imageSelectedIds).map(id => ({ id, type: 'generated' })),
+      ...Array.from(videoSelectedIds).map(id => ({ id, type: 'video' }))
+    ];
+    bulkDeleteMutation.mutate({ items, deleteJob: deleteJobChecked });
+  };
+
+  const openConfirmDialog = () => {
+    setDeleteJobChecked(userPreferences.deleteHistoryWithContent || false);
+    setConfirmOpen(true);
+  };
+
   return (
     <Box sx={{ mt: 2 }}>
+      {/* Bulk mode 툴바 */}
+      <Box display="flex" justifyContent="flex-end" mb={1}>
+        {!bulkMode ? (
+          <Button
+            variant="outlined"
+            startIcon={<CheckBoxIcon />}
+            onClick={() => setBulkMode(true)}
+            size="small"
+          >
+            선택
+          </Button>
+        ) : null}
+      </Box>
+      {bulkMode && (
+        <Box
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1, mb: 2, p: 1.5,
+            bgcolor: 'action.hover', borderRadius: 1, flexWrap: 'wrap'
+          }}
+        >
+          <Button size="small" variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }}>
+            선택 모드 종료
+          </Button>
+          <Chip label={`${totalSelected}개 선택됨`} color="primary" variant="outlined" />
+          <Button size="small" startIcon={<SelectAll />} onClick={() => {
+            const nextImg = new Set(imageSelectedIds);
+            imageMediaState.items.forEach(item => nextImg.add(item._id));
+            setImageSelectedIds(nextImg);
+            const nextVid = new Set(videoSelectedIds);
+            videoMediaState.items.forEach(item => nextVid.add(item._id));
+            setVideoSelectedIds(nextVid);
+          }}>
+            이 페이지 전체 선택
+          </Button>
+          <Button size="small" startIcon={<Deselect />} onClick={() => { setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }} disabled={totalSelected === 0}>
+            선택 해제
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            startIcon={<DeleteSweep />}
+            onClick={openConfirmDialog}
+            disabled={totalSelected === 0}
+          >
+            선택 삭제
+          </Button>
+        </Box>
+      )}
+
       <Typography variant="subtitle2" sx={{ mb: 1 }}>이미지</Typography>
       <MediaGrid
         type="generated"
@@ -204,6 +323,10 @@ function ImagesTab({ projectId }) {
         pageSize={20}
         onEdit={handleEditImage}
         onDelete={handleDeleteImage}
+        bulkMode={bulkMode}
+        bulkSelectedIds={imageSelectedIds}
+        onBulkToggle={handleImageBulkToggle}
+        onStateChange={setImageMediaState}
         responseExtractor={(data) => {
           const d = data?.data?.data || {};
           return {
@@ -222,6 +345,10 @@ function ImagesTab({ projectId }) {
         pageSize={20}
         onEdit={handleEditVideo}
         onDelete={handleDeleteVideo}
+        bulkMode={bulkMode}
+        bulkSelectedIds={videoSelectedIds}
+        onBulkToggle={handleVideoBulkToggle}
+        onStateChange={setVideoMediaState}
         responseExtractor={(data) => {
           const d = data?.data?.data || {};
           return {
@@ -238,6 +365,41 @@ function ImagesTab({ projectId }) {
         isVideo={editIsVideo}
         projectId={projectId}
       />
+
+      {/* 일괄 삭제 확인 다이얼로그 */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>선택한 항목 삭제</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            선택한 {totalSelected}개 항목을 삭제합니다.
+            {imageSelectedIds.size > 0 && ` (이미지 ${imageSelectedIds.size}개)`}
+            {videoSelectedIds.size > 0 && ` (동영상 ${videoSelectedIds.size}개)`}
+          </Typography>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={deleteJobChecked}
+                onChange={(e) => setDeleteJobChecked(e.target.checked)}
+              />
+            }
+            label="연관된 작업 히스토리도 함께 삭제"
+          />
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            이 작업은 되돌릴 수 없습니다.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmOpen(false)} disabled={bulkDeleteMutation.isLoading}>취소</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleBulkDeleteConfirm}
+            disabled={bulkDeleteMutation.isLoading}
+          >
+            {bulkDeleteMutation.isLoading ? '삭제 중...' : '삭제'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

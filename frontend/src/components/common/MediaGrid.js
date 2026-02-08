@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Grid,
   Card,
@@ -18,7 +18,8 @@ import {
   Alert,
   Dialog,
   DialogTitle,
-  DialogContent
+  DialogContent,
+  Checkbox
 } from '@mui/material';
 import {
   Search,
@@ -135,7 +136,7 @@ function ImageDetailDialog({ image, open, onClose, type }) {
   );
 }
 
-function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, showTags = true }) {
+function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, showTags = true, bulkMode = false, bulkSelected = false, onBulkToggle }) {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleDownload = async () => {
@@ -178,14 +179,25 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
   };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Card sx={{
+      height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
+      ...(bulkMode && bulkSelected && { border: '2px solid', borderColor: 'primary.main' })
+    }}>
+      {bulkMode && (
+        <Checkbox
+          checked={bulkSelected}
+          onChange={(e) => { e.stopPropagation(); onBulkToggle?.(image._id); }}
+          onClick={(e) => e.stopPropagation()}
+          sx={{ position: 'absolute', top: 4, left: 4, zIndex: 2, bgcolor: 'rgba(255,255,255,0.8)', borderRadius: 1, p: 0.5 }}
+        />
+      )}
       <CardMedia
         component="img"
         height="200"
         image={image.url}
         alt={image.originalName}
         sx={{ cursor: 'pointer' }}
-        onClick={() => onView(image)}
+        onClick={() => bulkMode ? onBulkToggle?.(image._id) : onView(image)}
       />
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         <Typography variant="subtitle2" noWrap gutterBottom>{image.originalName}</Typography>
@@ -217,7 +229,7 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
           <Chip label="공개" color="success" size="small" variant="outlined" sx={{ mt: 1 }} />
         )}
       </CardContent>
-      {!readOnly && (
+      {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
           <Button size="small" onClick={() => onView(image)} startIcon={<Info />}>상세보기</Button>
           <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
@@ -240,7 +252,7 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
   );
 }
 
-function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags = true }) {
+function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags = true, bulkMode = false, bulkSelected = false, onBulkToggle }) {
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleDownload = async () => {
@@ -271,13 +283,24 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
   };
 
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <Card sx={{
+      height: '100%', display: 'flex', flexDirection: 'column', position: 'relative',
+      ...(bulkMode && bulkSelected && { border: '2px solid', borderColor: 'primary.main' })
+    }}>
+      {bulkMode && (
+        <Checkbox
+          checked={bulkSelected}
+          onChange={(e) => { e.stopPropagation(); onBulkToggle?.(video._id); }}
+          onClick={(e) => e.stopPropagation()}
+          sx={{ position: 'absolute', top: 4, left: 4, zIndex: 2, bgcolor: 'rgba(255,255,255,0.8)', borderRadius: 1, p: 0.5 }}
+        />
+      )}
       <Box
         sx={{
           position: 'relative', height: 200, bgcolor: 'black',
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
         }}
-        onClick={() => onView(video)}
+        onClick={() => bulkMode ? onBulkToggle?.(video._id) : onView(video)}
       >
         <video
           src={video.url}
@@ -316,7 +339,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
           <Chip label="공개" color="success" size="small" variant="outlined" sx={{ mt: 1 }} />
         )}
       </CardContent>
-      {!readOnly && (
+      {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
           <Button size="small" onClick={() => onView(video)} startIcon={<Info />}>상세보기</Button>
           <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
@@ -352,7 +375,11 @@ function MediaGrid({
   multiSelect = false,
   selectedItems = [],
   onSelectionChange,
-  responseExtractor
+  responseExtractor,
+  bulkMode = false,
+  bulkSelectedIds = new Set(),
+  onBulkToggle,
+  onStateChange
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -385,6 +412,13 @@ function MediaGrid({
 
   const extractor = responseExtractor || defaultExtractor;
   const { items, pagination } = extractor(data);
+
+  // onStateChange 콜백
+  useEffect(() => {
+    if (onStateChange) {
+      onStateChange({ items, search, pagination });
+    }
+  }, [items, search, pagination]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleView = (media) => {
     if (selectable) {
@@ -498,6 +532,9 @@ function MediaGrid({
                       onDelete={onDelete || (() => {})}
                       readOnly={readOnly}
                       showTags={showTags}
+                      bulkMode={bulkMode}
+                      bulkSelected={bulkSelectedIds.has(item._id)}
+                      onBulkToggle={onBulkToggle}
                     />
                   ) : (
                     <ImageCard
@@ -508,6 +545,9 @@ function MediaGrid({
                       onDelete={onDelete || (() => {})}
                       readOnly={readOnly}
                       showTags={showTags}
+                      bulkMode={bulkMode}
+                      bulkSelected={bulkSelectedIds.has(item._id)}
+                      onBulkToggle={onBulkToggle}
                     />
                   )}
                 </Grid>
