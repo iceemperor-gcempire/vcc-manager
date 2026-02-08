@@ -116,6 +116,8 @@ export const imageAPI = {
   downloadVideo: (id) => api.post(`/images/videos/${id}/download`, {}, {
     responseType: 'blob',
   }),
+  bulkDelete: (items, deleteJob) => api.post('/images/bulk-delete', { items, deleteJob }),
+  bulkDeleteByFilter: (type, filters) => api.post('/images/bulk-delete-by-filter', { type, ...filters }),
 };
 
 export const adminAPI = {

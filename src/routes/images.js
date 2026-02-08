@@ -9,6 +9,287 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const router = express.Router();
 
+// 일괄 삭제 - 선택 항목
+router.post('/bulk-delete', requireAuth, async (req, res) => {
+  try {
+    const { items = [], deleteJob = false } = req.body;
+    const userId = req.user._id;
+
+    if (!items.length) {
+      return res.status(400).json({ message: 'No items provided' });
+    }
+
+    // type별 그룹핑
+    const groups = { uploaded: [], generated: [], video: [] };
+    for (const item of items) {
+      if (groups[item.type]) groups[item.type].push(item.id);
+    }
+
+    const deleted = [];
+    const failed = [];
+    const errors = [];
+
+    // 유틸: 태그 usageCount 일괄 차감
+    const decrementTagCounts = async (docs) => {
+      const tagCountMap = {};
+      for (const doc of docs) {
+        if (doc.tags?.length) {
+          for (const tagId of doc.tags) {
+            const key = tagId.toString();
+            tagCountMap[key] = (tagCountMap[key] || 0) + 1;
+          }
+        }
+      }
+      const ops = Object.entries(tagCountMap).map(([tagId, count]) =>
+        Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
+      );
+      await Promise.allSettled(ops);
+    };
+
+    // uploaded 처리
+    if (groups.uploaded.length) {
+      const docs = await UploadedImage.find({ _id: { $in: groups.uploaded }, userId }).lean();
+      const ownedIds = new Set(docs.map(d => d._id.toString()));
+
+      // 소유권 없는 항목
+      for (const id of groups.uploaded) {
+        if (!ownedIds.has(id)) {
+          failed.push(id);
+          errors.push({ id, reason: 'Access denied or not found' });
+        }
+      }
+
+      // 활성 작업 참조 중인 항목 제외
+      const referencedDocs = docs.filter(d => d.isReferenced);
+      let activeRefIds = new Set();
+      if (referencedDocs.length) {
+        const allJobRefs = referencedDocs.flatMap(d => (d.referencedBy || []).map(r => r.jobId));
+        const activeJobs = await ImageGenerationJob.find({
+          _id: { $in: allJobRefs },
+          status: { $in: ['pending', 'processing'] }
+        }).select('_id').lean();
+        const activeJobIds = new Set(activeJobs.map(j => j._id.toString()));
+
+        for (const doc of referencedDocs) {
+          const hasActive = (doc.referencedBy || []).some(r => activeJobIds.has(r.jobId.toString()));
+          if (hasActive) {
+            activeRefIds.add(doc._id.toString());
+            failed.push(doc._id.toString());
+            errors.push({ id: doc._id.toString(), reason: 'Referenced by active job' });
+          }
+        }
+      }
+
+      const toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
+      if (toDelete.length) {
+        await decrementTagCounts(toDelete);
+        await Promise.allSettled(toDelete.map(d => deleteFile(d.path)));
+        const idsToDelete = toDelete.map(d => d._id);
+        await UploadedImage.deleteMany({ _id: { $in: idsToDelete } });
+        deleted.push(...idsToDelete.map(id => id.toString()));
+      }
+    }
+
+    // generated 처리
+    if (groups.generated.length) {
+      const docs = await GeneratedImage.find({ _id: { $in: groups.generated }, userId }).lean();
+      const ownedIds = new Set(docs.map(d => d._id.toString()));
+
+      for (const id of groups.generated) {
+        if (!ownedIds.has(id)) {
+          failed.push(id);
+          errors.push({ id, reason: 'Access denied or not found' });
+        }
+      }
+
+      if (docs.length) {
+        await decrementTagCounts(docs);
+        await Promise.allSettled(docs.map(d => deleteFile(d.path)));
+
+        if (deleteJob) {
+          const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
+          if (jobIds.length) {
+            await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
+          }
+        }
+
+        const idsToDelete = docs.map(d => d._id);
+        await GeneratedImage.deleteMany({ _id: { $in: idsToDelete } });
+        deleted.push(...idsToDelete.map(id => id.toString()));
+      }
+    }
+
+    // video 처리
+    if (groups.video.length) {
+      const docs = await GeneratedVideo.find({ _id: { $in: groups.video }, userId }).lean();
+      const ownedIds = new Set(docs.map(d => d._id.toString()));
+
+      for (const id of groups.video) {
+        if (!ownedIds.has(id)) {
+          failed.push(id);
+          errors.push({ id, reason: 'Access denied or not found' });
+        }
+      }
+
+      if (docs.length) {
+        await decrementTagCounts(docs);
+        await Promise.allSettled(docs.map(d => deleteFile(d.path)));
+
+        if (deleteJob) {
+          const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
+          if (jobIds.length) {
+            await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
+          }
+        }
+
+        const idsToDelete = docs.map(d => d._id);
+        await GeneratedVideo.deleteMany({ _id: { $in: idsToDelete } });
+        deleted.push(...idsToDelete.map(id => id.toString()));
+      }
+    }
+
+    res.json({
+      success: true,
+      data: { deleted: deleted.length, failed: failed.length, errors }
+    });
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 일괄 삭제 - 검색 결과 전체
+router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
+  try {
+    const { type, search = '', tags = '', deleteJob = false } = req.body;
+    const userId = req.user._id;
+
+    if (!type || !['uploaded', 'generated', 'video'].includes(type)) {
+      return res.status(400).json({ message: 'Invalid type' });
+    }
+
+    // 필터 구성 (기존 목록 API와 동일)
+    const filter = { userId };
+
+    if (type === 'uploaded') {
+      if (search) {
+        filter.$or = [
+          { originalName: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } }
+        ];
+      }
+      if (tags) {
+        const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
+        filter.tags = { $in: tagArray };
+      }
+    } else if (type === 'generated') {
+      if (search) {
+        filter.$or = [
+          { originalName: { $regex: search, $options: 'i' } },
+          { tags: { $in: [new RegExp(search, 'i')] } },
+          { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+        ];
+      }
+      if (tags) {
+        const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
+        filter.tags = { $in: tagArray };
+      }
+    } else {
+      // video
+      if (search) {
+        filter.$or = [
+          { originalName: { $regex: search, $options: 'i' } },
+          { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+        ];
+      }
+    }
+
+    const Model = type === 'uploaded' ? UploadedImage
+      : type === 'generated' ? GeneratedImage
+      : GeneratedVideo;
+
+    const docs = await Model.find(filter).select('_id path tags jobId isReferenced referencedBy').lean();
+
+    if (!docs.length) {
+      return res.json({ success: true, data: { deleted: 0, failed: 0, errors: [] } });
+    }
+
+    // bulk-delete 로직 재사용 - items 형태로 변환
+    const items = docs.map(d => ({ id: d._id.toString(), type }));
+
+    // 내부적으로 bulk-delete와 동일한 로직 적용을 위해 리디렉트 대신 직접 처리
+    // 이미 userId 필터링이 되어 있으므로 소유권 검사 불필요
+    const deleted = [];
+    const failed = [];
+    const errors = [];
+
+    // 태그 usageCount 일괄 차감
+    const tagCountMap = {};
+    for (const doc of docs) {
+      if (doc.tags?.length) {
+        for (const tagId of doc.tags) {
+          const key = tagId.toString();
+          tagCountMap[key] = (tagCountMap[key] || 0) + 1;
+        }
+      }
+    }
+    const tagOps = Object.entries(tagCountMap).map(([tagId, count]) =>
+      Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
+    );
+    await Promise.allSettled(tagOps);
+
+    if (type === 'uploaded') {
+      // 활성 작업 참조 중인 항목 제외
+      const referencedDocs = docs.filter(d => d.isReferenced);
+      let activeRefIds = new Set();
+      if (referencedDocs.length) {
+        const allJobRefs = referencedDocs.flatMap(d => (d.referencedBy || []).map(r => r.jobId));
+        const activeJobs = await ImageGenerationJob.find({
+          _id: { $in: allJobRefs },
+          status: { $in: ['pending', 'processing'] }
+        }).select('_id').lean();
+        const activeJobIds = new Set(activeJobs.map(j => j._id.toString()));
+
+        for (const doc of referencedDocs) {
+          const hasActive = (doc.referencedBy || []).some(r => activeJobIds.has(r.jobId.toString()));
+          if (hasActive) {
+            activeRefIds.add(doc._id.toString());
+            failed.push(doc._id.toString());
+            errors.push({ id: doc._id.toString(), reason: 'Referenced by active job' });
+          }
+        }
+      }
+
+      const toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
+      await Promise.allSettled(toDelete.map(d => deleteFile(d.path)));
+      const idsToDelete = toDelete.map(d => d._id);
+      await UploadedImage.deleteMany({ _id: { $in: idsToDelete } });
+      deleted.push(...idsToDelete.map(id => id.toString()));
+    } else {
+      await Promise.allSettled(docs.map(d => deleteFile(d.path)));
+
+      if (deleteJob) {
+        const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
+        if (jobIds.length) {
+          await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
+        }
+      }
+
+      const idsToDelete = docs.map(d => d._id);
+      await Model.deleteMany({ _id: { $in: idsToDelete } });
+      deleted.push(...idsToDelete.map(id => id.toString()));
+    }
+
+    res.json({
+      success: true,
+      data: { deleted: deleted.length, failed: failed.length, errors }
+    });
+  } catch (error) {
+    console.error('Bulk delete by filter error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.post('/upload', requireAuth, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
