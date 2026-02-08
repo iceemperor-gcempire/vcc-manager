@@ -42,7 +42,11 @@ import {
   ExpandMore,
   ToggleOn,
   ToggleOff,
-  DragIndicator
+  DragIndicator,
+  FileDownload,
+  FileUpload,
+  CheckCircle,
+  Warning
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -51,7 +55,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 
-function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView, onToggleActive }) {
+function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const isInactive = !workboard.isActive;
@@ -173,6 +177,10 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onView, onTog
         <MenuItem onClick={() => { onDuplicate(workboard); handleMenuClose(); }}>
           <ContentCopy sx={{ mr: 1 }} fontSize="small" />
           복제
+        </MenuItem>
+        <MenuItem onClick={() => { onExport(workboard); handleMenuClose(); }}>
+          <FileDownload sx={{ mr: 1 }} fontSize="small" />
+          내보내기
         </MenuItem>
         <MenuItem
           onClick={() => { onToggleActive(workboard); handleMenuClose(); }}
@@ -1484,12 +1492,237 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
   );
 }
 
+function WorkboardImportDialog({ open, onClose, onSuccess }) {
+  const [file, setFile] = useState(null);
+  const [parsedData, setParsedData] = useState(null);
+  const [parseError, setParseError] = useState('');
+  const [importName, setImportName] = useState('');
+  const [needsServer, setNeedsServer] = useState(false);
+  const [availableServers, setAvailableServers] = useState([]);
+  const [selectedServerId, setSelectedServerId] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [warnings, setWarnings] = useState([]);
+  const [importing, setImporting] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+
+  const resetState = () => {
+    setFile(null);
+    setParsedData(null);
+    setParseError('');
+    setImportName('');
+    setNeedsServer(false);
+    setAvailableServers([]);
+    setSelectedServerId('');
+    setPreview(null);
+    setWarnings([]);
+    setImporting(false);
+    setDragOver(false);
+  };
+
+  React.useEffect(() => {
+    if (!open) resetState();
+  }, [open]);
+
+  const handleFileSelect = (selectedFile) => {
+    if (!selectedFile) return;
+    if (!selectedFile.name.endsWith('.json')) {
+      setParseError('JSON 파일만 지원합니다.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data = JSON.parse(e.target.result);
+        if (!data._exportVersion || !data.workboard) {
+          setParseError('올바른 작업판 백업 파일이 아닙니다.');
+          return;
+        }
+        setFile(selectedFile);
+        setParsedData(data);
+        setImportName(data.workboard.name || '');
+        setParseError('');
+      } catch {
+        setParseError('JSON 파일을 파싱할 수 없습니다.');
+      }
+    };
+    reader.readAsText(selectedFile);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const droppedFile = e.dataTransfer.files[0];
+    handleFileSelect(droppedFile);
+  };
+
+  const handleImport = async () => {
+    if (!parsedData) return;
+
+    setImporting(true);
+    try {
+      // 이름이 변경되었다면 반영
+      const dataToSend = {
+        ...parsedData,
+        workboard: { ...parsedData.workboard, name: importName || parsedData.workboard.name }
+      };
+
+      const response = await workboardAPI.import(dataToSend, selectedServerId || undefined);
+      const result = response.data;
+
+      if (result.needsServer) {
+        setNeedsServer(true);
+        setAvailableServers(result.servers || []);
+        setPreview(result.preview);
+        setWarnings(result.warnings || []);
+        setImporting(false);
+        return;
+      }
+
+      toast.success(result.message || '작업판을 가져왔습니다.');
+      if (result.warnings?.length > 0) {
+        result.warnings.forEach(w => toast(w, { icon: '⚠️' }));
+      }
+      onSuccess();
+      onClose();
+    } catch (error) {
+      console.error('Import error:', error);
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>작업판 가져오기</DialogTitle>
+      <DialogContent>
+        {!parsedData ? (
+          <Box
+            onDrop={handleDrop}
+            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+            onDragLeave={() => setDragOver(false)}
+            sx={{
+              border: '2px dashed',
+              borderColor: dragOver ? 'primary.main' : 'grey.400',
+              borderRadius: 2,
+              p: 4,
+              textAlign: 'center',
+              bgcolor: dragOver ? 'action.hover' : 'transparent',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+            onClick={() => document.getElementById('workboard-import-file').click()}
+          >
+            <FileUpload sx={{ fontSize: 48, color: 'text.secondary', mb: 1 }} />
+            <Typography variant="body1" gutterBottom>
+              JSON 파일을 드래그하거나 클릭하여 선택
+            </Typography>
+            <Typography variant="caption" color="textSecondary">
+              작업판 내보내기로 생성된 .json 파일
+            </Typography>
+            <input
+              id="workboard-import-file"
+              type="file"
+              accept=".json"
+              hidden
+              onChange={(e) => handleFileSelect(e.target.files[0])}
+            />
+          </Box>
+        ) : (
+          <Box>
+            {/* 미리보기 */}
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="subtitle2">작업판 정보</Typography>
+              <Typography variant="body2">
+                API: {parsedData.workboard.apiFormat || 'ComfyUI'} / 출력: {parsedData.workboard.outputFormat || 'image'}
+              </Typography>
+              {parsedData.server && (
+                <Typography variant="body2">
+                  원본 서버: {parsedData.server.name} ({parsedData.server.serverType})
+                </Typography>
+              )}
+              {parsedData.exportedAt && (
+                <Typography variant="caption" color="textSecondary">
+                  내보낸 날짜: {new Date(parsedData.exportedAt).toLocaleString()}
+                </Typography>
+              )}
+            </Alert>
+
+            {warnings.map((w, i) => (
+              <Alert key={i} severity="warning" sx={{ mb: 1 }}>{w}</Alert>
+            ))}
+
+            {/* 이름 변경 */}
+            <TextField
+              fullWidth
+              label="작업판 이름"
+              value={importName}
+              onChange={(e) => setImportName(e.target.value)}
+              sx={{ mb: 2 }}
+            />
+
+            {/* 서버 매칭 상태 */}
+            {needsServer ? (
+              <Box sx={{ mb: 2 }}>
+                <Alert severity="warning" icon={<Warning />} sx={{ mb: 2 }}>
+                  원본 서버를 찾을 수 없습니다. 서버를 선택해주세요.
+                  {preview?.server && (
+                    <Typography variant="caption" display="block">
+                      원본: {preview.server.name} ({preview.server.serverType})
+                    </Typography>
+                  )}
+                </Alert>
+                <FormControl fullWidth>
+                  <InputLabel>서버 선택</InputLabel>
+                  <Select
+                    value={selectedServerId}
+                    label="서버 선택"
+                    onChange={(e) => setSelectedServerId(e.target.value)}
+                  >
+                    {availableServers.map((s) => (
+                      <MenuItem key={s._id} value={s._id}>
+                        {s.name} ({s.serverType} - {s.outputType})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            ) : parsedData.server ? (
+              <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                서버 자동 매칭 대기: "{parsedData.server.name}" ({parsedData.server.serverType})
+              </Alert>
+            ) : null}
+          </Box>
+        )}
+
+        {parseError && (
+          <Alert severity="error" sx={{ mt: 2 }}>{parseError}</Alert>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        {parsedData && (
+          <Button
+            variant="contained"
+            onClick={handleImport}
+            disabled={importing || (needsServer && !selectedServerId)}
+            startIcon={importing ? <CircularProgress size={16} /> : <FileUpload />}
+          >
+            {importing ? '가져오는 중...' : '가져오기'}
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 function WorkboardManagement() {
   const [search, setSearch] = useState('');
   const [apiFormatFilter, setApiFormatFilter] = useState('');
   const [outputFormatFilter, setOutputFormatFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
 
   const queryClient = useQueryClient();
@@ -1709,6 +1942,28 @@ function WorkboardManagement() {
     }
   };
 
+  const handleExport = async (workboard) => {
+    try {
+      const response = await workboardAPI.export(workboard._id);
+      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${workboard.name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_backup.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('작업판을 내보냈습니다.');
+    } catch (error) {
+      console.error('Export error:', error);
+    }
+  };
+
+  const handleImportSuccess = () => {
+    queryClient.refetchQueries('adminWorkboards');
+  };
+
   const handleView = (workboard) => {
     // 상세 보기 구현
     console.log('View workboard:', workboard);
@@ -1771,13 +2026,22 @@ function WorkboardManagement() {
     <Box>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5">작업판 관리</Typography>
-        <Button
-          variant="contained"
-          onClick={handleCreate}
-          startIcon={<Add />}
-        >
-          새 작업판
-        </Button>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            onClick={() => setImportDialogOpen(true)}
+            startIcon={<FileUpload />}
+          >
+            가져오기
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleCreate}
+            startIcon={<Add />}
+          >
+            새 작업판
+          </Button>
+        </Box>
       </Box>
 
       <Box mb={3} display="flex" gap={2} alignItems="center" flexWrap="wrap">
@@ -1831,6 +2095,7 @@ function WorkboardManagement() {
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onDuplicate={handleDuplicate}
+                onExport={handleExport}
                 onView={handleView}
                 onToggleActive={handleToggleActive}
               />
@@ -1851,6 +2116,12 @@ function WorkboardManagement() {
         onClose={() => setDetailDialogOpen(false)}
         workboard={selectedWorkboard}
         onSave={handleDetailSave}
+      />
+
+      <WorkboardImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onSuccess={handleImportSuccess}
       />
     </Box>
   );
