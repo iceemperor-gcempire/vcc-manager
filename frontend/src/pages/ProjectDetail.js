@@ -587,7 +587,7 @@ function ProjectDetail() {
           <Button
             variant="contained"
             startIcon={<ViewModule />}
-            onClick={() => navigate('/workboards')}
+            onClick={() => navigate(`/workboards?projectId=${id}`)}
             size="small"
           >
             이미지 생성하기

@@ -50,7 +50,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { jobAPI, workboardAPI, promptDataAPI, userAPI } from '../services/api';
+import { jobAPI, workboardAPI, promptDataAPI, userAPI, tagAPI } from '../services/api';
 import config from '../config';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -96,6 +96,18 @@ function SavePromptDialog({ open, onClose, job, onSave }) {
 
   // 작업의 태그 추출 (프로젝트 태그 등)
   const jobTags = job?.inputData?.tags || [];
+
+  // 태그 ID로 태그 정보 조회
+  const { data: allTagsData } = useQuery(
+    'allTags',
+    () => tagAPI.getAll({ limit: 200 }),
+    { enabled: open && jobTags.length > 0 }
+  );
+  const allTags = allTagsData?.data?.tags || [];
+  const resolvedJobTags = jobTags.map(tagId => {
+    const found = allTags.find(t => t._id === tagId);
+    return found || { _id: tagId, name: tagId, color: '#1976d2' };
+  });
 
   const onSubmit = (data) => {
     onSave({
@@ -237,13 +249,13 @@ function SavePromptDialog({ open, onClose, job, onSave }) {
                     프로젝트 태그 (자동 적용)
                   </Typography>
                   <Box display="flex" gap={0.5}>
-                    {jobTags.map((tagId, idx) => (
+                    {resolvedJobTags.map((tag) => (
                       <Chip
-                        key={idx}
+                        key={tag._id}
                         size="small"
-                        label={typeof tagId === 'object' ? tagId.name : tagId}
-                        color="primary"
-                        variant="outlined"
+                        label={tag.name}
+                        sx={tag.color ? { bgcolor: tag.color, color: 'white' } : {}}
+                        variant={tag.color ? 'filled' : 'outlined'}
                       />
                     ))}
                   </Box>
