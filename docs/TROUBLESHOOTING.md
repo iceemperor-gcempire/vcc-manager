@@ -254,8 +254,8 @@ services:
 #### 안전한 배포
 ```bash
 # deploy-prod.sh 사용
-chmod +x deploy-prod.sh
-./deploy-prod.sh
+chmod +x scripts/deploy-prod.sh
+./scripts/deploy-prod.sh
 
 # 수동 배포 시
 docker-compose -f docker-compose.prod.yml down frontend backend

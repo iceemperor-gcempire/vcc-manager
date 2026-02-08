@@ -103,7 +103,10 @@ docker-compose logs -f backend
 ### 배포 스크립트
 ```bash
 # 프로덕션 배포
-./deploy-prod.sh
+./scripts/deploy-prod.sh
+
+# 프로덕션 중지
+./scripts/stop-prod.sh
 ```
 
 ### 작업 시 유의사항

@@ -125,7 +125,7 @@ iPhone Safari에서 다운로드 문제가 해결되었습니다:
 
 #### 서버 시작
 ```bash
-./deploy-prod.sh
+./scripts/deploy-prod.sh
 ```
 - 자동 데이터베이스 백업 안내
 - 안전한 컨테이너 재시작
@@ -133,7 +133,7 @@ iPhone Safari에서 다운로드 문제가 해결되었습니다:
 
 #### 서버 중지 (개선됨)
 ```bash
-./scripts/stop-production.sh
+./scripts/stop-prod.sh
 ```
 - Docker Compose를 사용한 안전한 종료
 - 데이터베이스 볼륨 보존

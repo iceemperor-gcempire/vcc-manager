@@ -50,10 +50,10 @@ cp .env.example .env
 #### 2-2. 배포 스크립트 사용 (권장)
 ```bash
 # 배포 스크립트 실행 권한 부여
-chmod +x deploy-prod.sh
+chmod +x scripts/deploy-prod.sh
 
 # 안전한 배포 실행 (데이터베이스 보호)
-./deploy-prod.sh
+./scripts/deploy-prod.sh
 ```
 
 #### 2-3. 수동 배포
@@ -266,7 +266,7 @@ FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
 ### 🚀 자동 배포 스크립트 실행
 ```bash
 # 스크립트 실행 (데이터베이스 볼륨 안전 보장)
-./deploy-prod.sh
+./scripts/deploy-prod.sh
 ```
 
 ### 📋 스크립트 주요 기능
@@ -282,7 +282,7 @@ FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
 docker-compose down --volumes  # 절대 사용 금지!
 
 # ✅ 안전한 배포
-./deploy-prod.sh  # 데이터베이스 볼륨 보호됨
+./scripts/deploy-prod.sh  # 데이터베이스 볼륨 보호됨
 ```
 
 ### 🛠️ 수동 배포 (고급 사용자)
