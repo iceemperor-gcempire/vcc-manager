@@ -194,13 +194,6 @@ function PromptDataPanel({
                       {item.memo || item.prompt}
                     </Typography>
                     <Box mt={1}>
-                      {item.seed && (
-                        <Chip
-                          label={`Seed: ${item.seed}`}
-                          size="small"
-                          sx={{ mr: 0.5, mb: 0.5 }}
-                        />
-                      )}
                       {item.tags?.slice(0, 3).map((tag) => (
                         <ProjectTagChip
                           key={tag._id || tag}
