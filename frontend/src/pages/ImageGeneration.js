@@ -380,6 +380,7 @@ function ImageGeneration() {
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const [promptValue, setPromptValue] = useState('');
+  const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
   const promptInputRef = useRef(null);
 
@@ -656,6 +657,11 @@ function ImageGeneration() {
           safeSetValue('referenceImages', jobInputData.referenceImages);
         }
 
+        // 태그 복원 (계속하기 시 프로젝트 태그 등 유지)
+        if (jobInputData.tags && jobInputData.tags.length > 0) {
+          setContinuedTags(jobInputData.tags);
+        }
+
         // 시드 값 설정 (있는 경우)
         if (jobInputData.seed !== undefined) {
           setSeedValue(jobInputData.seed);
@@ -844,15 +850,16 @@ function ImageGeneration() {
         processedFormData.additionalParams = processedAdditionalParams;
       }
 
-      // 프로젝트 태그 주입
+      // 태그 병합: 프로젝트 태그 + 계속하기에서 이어받은 태그 (중복 제거)
       const projectTags = projectContext?.tagId?._id ? [projectContext.tagId._id] : [];
+      const mergedTags = [...new Set([...projectTags, ...continuedTags])];
 
       const finalPayload = {
         workboardId: id,
         ...processedFormData,
         seed: finalSeedValue,
         randomSeed,
-        ...(projectTags.length > 0 && { tags: projectTags })
+        ...(mergedTags.length > 0 && { tags: mergedTags })
       };
 
       console.log('📤 Final payload to API:', JSON.stringify(finalPayload, null, 2));
