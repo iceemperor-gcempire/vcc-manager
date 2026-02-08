@@ -179,6 +179,7 @@ export const updatelogAPI = {
 export const projectAPI = {
   getAll: (params) => api.get('/projects', { params }),
   getById: (id) => api.get(`/projects/${id}`),
+  getByTag: (tagId) => api.get(`/projects/by-tag/${tagId}`),
   create: (data) => api.post('/projects', data),
   update: (id, data) => api.put(`/projects/${id}`, data),
   delete: (id) => api.delete(`/projects/${id}`),

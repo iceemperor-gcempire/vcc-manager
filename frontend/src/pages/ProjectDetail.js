@@ -3,10 +3,6 @@ import {
   Container,
   Typography,
   Box,
-  Grid,
-  Card,
-  CardContent,
-  CardMedia,
   Button,
   IconButton,
   Chip,
@@ -30,16 +26,18 @@ import {
   Image as ImageIcon,
   TextSnippet,
   History,
-  Videocam,
   ViewModule
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { projectAPI } from '../services/api';
-import Pagination from '../components/common/Pagination';
-import ImageViewerDialog from '../components/common/ImageViewerDialog';
-import VideoViewerDialog from '../components/common/VideoViewerDialog';
+import { projectAPI, imageAPI, userAPI, promptDataAPI } from '../services/api';
+import MediaGrid from '../components/common/MediaGrid';
+import PromptDataPanel from '../components/common/PromptDataPanel';
+import PromptDataFormDialog from '../components/common/PromptDataFormDialog';
+import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
+import JobHistoryPanel from '../components/common/JobHistoryPanel';
+import TagInput from '../components/common/TagInput';
 
 function ProjectEditDialog({ open, onClose, project, onSuccess }) {
   const [name, setName] = useState('');
@@ -115,221 +113,334 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
   );
 }
 
-// 이미지 탭
-function ImagesTab({ projectId, tagId }) {
-  const [page, setPage] = useState(1);
-  const [viewerOpen, setViewerOpen] = useState(false);
-  const [viewerIndex, setViewerIndex] = useState(0);
-  const [videoViewerOpen, setVideoViewerOpen] = useState(false);
-  const [selectedVideo, setSelectedVideo] = useState(null);
+// 이미지/비디오 편집 다이얼로그
+function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
+  const [tags, setTags] = useState([]);
+  const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery(
-    ['projectImages', projectId, page],
-    () => projectAPI.getImages(projectId, { page, limit: 20 }),
-    { keepPreviousData: true }
+  React.useEffect(() => {
+    if (image) {
+      setTags(image.tags || []);
+    }
+  }, [image]);
+
+  const updateMutation = useMutation(
+    (data) => (isVideo ? imageAPI.updateVideo : imageAPI.updateGenerated)(image._id, data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(`projectImages-${projectId}`);
+        queryClient.invalidateQueries(`projectVideos-${projectId}`);
+        queryClient.invalidateQueries(isVideo ? 'generatedVideos' : 'generatedImages');
+        queryClient.invalidateQueries(['project', projectId]);
+        toast.success(`${isVideo ? '동영상' : '이미지'} 정보가 수정되었습니다`);
+        onClose();
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '수정 실패');
+      }
+    }
   );
 
-  const images = data?.data?.data?.images || [];
-  const videos = data?.data?.data?.videos || [];
-  const pagination = data?.data?.data?.pagination || {};
-
-  const handleImageClick = (index) => {
-    setViewerIndex(index);
-    setViewerOpen(true);
+  const handleSave = () => {
+    updateMutation.mutate({
+      tags: tags.map(t => t._id)
+    });
   };
 
-  const handleVideoClick = (video) => {
-    setSelectedVideo(video);
-    setVideoViewerOpen(true);
-  };
-
-  if (isLoading) {
-    return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
-  }
-
-  if (images.length === 0 && videos.length === 0) {
-    return <Alert severity="info" sx={{ mt: 2 }}>프로젝트에 아직 이미지/비디오가 없습니다.</Alert>;
-  }
+  if (!image) return null;
 
   return (
-    <>
-      {images.length > 0 && (
-        <>
-          <Typography variant="subtitle2" sx={{ mt: 2, mb: 1 }}>
-            이미지 ({pagination.imageTotal || images.length})
-          </Typography>
-          <Grid container spacing={2}>
-            {images.map((img, index) => (
-              <Grid item xs={6} sm={4} md={3} key={img._id}>
-                <Card
-                  sx={{ cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
-                  onClick={() => handleImageClick(index)}
-                >
-                  <CardMedia
-                    component="img"
-                    height="180"
-                    image={img.url}
-                    alt={img.originalName}
-                    sx={{ objectFit: 'cover' }}
-                  />
-                  <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                    <Typography variant="caption" noWrap display="block">
-                      {img.generationParams?.prompt?.substring(0, 50) || img.originalName}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </>
-      )}
-
-      {videos.length > 0 && (
-        <>
-          <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>
-            비디오 ({pagination.videoTotal || videos.length})
-          </Typography>
-          <Grid container spacing={2}>
-            {videos.map((video) => (
-              <Grid item xs={6} sm={4} md={3} key={video._id}>
-                <Card
-                  sx={{ cursor: 'pointer', '&:hover': { boxShadow: 4 } }}
-                  onClick={() => handleVideoClick(video)}
-                >
-                  <Box
-                    sx={{
-                      height: 180,
-                      bgcolor: 'grey.900',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <Videocam sx={{ fontSize: 48, color: 'grey.400' }} />
-                  </Box>
-                  <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                    <Typography variant="caption" noWrap display="block">
-                      {video.originalName || 'Video'}
-                    </Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        </>
-      )}
-
-      {pagination.total > 20 && (
-        <Box display="flex" justifyContent="center" mt={3}>
-          <Pagination
-            currentPage={page}
-            totalPages={Math.ceil(pagination.total / 20)}
-            onPageChange={setPage}
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{isVideo ? '동영상' : '이미지'} 편집</DialogTitle>
+      <DialogContent>
+        <Box sx={{ mb: 2, textAlign: 'center' }}>
+          {isVideo ? (
+            <video
+              src={image.url}
+              style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+              muted
+              controls
+            />
+          ) : (
+            <img
+              src={image.url}
+              alt={image.originalName}
+              style={{ maxWidth: '100%', maxHeight: 200, objectFit: 'contain' }}
+            />
+          )}
+        </Box>
+        <Typography variant="subtitle2" gutterBottom>{image.originalName}</Typography>
+        <Box sx={{ mt: 2 }}>
+          <TagInput
+            value={tags}
+            onChange={setTags}
+            label="태그"
+            placeholder="태그 추가..."
           />
         </Box>
-      )}
-
-      <ImageViewerDialog
-        images={images}
-        selectedIndex={viewerIndex}
-        open={viewerOpen}
-        onClose={() => setViewerOpen(false)}
-      />
-
-      <VideoViewerDialog
-        video={selectedVideo}
-        open={videoViewerOpen}
-        onClose={() => setVideoViewerOpen(false)}
-      />
-    </>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button
+          variant="contained"
+          onClick={handleSave}
+          disabled={updateMutation.isLoading}
+        >
+          저장
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
-// 프롬프트 데이터 탭
-function PromptDataTab({ projectId }) {
-  const [page, setPage] = useState(1);
+// 이미지 탭 - MediaGrid 사용
+function ImagesTab({ projectId }) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [editImage, setEditImage] = useState(null);
+  const [editIsVideo, setEditIsVideo] = useState(false);
+  const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery(
-    ['projectPromptData', projectId, page],
-    () => projectAPI.getPromptData(projectId, { page, limit: 20 }),
-    { keepPreviousData: true }
+  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const userPreferences = profileData?.data?.user?.preferences || {};
+
+  const deleteGeneratedMutation = useMutation(
+    ({ id, deleteJob }) => imageAPI.deleteGenerated(id, deleteJob),
+    {
+      onSuccess: () => {
+        toast.success('이미지가 삭제되었습니다');
+        queryClient.invalidateQueries(`projectImages-${projectId}`);
+        queryClient.invalidateQueries('generatedImages');
+        queryClient.invalidateQueries(['project', projectId]);
+      },
+      onError: () => toast.error('삭제 실패')
+    }
   );
 
-  const promptDataList = data?.data?.data?.promptDataList || [];
-  const pagination = data?.data?.data?.pagination || {};
+  const deleteVideoMutation = useMutation(
+    ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
+    {
+      onSuccess: () => {
+        toast.success('동영상이 삭제되었습니다');
+        queryClient.invalidateQueries(`projectVideos-${projectId}`);
+        queryClient.invalidateQueries('generatedVideos');
+        queryClient.invalidateQueries(['project', projectId]);
+      },
+      onError: () => toast.error('삭제 실패')
+    }
+  );
 
-  if (isLoading) {
-    return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
-  }
+  const handleEditImage = (image) => {
+    setEditImage(image);
+    setEditIsVideo(false);
+    setEditOpen(true);
+  };
 
-  if (promptDataList.length === 0) {
-    return <Alert severity="info" sx={{ mt: 2 }}>프로젝트에 아직 프롬프트 데이터가 없습니다.</Alert>;
-  }
+  const handleEditVideo = (video) => {
+    setEditImage(video);
+    setEditIsVideo(true);
+    setEditOpen(true);
+  };
+
+  const handleDeleteImage = (item) => {
+    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
+    if (deleteHistorySetting && item.jobId) {
+      if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
+      }
+    } else {
+      if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
+        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
+      }
+    }
+  };
+
+  const handleDeleteVideo = (item) => {
+    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
+    if (deleteHistorySetting && item.jobId) {
+      if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
+        deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
+      }
+    } else {
+      if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
+        deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
+      }
+    }
+  };
 
   return (
-    <>
-      <Grid container spacing={2} sx={{ mt: 1 }}>
-        {promptDataList.map((pd) => (
-          <Grid item xs={12} sm={6} key={pd._id}>
-            <Card>
-              <Box sx={{ display: 'flex' }}>
-                {pd.representativeImage?.url ? (
-                  <CardMedia
-                    component="img"
-                    sx={{ width: 100, height: 100, objectFit: 'cover' }}
-                    image={pd.representativeImage.url}
-                    alt={pd.name}
-                  />
-                ) : (
-                  <Box
-                    sx={{
-                      width: 100,
-                      height: 100,
-                      bgcolor: 'grey.200',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    <TextSnippet sx={{ color: 'grey.400', fontSize: 40 }} />
-                  </Box>
-                )}
-                <CardContent sx={{ flex: 1, py: 1 }}>
-                  <Typography variant="subtitle1" noWrap>{pd.name}</Typography>
-                  {pd.memo && (
-                    <Typography variant="body2" color="textSecondary" noWrap>
-                      {pd.memo}
-                    </Typography>
-                  )}
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      mt: 0.5
-                    }}
-                  >
-                    {pd.prompt}
-                  </Typography>
-                </CardContent>
-              </Box>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="subtitle2" sx={{ mb: 1 }}>이미지</Typography>
+      <MediaGrid
+        type="generated"
+        fetchFn={(params) => projectAPI.getImages(projectId, params)}
+        queryKey={`projectImages-${projectId}`}
+        showSearch={false}
+        pageSize={20}
+        onEdit={handleEditImage}
+        onDelete={handleDeleteImage}
+        responseExtractor={(data) => {
+          const d = data?.data?.data || {};
+          return {
+            items: d.images || [],
+            pagination: { ...d.pagination, pages: d.pagination ? Math.ceil(d.pagination.imageTotal / 20) : 1 }
+          };
+        }}
+      />
 
-      {pagination.total > 20 && (
-        <Box display="flex" justifyContent="center" mt={3}>
-          <Pagination
-            currentPage={page}
-            totalPages={Math.ceil(pagination.total / 20)}
-            onPageChange={setPage}
-          />
-        </Box>
-      )}
-    </>
+      <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>비디오</Typography>
+      <MediaGrid
+        type="video"
+        fetchFn={(params) => projectAPI.getImages(projectId, params)}
+        queryKey={`projectVideos-${projectId}`}
+        showSearch={false}
+        pageSize={20}
+        onEdit={handleEditVideo}
+        onDelete={handleDeleteVideo}
+        responseExtractor={(data) => {
+          const d = data?.data?.data || {};
+          return {
+            items: d.videos || [],
+            pagination: { ...d.pagination, pages: d.pagination ? Math.ceil(d.pagination.videoTotal / 20) : 1 }
+          };
+        }}
+      />
+
+      <ImageEditDialog
+        image={editImage}
+        open={editOpen}
+        onClose={() => { setEditOpen(false); setEditImage(null); }}
+        isVideo={editIsVideo}
+        projectId={projectId}
+      />
+    </Box>
+  );
+}
+
+// 프롬프트 데이터 탭 - PromptDataPanel 사용
+function PromptDataTab({ projectId }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [formOpen, setFormOpen] = useState(false);
+  const [editingPromptData, setEditingPromptData] = useState(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [workboardSelectOpen, setWorkboardSelectOpen] = useState(false);
+  const [selectedPromptData, setSelectedPromptData] = useState(null);
+
+  const updateMutation = useMutation(
+    ({ id, data }) => promptDataAPI.update(id, data),
+    {
+      onSuccess: () => {
+        toast.success('프롬프트 데이터가 수정되었습니다');
+        queryClient.invalidateQueries(`projectPromptData-${projectId}`);
+        queryClient.invalidateQueries('promptDataList');
+        queryClient.invalidateQueries(['project', projectId]);
+        setFormOpen(false);
+        setEditingPromptData(null);
+      },
+      onError: () => toast.error('프롬프트 데이터 수정 실패')
+    }
+  );
+
+  const deleteMutation = useMutation(promptDataAPI.delete, {
+    onSuccess: () => {
+      toast.success('프롬프트 데이터가 삭제되었습니다');
+      queryClient.invalidateQueries(`projectPromptData-${projectId}`);
+      queryClient.invalidateQueries('promptDataList');
+      queryClient.invalidateQueries(['project', projectId]);
+      setDeleteConfirmOpen(false);
+      setDeletingId(null);
+    },
+    onError: () => toast.error('프롬프트 데이터 삭제 실패')
+  });
+
+  const handleSave = (data) => {
+    updateMutation.mutate({ id: editingPromptData._id, data });
+  };
+
+  const handleEdit = (promptData) => {
+    setEditingPromptData(promptData);
+    setFormOpen(true);
+  };
+
+  const handleDelete = (id) => {
+    setDeletingId(id);
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleQuickGenerate = (promptData) => {
+    setSelectedPromptData(promptData);
+    setWorkboardSelectOpen(true);
+  };
+
+  const handleWorkboardSelect = (workboard) => {
+    if (selectedPromptData) {
+      localStorage.setItem('continueJobData', JSON.stringify({
+        workboardId: workboard._id,
+        inputData: {
+          prompt: selectedPromptData.prompt,
+          negativePrompt: selectedPromptData.negativePrompt,
+          seed: selectedPromptData.seed
+        }
+      }));
+      promptDataAPI.use(selectedPromptData._id);
+      navigate(`/generate/${workboard._id}?projectId=${projectId}`);
+    }
+    setWorkboardSelectOpen(false);
+  };
+
+  const handleCopyPrompt = (promptData) => {
+    navigator.clipboard.writeText(promptData.prompt);
+    toast.success('프롬프트가 클립보드에 복사되었습니다');
+  };
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <PromptDataPanel
+        fetchFn={(params) => projectAPI.getPromptData(projectId, params)}
+        queryKey={`projectPromptData-${projectId}`}
+        showSearch={false}
+        showCreateButton={false}
+        pageSize={20}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onQuickGenerate={handleQuickGenerate}
+        onCopyPrompt={handleCopyPrompt}
+      />
+
+      <PromptDataFormDialog
+        open={formOpen}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingPromptData(null);
+        }}
+        promptData={editingPromptData}
+        onSave={handleSave}
+      />
+
+      <WorkboardSelectDialog
+        open={workboardSelectOpen}
+        onClose={() => setWorkboardSelectOpen(false)}
+        onSelect={handleWorkboardSelect}
+      />
+
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
+        <DialogTitle>프롬프트 데이터 삭제</DialogTitle>
+        <DialogContent>
+          <Typography>이 프롬프트 데이터를 삭제하시겠습니까?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>취소</Button>
+          <Button
+            onClick={() => deleteMutation.mutate(deletingId)}
+            color="error"
+            variant="contained"
+          >
+            삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }
 
@@ -342,122 +453,17 @@ function TextTab() {
   );
 }
 
-// 작업 히스토리 탭
+// 작업 히스토리 탭 - JobHistoryPanel 사용
 function JobsTab({ projectId }) {
-  const [page, setPage] = useState(1);
-
-  const { data, isLoading } = useQuery(
-    ['projectJobs', projectId, page],
-    () => projectAPI.getJobs(projectId, { page, limit: 10 }),
-    { keepPreviousData: true }
-  );
-
-  const jobs = data?.data?.data?.jobs || [];
-  const pagination = data?.data?.data?.pagination || {};
-
-  const getStatusConfig = (status) => {
-    const configs = {
-      pending: { color: 'warning', label: '대기중' },
-      processing: { color: 'info', label: '처리중' },
-      completed: { color: 'success', label: '완료' },
-      failed: { color: 'error', label: '실패' },
-      cancelled: { color: 'default', label: '취소됨' }
-    };
-    return configs[status] || { color: 'default', label: status };
-  };
-
-  if (isLoading) {
-    return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
-  }
-
-  if (jobs.length === 0) {
-    return <Alert severity="info" sx={{ mt: 2 }}>프로젝트에 아직 작업 히스토리가 없습니다.</Alert>;
-  }
-
   return (
-    <>
-      <Box sx={{ mt: 2 }}>
-        {jobs.map((job) => {
-          const statusConfig = getStatusConfig(job.status);
-          const resultCount = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0);
-          return (
-            <Card key={job._id} sx={{ mb: 2 }}>
-              <CardContent>
-                <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Chip
-                      size="small"
-                      color={statusConfig.color}
-                      label={statusConfig.label}
-                    />
-                    <Typography variant="body2" color="textSecondary">
-                      {job.workboardId?.name || '알 수 없는 작업판'}
-                    </Typography>
-                  </Box>
-                  <Typography variant="caption" color="textSecondary">
-                    {new Date(job.createdAt).toLocaleString()}
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden'
-                  }}
-                >
-                  {job.inputData?.prompt}
-                </Typography>
-                {resultCount > 0 && (
-                  <Box display="flex" gap={1} mt={1}>
-                    {job.resultImages?.slice(0, 4).map((img) => (
-                      <Box
-                        key={img._id}
-                        component="img"
-                        src={img.url}
-                        alt=""
-                        sx={{
-                          width: 60,
-                          height: 60,
-                          objectFit: 'cover',
-                          borderRadius: 1
-                        }}
-                      />
-                    ))}
-                    {resultCount > 4 && (
-                      <Box
-                        sx={{
-                          width: 60,
-                          height: 60,
-                          bgcolor: 'grey.200',
-                          borderRadius: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        <Typography variant="caption">+{resultCount - 4}</Typography>
-                      </Box>
-                    )}
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
-      </Box>
-
-      {pagination.pages > 1 && (
-        <Box display="flex" justifyContent="center" mt={3}>
-          <Pagination
-            currentPage={page}
-            totalPages={pagination.pages}
-            onPageChange={setPage}
-          />
-        </Box>
-      )}
-    </>
+    <Box sx={{ mt: 2 }}>
+      <JobHistoryPanel
+        fetchFn={(params) => projectAPI.getJobs(projectId, params)}
+        queryKey={`projectJobs-${projectId}`}
+        showTags={false}
+        pageSize={10}
+      />
+    </Box>
   );
 }
 
@@ -613,7 +619,7 @@ function ProjectDetail() {
         <Tab icon={<History />} label="작업 히스토리" iconPosition="start" />
       </Tabs>
 
-      {tabValue === 0 && <ImagesTab projectId={id} tagId={project.tagId?._id} />}
+      {tabValue === 0 && <ImagesTab projectId={id} />}
       {tabValue === 1 && <PromptDataTab projectId={id} />}
       {tabValue === 2 && <TextTab />}
       {tabValue === 3 && <JobsTab projectId={id} />}

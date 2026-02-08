@@ -128,6 +128,7 @@ router.get('/my', requireAuth, async (req, res) => {
       .populate('workboardId', 'name')
       .populate('resultImages')
       .populate('resultVideos')
+      .populate('inputData.tags', 'name color isProjectTag')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit));

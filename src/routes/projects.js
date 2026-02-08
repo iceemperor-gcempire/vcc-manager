@@ -40,6 +40,25 @@ router.get('/favorites', requireAuth, async (req, res) => {
   }
 });
 
+// GET /by-tag/:tagId - 태그 ID로 프로젝트 조회 (프로젝트 태그 클릭 시 이동용)
+router.get('/by-tag/:tagId', requireAuth, async (req, res) => {
+  try {
+    const project = await Project.findOne({
+      tagId: req.params.tagId,
+      userId: req.user._id
+    });
+
+    if (!project) {
+      return res.status(404).json({ success: false, message: '해당 태그의 프로젝트를 찾을 수 없습니다' });
+    }
+
+    res.json({ success: true, data: { projectId: project._id } });
+  } catch (error) {
+    console.error('Get project by tag error:', error);
+    res.status(500).json({ success: false, message: '프로젝트 조회 실패' });
+  }
+});
+
 // GET / - 프로젝트 목록
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -417,6 +436,7 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
         .populate('workboardId', 'name')
         .populate('resultImages')
         .populate('resultVideos')
+        .populate('inputData.tags', 'name color isProjectTag')
         .sort({ createdAt: -1 })
         .skip((parseInt(page) - 1) * parseInt(limit))
         .limit(parseInt(limit)),
