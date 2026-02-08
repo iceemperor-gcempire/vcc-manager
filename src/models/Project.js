@@ -22,6 +22,11 @@ const projectSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
+  },
+  coverImage: {
+    url: String,
+    imageId: mongoose.Schema.Types.ObjectId,
+    imageType: { type: String, enum: ['uploaded', 'generated'] }
   }
 }, {
   timestamps: true

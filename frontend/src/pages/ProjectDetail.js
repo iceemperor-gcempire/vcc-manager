@@ -14,7 +14,6 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  TextField,
   Tooltip
 } from '@mui/material';
 import {
@@ -38,80 +37,7 @@ import PromptDataFormDialog from '../components/common/PromptDataFormDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import JobHistoryPanel from '../components/common/JobHistoryPanel';
 import TagInput from '../components/common/TagInput';
-
-function ProjectEditDialog({ open, onClose, project, onSuccess }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const queryClient = useQueryClient();
-
-  React.useEffect(() => {
-    if (project) {
-      setName(project.name || '');
-      setDescription(project.description || '');
-    }
-  }, [project]);
-
-  const updateMutation = useMutation(
-    (data) => projectAPI.update(project._id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries(['project', project._id]);
-        queryClient.invalidateQueries('projects');
-        toast.success('프로젝트가 수정되었습니다');
-        onClose();
-        if (onSuccess) onSuccess();
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
-
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      toast.error('프로젝트 이름을 입력해주세요');
-      return;
-    }
-    updateMutation.mutate({ name: name.trim(), description: description.trim() });
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>프로젝트 수정</DialogTitle>
-      <DialogContent>
-        <TextField
-          autoFocus
-          fullWidth
-          label="프로젝트 이름"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          inputProps={{ maxLength: 100 }}
-          sx={{ mt: 2, mb: 2 }}
-        />
-        <TextField
-          fullWidth
-          label="설명 (선택)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          multiline
-          rows={2}
-          inputProps={{ maxLength: 500 }}
-        />
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>취소</Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={updateMutation.isLoading}
-        >
-          저장
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
+import ProjectEditDialog from '../components/common/ProjectEditDialog';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -545,7 +471,30 @@ function ProjectDetail() {
       </Button>
 
       {/* 프로젝트 헤더 */}
-      <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          mb: 3,
+          borderRadius: 2,
+          p: 3,
+          position: 'relative',
+          ...(project.coverImage?.url && {
+            backgroundImage: `url(${project.coverImage.url})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              bgcolor: 'rgba(255,255,255,0.85)',
+              borderRadius: 2
+            },
+            '& > *': { position: 'relative', zIndex: 1 }
+          })
+        }}
+      >
         <Box>
           <Box display="flex" alignItems="center" gap={1} mb={1}>
             <Typography variant="h4">{project.name}</Typography>
@@ -613,14 +562,14 @@ function ProjectDetail() {
         onChange={(e, v) => setTabValue(v)}
         sx={{ mb: 1, borderBottom: 1, borderColor: 'divider' }}
       >
-        <Tab icon={<ImageIcon />} label="이미지" iconPosition="start" />
         <Tab icon={<TextSnippet />} label="프롬프트 데이터" iconPosition="start" />
+        <Tab icon={<ImageIcon />} label="이미지" iconPosition="start" />
         <Tab label="텍스트" />
         <Tab icon={<History />} label="작업 히스토리" iconPosition="start" />
       </Tabs>
 
-      {tabValue === 0 && <ImagesTab projectId={id} />}
-      {tabValue === 1 && <PromptDataTab projectId={id} />}
+      {tabValue === 0 && <PromptDataTab projectId={id} />}
+      {tabValue === 1 && <ImagesTab projectId={id} />}
       {tabValue === 2 && <TextTab />}
       {tabValue === 3 && <JobsTab projectId={id} />}
 

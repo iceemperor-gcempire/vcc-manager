@@ -195,10 +195,10 @@ router.get('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /:id - 프로젝트 수정 (name, description만)
+// PUT /:id - 프로젝트 수정
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const { name, description } = req.body;
+    const { name, description, coverImage } = req.body;
 
     const project = await Project.findOne({
       _id: req.params.id,
@@ -211,6 +211,16 @@ router.put('/:id', requireAuth, async (req, res) => {
 
     if (name) project.name = name.trim();
     if (description !== undefined) project.description = description.trim();
+
+    if (coverImage === null) {
+      project.coverImage = undefined;
+    } else if (coverImage && typeof coverImage === 'object') {
+      project.coverImage = {
+        url: coverImage.url,
+        imageId: coverImage.imageId,
+        imageType: coverImage.imageType
+      };
+    }
 
     await project.save();
     await project.populate('tagId', 'name color');

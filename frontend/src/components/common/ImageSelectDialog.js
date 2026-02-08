@@ -29,7 +29,8 @@ function ImageSelectDialog({
     if (open) {
       setSelectedImages(initialSelected);
     }
-  }, [open, initialSelected]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const tagsParam = filterTags.length > 0 ? filterTags.join(',') : undefined;
 

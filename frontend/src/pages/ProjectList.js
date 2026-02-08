@@ -34,6 +34,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../services/api';
+import ProjectEditDialog from '../components/common/ProjectEditDialog';
 
 function ProjectCreateDialog({ open, onClose }) {
   const [name, setName] = useState('');
@@ -112,87 +113,6 @@ function ProjectCreateDialog({ open, onClose }) {
           disabled={createMutation.isLoading}
         >
           생성
-        </Button>
-      </DialogActions>
-    </Dialog>
-  );
-}
-
-function ProjectEditDialog({ open, onClose, project }) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const queryClient = useQueryClient();
-
-  React.useEffect(() => {
-    if (project) {
-      setName(project.name || '');
-      setDescription(project.description || '');
-    }
-  }, [project]);
-
-  const updateMutation = useMutation(
-    (data) => projectAPI.update(project._id, data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('projects');
-        toast.success('프로젝트가 수정되었습니다');
-        onClose();
-      },
-      onError: (error) => {
-        toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
-
-  const handleSubmit = () => {
-    if (!name.trim()) {
-      toast.error('프로젝트 이름을 입력해주세요');
-      return;
-    }
-    updateMutation.mutate({ name: name.trim(), description: description.trim() });
-  };
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>프로젝트 수정</DialogTitle>
-      <DialogContent>
-        <TextField
-          autoFocus
-          fullWidth
-          label="프로젝트 이름"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          required
-          inputProps={{ maxLength: 100 }}
-          sx={{ mt: 2, mb: 2 }}
-        />
-        <TextField
-          fullWidth
-          label="설명 (선택)"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          multiline
-          rows={2}
-          inputProps={{ maxLength: 500 }}
-          sx={{ mb: 2 }}
-        />
-        <Box>
-          <Typography variant="body2" color="textSecondary">
-            태그명: <Chip size="small" label={project?.tagId?.name} sx={{ bgcolor: project?.tagId?.color, color: 'white' }} />
-          </Typography>
-          <Typography variant="caption" color="textSecondary">
-            태그명은 변경할 수 없습니다.
-          </Typography>
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>취소</Button>
-        <Button
-          variant="contained"
-          onClick={handleSubmit}
-          disabled={updateMutation.isLoading}
-        >
-          저장
         </Button>
       </DialogActions>
     </Dialog>
@@ -299,7 +219,22 @@ function ProjectList() {
                   }}
                 >
                   <CardContent
-                    sx={{ flexGrow: 1 }}
+                    sx={{
+                      flexGrow: 1,
+                      position: 'relative',
+                      ...(project.coverImage?.url && {
+                        backgroundImage: `url(${project.coverImage.url})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        '&::before': {
+                          content: '""',
+                          position: 'absolute',
+                          inset: 0,
+                          bgcolor: 'rgba(255,255,255,0.85)'
+                        },
+                        '& > *': { position: 'relative', zIndex: 1 }
+                      })
+                    }}
                     onClick={() => navigate(`/projects/${project._id}`)}
                   >
                     <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
