@@ -94,11 +94,15 @@ function SavePromptDialog({ open, onClose, job, onSave }) {
     }
   }, [open, job, reset]);
 
+  // 작업의 태그 추출 (프로젝트 태그 등)
+  const jobTags = job?.inputData?.tags || [];
+
   const onSubmit = (data) => {
     onSave({
       ...data,
       seed: data.seed ? parseInt(data.seed) : undefined,
-      representativeImage: selectedImage
+      representativeImage: selectedImage,
+      ...(jobTags.length > 0 && { tags: jobTags })
     });
   };
 
@@ -226,6 +230,25 @@ function SavePromptDialog({ open, onClose, job, onSave }) {
                   )}
                 />
               </Grid>
+
+              {jobTags.length > 0 && (
+                <Grid item xs={12}>
+                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                    프로젝트 태그 (자동 적용)
+                  </Typography>
+                  <Box display="flex" gap={0.5}>
+                    {jobTags.map((tagId, idx) => (
+                      <Chip
+                        key={idx}
+                        size="small"
+                        label={typeof tagId === 'object' ? tagId.name : tagId}
+                        color="primary"
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </Grid>
+              )}
             </Grid>
           </DialogContent>
           <DialogActions>

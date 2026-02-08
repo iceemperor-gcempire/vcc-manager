@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
 const tagRoutes = require('./routes/tags');
+const projectRoutes = require('./routes/projects');
 const backupRoutes = require('./routes/backup');
 const updatelogRoutes = require('./routes/updatelog');
 const errorHandler = require('./middleware/errorHandler');
@@ -104,6 +105,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/servers', serverRoutes);
 app.use('/api/prompt-data', promptDataRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/projects', projectRoutes);
 app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
 

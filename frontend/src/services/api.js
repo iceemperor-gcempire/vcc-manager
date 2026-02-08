@@ -176,6 +176,19 @@ export const updatelogAPI = {
   get: (majorVersion) => api.get(`/updatelog/${majorVersion}`),
 };
 
+export const projectAPI = {
+  getAll: (params) => api.get('/projects', { params }),
+  getById: (id) => api.get(`/projects/${id}`),
+  create: (data) => api.post('/projects', data),
+  update: (id, data) => api.put(`/projects/${id}`, data),
+  delete: (id) => api.delete(`/projects/${id}`),
+  toggleFavorite: (id) => api.post(`/projects/${id}/favorite`),
+  getImages: (id, params) => api.get(`/projects/${id}/images`, { params }),
+  getPromptData: (id, params) => api.get(`/projects/${id}/prompt-data`, { params }),
+  getJobs: (id, params) => api.get(`/projects/${id}/jobs`, { params }),
+  getFavorites: () => api.get('/projects/favorites'),
+};
+
 export const tagAPI = {
   getAll: (params) => api.get('/tags', { params }),
   create: (data) => api.post('/tags', data),

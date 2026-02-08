@@ -28,7 +28,8 @@ router.post('/generate', requireAuth, async (req, res) => {
       upscaleMethod,
       additionalParams,
       seed,
-      randomSeed
+      randomSeed,
+      tags
     } = req.body;
     
     console.log('🔍 Extracted fields:', {
@@ -70,7 +71,8 @@ router.post('/generate', requireAuth, async (req, res) => {
       upscaleMethod,
       additionalParams: additionalParams || {},
       seed,
-      randomSeed
+      randomSeed,
+      tags: Array.isArray(tags) ? tags : []
     };
     
     console.log('📦 Prepared inputData for job creation:', JSON.stringify(inputData, null, 2));

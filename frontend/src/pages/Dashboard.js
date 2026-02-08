@@ -4,6 +4,7 @@ import {
   Grid,
   Card,
   CardContent,
+  CardActionArea,
   Typography,
   Box,
   CircularProgress,
@@ -11,13 +12,16 @@ import {
 } from '@mui/material';
 import {
   CloudUpload,
-  History,
   ViewModule,
-  NewReleases
+  NewReleases,
+  Image as ImageIcon,
+  TextSnippet,
+  History,
+  Star
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { jobAPI } from '../services/api';
+import { jobAPI, projectAPI } from '../services/api';
 import config from '../config';
 import UpdateLogDialog from '../components/common/UpdateLogDialog';
 
@@ -37,6 +41,13 @@ function Dashboard() {
     jobAPI.getQueueStats,
     { refetchInterval: config.monitoring.queueStatusInterval }
   );
+
+  const { data: favoritesData } = useQuery(
+    'favoriteProjects',
+    () => projectAPI.getFavorites()
+  );
+
+  const favoriteProjects = favoritesData?.data?.data?.projects || [];
 
   if (jobsLoading || queueLoading) {
     return (
@@ -62,14 +73,58 @@ function Dashboard() {
       </Typography>
       
       <Grid container spacing={3}>
+        {/* 즐겨찾기 프로젝트 */}
+        {favoriteProjects.length > 0 && (
+          <Grid item xs={12}>
+            <Box display="flex" alignItems="center" gap={1} mb={1}>
+              <Star color="warning" />
+              <Typography variant="h6">즐겨찾기 프로젝트</Typography>
+            </Box>
+            <Grid container spacing={2}>
+              {favoriteProjects.map((project) => (
+                <Grid item xs={12} sm={6} md={4} key={project._id}>
+                  <Card>
+                    <CardActionArea onClick={() => navigate(`/projects/${project._id}`)}>
+                      <CardContent>
+                        <Typography variant="subtitle1" noWrap gutterBottom>
+                          {project.name}
+                        </Typography>
+                        {project.description && (
+                          <Typography variant="body2" color="textSecondary" noWrap sx={{ mb: 1 }}>
+                            {project.description}
+                          </Typography>
+                        )}
+                        <Box display="flex" gap={1.5}>
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <ImageIcon fontSize="small" color="action" />
+                            <Typography variant="body2">{project.counts?.images || 0}</Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <TextSnippet fontSize="small" color="action" />
+                            <Typography variant="body2">{project.counts?.promptData || 0}</Typography>
+                          </Box>
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <History fontSize="small" color="action" />
+                            <Typography variant="body2">{project.counts?.jobs || 0}</Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          </Grid>
+        )}
+
         {/* 서버 전체 작업 상태 */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                서버 전체 작업 상태
+              <Typography variant="subtitle1" gutterBottom>
+                서버 작업 상태
               </Typography>
-              <Grid container spacing={3}>
+              <Grid container spacing={2}>
                 <Grid item xs={6}>
                   <Box textAlign="center">
                     <Typography variant="h4" color="warning.main">
@@ -96,10 +151,10 @@ function Dashboard() {
         </Grid>
 
         {/* 내 작업 상태 */}
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="subtitle1" gutterBottom>
                 내 작업 상태
               </Typography>
               <Grid container spacing={2}>
@@ -129,24 +184,24 @@ function Dashboard() {
         </Grid>
 
         {/* 빠른 액션 */}
-        <Grid item xs={12}>
+        <Grid item xs={12} md={6}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
+              <Typography variant="subtitle1" gutterBottom>
                 빠른 액션
               </Typography>
-              <Box 
-                display="flex" 
-                flexDirection={{ xs: 'column', sm: 'row' }} 
+              <Box
+                display="flex"
+                flexDirection={{ xs: 'column', sm: 'row' }}
                 gap={2}
                 justifyContent="center"
+                flexWrap="wrap"
               >
                 <Button
                   variant="contained"
                   startIcon={<ViewModule />}
                   onClick={() => navigate('/workboards')}
                   size="large"
-                  sx={{ minWidth: 200 }}
                 >
                   새 이미지 생성하기
                 </Button>
@@ -155,25 +210,14 @@ function Dashboard() {
                   startIcon={<CloudUpload />}
                   onClick={() => navigate('/images')}
                   size="large"
-                  sx={{ minWidth: 200 }}
                 >
                   이미지 업로드하기
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<History />}
-                  onClick={() => navigate('/jobs')}
-                  size="large"
-                  sx={{ minWidth: 200 }}
-                >
-                  작업 히스토리 보기
                 </Button>
                 <Button
                   variant="outlined"
                   startIcon={<NewReleases />}
                   onClick={() => setUpdateLogOpen(true)}
                   size="large"
-                  sx={{ minWidth: 200 }}
                 >
                   업데이트 내역 보기
                 </Button>

@@ -64,7 +64,11 @@ router.put('/:id', requireAuth, async (req, res) => {
     if (!tag) {
       return res.status(404).json({ message: 'Tag not found' });
     }
-    
+
+    if (tag.isProjectTag) {
+      return res.status(400).json({ message: '프로젝트 태그는 프로젝트에서 관리합니다' });
+    }
+
     const oldName = tag.name;
     
     if (name && name.trim() !== oldName) {
@@ -97,7 +101,11 @@ router.delete('/:id', requireAuth, async (req, res) => {
     if (!tag) {
       return res.status(404).json({ message: 'Tag not found' });
     }
-    
+
+    if (tag.isProjectTag) {
+      return res.status(400).json({ message: '프로젝트 태그는 프로젝트 삭제를 통해서만 삭제할 수 있습니다' });
+    }
+
     await Promise.all([
       GeneratedImage.updateMany(
         { userId: req.user._id, tags: req.params.id },
