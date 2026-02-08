@@ -215,10 +215,15 @@ router.put('/:id', requireAuth, async (req, res) => {
     if (coverImage === null) {
       project.coverImage = undefined;
     } else if (coverImage && typeof coverImage === 'object') {
+      // MediaGrid에서 imageType이 모델명(GeneratedImage/UploadedImage)으로 올 수 있으므로 정규화
+      let normalizedType = coverImage.imageType;
+      if (normalizedType === 'GeneratedImage') normalizedType = 'generated';
+      else if (normalizedType === 'UploadedImage') normalizedType = 'uploaded';
+
       project.coverImage = {
         url: coverImage.url,
         imageId: coverImage.imageId,
-        imageType: coverImage.imageType
+        imageType: normalizedType
       };
     }
 
