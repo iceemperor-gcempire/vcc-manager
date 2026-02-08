@@ -5,6 +5,9 @@
 
 set -e
 
+# 프로젝트 루트로 이동
+cd "$(dirname "$0")/.."
+
 # 색상 정의
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -47,7 +50,7 @@ else
 fi
 
 echo -e "\n${BLUE}📋 유용한 명령어:${NC}"
-echo "🚀 재시작: ./deploy-prod.sh"
+echo "🚀 재시작: ./scripts/deploy-prod.sh"
 echo "📊 상태 확인: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE ps"
 echo "🔍 로그 확인: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE logs"
 
