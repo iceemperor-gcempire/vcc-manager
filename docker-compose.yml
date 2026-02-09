@@ -85,6 +85,26 @@ services:
     networks:
       - vcc-network
 
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: vcc-mcp-server
+    restart: unless-stopped
+    environment:
+      MCP_TRANSPORT: http
+      MCP_PORT: 3100
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      VCC_API_URL: http://backend:3000
+      VCC_EMAIL: ${MCP_EMAIL:-}
+      VCC_PASSWORD: ${MCP_PASSWORD:-}
+    ports:
+      - "${MCP_PORT:-3100}:3100"
+    depends_on:
+      - backend
+    networks:
+      - vcc-network
+
 volumes:
   mongodb_data:
     driver: local

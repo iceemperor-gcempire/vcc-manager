@@ -6,10 +6,13 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "inspect": "npx @modelcontextprotocol/inspector node index.js"
+    "start:http": "MCP_TRANSPORT=http node index.js",
+    "inspect": "npx @modelcontextprotocol/inspector node index.js",
+    "inspect:http": "MCP_TRANSPORT=http node index.js & sleep 2 && npx @modelcontextprotocol/inspector --url http://localhost:${MCP_PORT:-3100}/mcp"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
+    "express": "^5.2.1",
     "zod": "^3.24.2"
   }
 }
