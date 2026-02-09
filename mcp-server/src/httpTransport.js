@@ -94,19 +94,20 @@ export async function startHttpServer() {
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
       eventStore,
+      onsessioninitialized: (sessionId) => {
+        // Store session when initialized (avoids race condition with transport.sessionId)
+        sessions.set(sessionId, { transport, server: mcpServer });
+      },
     });
-
-    const mcpServer = createServer({ transport: 'http' });
-    await mcpServer.connect(transport);
-
-    // Track the session
-    const newSessionId = transport.sessionId;
-    sessions.set(newSessionId, { transport, server: mcpServer });
 
     // Clean up when the transport closes
     transport.onclose = () => {
-      sessions.delete(newSessionId);
+      const sid = transport.sessionId;
+      if (sid) sessions.delete(sid);
     };
+
+    const mcpServer = createServer({ transport: 'http' });
+    await mcpServer.connect(transport);
 
     await transport.handleRequest(req, res, req.body);
   });
@@ -142,9 +143,7 @@ export async function startHttpServer() {
       return;
     }
 
-    await session.transport.close();
-    sessions.delete(sessionId);
-    res.status(200).json({ message: 'Session terminated' });
+    await session.transport.handleRequest(req, res);
   });
 
   // ── GET /health ── health check ──────────────────────────────────────

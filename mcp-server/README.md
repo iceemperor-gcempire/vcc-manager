@@ -33,15 +33,20 @@ curl http://localhost:3100/health
 
 ### 클라이언트 설정
 
+**Claude Code** (`.mcp.json`):
+
 ```json
 {
   "mcpServers": {
     "vcc-manager": {
+      "type": "http",
       "url": "http://your-server:3100/mcp"
     }
   }
 }
 ```
+
+**Claude Desktop**: Connectors UI(**HTTPS 필수**)를 사용하거나, `mcp-remote` 브릿지(HTTP 시 `--allow-http` 필요)를 사용합니다. 상세: [docs/MCP_SERVER.md](../docs/MCP_SERVER.md#2-4-클라이언트-설정)
 
 ## stdio 모드 (로컬)
 
@@ -92,7 +97,7 @@ npm install
 | `generate` | 이미지/비디오 생성 요청 |
 | `get_job_status` | 생성 작업 상태 확인 |
 | `list_jobs` | 생성 작업 목록 조회 |
-| `download_result` | 결과 다운로드 (stdio: 파일 저장, HTTP: URL 반환) |
+| `download_result` | 결과 다운로드 (stdio: 파일 저장, HTTP: 이미지 base64 반환 / 비디오 메타데이터) |
 
 ## 사용 예시
 

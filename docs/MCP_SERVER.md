@@ -71,16 +71,26 @@ curl http://localhost:3100/health
 
 ### 2-4. 클라이언트 설정
 
-#### Claude Desktop
+#### Claude Code
 
-설정 파일 경로:
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+CLI로 추가하거나 `.mcp.json` 파일을 직접 편집합니다:
+
+```bash
+# CLI로 추가
+claude mcp add --transport http vcc-manager http://your-server:3100/mcp
+
+# MCP_API_KEY를 설정한 경우
+claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
+  --header "Authorization: Bearer your-secret-api-key"
+```
+
+또는 프로젝트 루트의 `.mcp.json` 파일에 직접 추가합니다:
 
 ```json
 {
   "mcpServers": {
     "vcc-manager": {
+      "type": "http",
       "url": "http://your-server:3100/mcp"
     }
   }
@@ -93,6 +103,7 @@ curl http://localhost:3100/health
 {
   "mcpServers": {
     "vcc-manager": {
+      "type": "http",
       "url": "http://your-server:3100/mcp",
       "headers": {
         "Authorization": "Bearer your-secret-api-key"
@@ -102,33 +113,93 @@ curl http://localhost:3100/health
 }
 ```
 
-#### Claude Code
+> **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL만 설정하면 됩니다.
 
-프로젝트 루트의 `.mcp.json` 파일에 추가합니다:
+#### Claude Desktop
+
+Claude Desktop은 `claude_desktop_config.json`에서 원격 HTTP 서버를 직접 지원하지 않습니다.
+아래 방법 중 하나를 사용하세요:
+
+**방법 1: Connectors UI + HTTPS (권장)**
+
+Claude Desktop 앱 → **Settings → Connectors → Add custom connector** 에서 URL을 입력합니다.
+
+> **주의**: Connectors UI는 **HTTPS URL만 허용**합니다. 리버스 프록시(nginx, Caddy 등)나 터널(Cloudflare Tunnel, ngrok 등)을 통해 HTTPS를 제공해야 합니다.
+
+- URL: `https://your-server/mcp`
+
+**방법 2: mcp-remote 브릿지 (HTTP 가능)**
+
+`claude_desktop_config.json`에서 `mcp-remote`를 stdio 브릿지로 사용합니다.
+HTTP URL을 사용하려면 `--allow-http` 플래그가 필요합니다.
+또한 VCC MCP 서버는 Streamable HTTP 전용이므로 `--transport http-only`를 지정해야 합니다:
 
 ```json
 {
   "mcpServers": {
     "vcc-manager": {
-      "url": "http://your-server:3100/mcp"
+      "command": "npx",
+      "args": [
+        "mcp-remote", "http://your-server:3100/mcp",
+        "--transport", "http-only",
+        "--allow-http"
+      ]
     }
   }
 }
 ```
 
-> **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL만 설정하면 됩니다.
-
-### 2-5. HTTP 모드에서의 `download_result` 동작
-
-HTTP 모드에서 `download_result` 도구는 파일을 직접 다운로드하지 않고 **다운로드 URL**을 반환합니다. 컨테이너 파일시스템이 클라이언트에서 접근 불가하기 때문입니다.
+`MCP_API_KEY`를 설정한 경우:
 
 ```json
 {
-  "downloadUrl": "http://your-server:3000/api/images/generated/{id}/download",
-  "filename": "result.png",
-  "mediaType": "image",
-  "note": "Open this URL in a browser to download the file."
+  "mcpServers": {
+    "vcc-manager": {
+      "command": "npx",
+      "args": [
+        "mcp-remote", "http://your-server:3100/mcp",
+        "--transport", "http-only",
+        "--allow-http",
+        "--header", "Authorization: Bearer your-secret-api-key"
+      ]
+    }
+  }
 }
+```
+
+HTTPS URL이라면 `--allow-http` 생략 가능:
+
+```json
+{
+  "mcpServers": {
+    "vcc-manager": {
+      "command": "npx",
+      "args": [
+        "mcp-remote", "https://your-server/mcp",
+        "--transport", "http-only"
+      ]
+    }
+  }
+}
+```
+
+> **참고**: `--allow-http`는 트래픽이 암호화되지 않으므로, 신뢰할 수 있는 내부 네트워크에서만 사용하세요.
+> `--transport http-only`는 SSE 대신 Streamable HTTP로 연결합니다. 생략 시 SSE 폴백을 시도하여 400 에러가 발생할 수 있습니다.
+
+**클라이언트별 프로토콜 요구사항:**
+
+| 클라이언트 | HTTP | HTTPS |
+|---|---|---|
+| Claude Code (`.mcp.json`) | O (직접 지원) | O |
+| Claude Desktop Connectors UI | X | O (필수) |
+| mcp-remote 브릿지 | `--allow-http` 필요 | O (기본) |
+
+### 2-5. HTTP 모드에서의 `download_result` 동작
+
+HTTP 모드에서 `download_result` 도구는 MCP 서버가 인증된 API를 통해 파일을 가져온 뒤, 미디어 타입에 따라 다르게 반환합니다:
+
+- **이미지**: MCP `image` 콘텐츠 타입으로 base64 인코딩된 이미지 데이터를 직접 반환. 클라이언트에서 즉시 확인 가능.
+- **비디오**: 파일 크기가 크므로 메타데이터(파일명, 크기)만 반환. VCC Manager 웹 UI에서 확인.
 ```
 
 ---
@@ -428,3 +499,17 @@ Inspector에서 확인할 항목:
 
 - `MCP_API_KEY`가 서버와 클라이언트 양쪽에서 일치하는지 확인하세요
 - Authorization 헤더 형식이 `Bearer <key>`인지 확인하세요
+
+### Claude Desktop에서 HTTP URL 연결 불가
+
+- **Connectors UI**는 **HTTPS만 허용**합니다. HTTP URL을 입력하면 거부됩니다.
+- HTTPS가 없는 환경에서는 `mcp-remote` 브릿지에 `--allow-http` 플래그를 사용하세요.
+- 프로덕션 환경에서는 리버스 프록시(nginx, Caddy)로 TLS를 구성하거나 Cloudflare Tunnel 등을 사용하여 HTTPS를 제공하는 것을 권장합니다.
+
+### mcp-remote 연결 시 "SSE error: Non-200 status code (400)"
+
+- `mcp-remote`가 SSE 방식으로 연결을 시도하여 발생하는 에러입니다.
+- VCC MCP 서버는 Streamable HTTP만 지원하므로, `--transport http-only` 플래그를 추가하세요:
+  ```json
+  "args": ["mcp-remote", "http://your-server:3100/mcp", "--transport", "http-only", "--allow-http"]
+  ```

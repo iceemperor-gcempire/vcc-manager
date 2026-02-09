@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, extname } from 'node:path';
 import { homedir } from 'node:os';
 import { apiRequest } from '../utils/apiClient.js';
 
@@ -8,7 +8,17 @@ const DEFAULT_DOWNLOAD_DIR = process.env.VCC_DOWNLOAD_DIR
   ? process.env.VCC_DOWNLOAD_DIR.replace(/^~/, homedir())
   : join(homedir(), 'Downloads', 'vcc');
 
-const VCC_API_URL = process.env.VCC_API_URL || 'http://localhost:3000';
+const MIME_TYPES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+};
 
 /**
  * Register media-related tools on the MCP server.
@@ -23,7 +33,7 @@ export function registerMediaTools(server, options = {}) {
   server.tool(
     'download_result',
     isHttp
-      ? 'Get download URL for a generated image or video. Returns a URL you can open in a browser. Get media IDs from get_job_status results.'
+      ? 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results.'
       : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results.',
     {
       mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos)'),
@@ -44,22 +54,47 @@ export function registerMediaTools(server, options = {}) {
         throw new Error(`${mediaType} not found`);
       }
 
-      // ── HTTP mode: return download URL ──────────────────────────────
+      const downloadPath = mediaType === 'image'
+        ? `/images/generated/${mediaId}/download`
+        : `/images/videos/${mediaId}/download`;
+
+      const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+      const ext = extname(filename).toLowerCase();
+      const mimeType = MIME_TYPES[ext] || (mediaType === 'image' ? 'image/png' : 'video/mp4');
+
+      // ── HTTP mode: fetch via authenticated API and return inline ───
       if (isHttp) {
-        const downloadUrl = mediaType === 'image'
-          ? `${VCC_API_URL}/api/images/generated/${mediaId}/download`
-          : `${VCC_API_URL}/api/images/videos/${mediaId}/download`;
+        const { buffer } = await apiRequest(downloadPath, {
+          method: 'POST',
+          responseType: 'buffer',
+        });
 
-        const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+        // Images: return as base64 MCP image content
+        if (mediaType === 'image') {
+          return {
+            content: [
+              {
+                type: 'image',
+                data: buffer.toString('base64'),
+                mimeType,
+              },
+              {
+                type: 'text',
+                text: JSON.stringify({ filename, size: buffer.length, mediaType }, null, 2),
+              },
+            ],
+          };
+        }
 
+        // Videos: too large for inline, return metadata with size
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              downloadUrl,
               filename,
+              size: buffer.length,
               mediaType,
-              note: 'Open this URL in a browser to download the file. The URL requires authentication.',
+              note: 'Video files are too large to transfer inline. Use the VCC Manager web UI to view/download videos.',
             }, null, 2),
           }],
         };
@@ -72,18 +107,12 @@ export function registerMediaTools(server, options = {}) {
 
       await mkdir(targetDir, { recursive: true });
 
-      const downloadPath = mediaType === 'image'
-        ? `/images/generated/${mediaId}/download`
-        : `/images/videos/${mediaId}/download`;
-
       const { buffer } = await apiRequest(downloadPath, {
         method: 'POST',
         responseType: 'buffer',
       });
 
-      const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
       const filePath = join(targetDir, filename);
-
       await writeFile(filePath, buffer);
 
       return {
