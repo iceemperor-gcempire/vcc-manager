@@ -2,9 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const Workboard = require('../models/Workboard');
+const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
 const router = express.Router();
+
+const EXPORT_VERSION = 1;
+const APP_VERSION = { major: 1, minor: 3 };
 
 router.get('/', requireAuth, async (req, res) => {
   try {
@@ -56,6 +60,118 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// 작업판 가져오기 (관리자 전용)
+router.post('/import', requireAdmin, async (req, res) => {
+  try {
+    const { data, serverId: overrideServerId } = req.body;
+
+    if (!data || !data._exportVersion) {
+      return res.status(400).json({ message: '올바른 작업판 백업 파일이 아닙니다.' });
+    }
+
+    if (data._exportVersion !== EXPORT_VERSION) {
+      return res.status(400).json({ message: `지원하지 않는 내보내기 버전입니다. (v${data._exportVersion})` });
+    }
+
+    const warnings = [];
+
+    // 앱 버전 호환성 경고
+    if (data.appVersion && data.appVersion.major !== APP_VERSION.major) {
+      warnings.push(`앱 메이저 버전이 다릅니다 (백업: v${data.appVersion.major}.${data.appVersion.minor}, 현재: v${APP_VERSION.major}.${APP_VERSION.minor}). 호환되지 않을 수 있습니다.`);
+    }
+
+    // 서버 매칭
+    let matchedServerId = null;
+    let serverMatchInfo = null;
+
+    if (overrideServerId) {
+      // 사용자가 직접 서버를 선택한 경우
+      const server = await Server.findById(overrideServerId);
+      if (!server) {
+        return res.status(400).json({ message: '선택한 서버를 찾을 수 없습니다.' });
+      }
+      matchedServerId = server._id;
+      serverMatchInfo = { name: server.name, matched: true, manual: true };
+    } else if (data.server) {
+      // 자동 매칭 시도
+      const server = await Server.findOne({
+        name: data.server.name,
+        serverType: data.server.serverType
+      });
+      if (server) {
+        matchedServerId = server._id;
+        serverMatchInfo = { name: server.name, matched: true, manual: false };
+      } else {
+        // 매칭 실패 - 서버 목록과 함께 반환
+        const servers = await Server.find({ isActive: true }).select('name serverType outputType');
+        return res.json({
+          needsServer: true,
+          preview: {
+            name: data.workboard?.name,
+            description: data.workboard?.description,
+            apiFormat: data.workboard?.apiFormat,
+            outputFormat: data.workboard?.outputFormat,
+            server: data.server
+          },
+          servers,
+          warnings
+        });
+      }
+    } else {
+      // 서버 정보가 없는 경우
+      const servers = await Server.find({ isActive: true }).select('name serverType outputType');
+      return res.json({
+        needsServer: true,
+        preview: {
+          name: data.workboard?.name,
+          description: data.workboard?.description,
+          apiFormat: data.workboard?.apiFormat,
+          outputFormat: data.workboard?.outputFormat,
+          server: null
+        },
+        servers,
+        warnings
+      });
+    }
+
+    // 새 Workboard 생성
+    const wb = data.workboard;
+    const server = await Server.findById(matchedServerId);
+
+    const newWorkboard = new Workboard({
+      name: wb.name,
+      description: wb.description,
+      workboardType: wb.workboardType,
+      apiFormat: wb.apiFormat || 'ComfyUI',
+      outputFormat: wb.outputFormat || 'image',
+      serverId: matchedServerId,
+      serverUrl: server.serverUrl,
+      baseInputFields: wb.baseInputFields,
+      additionalInputFields: wb.additionalInputFields || [],
+      workflowData: wb.workflowData || '',
+      createdBy: req.user._id,
+      version: 1,
+      usageCount: 0,
+      isActive: true,
+      tags: []
+    });
+
+    await newWorkboard.save();
+    await newWorkboard.populate('createdBy', 'nickname email');
+    await newWorkboard.populate('serverId', 'name serverType serverUrl outputType isActive');
+
+    res.status(201).json({
+      message: '작업판을 가져왔습니다.',
+      workboard: newWorkboard,
+      serverMatch: serverMatchInfo,
+      warnings
+    });
+  } catch (error) {
+    console.error('Workboard import error:', error);
+    res.status(400).json({ message: error.message });
   }
 });
 
@@ -139,7 +255,6 @@ router.post('/', requireAdmin, async (req, res) => {
     }
     
     // 서버 존재 확인
-    const Server = require('../models/Server');
     const server = await Server.findById(finalServerId);
     if (!server) {
       return res.status(400).json({ 
@@ -216,7 +331,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
     
     // 서버 변경 처리
     if (serverId) {
-      const Server = require('../models/Server');
       const server = await Server.findById(serverId);
       if (!server) {
         return res.status(400).json({ 
@@ -371,6 +485,55 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// 작업판 내보내기 (관리자 전용)
+router.get('/:id/export', requireAdmin, async (req, res) => {
+  try {
+    const workboard = await Workboard.findById(req.params.id);
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+
+    // 서버 정보 조회
+    let serverInfo = null;
+    if (workboard.serverId) {
+      const server = await Server.findById(workboard.serverId);
+      if (server) {
+        serverInfo = {
+          name: server.name,
+          serverType: server.serverType,
+          outputType: server.outputType
+        };
+      }
+    }
+
+    const exportData = {
+      _exportVersion: EXPORT_VERSION,
+      appVersion: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      workboard: {
+        name: workboard.name,
+        description: workboard.description,
+        workboardType: workboard.workboardType,
+        apiFormat: workboard.apiFormat,
+        outputFormat: workboard.outputFormat,
+        baseInputFields: workboard.baseInputFields,
+        additionalInputFields: workboard.additionalInputFields,
+        workflowData: workboard.workflowData,
+        version: workboard.version
+      },
+      server: serverInfo
+    };
+
+    const filename = `${workboard.name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_backup.json`;
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.json(exportData);
+  } catch (error) {
+    console.error('Workboard export error:', error);
+    res.status(500).json({ message: error.message });
   }
 });
 

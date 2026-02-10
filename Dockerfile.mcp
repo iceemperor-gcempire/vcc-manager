@@ -1,0 +1,21 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Install dependencies first for layer caching
+COPY mcp-server/package*.json ./
+RUN npm install --omit=dev
+
+# Copy application source
+COPY mcp-server/src/ ./src/
+COPY mcp-server/index.js ./
+
+# Non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001
+USER nodeuser
+
+EXPOSE 3100
+
+ENV MCP_TRANSPORT=http
+
+CMD ["npm", "start"]

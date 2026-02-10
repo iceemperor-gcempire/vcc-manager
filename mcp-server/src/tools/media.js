@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { writeFile, mkdir } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, extname } from 'node:path';
 import { homedir } from 'node:os';
 import { apiRequest } from '../utils/apiClient.js';
 
@@ -8,29 +8,42 @@ const DEFAULT_DOWNLOAD_DIR = process.env.VCC_DOWNLOAD_DIR
   ? process.env.VCC_DOWNLOAD_DIR.replace(/^~/, homedir())
   : join(homedir(), 'Downloads', 'vcc');
 
+const MIME_TYPES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.svg': 'image/svg+xml',
+  '.mp4': 'video/mp4',
+  '.webm': 'video/webm',
+  '.mov': 'video/quicktime',
+};
+
 /**
  * Register media-related tools on the MCP server.
+ *
+ * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
+ * @param {{ transport?: 'stdio' | 'http' }} options
  */
-export function registerMediaTools(server) {
+export function registerMediaTools(server, options = {}) {
+  const isHttp = options.transport === 'http';
 
   // ── download_result ────────────────────────────────────────────────
   server.tool(
     'download_result',
-    'Download a generated image or video file to local disk. Get media IDs from get_job_status results.',
+    isHttp
+      ? 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results.'
+      : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results.',
     {
       mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos)'),
       mediaType: z.enum(['image', 'video']).describe('Type of media to download'),
-      downloadDir: z.string().optional().describe('Download directory (default: ~/Downloads/vcc or VCC_DOWNLOAD_DIR)'),
+      ...(!isHttp ? {
+        downloadDir: z.string().optional().describe('Download directory (default: ~/Downloads/vcc or VCC_DOWNLOAD_DIR)'),
+      } : {}),
     },
     async ({ mediaId, mediaType, downloadDir }) => {
-      const targetDir = downloadDir
-        ? downloadDir.replace(/^~/, homedir())
-        : DEFAULT_DOWNLOAD_DIR;
-
-      // Ensure download directory exists
-      await mkdir(targetDir, { recursive: true });
-
-      // Get media metadata first
+      // Get media metadata
       const metaPath = mediaType === 'image'
         ? `/images/generated/${mediaId}`
         : `/images/videos/${mediaId}`;
@@ -41,20 +54,65 @@ export function registerMediaTools(server) {
         throw new Error(`${mediaType} not found`);
       }
 
-      // Download the file
       const downloadPath = mediaType === 'image'
         ? `/images/generated/${mediaId}/download`
         : `/images/videos/${mediaId}/download`;
 
-      const { buffer, headers } = await apiRequest(downloadPath, {
+      const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+      const ext = extname(filename).toLowerCase();
+      const mimeType = MIME_TYPES[ext] || (mediaType === 'image' ? 'image/png' : 'video/mp4');
+
+      // ── HTTP mode: fetch via authenticated API and return inline ───
+      if (isHttp) {
+        const { buffer } = await apiRequest(downloadPath, {
+          method: 'POST',
+          responseType: 'buffer',
+        });
+
+        // Images: return as base64 MCP image content
+        if (mediaType === 'image') {
+          return {
+            content: [
+              {
+                type: 'image',
+                data: buffer.toString('base64'),
+                mimeType,
+              },
+              {
+                type: 'text',
+                text: JSON.stringify({ filename, size: buffer.length, mediaType }, null, 2),
+              },
+            ],
+          };
+        }
+
+        // Videos: too large for inline, return metadata with size
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              filename,
+              size: buffer.length,
+              mediaType,
+              note: 'Video files are too large to transfer inline. Use the VCC Manager web UI to view/download videos.',
+            }, null, 2),
+          }],
+        };
+      }
+
+      // ── stdio mode: download to local disk ──────────────────────────
+      const targetDir = downloadDir
+        ? downloadDir.replace(/^~/, homedir())
+        : DEFAULT_DOWNLOAD_DIR;
+
+      await mkdir(targetDir, { recursive: true });
+
+      const { buffer } = await apiRequest(downloadPath, {
         method: 'POST',
         responseType: 'buffer',
       });
 
-      // Determine filename
-      const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
       const filePath = join(targetDir, filename);
-
       await writeFile(filePath, buffer);
 
       return {

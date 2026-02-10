@@ -64,16 +64,16 @@ fi
 # 기존 애플리케이션 컨테이너 중지 (볼륨은 유지)
 echo -e "${BLUE}⏹️  기존 애플리케이션 컨테이너 중지 중...${NC}"
 echo -e "${GREEN}✅ 데이터베이스 볼륨은 안전하게 보호됩니다${NC}"
-docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE stop frontend backend nginx 2>/dev/null || true
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE stop frontend backend mcp-server nginx 2>/dev/null || true
 
 # 이미지 캐시 없이 빌드
 echo -e "${BLUE}🔨 애플리케이션 이미지를 캐시 없이 빌드 중...${NC}"
 echo "이 과정은 몇 분 소요될 수 있습니다..."
-docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE build --no-cache frontend backend
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE build --no-cache frontend backend mcp-server
 
 # 기존 애플리케이션 컨테이너 제거 (볼륨과 데이터베이스는 유지)
 echo -e "${BLUE}🗑️  기존 애플리케이션 컨테이너 제거 중...${NC}"
-docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE rm -f frontend backend nginx 2>/dev/null || true
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE rm -f frontend backend mcp-server nginx 2>/dev/null || true
 
 # 새 컨테이너로 시작
 echo -e "${BLUE}🚀 새로운 애플리케이션 컨테이너 시작 중...${NC}"
@@ -134,6 +134,25 @@ if curl -s http://localhost:$FRONTEND_PORT >/dev/null 2>&1; then
 else
     echo -e "${RED}❌ Frontend (포트 $FRONTEND_PORT): 응답 없음${NC}"
     echo "   💡 수동 확인: curl http://localhost:$FRONTEND_PORT"
+fi
+
+# MCP Server 헬스 체크
+MCP_PORT=$(grep "^MCP_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
+if [ -z "$MCP_PORT" ]; then
+    MCP_PORT="3100"
+fi
+
+ACTUAL_MCP_PORT=$(docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE port mcp-server 3100 2>/dev/null | cut -d ':' -f2)
+if [ -n "$ACTUAL_MCP_PORT" ]; then
+    MCP_PORT=$ACTUAL_MCP_PORT
+fi
+
+echo -e "${BLUE}🔍 MCP 서버 포트: $MCP_PORT${NC}"
+if curl -s http://localhost:$MCP_PORT/health >/dev/null 2>&1; then
+    echo -e "${GREEN}✅ MCP Server (포트 $MCP_PORT): 정상${NC}"
+else
+    echo -e "${YELLOW}⚠️  MCP Server (포트 $MCP_PORT): 응답 없음 (MCP_EMAIL/MCP_PASSWORD 미설정 시 정상)${NC}"
+    echo "   💡 수동 확인: curl http://localhost:$MCP_PORT/health"
 fi
 
 # 로그 확인 안내

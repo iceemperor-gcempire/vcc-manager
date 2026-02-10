@@ -93,6 +93,32 @@ services:
     networks:
       - vcc-network
 
+  mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcp
+    container_name: vcc-mcp-server
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3100/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    environment:
+      MCP_TRANSPORT: http
+      MCP_PORT: 3100
+      MCP_API_KEY: ${MCP_API_KEY:-}
+      VCC_API_URL: http://backend:3000
+      VCC_EMAIL: ${MCP_EMAIL}
+      VCC_PASSWORD: ${MCP_PASSWORD}
+    ports:
+      - "${MCP_PORT:-3100}:3100"
+    depends_on:
+      - backend
+    networks:
+      - vcc-network
+
 # Nginx 서비스 제거: 외부 nginx 또는 Cloudflare Tunnel에서 처리
 
 volumes:

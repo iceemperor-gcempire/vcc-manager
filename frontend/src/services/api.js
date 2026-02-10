@@ -72,6 +72,8 @@ export const workboardAPI = {
   getStats: (id) => api.get(`/workboards/${id}/stats`),
   getLoraModels: (id) => api.get(`/workboards/${id}/lora-models`),
   refreshLoraModels: (id) => api.post(`/workboards/${id}/lora-models/refresh`),
+  export: (id) => api.get(`/workboards/${id}/export`),
+  import: (data, serverId) => api.post('/workboards/import', { data, serverId }),
 };
 
 export const jobAPI = {

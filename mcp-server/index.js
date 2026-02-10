@@ -1,21 +1,15 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { registerWorkboardTools } from './src/tools/workboards.js';
-import { registerJobTools } from './src/tools/jobs.js';
-import { registerMediaTools } from './src/tools/media.js';
+const transport = (process.env.MCP_TRANSPORT || 'stdio').toLowerCase();
 
-const server = new McpServer({
-  name: 'vcc-manager',
-  version: '1.0.0',
-});
+if (transport === 'http') {
+  const { startHttpServer } = await import('./src/httpTransport.js');
+  await startHttpServer();
+} else {
+  const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
+  const { createServer } = await import('./src/server.js');
 
-// Register all tools
-registerWorkboardTools(server);
-registerJobTools(server);
-registerMediaTools(server);
-
-// Start stdio transport
-const transport = new StdioServerTransport();
-await server.connect(transport);
+  const server = createServer({ transport: 'stdio' });
+  const stdioTransport = new StdioServerTransport();
+  await server.connect(stdioTransport);
+}
