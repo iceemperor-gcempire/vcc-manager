@@ -49,22 +49,13 @@ function ImageDetailDialog({ image, open, onClose, type }) {
         const blob = new Blob([response.data]);
         const blobUrl = window.URL.createObjectURL(blob);
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-
-        if (isIOS && isSafari) {
-          const newWindow = window.open(blobUrl, '_blank');
-          if (!newWindow) window.location.href = blobUrl;
-          toast.success('이미지를 길게 눌러서 저장하세요');
-        } else {
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = image.originalName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          toast.success('다운로드 완료');
-        }
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = image.originalName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('다운로드 완료');
 
         setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
@@ -77,22 +68,13 @@ function ImageDetailDialog({ image, open, onClose, type }) {
         const blob = await response.blob();
         const blobUrl = window.URL.createObjectURL(blob);
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-
-        if (isIOS && isSafari) {
-          const newWindow = window.open(blobUrl, '_blank');
-          if (!newWindow) window.location.href = blobUrl;
-          toast.success('이미지를 길게 눌러서 저장하세요');
-        } else {
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = image.originalName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          toast.success('다운로드 완료');
-        }
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = image.originalName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('다운로드 완료');
 
         setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
@@ -146,22 +128,13 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
         const blob = new Blob([response.data]);
         const blobUrl = window.URL.createObjectURL(blob);
 
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-
-        if (isIOS && isSafari) {
-          const newWindow = window.open(blobUrl, '_blank');
-          if (!newWindow) window.location.href = blobUrl;
-          toast.success('이미지를 길게 눌러서 저장하세요');
-        } else {
-          const link = document.createElement('a');
-          link.href = blobUrl;
-          link.download = image.originalName;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          toast.success('다운로드 완료');
-        }
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.download = image.originalName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('다운로드 완료');
         setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
         toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
