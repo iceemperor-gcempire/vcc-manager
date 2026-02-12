@@ -47,24 +47,13 @@ function VideoViewerDialog({
       
       const blobUrl = window.URL.createObjectURL(blob);
       
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-      const isSafari = /Safari/.test(navigator.userAgent) && !/Chrome/.test(navigator.userAgent);
-      
-      if (isIOS && isSafari) {
-        const newWindow = window.open(blobUrl, '_blank');
-        if (!newWindow) {
-          window.location.href = blobUrl;
-        }
-        toast.success('동영상을 길게 눌러서 저장하세요');
-      } else {
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = currentVideo.originalName || `video_${Date.now()}.mp4`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success('다운로드 완료');
-      }
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = currentVideo.originalName || `video_${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('다운로드 완료');
       
       setTimeout(() => {
         window.URL.revokeObjectURL(blobUrl);
