@@ -96,38 +96,42 @@ graph TB
         B[Admin Panel]
         C[Gallery / Projects]
         D[Workboards]
-        E[LoRA Management]
     end
 
     subgraph "Backend (Node.js)"
-        F[Express API]
-        G[Auth System]
-        H[Job Queue]
-        I[File Management]
-        J[MCP Server]
+        E[Express API]
+        F[Auth System]
+        G[Job Queue]
+        H[File Management]
+    end
+
+    subgraph "MCP Server"
+        I[Streamable HTTP]
+    end
+
+    subgraph "Data Store"
+        J[(MongoDB)]
+        K[(Redis)]
     end
 
     subgraph "External Services"
-        K[ComfyUI Server]
-        L[OpenAI Compatible API]
-        M[MongoDB]
-        N[Redis]
-        O[Civitai API]
+        L[ComfyUI Server]
+        M[OpenAI Compatible API]
+        N[Civitai API]
     end
 
-    A --> F
-    B --> F
-    C --> F
-    D --> F
-    E --> F
+    A --> E
+    B --> E
+    C --> E
+    D --> E
 
-    F --> K
-    F --> L
-    G --> M
-    H --> N
-    I --> M
-    J --> F
-    E --> O
+    E --> J
+    E --> L
+    E --> M
+    E --> N
+    G --> K
+
+    I -->|Backend API| E
 ```
 
 ## 사용자 역할
