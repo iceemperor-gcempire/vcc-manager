@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
+const ApiKey = require('../models/ApiKey');
 
 const requireAuth = (req, res, next) => {
   if (!req.isAuthenticated() && !req.user) {
@@ -137,12 +138,64 @@ const verifyJWT = async (req, res, next) => {
   }
 };
 
+const verifyApiKey = async (req, res, next) => {
+  const apiKey = req.header('X-API-Key');
+
+  if (!apiKey) {
+    return res.status(401).json({ message: 'No API key provided' });
+  }
+
+  try {
+    const keyHash = ApiKey.hashKey(apiKey);
+    const apiKeyDoc = await ApiKey.findOne({ keyHash, isRevoked: false });
+
+    if (!apiKeyDoc) {
+      return res.status(401).json({ message: 'Invalid or revoked API key' });
+    }
+
+    const user = await User.findById(apiKeyDoc.userId);
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ message: 'User account is inactive' });
+    }
+
+    if (user.approvalStatus !== 'approved') {
+      return res.status(403).json({
+        message: user.approvalStatus === 'pending'
+          ? 'Account pending approval'
+          : 'Account access denied',
+        approvalStatus: user.approvalStatus
+      });
+    }
+
+    req.user = user;
+    req.authMethod = 'apikey';
+    req.isAuthenticated = () => true;
+
+    // Fire-and-forget lastUsedAt update
+    ApiKey.updateOne({ _id: apiKeyDoc._id }, { lastUsedAt: new Date() }).catch(() => {});
+
+    next();
+  } catch (error) {
+    return res.status(401).json({ message: 'API key verification failed' });
+  }
+};
+
+const requireNonApiKeyAuth = (req, res, next) => {
+  if (req.authMethod === 'apikey') {
+    return res.status(403).json({ message: 'API key management is not available via API key authentication' });
+  }
+  return next();
+};
+
 module.exports = {
   requireAuth,
   requireAdmin,
   optionalAuth,
   generateJWT,
   verifyJWT,
+  verifyApiKey,
+  requireNonApiKeyAuth,
   authRateLimit,
   signupRateLimit
 };

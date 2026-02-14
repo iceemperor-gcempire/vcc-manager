@@ -24,25 +24,27 @@ import {
   ListItem,
   ListItemIcon,
   ListItemText,
-  Switch,
-  FormControlLabel
+  IconButton,
+  Chip,
+  Tooltip,
+  InputAdornment
 } from '@mui/material';
 import {
   Save,
   Delete,
   Security,
-  Palette,
-  Language,
-  Info,
   Warning,
   Person,
   Email,
-  AdminPanelSettings
+  AdminPanelSettings,
+  VpnKey,
+  ContentCopy,
+  Add
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { userAPI } from '../services/api';
+import { userAPI, apiKeyAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 function StatCard({ title, value, subtitle }) {
@@ -227,8 +229,19 @@ function AccountSettings() {
 
 function SecuritySettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [createKeyDialogOpen, setCreateKeyDialogOpen] = useState(false);
+  const [showKeyDialogOpen, setShowKeyDialogOpen] = useState(false);
+  const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState('');
+  const [createdKey, setCreatedKey] = useState(null);
+  const [revokeTarget, setRevokeTarget] = useState(null);
   const { logout } = useAuth();
   const queryClient = useQueryClient();
+
+  // API Key 목록 조회
+  const { data: apiKeysData } = useQuery('apiKeys', () => apiKeyAPI.getAll());
+  const apiKeys = apiKeysData?.data?.data || [];
+  const activeKeyCount = apiKeys.filter(k => !k.isRevoked).length;
 
   const deleteMutation = useMutation(
     userAPI.deleteAccount,
@@ -243,9 +256,60 @@ function SecuritySettings() {
     }
   );
 
+  const createKeyMutation = useMutation(
+    (data) => apiKeyAPI.create(data),
+    {
+      onSuccess: (response) => {
+        setCreatedKey(response.data.data);
+        setCreateKeyDialogOpen(false);
+        setShowKeyDialogOpen(true);
+        setNewKeyName('');
+        queryClient.invalidateQueries('apiKeys');
+      }
+    }
+  );
+
+  const revokeKeyMutation = useMutation(
+    (id) => apiKeyAPI.revoke(id),
+    {
+      onSuccess: () => {
+        toast.success('API Key가 파기되었습니다');
+        setRevokeDialogOpen(false);
+        setRevokeTarget(null);
+        queryClient.invalidateQueries('apiKeys');
+      }
+    }
+  );
+
   const handleDeleteAccount = () => {
     deleteMutation.mutate();
     setDeleteDialogOpen(false);
+  };
+
+  const handleCreateKey = () => {
+    if (!newKeyName.trim()) return;
+    createKeyMutation.mutate({ name: newKeyName.trim() });
+  };
+
+  const handleCopyKey = () => {
+    if (createdKey?.key) {
+      navigator.clipboard.writeText(createdKey.key);
+      toast.success('API Key가 클립보드에 복사되었습니다');
+    }
+  };
+
+  const handleRevokeKey = () => {
+    if (revokeTarget) {
+      revokeKeyMutation.mutate(revokeTarget._id);
+    }
+  };
+
+  const formatDate = (date) => {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('ko-KR', {
+      year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit'
+    });
   };
 
   return (
@@ -265,9 +329,83 @@ function SecuritySettings() {
               secondary="Google 계정으로 안전하게 로그인됩니다"
             />
           </ListItem>
-          
+
           <Divider />
-          
+
+          {/* API Key 관리 */}
+          <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
+            <Box display="flex" alignItems="center" mb={1}>
+              <ListItemIcon sx={{ minWidth: 40 }}>
+                <VpnKey />
+              </ListItemIcon>
+              <ListItemText
+                primary="API Key 관리"
+                secondary={`외부 프로그램에서 API에 접근할 때 사용합니다 (${activeKeyCount}/10)`}
+              />
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={() => setCreateKeyDialogOpen(true)}
+                disabled={activeKeyCount >= 10}
+              >
+                생성
+              </Button>
+            </Box>
+
+            {apiKeys.length > 0 && (
+              <Box sx={{ ml: 5, mb: 1 }}>
+                {apiKeys.map((apiKey) => (
+                  <Box
+                    key={apiKey._id}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      py: 0.75,
+                      px: 1.5,
+                      mb: 0.5,
+                      borderRadius: 1,
+                      bgcolor: apiKey.isRevoked ? 'action.disabledBackground' : 'action.hover'
+                    }}
+                  >
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Typography variant="body2" fontWeight="medium" noWrap>
+                          {apiKey.name}
+                        </Typography>
+                        {apiKey.isRevoked && (
+                          <Chip label="파기됨" size="small" color="error" variant="outlined" />
+                        )}
+                      </Box>
+                      <Typography variant="caption" color="textSecondary" component="div">
+                        {apiKey.prefix}... | 생성: {formatDate(apiKey.createdAt)}
+                        {apiKey.lastUsedAt && ` | 마지막 사용: ${formatDate(apiKey.lastUsedAt)}`}
+                        {apiKey.isRevoked && apiKey.revokedAt && ` | 파기: ${formatDate(apiKey.revokedAt)}`}
+                      </Typography>
+                    </Box>
+                    {!apiKey.isRevoked && (
+                      <Tooltip title="파기">
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => {
+                            setRevokeTarget(apiKey);
+                            setRevokeDialogOpen(true);
+                          }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </ListItem>
+
+          <Divider />
+
           <ListItem>
             <ListItemIcon>
               <Warning color="error" />
@@ -287,6 +425,112 @@ function SecuritySettings() {
           </ListItem>
         </List>
       </Paper>
+
+      {/* API Key 생성 다이얼로그 */}
+      <Dialog
+        open={createKeyDialogOpen}
+        onClose={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>API Key 생성</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            label="키 이름"
+            placeholder="예: My Script, CI/CD Pipeline"
+            value={newKeyName}
+            onChange={(e) => setNewKeyName(e.target.value)}
+            sx={{ mt: 1 }}
+            inputProps={{ maxLength: 100 }}
+            helperText="이 키를 식별할 수 있는 이름을 입력하세요"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); }}>
+            취소
+          </Button>
+          <Button
+            onClick={handleCreateKey}
+            variant="contained"
+            disabled={!newKeyName.trim() || createKeyMutation.isLoading}
+          >
+            {createKeyMutation.isLoading ? '생성 중...' : '생성'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* API Key 표시 다이얼로그 */}
+      <Dialog
+        open={showKeyDialogOpen}
+        onClose={() => { setShowKeyDialogOpen(false); setCreatedKey(null); }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>API Key 생성 완료</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            이 키는 다시 확인할 수 없습니다. 지금 안전한 곳에 복사해 두세요.
+          </Alert>
+          {createdKey && (
+            <TextField
+              fullWidth
+              value={createdKey.key}
+              InputProps={{
+                readOnly: true,
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton onClick={handleCopyKey} edge="end">
+                      <ContentCopy />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+                sx: { fontFamily: 'monospace', fontSize: '0.85rem' }
+              }}
+            />
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => { setShowKeyDialogOpen(false); setCreatedKey(null); }}
+            variant="contained"
+          >
+            확인
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* API Key 파기 확인 다이얼로그 */}
+      <Dialog
+        open={revokeDialogOpen}
+        onClose={() => { setRevokeDialogOpen(false); setRevokeTarget(null); }}
+      >
+        <DialogTitle>API Key 파기</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            파기된 키는 더 이상 사용할 수 없습니다.
+          </Alert>
+          {revokeTarget && (
+            <Typography>
+              <strong>{revokeTarget.name}</strong> ({revokeTarget.prefix}...) 키를 파기하시겠습니까?
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setRevokeDialogOpen(false); setRevokeTarget(null); }}>
+            취소
+          </Button>
+          <Button
+            onClick={handleRevokeKey}
+            color="error"
+            variant="contained"
+            disabled={revokeKeyMutation.isLoading}
+          >
+            {revokeKeyMutation.isLoading ? '파기 중...' : '파기'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* 계정 삭제 확인 다이얼로그 */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
@@ -397,14 +641,10 @@ function Profile() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <AccountSettings />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <SecuritySettings />
-        </Grid>
-      </Grid>
+      <AccountSettings />
+      <Box mt={3}>
+        <SecuritySettings />
+      </Box>
     </Container>
   );
 }

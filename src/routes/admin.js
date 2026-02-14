@@ -6,6 +6,7 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
 const SystemSettings = require('../models/SystemSettings');
+const ApiKey = require('../models/ApiKey');
 const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
@@ -131,6 +132,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
       ImageGenerationJob.deleteMany({ userId }),
       GeneratedImage.deleteMany({ userId }),
       UploadedImage.deleteMany({ userId }),
+      ApiKey.deleteMany({ userId }),
       User.findByIdAndDelete(userId)
     ]);
     

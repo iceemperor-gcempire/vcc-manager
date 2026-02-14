@@ -14,7 +14,7 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 2. [HTTP 모드 (Docker 배포)](#2-http-모드-docker-배포)
 3. [stdio 모드 (로컬 실행)](#3-stdio-모드-로컬-실행)
 4. [Claude Code 등록 가이드](#4-claude-code-등록-가이드)
-5. [MCP 전용 계정 생성 (권장)](#5-mcp-전용-계정-생성-권장)
+5. [API Key 발급](#5-api-key-발급)
 6. [환경 변수 참조](#6-환경-변수-참조)
 7. [사용 가능한 Tools](#7-사용-가능한-tools)
 8. [사용 예시 (워크플로우)](#8-사용-예시-워크플로우)
@@ -26,7 +26,7 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 ## 1. 사전 준비
 
 - **VCC Manager 서버가 실행 중**이어야 합니다
-- MCP Server에서 사용할 **VCC Manager 계정** (이메일/비밀번호)
+- MCP Server에서 사용할 **VCC Manager API Key** (프로필 > 보안 설정에서 발급)
 - HTTP 모드: **Docker** 환경 (docker-compose에 포함)
 - stdio 모드: **Node.js 18 이상** (내장 `fetch` API 필요)
 
@@ -45,8 +45,7 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 # MCP Server Configuration
 MCP_PORT=3100
 MCP_API_KEY=your-secret-api-key    # 선택사항 (설정 시 Bearer 토큰 인증 활성화)
-MCP_EMAIL=mcp-agent@your-domain.com
-MCP_PASSWORD=your-mcp-password
+VCC_API_KEY=vcc_xxxxxxxxxxxxxxxx   # VCC Manager API Key (프로필에서 발급)
 ```
 
 ### 2-2. Docker Compose로 실행
@@ -229,8 +228,7 @@ npm install
       "args": ["/absolute/path/to/mcp-server/index.js"],
       "env": {
         "VCC_API_URL": "http://localhost:3000",
-        "VCC_EMAIL": "mcp-agent@your-domain.com",
-        "VCC_PASSWORD": "your-mcp-password",
+        "VCC_API_KEY": "vcc_xxxxxxxxxxxxxxxx",
         "VCC_DOWNLOAD_DIR": "~/Downloads/vcc"
       }
     }
@@ -252,8 +250,7 @@ npm install
       "args": ["/absolute/path/to/mcp-server/index.js"],
       "env": {
         "VCC_API_URL": "http://localhost:3000",
-        "VCC_EMAIL": "mcp-agent@your-domain.com",
-        "VCC_PASSWORD": "your-mcp-password",
+        "VCC_API_KEY": "vcc_xxxxxxxxxxxxxxxx",
         "VCC_DOWNLOAD_DIR": "~/Downloads/vcc"
       }
     }
@@ -357,28 +354,33 @@ Claude Code 대화 중 `/mcp` 입력으로 서버 상태를 확인하거나 인�
 
 ---
 
-## 5. MCP 전용 계정 생성 (권장)
+## 5. API Key 발급
 
-> **보안 권장사항**: MCP Server용 계정은 개인 계정과 별도로 생성하는 것을 강력히 권장합니다.
+MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
-MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장합니다. 개인 계정을 사용할 경우 자격 증명이 설정 파일에 노출될 위험이 있으며, AI 에이전트가 해당 계정으로 작업을 수행하므로 생성 이력 관리에도 혼동이 생길 수 있습니다.
+### 발급 절차
 
-### 전용 계정 생성 절차
+1. VCC Manager 웹에 로그인합니다
+2. **프로필 페이지 > 보안 설정 > API Key 관리** 섹션으로 이동합니다
+3. **생성** 버튼을 클릭하고 키 이름을 입력합니다 (예: `MCP Server`)
+4. 생성된 API Key를 복사합니다 (**이 키는 다시 확인할 수 없으므로 반드시 저장**)
+5. 복사한 키를 MCP Server 환경 변수 `VCC_API_KEY`에 설정합니다
 
-1. VCC Manager 웹에서 새 계정을 등록합니다
-   - 이메일 예시: `mcp-agent@your-domain.com`
-   - 닉네임 예시: `MCP Agent`
-2. **관리자가 해당 계정을 승인**합니다 (관리자 페이지 → 사용자 관리)
-3. 승인된 계정의 이메일/비밀번호를 MCP Server 환경 변수에 설정합니다
-
-### 전용 계정 사용의 장점
+### API Key 사용의 장점
 
 | 항목 | 설명 |
 |---|---|
-| **보안 격리** | 개인 계정 자격 증명이 설정 파일에 노출되지 않음 |
-| **이력 추적** | AI 에이전트가 생성한 작업을 별도 계정으로 구분하여 추적 가능 |
-| **권한 관리** | 필요시 MCP 전용 계정만 비활성화하여 에이전트 접근을 차단 가능 |
-| **비밀번호 관리** | 개인 비밀번호 변경 시 MCP 설정에 영향 없음 |
+| **보안** | 이메일/비밀번호 대신 키 하나만 환경변수에 저장 |
+| **만료 없음** | JWT와 달리 만료/갱신 로직 불필요 |
+| **즉시 파기** | 웹 UI에서 키를 파기하면 MCP 접근 즉시 차단 |
+| **사용 추적** | 마지막 사용 시각으로 MCP 활동 확인 가능 |
+| **계정 분리** | 전용 계정 없이도 키 단위로 접근 관리 |
+
+### 주의사항
+
+- API Key는 생성 시 1회만 표시됩니다. 분실 시 새 키를 발급해야 합니다.
+- 사용자당 최대 10개의 활성 키를 발급할 수 있습니다.
+- 키를 파기하면 해당 키를 사용하는 MCP 서버는 즉시 인증에 실패합니다.
 
 ---
 
@@ -389,8 +391,7 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 | 변수 | 필수 | 설명 | 기본값 |
 |---|---|---|---|
 | `VCC_API_URL` | No | VCC Manager API 서버 URL | `http://localhost:3000` |
-| `VCC_EMAIL` | **Yes** | 로그인 이메일 | - |
-| `VCC_PASSWORD` | **Yes** | 로그인 비밀번호 | - |
+| `VCC_API_KEY` | **Yes** | VCC Manager API Key | - |
 
 ### stdio 모드 전용
 
@@ -408,10 +409,9 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 
 ### 인증 동작 방식
 
-- 첫 API 호출 시 이메일/비밀번호로 자동 로그인하여 JWT 토큰을 발급받습니다
-- 발급받은 토큰은 메모리에 캐싱되어 이후 요청에 재사용됩니다
-- 토큰 만료(401 응답) 시 자동으로 1회 재로그인을 시도합니다
-- 로그인 rate limit은 15분당 5회이므로, 토큰 캐싱으로 충분히 회피됩니다
+- 모든 API 요청에 `X-API-Key` 헤더를 포함하여 백엔드에 인증합니다
+- 별도의 로그인/토큰 갱신 과정이 없어 구성이 간단합니다
+- API Key가 파기되거나 계정이 비활성화되면 즉시 인증에 실패합니다
 
 ---
 
@@ -565,7 +565,7 @@ AI 에이전트 동작:
 
 ```bash
 cd mcp-server
-npx @modelcontextprotocol/inspector node index.js
+VCC_API_KEY=vcc_xxx npx @modelcontextprotocol/inspector node index.js
 ```
 
 ### HTTP 모드
@@ -587,23 +587,23 @@ Inspector에서 확인할 항목:
 5. **get_job_status 실행**: 완료 시 resultImages/resultVideos 포함 확인
 6. **download_result 실행**: 파일 저장 (stdio) 또는 URL 반환 (HTTP) 확인
 
-> **참고**: Inspector 실행 시에도 환경 변수(`VCC_EMAIL`, `VCC_PASSWORD` 등)가 필요합니다. 터미널에서 `export`로 설정하거나 `.env` 파일을 활용하세요.
+> **참고**: Inspector 실행 시에도 환경 변수(`VCC_API_KEY`)가 필요합니다. 터미널에서 `export`로 설정하거나 `.env` 파일을 활용하세요.
 
 ---
 
 ## 10. 문제 해결
 
-### "Sign-in failed (401)" 오류
+### "VCC_API_KEY environment variable is required" 오류
 
-- `VCC_EMAIL`, `VCC_PASSWORD` 환경 변수가 올바르게 설정되어 있는지 확인하세요
-- 해당 계정이 관리자에 의해 **승인(approved)** 상태인지 확인하세요
-- 비밀번호에 특수문자가 포함된 경우 JSON 설정 파일에서 이스케이프가 필요할 수 있습니다
+- `VCC_API_KEY` 환경 변수가 설정되어 있는지 확인하세요
+- Docker 환경에서는 `.env` 파일에 `VCC_API_KEY=vcc_xxx...` 형태로 설정합니다
+- stdio 모드에서는 클라이언트 설정의 `env` 섹션에 포함해야 합니다
 
-### "Sign-in failed (429)" 오류
+### "Invalid or revoked API key" (401) 오류
 
-- 로그인 rate limit(15분당 5회)에 도달한 경우입니다
-- 15분 후 자동으로 해제됩니다
-- 정상 동작 시에는 토큰 캐싱으로 인해 발생하지 않습니다
+- API Key가 올바르게 입력되었는지 확인하세요 (`vcc_`로 시작하는 전체 키)
+- 해당 키가 웹 UI에서 파기되지 않았는지 확인하세요
+- 키를 발급한 계정이 활성화(active) 및 승인(approved) 상태인지 확인하세요
 
 ### 연결 실패 (ECONNREFUSED)
 

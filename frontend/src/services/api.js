@@ -194,6 +194,12 @@ export const projectAPI = {
   getFavorites: () => api.get('/projects/favorites'),
 };
 
+export const apiKeyAPI = {
+  getAll: () => api.get('/apikeys'),
+  create: (data) => api.post('/apikeys', data),
+  revoke: (id) => api.delete(`/apikeys/${id}`),
+};
+
 export const tagAPI = {
   getAll: (params) => api.get('/tags', { params }),
   create: (data) => api.post('/tags', data),

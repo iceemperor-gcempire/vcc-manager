@@ -21,8 +21,9 @@ const tagRoutes = require('./routes/tags');
 const projectRoutes = require('./routes/projects');
 const backupRoutes = require('./routes/backup');
 const updatelogRoutes = require('./routes/updatelog');
+const apiKeyRoutes = require('./routes/apikeys');
 const errorHandler = require('./middleware/errorHandler');
-const { verifyJWT } = require('./middleware/auth');
+const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { initializeQueues } = require('./services/queueService');
 const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
@@ -72,14 +73,20 @@ require('./config/passport');
 app.use(passport.initialize());
 app.use(passport.session());
 
-// JWT authentication middleware for API routes
+// JWT / API Key authentication middleware for API routes
 app.use('/api', (req, res, next) => {
-  // Skip JWT verification for auth routes and public endpoints
+  // Skip auth for auth routes and public endpoints
   if (req.path.startsWith('/auth/') || req.path === '/health') {
     return next();
   }
 
-  // Try JWT first, fall back to session-based auth
+  // Check for API Key first
+  const apiKey = req.header('X-API-Key');
+  if (apiKey) {
+    return verifyApiKey(req, res, next);
+  }
+
+  // Try JWT, fall back to session-based auth
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (token) {
     return verifyJWT(req, res, next);
@@ -108,6 +115,7 @@ app.use('/api/tags', tagRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
+app.use('/api/apikeys', apiKeyRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
