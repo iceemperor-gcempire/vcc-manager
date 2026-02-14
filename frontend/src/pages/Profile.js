@@ -641,14 +641,10 @@ function Profile() {
         </Grid>
       </Grid>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={8}>
-          <AccountSettings />
-        </Grid>
-        <Grid item xs={12} md={4}>
-          <SecuritySettings />
-        </Grid>
-      </Grid>
+      <AccountSettings />
+      <Box mt={3}>
+        <SecuritySettings />
+      </Box>
     </Container>
   );
 }
