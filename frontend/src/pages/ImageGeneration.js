@@ -485,6 +485,8 @@ function ImageGeneration() {
       const continueJobData = localStorage.getItem('continueJobData');
       let jobInputData = null;
 
+      let lastGeneratedMedia = null;
+
       if (continueJobData) {
         try {
           const parsedData = JSON.parse(continueJobData);
@@ -492,6 +494,7 @@ function ImageGeneration() {
           // 동일한 작업판인 경우 사용
           if (parsedData.workboardId === workboardData._id) {
             jobInputData = parsedData.inputData;
+            lastGeneratedMedia = parsedData.lastGeneratedMedia || null;
             localStorage.removeItem('continueJobData'); // 사용 후 제거
             console.log('Using continue job data for same workboard');
           } else {
@@ -650,6 +653,22 @@ function ImageGeneration() {
               console.warn(`Field ${paramKey} not found in workboard, skipping`);
             }
           });
+        }
+
+        // 마지막 생성 미디어 → 이미지 타입 필드 주입
+        if (lastGeneratedMedia?.image && workboardData.additionalInputFields) {
+          const imageField = workboardData.additionalInputFields.find(f => f.type === 'image');
+          if (imageField) {
+            const currentValue = getValues(`additionalParams.${imageField.name}`);
+            if (!currentValue || currentValue.length === 0) {
+              const image = lastGeneratedMedia.image;
+              safeSetValue(`additionalParams.${imageField.name}`, [{
+                imageId: image._id,
+                image: { _id: image._id, url: image.url, originalName: image.originalName }
+              }]);
+              console.log('🖼️ Injected last generated image into field:', imageField.name);
+            }
+          }
         }
 
         // 참조 이미지 설정 (있는 경우)
