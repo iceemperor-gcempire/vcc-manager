@@ -3,7 +3,7 @@
 VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Code 등)에서 이미지/비디오 생성 기능을 직접 호출할 수 있습니다.
 
 **두 가지 실행 모드를 지원합니다:**
-- **HTTP 모드 (권장)**: Docker로 배포 후 URL 하나로 연동. 원격 서버 사용에 적합.
+- **HTTP 모드 (권장)**: Docker로 배포 후 URL 하나로 연동. 원격 서버 사용에 적합. **멀티유저 지원**.
 - **stdio 모드**: 로컬에서 프로세스를 직접 실행. 로컬 개발에 적합.
 
 ---
@@ -11,15 +11,16 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 ## 목차
 
 1. [사전 준비](#1-사전-준비)
-2. [HTTP 모드 (Docker 배포)](#2-http-모드-docker-배포)
-3. [stdio 모드 (로컬 실행)](#3-stdio-모드-로컬-실행)
-4. [Claude Code 등록 가이드](#4-claude-code-등록-가이드)
-5. [API Key 발급](#5-api-key-발급)
-6. [환경 변수 참조](#6-환경-변수-참조)
-7. [사용 가능한 Tools](#7-사용-가능한-tools)
-8. [사용 예시 (워크플로우)](#8-사용-예시-워크플로우)
-9. [동작 확인 (MCP Inspector)](#9-동작-확인-mcp-inspector)
-10. [문제 해결](#10-문제-해결)
+2. [인증 구조](#2-인증-구조)
+3. [HTTP 모드 (Docker 배포)](#3-http-모드-docker-배포)
+4. [stdio 모드 (로컬 실행)](#4-stdio-모드-로컬-실행)
+5. [Claude Code 등록 가이드](#5-claude-code-등록-가이드)
+6. [API Key 발급](#6-api-key-발급)
+7. [환경 변수 참조](#7-환경-변수-참조)
+8. [사용 가능한 Tools](#8-사용-가능한-tools)
+9. [사용 예시 (워크플로우)](#9-사용-예시-워크플로우)
+10. [동작 확인 (MCP Inspector)](#10-동작-확인-mcp-inspector)
+11. [문제 해결](#11-문제-해결)
 
 ---
 
@@ -32,23 +33,45 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 
 ---
 
-## 2. HTTP 모드 (Docker 배포)
+## 2. 인증 구조
 
-> 원격 서버에 배포된 VCC Manager를 사용하는 경우 권장하는 방식입니다.
-> 클라이언트는 URL 하나만으로 연동할 수 있습니다.
+MCP Server는 **VCC Manager API Key**를 사용하여 백엔드와 통신합니다. 모드에 따라 API Key 전달 방식이 다릅니다.
 
-### 2-1. 환경 변수 설정
+### HTTP 모드 (멀티유저)
 
-`.env` (개발) 또는 `.env.production` (프로덕션) 파일에 MCP 관련 설정을 추가합니다:
-
-```env
-# MCP Server Configuration
-MCP_PORT=3100
-MCP_API_KEY=your-secret-api-key    # 선택사항 (설정 시 Bearer 토큰 인증 활성화)
-VCC_API_KEY=vcc_xxxxxxxxxxxxxxxx   # VCC Manager API Key (프로필에서 발급)
+```
+┌──────────────┐   Bearer Token    ┌──────────────┐   X-API-Key    ┌──────────────┐
+│  MCP Client  │ ─────────────────→│  MCP Server  │ ──────────────→│   Backend    │
+│ (Claude 등)  │  (VCC API Key)    │  (Docker)    │  (forwarded)   │              │
+└──────────────┘                   └──────────────┘                └──────────────┘
 ```
 
-### 2-2. Docker Compose로 실행
+- 클라이언트가 자신의 VCC API Key를 **Bearer 토큰**으로 전송
+- MCP Server는 세션 초기화 시 토큰을 추출하여 **세션별로 바인딩**
+- 이후 모든 백엔드 요청에 **X-API-Key** 헤더로 전달
+- **각 사용자가 자신의 API Key로 인증** → 멀티유저 환경 지원
+- MCP Server에 별도의 API Key 설정 불필요 (서버는 패스스루 역할)
+
+### stdio 모드 (단일 유저)
+
+```
+┌──────────────┐   stdio    ┌──────────────┐   X-API-Key    ┌──────────────┐
+│  MCP Client  │ ──────────→│  MCP Server  │ ──────────────→│   Backend    │
+│ (Claude 등)  │            │  (로컬 프로세스)│  (env var)    │              │
+└──────────────┘            └──────────────┘                └──────────────┘
+```
+
+- 환경 변수 `VCC_API_KEY`에 설정된 키를 사용
+- 단일 사용자 환경에 적합
+
+---
+
+## 3. HTTP 모드 (Docker 배포)
+
+> 원격 서버에 배포된 VCC Manager를 사용하는 경우 권장하는 방식입니다.
+> 클라이언트는 URL과 자신의 VCC API Key만으로 연동할 수 있습니다.
+
+### 3-1. Docker Compose로 실행
 
 MCP 서버는 `docker-compose.yml`에 포함되어 있으므로, 기존 서비스와 함께 시작됩니다:
 
@@ -62,26 +85,25 @@ docker-compose up --build -d
 docker-compose up --build -d mcp-server
 ```
 
-### 2-3. 헬스체크 확인
+> **참고**: HTTP 모드에서는 서버 측 API Key 설정이 필요 없습니다. 각 클라이언트가 자신의 VCC API Key를 Bearer 토큰으로 전송합니다.
+
+### 3-2. 헬스체크 확인
 
 ```bash
 curl http://localhost:3100/health
 # {"status":"ok","transport":"streamable-http","activeSessions":0}
 ```
 
-### 2-4. 클라이언트 설정
+### 3-3. 클라이언트 설정
 
 #### Claude Code
 
 CLI로 추가하거나 `.mcp.json` 파일을 직접 편집합니다:
 
 ```bash
-# CLI로 추가
-claude mcp add --transport http vcc-manager http://your-server:3100/mcp
-
-# MCP_API_KEY를 설정한 경우
+# CLI로 추가 (VCC API Key를 Bearer 토큰으로 설정)
 claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
-  --header "Authorization: Bearer your-secret-api-key"
+  --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 ```
 
 또는 프로젝트 루트의 `.mcp.json` 파일에 직접 추가합니다:
@@ -91,29 +113,16 @@ claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
   "mcpServers": {
     "vcc-manager": {
       "type": "http",
-      "url": "http://your-server:3100/mcp"
-    }
-  }
-}
-```
-
-`MCP_API_KEY`를 설정한 경우:
-
-```json
-{
-  "mcpServers": {
-    "vcc-manager": {
-      "type": "http",
       "url": "http://your-server:3100/mcp",
       "headers": {
-        "Authorization": "Bearer your-secret-api-key"
+        "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
       }
     }
   }
 }
 ```
 
-> **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL만 설정하면 됩니다.
+> **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL과 API Key만 설정하면 됩니다.
 
 #### Claude Desktop
 
@@ -142,25 +151,8 @@ HTTP URL을 사용하려면 `--allow-http` 플래그가 필요합니다.
       "args": [
         "mcp-remote", "http://your-server:3100/mcp",
         "--transport", "http-only",
-        "--allow-http"
-      ]
-    }
-  }
-}
-```
-
-`MCP_API_KEY`를 설정한 경우:
-
-```json
-{
-  "mcpServers": {
-    "vcc-manager": {
-      "command": "npx",
-      "args": [
-        "mcp-remote", "http://your-server:3100/mcp",
-        "--transport", "http-only",
         "--allow-http",
-        "--header", "Authorization: Bearer your-secret-api-key"
+        "--header", "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
       ]
     }
   }
@@ -176,7 +168,8 @@ HTTPS URL이라면 `--allow-http` 생략 가능:
       "command": "npx",
       "args": [
         "mcp-remote", "https://your-server/mcp",
-        "--transport", "http-only"
+        "--transport", "http-only",
+        "--header", "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
       ]
     }
   }
@@ -194,7 +187,7 @@ HTTPS URL이라면 `--allow-http` 생략 가능:
 | Claude Desktop Connectors UI | X | O (필수) |
 | mcp-remote 브릿지 | `--allow-http` 필요 | O (기본) |
 
-### 2-5. HTTP 모드에서의 `download_result` 동작
+### 3-4. HTTP 모드에서의 `download_result` 동작
 
 HTTP 모드에서 `download_result` 도구는 MCP 서버가 인증된 API를 통해 파일을 가져온 뒤, 미디어 타입에 따라 다르게 반환합니다:
 
@@ -205,18 +198,18 @@ HTTP 모드에서 `download_result` 도구는 MCP 서버가 인증된 API를 통
 
 ---
 
-## 3. stdio 모드 (로컬 실행)
+## 4. stdio 모드 (로컬 실행)
 
 > 로컬 개발 환경에서 MCP 서버를 직접 실행하는 방식입니다.
 
-### 3-1. 설치
+### 4-1. 설치
 
 ```bash
 cd mcp-server
 npm install
 ```
 
-### 3-2. 클라이언트 설정
+### 4-2. 클라이언트 설정
 
 #### Claude Desktop
 
@@ -260,35 +253,32 @@ npm install
 
 > **참고**: `args`의 경로는 반드시 **절대 경로**를 사용하세요.
 
-### 3-3. stdio 모드에서의 `download_result` 동작
+### 4-3. stdio 모드에서의 `download_result` 동작
 
 stdio 모드에서는 결과 파일을 **로컬 디스크에 직접 다운로드**합니다. 저장 경로는 `VCC_DOWNLOAD_DIR` 환경변수 또는 `downloadDir` 파라미터로 지정합니다.
 
 ---
 
-## 4. Claude Code 등록 가이드
+## 5. Claude Code 등록 가이드
 
 Claude Code에서 MCP 서버를 등록하는 방법과 적용 범위(스코프)를 설명합니다.
 
 > **참고**: Claude Code는 **HTTP를 직접 지원**합니다. Claude Desktop과 달리 `mcp-remote` 브릿지 없이 HTTP URL로 바로 연결할 수 있습니다.
 
-### 4-1. 등록 방법
+### 5-1. 등록 방법
 
 #### CLI 명령어
 
 ```bash
-# HTTP 모드 (원격 서버)
-claude mcp add --transport http vcc-manager http://your-server:3100/mcp
-
-# HTTP 모드 + API 키 인증
+# HTTP 모드 (원격 서버) — VCC API Key를 Bearer 토큰으로 전달
 claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
-  --header "Authorization: Bearer your-secret-api-key"
+  --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 
 # stdio 모드 (로컬 실행)
 claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
 
 # JSON으로 등록
-claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/mcp"}'
+claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/mcp","headers":{"Authorization":"Bearer vcc_xxxxxxxxxxxxxxxx"}}'
 ```
 
 #### 설정 파일 직접 편집
@@ -300,13 +290,16 @@ claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/m
   "mcpServers": {
     "vcc-manager": {
       "type": "http",
-      "url": "http://your-server:3100/mcp"
+      "url": "http://your-server:3100/mcp",
+      "headers": {
+        "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
+      }
     }
   }
 }
 ```
 
-### 4-2. 등록 스코프
+### 5-2. 등록 스코프
 
 MCP 서버 등록 시 `--scope` 옵션으로 적용 범위를 지정할 수 있습니다.
 
@@ -318,18 +311,21 @@ MCP 서버 등록 시 `--scope` 옵션으로 적용 범위를 지정할 수 있�
 
 ```bash
 # 이 프로젝트에서만, 나만 사용 (기본값)
-claude mcp add --transport http vcc-manager http://server:3100/mcp
+claude mcp add --transport http vcc-manager http://server:3100/mcp \
+  --header "Authorization: Bearer vcc_xxx"
 
 # 이 프로젝트의 팀 전원이 사용 (.mcp.json에 저장, Git 커밋 대상)
-claude mcp add --transport http vcc-manager --scope project http://server:3100/mcp
+claude mcp add --transport http vcc-manager --scope project http://server:3100/mcp \
+  --header "Authorization: Bearer vcc_xxx"
 
 # 내 모든 프로젝트에서 전역 사용
-claude mcp add --transport http vcc-manager --scope user http://server:3100/mcp
+claude mcp add --transport http vcc-manager --scope user http://server:3100/mcp \
+  --header "Authorization: Bearer vcc_xxx"
 ```
 
 **우선순위**: 같은 이름의 서버가 여러 스코프에 존재하면 **Local > Project > User** 순으로 적용됩니다.
 
-### 4-3. 관리 명령어
+### 5-3. 관리 명령어
 
 ```bash
 # 등록된 서버 목록 확인
@@ -344,7 +340,7 @@ claude mcp remove vcc-manager
 
 Claude Code 대화 중 `/mcp` 입력으로 서버 상태를 확인하거나 인증을 처리할 수도 있습니다.
 
-### 4-4. 클라이언트별 프로토콜 비교
+### 5-4. 클라이언트별 프로토콜 비교
 
 | 클라이언트 | HTTP 직접 연결 | HTTPS | 비고 |
 |---|---|---|---|
@@ -354,7 +350,7 @@ Claude Code 대화 중 `/mcp` 입력으로 서버 상태를 확인하거나 인�
 
 ---
 
-## 5. API Key 발급
+## 6. API Key 발급
 
 MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
@@ -364,7 +360,9 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 2. **프로필 페이지 > 보안 설정 > API Key 관리** 섹션으로 이동합니다
 3. **생성** 버튼을 클릭하고 키 이름을 입력합니다 (예: `MCP Server`)
 4. 생성된 API Key를 복사합니다 (**이 키는 다시 확인할 수 없으므로 반드시 저장**)
-5. 복사한 키를 MCP Server 환경 변수 `VCC_API_KEY`에 설정합니다
+5. 복사한 키를 MCP 클라이언트 설정에 사용합니다:
+   - **HTTP 모드**: `Authorization: Bearer vcc_xxx...` 헤더로 설정
+   - **stdio 모드**: `VCC_API_KEY` 환경 변수에 설정
 
 ### API Key 사용의 장점
 
@@ -374,7 +372,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | **만료 없음** | JWT와 달리 만료/갱신 로직 불필요 |
 | **즉시 파기** | 웹 UI에서 키를 파기하면 MCP 접근 즉시 차단 |
 | **사용 추적** | 마지막 사용 시각으로 MCP 활동 확인 가능 |
-| **계정 분리** | 전용 계정 없이도 키 단위로 접근 관리 |
+| **멀티유저** | HTTP 모드에서 각 사용자가 자신의 키로 독립 인증 |
 
 ### 주의사항
 
@@ -384,38 +382,45 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
 ---
 
-## 6. 환경 변수 참조
+## 7. 환경 변수 참조
 
-### 공통 (stdio / HTTP)
+### stdio 모드
 
 | 변수 | 필수 | 설명 | 기본값 |
 |---|---|---|---|
 | `VCC_API_URL` | No | VCC Manager API 서버 URL | `http://localhost:3000` |
 | `VCC_API_KEY` | **Yes** | VCC Manager API Key | - |
-
-### stdio 모드 전용
-
-| 변수 | 필수 | 설명 | 기본값 |
-|---|---|---|---|
 | `VCC_DOWNLOAD_DIR` | No | 결과 파일 다운로드 저장 경로 | `~/Downloads/vcc` |
 
-### HTTP 모드 전용
+### HTTP 모드 (Docker)
 
 | 변수 | 필수 | 설명 | 기본값 |
 |---|---|---|---|
 | `MCP_TRANSPORT` | No | Transport 모드 (`stdio` / `http`) | `stdio` |
 | `MCP_PORT` | No | HTTP 서버 포트 | `3100` |
-| `MCP_API_KEY` | No | Bearer 토큰 인증 키 (미설정 시 인증 비활성화) | - |
+| `VCC_API_URL` | No | VCC Manager API 서버 URL | `http://localhost:3000` |
+
+> **참고**: HTTP 모드에서는 서버 측 API Key 설정이 필요 없습니다. 각 클라이언트가 자신의 VCC API Key를 Bearer 토큰으로 전송하며, MCP 서버는 이를 백엔드로 전달합니다.
 
 ### 인증 동작 방식
 
-- 모든 API 요청에 `X-API-Key` 헤더를 포함하여 백엔드에 인증합니다
-- 별도의 로그인/토큰 갱신 과정이 없어 구성이 간단합니다
+**HTTP 모드:**
+1. 클라이언트가 `Authorization: Bearer vcc_xxx...` 헤더로 연결
+2. MCP 서버가 세션 초기화(initialize) 시 토큰을 추출
+3. 해당 세션의 모든 백엔드 요청에 `X-API-Key` 헤더로 전달
+4. 각 세션은 독립된 사용자 컨텍스트를 가짐
+
+**stdio 모드:**
+1. `VCC_API_KEY` 환경 변수에서 키를 읽음
+2. 모든 백엔드 요청에 `X-API-Key` 헤더로 전달
+
+**공통:**
 - API Key가 파기되거나 계정이 비활성화되면 즉시 인증에 실패합니다
+- 별도의 로그인/토큰 갱신 과정이 없어 구성이 간단합니다
 
 ---
 
-## 7. 사용 가능한 Tools
+## 8. 사용 가능한 Tools
 
 ### `list_workboards` — 작업판 목록 조회
 
@@ -509,7 +514,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
 ---
 
-## 8. 사용 예시 (워크플로우)
+## 9. 사용 예시 (워크플로우)
 
 AI 에이전트에서의 일반적인 사용 흐름입니다:
 
@@ -559,7 +564,7 @@ AI 에이전트 동작:
 
 ---
 
-## 9. 동작 확인 (MCP Inspector)
+## 10. 동작 확인 (MCP Inspector)
 
 ### stdio 모드
 
@@ -574,8 +579,9 @@ VCC_API_KEY=vcc_xxx npx @modelcontextprotocol/inspector node index.js
 # 서버 실행 (Docker 또는 직접)
 docker-compose up -d mcp-server
 
-# Inspector로 연결
-npx @modelcontextprotocol/inspector --url http://localhost:3100/mcp
+# Inspector로 연결 (Bearer 토큰 포함)
+npx @modelcontextprotocol/inspector --url http://localhost:3100/mcp \
+  --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 ```
 
 Inspector에서 확인할 항목:
@@ -587,17 +593,21 @@ Inspector에서 확인할 항목:
 5. **get_job_status 실행**: 완료 시 resultImages/resultVideos 포함 확인
 6. **download_result 실행**: 파일 저장 (stdio) 또는 URL 반환 (HTTP) 확인
 
-> **참고**: Inspector 실행 시에도 환경 변수(`VCC_API_KEY`)가 필요합니다. 터미널에서 `export`로 설정하거나 `.env` 파일을 활용하세요.
+> **참고**: Inspector 실행 시에도 VCC API Key가 필요합니다. stdio 모드에서는 환경변수로, HTTP 모드에서는 Bearer 토큰으로 전달합니다.
 
 ---
 
-## 10. 문제 해결
+## 11. 문제 해결
 
-### "VCC_API_KEY environment variable is required" 오류
+### "VCC_API_KEY environment variable is required" 오류 (stdio 모드)
 
 - `VCC_API_KEY` 환경 변수가 설정되어 있는지 확인하세요
-- Docker 환경에서는 `.env` 파일에 `VCC_API_KEY=vcc_xxx...` 형태로 설정합니다
-- stdio 모드에서는 클라이언트 설정의 `env` 섹션에 포함해야 합니다
+- 클라이언트 설정의 `env` 섹션에 `VCC_API_KEY`를 포함해야 합니다
+
+### "Authorization header with Bearer token (VCC API Key) is required" (401) — HTTP 모드
+
+- 클라이언트 설정에 `Authorization: Bearer vcc_xxx...` 헤더가 포함되어 있는지 확인하세요
+- `.mcp.json`의 `headers` 필드 또는 CLI `--header` 옵션을 확인하세요
 
 ### "Invalid or revoked API key" (401) 오류
 
@@ -625,14 +635,8 @@ Inspector에서 확인할 항목:
 ### MCP 서버 연결 불가 (HTTP 모드)
 
 - 헬스체크 확인: `curl http://your-server:3100/health`
-- `MCP_API_KEY`를 설정한 경우, 클라이언트에도 동일한 키로 Authorization 헤더를 설정했는지 확인하세요
 - 방화벽/보안그룹에서 MCP 포트(기본 3100)가 열려 있는지 확인하세요
 - Docker 로그 확인: `docker-compose logs mcp-server`
-
-### "Unauthorized" (401) — MCP 엔드포인트
-
-- `MCP_API_KEY`가 서버와 클라이언트 양쪽에서 일치하는지 확인하세요
-- Authorization 헤더 형식이 `Bearer <key>`인지 확인하세요
 
 ### Claude Desktop에서 HTTP URL 연결 불가
 

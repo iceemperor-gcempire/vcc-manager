@@ -1,10 +1,12 @@
 import { z } from 'zod';
-import { apiRequest } from '../utils/apiClient.js';
 
 /**
  * Register job-related tools on the MCP server.
+ *
+ * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
+ * @param {(path: string, options?: object) => Promise<any>} apiRequest
  */
-export function registerJobTools(server) {
+export function registerJobTools(server, apiRequest) {
 
   // ── generate ───────────────────────────────────────────────────────
   server.tool(

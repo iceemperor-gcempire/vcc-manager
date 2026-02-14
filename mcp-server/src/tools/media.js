@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { writeFile, mkdir } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 import { homedir } from 'node:os';
-import { apiRequest } from '../utils/apiClient.js';
 
 const DEFAULT_DOWNLOAD_DIR = process.env.VCC_DOWNLOAD_DIR
   ? process.env.VCC_DOWNLOAD_DIR.replace(/^~/, homedir())
@@ -24,9 +23,10 @@ const MIME_TYPES = {
  * Register media-related tools on the MCP server.
  *
  * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
+ * @param {(path: string, options?: object) => Promise<any>} apiRequest
  * @param {{ transport?: 'stdio' | 'http' }} options
  */
-export function registerMediaTools(server, options = {}) {
+export function registerMediaTools(server, apiRequest, options = {}) {
   const isHttp = options.transport === 'http';
 
   // ── download_result ────────────────────────────────────────────────

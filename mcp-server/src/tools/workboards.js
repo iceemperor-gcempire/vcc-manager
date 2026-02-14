@@ -1,10 +1,12 @@
 import { z } from 'zod';
-import { apiRequest } from '../utils/apiClient.js';
 
 /**
  * Register workboard-related tools on the MCP server.
+ *
+ * @param {import('@modelcontextprotocol/sdk/server/mcp.js').McpServer} server
+ * @param {(path: string, options?: object) => Promise<any>} apiRequest
  */
-export function registerWorkboardTools(server) {
+export function registerWorkboardTools(server, apiRequest) {
 
   // ── list_workboards ────────────────────────────────────────────────
   server.tool(
