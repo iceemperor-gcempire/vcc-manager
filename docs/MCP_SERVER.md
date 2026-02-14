@@ -13,12 +13,13 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 1. [사전 준비](#1-사전-준비)
 2. [HTTP 모드 (Docker 배포)](#2-http-모드-docker-배포)
 3. [stdio 모드 (로컬 실행)](#3-stdio-모드-로컬-실행)
-4. [MCP 전용 계정 생성 (권장)](#4-mcp-전용-계정-생성-권장)
-5. [환경 변수 참조](#5-환경-변수-참조)
-6. [사용 가능한 Tools](#6-사용-가능한-tools)
-7. [사용 예시 (워크플로우)](#7-사용-예시-워크플로우)
-8. [동작 확인 (MCP Inspector)](#8-동작-확인-mcp-inspector)
-9. [문제 해결](#9-문제-해결)
+4. [Claude Code 등록 가이드](#4-claude-code-등록-가이드)
+5. [MCP 전용 계정 생성 (권장)](#5-mcp-전용-계정-생성-권장)
+6. [환경 변수 참조](#6-환경-변수-참조)
+7. [사용 가능한 Tools](#7-사용-가능한-tools)
+8. [사용 예시 (워크플로우)](#8-사용-예시-워크플로우)
+9. [동작 확인 (MCP Inspector)](#9-동작-확인-mcp-inspector)
+10. [문제 해결](#10-문제-해결)
 
 ---
 
@@ -268,7 +269,95 @@ stdio 모드에서는 결과 파일을 **로컬 디스크에 직접 다운로드
 
 ---
 
-## 4. MCP 전용 계정 생성 (권장)
+## 4. Claude Code 등록 가이드
+
+Claude Code에서 MCP 서버를 등록하는 방법과 적용 범위(스코프)를 설명합니다.
+
+> **참고**: Claude Code는 **HTTP를 직접 지원**합니다. Claude Desktop과 달리 `mcp-remote` 브릿지 없이 HTTP URL로 바로 연결할 수 있습니다.
+
+### 4-1. 등록 방법
+
+#### CLI 명령어
+
+```bash
+# HTTP 모드 (원격 서버)
+claude mcp add --transport http vcc-manager http://your-server:3100/mcp
+
+# HTTP 모드 + API 키 인증
+claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
+  --header "Authorization: Bearer your-secret-api-key"
+
+# stdio 모드 (로컬 실행)
+claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
+
+# JSON으로 등록
+claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/mcp"}'
+```
+
+#### 설정 파일 직접 편집
+
+프로젝트 루트의 `.mcp.json` 파일을 생성/편집합니다:
+
+```json
+{
+  "mcpServers": {
+    "vcc-manager": {
+      "type": "http",
+      "url": "http://your-server:3100/mcp"
+    }
+  }
+}
+```
+
+### 4-2. 등록 스코프
+
+MCP 서버 등록 시 `--scope` 옵션으로 적용 범위를 지정할 수 있습니다.
+
+| 스코프 | 저장 위치 | 적용 범위 | 팀 공유 | CLI 옵션 |
+|--------|----------|----------|---------|----------|
+| **Local** (기본) | `~/.claude.json` | 현재 프로젝트, 본인만 | X | `--scope local` |
+| **Project** | `.mcp.json` (프로젝트 루트) | 현재 프로젝트, 팀 전체 | O (Git) | `--scope project` |
+| **User** | `~/.claude.json` | 모든 프로젝트, 본인만 | X | `--scope user` |
+
+```bash
+# 이 프로젝트에서만, 나만 사용 (기본값)
+claude mcp add --transport http vcc-manager http://server:3100/mcp
+
+# 이 프로젝트의 팀 전원이 사용 (.mcp.json에 저장, Git 커밋 대상)
+claude mcp add --transport http vcc-manager --scope project http://server:3100/mcp
+
+# 내 모든 프로젝트에서 전역 사용
+claude mcp add --transport http vcc-manager --scope user http://server:3100/mcp
+```
+
+**우선순위**: 같은 이름의 서버가 여러 스코프에 존재하면 **Local > Project > User** 순으로 적용됩니다.
+
+### 4-3. 관리 명령어
+
+```bash
+# 등록된 서버 목록 확인
+claude mcp list
+
+# 특정 서버 상세 정보
+claude mcp get vcc-manager
+
+# 서버 제거
+claude mcp remove vcc-manager
+```
+
+Claude Code 대화 중 `/mcp` 입력으로 서버 상태를 확인하거나 인증을 처리할 수도 있습니다.
+
+### 4-4. 클라이언트별 프로토콜 비교
+
+| 클라이언트 | HTTP 직접 연결 | HTTPS | 비고 |
+|---|---|---|---|
+| **Claude Code** | O | O | HTTP/HTTPS 모두 직접 지원 |
+| **Claude Desktop** (Connectors UI) | X | O (필수) | HTTPS만 허용 |
+| **Claude Desktop** (mcp-remote 브릿지) | `--allow-http` 필요 | O | stdio 래핑으로 우회 |
+
+---
+
+## 5. MCP 전용 계정 생성 (권장)
 
 > **보안 권장사항**: MCP Server용 계정은 개인 계정과 별도로 생성하는 것을 강력히 권장합니다.
 
@@ -293,7 +382,7 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 
 ---
 
-## 5. 환경 변수 참조
+## 6. 환경 변수 참조
 
 ### 공통 (stdio / HTTP)
 
@@ -326,7 +415,7 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 
 ---
 
-## 6. 사용 가능한 Tools
+## 7. 사용 가능한 Tools
 
 ### `list_workboards` — 작업판 목록 조회
 
@@ -365,6 +454,27 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 | `randomSeed` | boolean | No | 랜덤 시드 사용 (기본 true) |
 | `additionalParams` | object | No | 추가 파라미터 (필드명 → 값) |
 
+### `continue_job` — 작업 이어가기
+
+완료 또는 실패한 기존 작업을 같은 작업판 또는 다른 작업판에서 이어갑니다. 원본 작업의 파라미터를 대상 작업판에 스마트 매칭하여 새 작업을 생성합니다. 개별 파라미터를 override할 수 있습니다.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `jobId` | string | **Yes** | 이어갈 원본 작업 ID |
+| `targetWorkboardId` | string | No | 대상 작업판 ID (생략 시 원본 작업판 사용) |
+| `prompt` | string | No | 프롬프트 override |
+| `negativePrompt` | string | No | 네거티브 프롬프트 override |
+| `aiModel` | string | No | AI 모델 override |
+| `imageSize` | string | No | 이미지 크기 override |
+| `seed` | number | No | 시드 값 override |
+| `randomSeed` | boolean | No | 랜덤 시드 사용 (기본 true) |
+| `additionalParams` | object | No | 추가 파라미터 override (지정한 키만 override, 나머지는 원본에서 매칭) |
+
+**스마트 필드 매칭 동작:**
+- select 필드(aiModel, imageSize 등): value로 먼저 매칭 → 실패 시 key로 매칭 → 실패 시 첫 번째 옵션 fallback
+- additionalParams: 대상 작업판에 존재하는 필드만 매칭
+- 응답에 매칭 리포트(`matching`) 포함: 소스/타겟 작업판, 매칭된 필드 목록
+
 ### `get_job_status` — 작업 상태 확인
 
 생성 작업의 진행 상태를 확인합니다. 완료 시 결과 이미지/비디오 ID 목록이 포함됩니다.
@@ -399,9 +509,11 @@ MCP Server는 환경 변수에 이메일과 비밀번호를 평문으로 저장�
 
 ---
 
-## 7. 사용 예시 (워크플로우)
+## 8. 사용 예시 (워크플로우)
 
 AI 에이전트에서의 일반적인 사용 흐름입니다:
+
+### 기본 생성 워크플로우
 
 ```
 1. list_workboards          → 사용 가능한 작업판 목록 확인
@@ -409,6 +521,15 @@ AI 에이전트에서의 일반적인 사용 흐름입니다:
 3. generate(...)            → 프롬프트와 옵션으로 이미지/비디오 생성 요청
 4. get_job_status(jobId)    → 완료될 때까지 상태 확인 (polling)
 5. download_result(mediaId) → 결과 파일 다운로드 또는 URL 확인
+```
+
+### 작업 이어가기 워크플로우
+
+```
+1. list_jobs                → 기존 작업 목록에서 이어갈 작업 확인
+2. list_workboards          → 대상 작업판 선택 (다른 작업판으로 이어가는 경우)
+3. continue_job(jobId, ...) → 기존 작업의 파라미터를 자동 매칭하여 새 작업 생성
+4. get_job_status(jobId)    → 완료될 때까지 상태 확인
 ```
 
 ### 예시: 이미지 생성
@@ -424,9 +545,21 @@ AI 에이전트 동작:
 5. download_result(mediaId="...", mediaType="image") → 파일 다운로드 또는 URL 반환
 ```
 
+### 예시: 다른 작업판으로 이어가기
+
+```
+사용자: "아까 생성한 이미지를 비디오 작업판에서 다시 만들어줘"
+
+AI 에이전트 동작:
+1. list_jobs(status="completed") → 최근 완료 작업 확인 (jobId 획득)
+2. list_workboards(outputFormat="video") → 비디오 작업판 목록 확인
+3. continue_job(jobId="...", targetWorkboardId="비디오작업판ID") → 파라미터 자동 매칭
+4. get_job_status("새작업ID") → 완료 확인
+```
+
 ---
 
-## 8. 동작 확인 (MCP Inspector)
+## 9. 동작 확인 (MCP Inspector)
 
 ### stdio 모드
 
@@ -447,7 +580,7 @@ npx @modelcontextprotocol/inspector --url http://localhost:3100/mcp
 
 Inspector에서 확인할 항목:
 
-1. **Tools 탭**: 6개 도구가 모두 표시되는지 확인
+1. **Tools 탭**: 7개 도구가 모두 표시되는지 확인
 2. **list_workboards 실행**: 작업판 목록이 정상 반환되는지 확인
 3. **get_workboard 실행**: 필드 가이드가 올바르게 표시되는지 확인
 4. **generate 실행**: 작업 생성 후 jobId가 반환되는지 확인
@@ -458,7 +591,7 @@ Inspector에서 확인할 항목:
 
 ---
 
-## 9. 문제 해결
+## 10. 문제 해결
 
 ### "Sign-in failed (401)" 오류
 
