@@ -95,17 +95,25 @@ npm install
 | `list_workboards` | 작업판 목록 조회 |
 | `get_workboard` | 작업판 상세 조회 (모델, 크기, 필드 가이드) |
 | `generate` | 이미지/비디오 생성 요청 |
+| `continue_job` | 기존 작업을 같은/다른 작업판에서 이어가기 (스마트 필드 매칭) |
 | `get_job_status` | 생성 작업 상태 확인 |
 | `list_jobs` | 생성 작업 목록 조회 |
 | `download_result` | 결과 다운로드 (stdio: 파일 저장, HTTP: 이미지 base64 반환 / 비디오 메타데이터) |
 
 ## 사용 예시
 
+### 기본 생성 워크플로우
 1. `list_workboards` — 사용 가능한 작업판 확인
 2. `get_workboard` — 선택한 작업판의 옵션 확인
 3. `generate` — 이미지/비디오 생성 요청
 4. `get_job_status` — 완료될 때까지 상태 확인 (polling)
 5. `download_result` — 결과 파일 다운로드 또는 URL 확인
+
+### 작업 이어가기 워크플로우
+1. `list_jobs` — 기존 작업 목록에서 이어갈 작업 확인
+2. `list_workboards` — 대상 작업판 선택 (다른 작업판으로 이어가는 경우)
+3. `continue_job` — 기존 작업의 파라미터를 자동 매칭하여 새 작업 생성
+4. `get_job_status` — 완료될 때까지 상태 확인
 
 ## 검증
 

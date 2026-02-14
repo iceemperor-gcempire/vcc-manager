@@ -37,7 +37,8 @@ import {
   Error as ErrorIcon,
   Cancel,
   Save,
-  Videocam
+  Videocam,
+  SwapHoriz
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
@@ -50,6 +51,7 @@ import ImageSelectDialog from './ImageSelectDialog';
 import ImageViewerDialog from './ImageViewerDialog';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
+import WorkboardSelectDialog from './WorkboardSelectDialog';
 
 function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -297,7 +299,7 @@ function JobStatusChip({ status }) {
   );
 }
 
-function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue, onSavePrompt, readOnly = false, showTags = true }) {
+function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue, onCrossWorkboard, onSavePrompt, readOnly = false, showTags = true }) {
   const canCancel = ['pending', 'processing'].includes(job.status);
   const canRetry = job.status === 'failed';
   const canContinue = ['completed', 'failed'].includes(job.status);
@@ -568,6 +570,12 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                     <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
                     <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
                   </Button>
+                  <Button size="small" onClick={() => onCrossWorkboard(job)} startIcon={<SwapHoriz />} color="info" variant="outlined"
+                    sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+                  >
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>다른 작업</Box>
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>다른</Box>
+                  </Button>
                   <Button size="small" onClick={() => onSavePrompt(job)} startIcon={<Save />} color="secondary"
                     sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                   >
@@ -807,6 +815,8 @@ function JobHistoryPanel({
   const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
   const [savePromptOpen, setSavePromptOpen] = useState(false);
   const [savingJob, setSavingJob] = useState(null);
+  const [crossWorkboardOpen, setCrossWorkboardOpen] = useState(false);
+  const [crossWorkboardJob, setCrossWorkboardJob] = useState(null);
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -960,6 +970,40 @@ function JobHistoryPanel({
   const handleSavePrompt = (job) => { setSavingJob(job); setSavePromptOpen(true); };
   const handleSavePromptSubmit = (data) => { savePromptMutation.mutate(data); };
 
+  const handleCrossWorkboard = (job) => {
+    setCrossWorkboardJob(job);
+    setCrossWorkboardOpen(true);
+  };
+
+  const handleWorkboardSelected = (workboard) => {
+    if (!crossWorkboardJob) return;
+
+    const job = crossWorkboardJob;
+
+    // 마지막 생성 미디어 추출
+    const lastGeneratedImage = job.resultImages?.length > 0
+      ? job.resultImages[job.resultImages.length - 1]
+      : null;
+    const lastGeneratedVideo = job.resultVideos?.length > 0
+      ? job.resultVideos[job.resultVideos.length - 1]
+      : null;
+
+    localStorage.setItem('continueJobData', JSON.stringify({
+      workboardId: workboard._id,
+      inputData: job.inputData,
+      workboard: workboard,
+      lastGeneratedMedia: {
+        image: lastGeneratedImage,
+        video: lastGeneratedVideo
+      }
+    }));
+
+    setCrossWorkboardOpen(false);
+    setCrossWorkboardJob(null);
+    navigate(`/generate/${workboard._id}`);
+    toast.success('작업판이 선택되었습니다. 설정을 매칭합니다.');
+  };
+
   return (
     <>
       {(showSearch || showStatusFilter) && (
@@ -1021,6 +1065,7 @@ function JobHistoryPanel({
               onDelete={handleDelete}
               onImageView={handleImageView}
               onContinue={handleContinueJob}
+              onCrossWorkboard={handleCrossWorkboard}
               onSavePrompt={handleSavePrompt}
               readOnly={readOnly}
               showTags={showTags}
@@ -1070,6 +1115,12 @@ function JobHistoryPanel({
         onClose={() => { setSavePromptOpen(false); setSavingJob(null); }}
         job={savingJob}
         onSave={handleSavePromptSubmit}
+      />
+
+      <WorkboardSelectDialog
+        open={crossWorkboardOpen}
+        onClose={() => { setCrossWorkboardOpen(false); setCrossWorkboardJob(null); }}
+        onSelect={handleWorkboardSelected}
       />
     </>
   );
