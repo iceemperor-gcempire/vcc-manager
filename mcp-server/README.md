@@ -2,91 +2,32 @@
 
 VCC Manager의 이미지/비디오 생성 기능을 AI 에이전트(Claude Desktop, Claude Code 등)에서 사용할 수 있게 해주는 MCP 서버입니다.
 
-**두 가지 실행 모드를 지원합니다:**
+> **상세 가이드**: [docs/MCP_SERVER.md](../docs/MCP_SERVER.md) — 설정, 클라이언트 연동, 등록 스코프, 문제 해결 등 전체 문서
 
-- **HTTP 모드 (권장)**: Docker 컨테이너로 운영. 클라이언트는 URL 하나로 연동.
-- **stdio 모드**: 로컬에서 프로세스 직접 실행. 로컬 개발용.
+## 실행 모드
 
-> 상세 가이드: [docs/MCP_SERVER.md](../docs/MCP_SERVER.md)
+- **HTTP 모드 (권장)**: Docker 컨테이너로 운영. `docker-compose up --build -d`
+- **stdio 모드**: 로컬에서 프로세스 직접 실행. `cd mcp-server && npm install`
 
-## HTTP 모드 (Docker)
+## 빠른 시작
 
-docker-compose에 `mcp-server` 서비스가 포함되어 있으므로 별도 설치 없이 사용 가능합니다.
-
-### 환경 변수
-
-`.env` 파일에 아래 항목을 설정하세요:
-
-```env
-MCP_PORT=3100
-MCP_API_KEY=                          # 선택 (설정 시 Bearer 토큰 인증)
-MCP_EMAIL=mcp-agent@your-domain.com
-MCP_PASSWORD=your-mcp-password
-```
-
-### 실행
+### HTTP 모드
 
 ```bash
+# .env에 MCP_EMAIL, MCP_PASSWORD 설정 후
 docker-compose up --build -d
 curl http://localhost:3100/health
 ```
 
-### 클라이언트 설정
-
-**Claude Code** (`.mcp.json`):
-
-```json
-{
-  "mcpServers": {
-    "vcc-manager": {
-      "type": "http",
-      "url": "http://your-server:3100/mcp"
-    }
-  }
-}
-```
-
-**Claude Desktop**: Connectors UI(**HTTPS 필수**)를 사용하거나, `mcp-remote` 브릿지(HTTP 시 `--allow-http` 필요)를 사용합니다. 상세: [docs/MCP_SERVER.md](../docs/MCP_SERVER.md#2-4-클라이언트-설정)
-
-## stdio 모드 (로컬)
-
-### 설치
+### Claude Code 등록
 
 ```bash
-cd mcp-server
-npm install
+# HTTP 모드
+claude mcp add --transport http vcc-manager http://your-server:3100/mcp
+
+# stdio 모드
+claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
 ```
-
-### 클라이언트 설정
-
-```json
-{
-  "mcpServers": {
-    "vcc-manager": {
-      "command": "node",
-      "args": ["/absolute/path/to/mcp-server/index.js"],
-      "env": {
-        "VCC_API_URL": "http://localhost:3000",
-        "VCC_EMAIL": "mcp-agent@your-domain.com",
-        "VCC_PASSWORD": "your-mcp-password",
-        "VCC_DOWNLOAD_DIR": "~/Downloads/vcc"
-      }
-    }
-  }
-}
-```
-
-## 환경 변수
-
-| 변수 | 필수 | 설명 | 기본값 |
-|---|---|---|---|
-| `VCC_API_URL` | No | VCC Manager API URL | `http://localhost:3000` |
-| `VCC_EMAIL` | Yes | 로그인 이메일 | - |
-| `VCC_PASSWORD` | Yes | 로그인 비밀번호 | - |
-| `VCC_DOWNLOAD_DIR` | No | 다운로드 저장 경로 (stdio 전용) | `~/Downloads/vcc` |
-| `MCP_TRANSPORT` | No | Transport 모드 (`stdio` / `http`) | `stdio` |
-| `MCP_PORT` | No | HTTP 서버 포트 | `3100` |
-| `MCP_API_KEY` | No | Bearer 토큰 인증 키 | - |
 
 ## MCP Tools
 
@@ -98,28 +39,12 @@ npm install
 | `continue_job` | 기존 작업을 같은/다른 작업판에서 이어가기 (스마트 필드 매칭) |
 | `get_job_status` | 생성 작업 상태 확인 |
 | `list_jobs` | 생성 작업 목록 조회 |
-| `download_result` | 결과 다운로드 (stdio: 파일 저장, HTTP: 이미지 base64 반환 / 비디오 메타데이터) |
-
-## 사용 예시
-
-### 기본 생성 워크플로우
-1. `list_workboards` — 사용 가능한 작업판 확인
-2. `get_workboard` — 선택한 작업판의 옵션 확인
-3. `generate` — 이미지/비디오 생성 요청
-4. `get_job_status` — 완료될 때까지 상태 확인 (polling)
-5. `download_result` — 결과 파일 다운로드 또는 URL 확인
-
-### 작업 이어가기 워크플로우
-1. `list_jobs` — 기존 작업 목록에서 이어갈 작업 확인
-2. `list_workboards` — 대상 작업판 선택 (다른 작업판으로 이어가는 경우)
-3. `continue_job` — 기존 작업의 파라미터를 자동 매칭하여 새 작업 생성
-4. `get_job_status` — 완료될 때까지 상태 확인
+| `download_result` | 결과 다운로드 |
 
 ## 검증
 
 ```bash
 # stdio 모드
-cd mcp-server
 npx @modelcontextprotocol/inspector node index.js
 
 # HTTP 모드
