@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
+const ApiKey = require('../models/ApiKey');
 const router = express.Router();
 
 router.get('/profile', requireAuth, (req, res) => {
@@ -124,6 +125,7 @@ router.delete('/account', requireAuth, async (req, res) => {
       ImageGenerationJob.deleteMany({ userId: req.user._id }),
       GeneratedImage.deleteMany({ userId: req.user._id }),
       UploadedImage.deleteMany({ userId: req.user._id }),
+      ApiKey.deleteMany({ userId: req.user._id }),
       User.findByIdAndDelete(req.user._id)
     ]);
     
