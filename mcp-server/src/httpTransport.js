@@ -42,28 +42,25 @@ class InMemoryEventStore {
 }
 
 /**
+ * Extract Bearer token from Authorization header.
+ * @returns {string|null}
+ */
+function extractBearerToken(req) {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ')) return null;
+  return auth.slice(7).trim() || null;
+}
+
+/**
  * Start the MCP server in HTTP (Streamable HTTP) mode.
  *
- * Uses the SDK's createMcpExpressApp for Express 5 setup with DNS rebinding
- * protection, and StreamableHTTPServerTransport for stateful session management.
+ * Authentication: Clients must provide their VCC API Key as a Bearer token.
+ * The MCP server forwards it as X-API-Key to the backend for per-user auth.
  */
 export async function startHttpServer() {
   const port = parseInt(process.env.MCP_PORT, 10) || 3100;
-  const apiKey = process.env.MCP_API_KEY;
 
   const app = createMcpExpressApp({ host: '0.0.0.0' });
-
-  // ── Bearer token authentication (optional) ──────────────────────────
-  if (apiKey) {
-    app.use('/mcp', (req, res, next) => {
-      const auth = req.headers.authorization;
-      if (!auth || auth !== `Bearer ${apiKey}`) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-      next();
-    });
-  }
 
   // ── Session management ───────────────────────────────────────────────
   /** @type {Map<string, { transport: StreamableHTTPServerTransport, server: import('@modelcontextprotocol/sdk/server/mcp.js').McpServer }>} */
@@ -90,6 +87,13 @@ export async function startHttpServer() {
       return;
     }
 
+    // Extract API key from Bearer token
+    const apiKey = extractBearerToken(req);
+    if (!apiKey) {
+      res.status(401).json({ error: 'Authorization header with Bearer token (VCC API Key) is required' });
+      return;
+    }
+
     const eventStore = new InMemoryEventStore();
     const transport = new StreamableHTTPServerTransport({
       sessionIdGenerator: () => randomUUID(),
@@ -106,7 +110,7 @@ export async function startHttpServer() {
       if (sid) sessions.delete(sid);
     };
 
-    const mcpServer = createServer({ transport: 'http' });
+    const mcpServer = createServer({ transport: 'http', apiKey });
     await mcpServer.connect(transport);
 
     await transport.handleRequest(req, res, req.body);
@@ -160,9 +164,7 @@ export async function startHttpServer() {
     console.log(`MCP HTTP server listening on port ${port}`);
     console.log(`  Endpoint: http://0.0.0.0:${port}/mcp`);
     console.log(`  Health:   http://0.0.0.0:${port}/health`);
-    if (apiKey) {
-      console.log('  Auth:     Bearer token required');
-    }
+    console.log('  Auth:     Bearer token (VCC API Key) required');
   });
 
   // ── Graceful shutdown ────────────────────────────────────────────────
