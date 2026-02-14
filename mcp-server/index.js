@@ -9,7 +9,13 @@ if (transport === 'http') {
   const { StdioServerTransport } = await import('@modelcontextprotocol/sdk/server/stdio.js');
   const { createServer } = await import('./src/server.js');
 
-  const server = createServer({ transport: 'stdio' });
+  const apiKey = process.env.VCC_API_KEY;
+  if (!apiKey) {
+    console.error('Error: VCC_API_KEY environment variable is required for stdio mode.');
+    process.exit(1);
+  }
+
+  const server = createServer({ transport: 'stdio', apiKey });
   const stdioTransport = new StdioServerTransport();
   await server.connect(stdioTransport);
 }

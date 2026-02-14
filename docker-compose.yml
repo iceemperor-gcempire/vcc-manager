@@ -94,9 +94,7 @@ services:
     environment:
       MCP_TRANSPORT: http
       MCP_PORT: 3100
-      MCP_API_KEY: ${MCP_API_KEY:-}
       VCC_API_URL: http://backend:3000
-      VCC_API_KEY: ${VCC_API_KEY:-}
     ports:
       - "${MCP_PORT:-3100}:3100"
     depends_on:
