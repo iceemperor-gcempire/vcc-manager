@@ -151,7 +151,7 @@ echo -e "${BLUE}🔍 MCP 서버 포트: $MCP_PORT${NC}"
 if curl -s http://localhost:$MCP_PORT/health >/dev/null 2>&1; then
     echo -e "${GREEN}✅ MCP Server (포트 $MCP_PORT): 정상${NC}"
 else
-    echo -e "${YELLOW}⚠️  MCP Server (포트 $MCP_PORT): 응답 없음 (MCP_EMAIL/MCP_PASSWORD 미설정 시 정상)${NC}"
+    echo -e "${YELLOW}⚠️  MCP Server (포트 $MCP_PORT): 응답 없음${NC}"
     echo "   💡 수동 확인: curl http://localhost:$MCP_PORT/health"
 fi
 
