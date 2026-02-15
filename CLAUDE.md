@@ -129,6 +129,11 @@ docker-compose logs -f backend
 - port, secret, token 및 환경 변수를 가정하기 전, 반드시 샘플인 .env.example과 실 적용 환경변수인 .env 에 정의된 기존 값을 우선 확인할 것.
 - 포트 및 자격 증명을 하드 코딩하지 말 것.
 - .env.example 이 변경되었다면 프로덕션 환경인 .env.production.example 도 같이 고려할 것.
+- 환경 변수가 추가/변경/삭제되면 아래 파일들도 함께 반영할 것:
+  - `docker-compose.yml` (개발용)
+  - `docker-compose.prod.yml` (프로덕션용)
+  - `scripts/deploy-prod.sh` (배포 스크립트 — 환경변수 참조 및 안내 메시지)
+  - `scripts/stop-prod.sh` (중지 스크립트)
 
 ---
 
@@ -242,5 +247,5 @@ docker-compose logs -f backend
 ## 현재 버전 정보
 
 - **현재 개발 브랜치**: `dev`
-- **마지막 릴리스**: v1.3.5
-- **마지막 업데이트**: 2026-02-14
+- **마지막 릴리스**: v1.4.0
+- **마지막 업데이트**: 2026-02-15
