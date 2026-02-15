@@ -112,7 +112,9 @@ app.use('/api', (req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = (body) => {
     try {
-      return originalJson(transformUploadUrls(body));
+      // Convert Mongoose documents to plain objects before transforming URLs
+      const plain = JSON.parse(JSON.stringify(body));
+      return originalJson(transformUploadUrls(plain));
     } catch (err) {
       return originalJson(body);
     }
