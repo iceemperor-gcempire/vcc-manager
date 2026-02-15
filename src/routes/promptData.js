@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const { reverseSignedUrl } = require('../utils/signedUrl');
 const PromptData = require('../models/PromptData');
 const Tag = require('../models/Tag');
 const { verifyJWT } = require('../middleware/auth');
@@ -73,7 +74,12 @@ router.post('/', verifyJWT, async (req, res) => {
     }
     
     const newTags = Array.isArray(tags) ? tags : [];
-    
+
+    // Reverse signed URL back to /uploads/... path for DB storage
+    if (representativeImage && representativeImage.url) {
+      representativeImage.url = reverseSignedUrl(representativeImage.url);
+    }
+
     const promptData = new PromptData({
       name,
       memo,
@@ -118,7 +124,12 @@ router.put('/:id', verifyJWT, async (req, res) => {
     
     if (name) promptData.name = name;
     if (memo !== undefined) promptData.memo = memo;
-    if (representativeImage !== undefined) promptData.representativeImage = representativeImage;
+    if (representativeImage !== undefined) {
+      if (representativeImage && representativeImage.url) {
+        representativeImage.url = reverseSignedUrl(representativeImage.url);
+      }
+      promptData.representativeImage = representativeImage;
+    }
     if (prompt) promptData.prompt = prompt;
     if (negativePrompt !== undefined) promptData.negativePrompt = negativePrompt;
     if (seed !== undefined) promptData.seed = seed;

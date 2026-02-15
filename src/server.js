@@ -22,9 +22,11 @@ const projectRoutes = require('./routes/projects');
 const backupRoutes = require('./routes/backup');
 const updatelogRoutes = require('./routes/updatelog');
 const apiKeyRoutes = require('./routes/apikeys');
+const filesRoutes = require('./routes/files');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
+const { transformUploadUrls } = require('./utils/signedUrl');
 const { initializeQueues } = require('./services/queueService');
 const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
 const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
@@ -75,8 +77,9 @@ app.use(passport.session());
 
 // JWT / API Key authentication middleware for API routes
 app.use('/api', (req, res, next) => {
-  // Skip auth for auth routes and public endpoints
-  if (req.path.startsWith('/auth/') || req.path === '/health') {
+  // Skip auth for auth routes, public endpoints, and signed file URLs
+  // (/files/* handles its own auth via signature or inline JWT/API Key check)
+  if (req.path.startsWith('/auth/') || req.path === '/health' || req.path.startsWith('/files')) {
     return next();
   }
 
@@ -99,8 +102,28 @@ app.use('/api', (req, res, next) => {
 // 백업 진행 중 데이터 변경 차단 미들웨어
 app.use('/api', blockDuringBackup);
 
-// Static file serving for uploads
-app.use('/uploads', express.static(process.env.UPLOAD_PATH || './uploads'));
+// Signed URL response middleware: transform /uploads/... URLs in API JSON responses
+app.use('/api', (req, res, next) => {
+  // Skip for file serving routes (they handle their own responses)
+  if (req.path.startsWith('/files')) {
+    return next();
+  }
+
+  const originalJson = res.json.bind(res);
+  res.json = (body) => {
+    try {
+      // Convert Mongoose documents to plain objects before transforming URLs
+      const plain = JSON.parse(JSON.stringify(body));
+      return originalJson(transformUploadUrls(plain));
+    } catch (err) {
+      return originalJson(body);
+    }
+  };
+  next();
+});
+
+// Signed URL file serving (no JWT/API Key — signature is the auth)
+app.use('/api/files', filesRoutes);
 
 // API routes
 app.use('/api/auth', authRoutes);

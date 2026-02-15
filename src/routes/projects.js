@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+const { reverseSignedUrl } = require('../utils/signedUrl');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const User = require('../models/User');
@@ -221,7 +222,7 @@ router.put('/:id', requireAuth, async (req, res) => {
       else if (normalizedType === 'UploadedImage') normalizedType = 'uploaded';
 
       project.coverImage = {
-        url: coverImage.url,
+        url: reverseSignedUrl(coverImage.url),
         imageId: coverImage.imageId,
         imageType: normalizedType
       };
