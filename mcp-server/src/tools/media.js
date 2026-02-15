@@ -69,6 +69,23 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           responseType: 'buffer',
         });
 
+        // Build result metadata
+        const resultMeta = { filename, size: buffer.length, mediaType };
+
+        // If VCC_PUBLIC_URL is set, also generate a signed URL for direct browser access
+        if (process.env.VCC_PUBLIC_URL && mediaItem.url) {
+          try {
+            const signResult = await apiRequest('/files/sign', {
+              params: { path: mediaItem.url },
+            });
+            if (signResult.success && signResult.data?.signedUrl) {
+              resultMeta.signedUrl = `${process.env.VCC_PUBLIC_URL}${signResult.data.signedUrl}`;
+            }
+          } catch {
+            // Signed URL generation failed — continue without it
+          }
+        }
+
         // Images: return as base64 MCP image content
         if (mediaType === 'image') {
           return {
@@ -80,7 +97,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
               },
               {
                 type: 'text',
-                text: JSON.stringify({ filename, size: buffer.length, mediaType }, null, 2),
+                text: JSON.stringify(resultMeta, null, 2),
               },
             ],
           };
@@ -91,9 +108,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           content: [{
             type: 'text',
             text: JSON.stringify({
-              filename,
-              size: buffer.length,
-              mediaType,
+              ...resultMeta,
               note: 'Video files are too large to transfer inline. Use the VCC Manager web UI to view/download videos.',
             }, null, 2),
           }],

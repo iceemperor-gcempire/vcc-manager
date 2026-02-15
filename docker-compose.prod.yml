@@ -66,6 +66,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-VCC Manager}
+      SIGNED_URL_EXPIRY: ${SIGNED_URL_EXPIRY:-3600}
     # 🔒 필요에 따라 백엔드 포트도 숨길 수 있음 (nginx 사용 시)
     ports:
       - "${BACKEND_PORT:-3000}:3000"
@@ -109,6 +110,7 @@ services:
       MCP_TRANSPORT: http
       MCP_PORT: 3100
       VCC_API_URL: http://backend:3000
+      VCC_PUBLIC_URL: ${VCC_PUBLIC_URL:-}
     ports:
       - "${MCP_PORT:-3100}:3100"
     depends_on:
