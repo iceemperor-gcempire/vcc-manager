@@ -182,7 +182,8 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 생성된 이미지/비디오 다운로드.
 
 - **stdio 모드**: 로컬 디스크에 파일 저장
-- **HTTP 모드**: 이미지는 base64 인라인 반환, 비디오는 메타데이터 반환
+- **HTTP 모드 (`MCP_BASE_URL` 설정 시)**: signed URL 반환 (이미지/비디오 모두)
+- **HTTP 모드 (`MCP_BASE_URL` 미설정 시)**: 이미지는 base64 인라인, 비디오는 메타데이터만 반환
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -199,16 +200,26 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | 미디어 유형 |
 
-**응답 (HTTP 모드 - 이미지):**
+**응답 (HTTP 모드 - `MCP_BASE_URL` 설정 시):**
 
-MCP `image` 콘텐츠 (base64 인라인) + 메타데이터 (`filename`, `size`, `mediaType`, `signedUrl`)
+이미지/비디오 모두 동일한 형식으로 signed URL을 반환합니다.
 
-**응답 (HTTP 모드 - 비디오):**
+| 필드 | 설명 |
+|------|------|
+| `filename` | 파일명 |
+| `size` | 파일 크기 (bytes) |
+| `mediaType` | 미디어 유형 |
+| `signedUrl` | 직접 접근 가능한 Signed URL |
+
+**응답 (HTTP 모드 - `MCP_BASE_URL` 미설정 시, 이미지):**
+
+MCP `image` 콘텐츠 (base64 인라인) + 메타데이터 (`filename`, `size`, `mediaType`)
+
+**응답 (HTTP 모드 - `MCP_BASE_URL` 미설정 시, 비디오):**
 
 | 필드 | 설명 |
 |------|------|
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | `"video"` |
-| `signedUrl` | Signed URL (`MCP_BASE_URL` 설정 시) |
-| `note` | 안내 메시지 |
+| `note` | `MCP_BASE_URL` 설정 안내 메시지 |
