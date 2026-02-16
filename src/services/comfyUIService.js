@@ -204,82 +204,107 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
     };
     
     return new Promise(async (resolve, reject) => {
-      // 먼저 캐시된 결과가 있는지 확인
+      let resolved = false;
+      let pollInterval = null;
+
+      const safeResolve = (result) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        if (pollInterval) clearInterval(pollInterval);
+        resolve(result);
+      };
+
+      const safeReject = (error) => {
+        if (resolved) return;
+        resolved = true;
+        clearTimeout(timeout);
+        if (pollInterval) clearInterval(pollInterval);
+        reject(error);
+      };
+
+      // 1. 즉시 캐시 확인
       const cachedResult = await checkCachedResult();
       if (cachedResult) {
         console.log(`⚡ Using cached result for prompt ${promptId}`);
-        return resolve(cachedResult);
+        return safeResolve(cachedResult);
       }
-      
+
+      // 2. WebSocket 연결
       const ws = new WebSocket(`${serverUrl.replace('http', 'ws')}/ws?clientId=${clientId}`);
-      
+
       let currentProgress = 0;
       const timeout = setTimeout(() => {
         ws.close();
-        reject(new Error('Workflow execution timeout'));
+        safeReject(new Error('Workflow execution timeout'));
       }, 300000); // 5 minutes timeout
-      
+
       ws.on('open', () => {
         console.log(`WebSocket connected to ComfyUI for prompt ${promptId}`);
       });
-      
+
       ws.on('message', async (data) => {
         try {
           const message = JSON.parse(data.toString());
-          
+
           if (message.type === 'progress' && message.data.prompt_id === promptId) {
             currentProgress = Math.round((message.data.value / message.data.max) * 100);
             if (progressCallback) {
               progressCallback(currentProgress);
             }
           }
-          
+
           if (message.type === 'executing' && message.data.prompt_id === promptId && message.data.node === null) {
-            clearTimeout(timeout);
-            
             try {
               console.log(`📚 Fetching history for prompt ${promptId}...`);
               const historyResponse = await axios.get(`${serverUrl}/history/${promptId}`);
               const history = historyResponse.data[promptId];
-              
+
               console.log(`📖 History response:`, history);
-              
+
               if (!history) {
                 console.error('❌ No history found for prompt');
                 throw new Error('No history found for prompt');
               }
-              
+
               const result = await processHistoryResult(serverUrl, history);
-              
-              ws.close();
-              resolve({ ...result, promptId });
+
+              ws.close(1000);
+              safeResolve({ ...result, promptId });
             } catch (error) {
               ws.close();
-              reject(error);
+              safeReject(error);
             }
           }
-          
+
           if (message.type === 'execution_error' && message.data.prompt_id === promptId) {
-            clearTimeout(timeout);
             ws.close();
-            reject(new Error(`ComfyUI execution error: ${message.data.exception_message || 'Unknown error'}`));
+            safeReject(new Error(`ComfyUI execution error: ${message.data.exception_message || 'Unknown error'}`));
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError);
         }
       });
-      
+
       ws.on('error', (error) => {
-        clearTimeout(timeout);
-        reject(new Error(`WebSocket error: ${error.message}`));
+        safeReject(new Error(`WebSocket error: ${error.message}`));
       });
-      
+
       ws.on('close', (code, reason) => {
-        clearTimeout(timeout);
-        if (code !== 1000) {
-          reject(new Error(`WebSocket closed unexpectedly: ${code} ${reason}`));
+        if (code !== 1000 && !resolved) {
+          safeReject(new Error(`WebSocket closed unexpectedly: ${code} ${reason}`));
         }
       });
+
+      // 3. 히스토리 폴링 (1초 간격) — WebSocket과 병행
+      pollInterval = setInterval(async () => {
+        const result = await checkCachedResult();
+        if (result) {
+          console.log(`⚡ Polling detected completion for prompt ${promptId}`);
+          ws.close(1000);
+          safeResolve(result);
+        }
+      }, 1000);
     });
   } catch (error) {
     throw new Error(`Failed to submit workflow: ${error.message}`);
