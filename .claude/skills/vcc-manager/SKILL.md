@@ -1,7 +1,7 @@
 ---
-name: vcc-generate
-description: VCC Manager MCP 도구를 사용하여 이미지/비디오를 생성하고 결과를 확인합니다. 사용자가 이미지 생성, 비디오 생성, 작업판 조회 등을 요청할 때 사용합니다.
-argument-hint: [프롬프트 또는 명령]
+name: vcc-manager
+description: VCC Manager MCP 도구를 사용하여 작업판 조회, 이미지/비디오 생성, 작업 관리, 결과 다운로드 등을 수행합니다.
+argument-hint: [명령 또는 프롬프트]
 ---
 
 # VCC Manager 이미지/비디오 생성
