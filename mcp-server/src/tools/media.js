@@ -30,10 +30,14 @@ export function registerMediaTools(server, apiRequest, options = {}) {
   const isHttp = options.transport === 'http';
 
   // ── download_result ────────────────────────────────────────────────
+  const mcpBaseUrl = process.env.MCP_BASE_URL;
+
   server.tool(
     'download_result',
     isHttp
-      ? 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results.'
+      ? mcpBaseUrl
+        ? 'Get a generated image or video via signed URL. Returns a direct-access URL for the media file. Get media IDs from get_job_status results.'
+        : 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results.'
       : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results.',
     {
       mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos)'),
@@ -54,40 +58,47 @@ export function registerMediaTools(server, apiRequest, options = {}) {
         throw new Error(`${mediaType} not found`);
       }
 
-      const downloadPath = mediaType === 'image'
-        ? `/images/generated/${mediaId}/download`
-        : `/images/videos/${mediaId}/download`;
-
       const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
       const ext = extname(filename).toLowerCase();
       const mimeType = MIME_TYPES[ext] || (mediaType === 'image' ? 'image/png' : 'video/mp4');
 
-      // ── HTTP mode: fetch via authenticated API and return inline ───
+      // ── HTTP mode ─────────────────────────────────────────────────
       if (isHttp) {
-        const { buffer } = await apiRequest(downloadPath, {
-          method: 'POST',
-          responseType: 'buffer',
-        });
+        const resultMeta = { filename, mediaType, size: mediaItem.size };
 
-        // Build result metadata
-        const resultMeta = { filename, size: buffer.length, mediaType };
-
-        // If VCC_PUBLIC_URL is set, also generate a signed URL for direct browser access
-        if (process.env.VCC_PUBLIC_URL && mediaItem.url) {
+        // MCP_BASE_URL 설정 시: signed URL 우선 반환 (바이너리 다운로드 불필요)
+        if (mcpBaseUrl && mediaItem.url) {
           try {
             const signResult = await apiRequest('/files/sign', {
               params: { path: mediaItem.url },
             });
             if (signResult.success && signResult.data?.signedUrl) {
-              resultMeta.signedUrl = `${process.env.VCC_PUBLIC_URL}${signResult.data.signedUrl}`;
+              const signedUrl = `${mcpBaseUrl}${signResult.data.signedUrl}`;
+              return {
+                content: [{
+                  type: 'text',
+                  text: JSON.stringify({ ...resultMeta, signedUrl }, null, 2),
+                }],
+              };
             }
           } catch {
-            // Signed URL generation failed — continue without it
+            // Signed URL 생성 실패 시 아래 fallback으로 진행
           }
         }
 
-        // Images: return as base64 MCP image content
+        // Fallback: MCP_BASE_URL 미설정 또는 signed URL 생성 실패
+        const downloadPath = mediaType === 'image'
+          ? `/images/generated/${mediaId}/download`
+          : `/images/videos/${mediaId}/download`;
+
+        // 이미지: base64 인라인 반환
         if (mediaType === 'image') {
+          const { buffer } = await apiRequest(downloadPath, {
+            method: 'POST',
+            responseType: 'buffer',
+          });
+          resultMeta.size = buffer.length;
+
           return {
             content: [
               {
@@ -103,19 +114,23 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           };
         }
 
-        // Videos: too large for inline, return metadata with size
+        // 비디오: 메타데이터만 반환
         return {
           content: [{
             type: 'text',
             text: JSON.stringify({
               ...resultMeta,
-              note: 'Video files are too large to transfer inline. Use the VCC Manager web UI to view/download videos.',
+              note: 'MCP_BASE_URL이 설정되지 않아 signed URL을 제공할 수 없습니다. VCC Manager 웹 UI에서 다운로드하거나, MCP_BASE_URL 환경 변수를 설정해주세요.',
             }, null, 2),
           }],
         };
       }
 
       // ── stdio mode: download to local disk ──────────────────────────
+      const downloadPath = mediaType === 'image'
+        ? `/images/generated/${mediaId}/download`
+        : `/images/videos/${mediaId}/download`;
+
       const targetDir = downloadDir
         ? downloadDir.replace(/^~/, homedir())
         : DEFAULT_DOWNLOAD_DIR;
