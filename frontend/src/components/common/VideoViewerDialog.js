@@ -99,7 +99,7 @@ function VideoViewerDialog({
       </DialogTitle>
       <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
         <video
-          key={currentVideo?.url}
+          key={currentVideo?._id || currentIndex}
           src={currentVideo?.url}
           controls
           autoPlay
