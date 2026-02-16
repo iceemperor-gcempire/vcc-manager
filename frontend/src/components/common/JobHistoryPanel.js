@@ -439,7 +439,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', maxWidth: '100%', overflow: 'hidden' }}>
               {job.resultVideos.slice(0, 6).map((video, index) => (
                 <Box
-                  key={index}
+                  key={video._id || index}
                   onClick={() => onImageView(job.resultVideos, index, true)}
                   sx={{
                     width: { xs: 40, sm: 56, md: 64 },
@@ -755,7 +755,7 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
             <Typography variant="h6" gutterBottom>생성된 동영상</Typography>
             <Grid container spacing={2}>
               {job.resultVideos.map((video, index) => (
-                <Grid item xs={6} sm={4} md={3} key={index}>
+                <Grid item xs={6} sm={4} md={3} key={video._id || index}>
                   <Box
                     onClick={() => onImageView(job.resultVideos, index, true)}
                     sx={{

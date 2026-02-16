@@ -23,7 +23,11 @@ function createSignature(filePath, expires) {
 function generateSignedUrl(uploadPath, expirySeconds = DEFAULT_EXPIRY) {
   // Strip '/uploads' prefix to get relative file path
   const filePath = uploadPath.replace(/^\/uploads/, '');
-  const expires = Math.floor(Date.now() / 1000) + expirySeconds;
+  // 만료 시간을 5분 단위로 라운딩하여 동일 구간 내에서는 같은 URL 생성
+  // → 빈번한 API refetch 시에도 URL이 바뀌지 않아 <video>/<img> 재로드 방지
+  const ROUND_SECONDS = 300; // 5분
+  const now = Math.floor(Date.now() / 1000);
+  const expires = Math.ceil((now + expirySeconds) / ROUND_SECONDS) * ROUND_SECONDS;
   const sig = createSignature(filePath, expires);
   return `/api/files${filePath}?expires=${expires}&sig=${sig}`;
 }
