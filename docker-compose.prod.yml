@@ -110,7 +110,7 @@ services:
       MCP_TRANSPORT: http
       MCP_PORT: 3100
       VCC_API_URL: http://backend:3000
-      VCC_PUBLIC_URL: ${VCC_PUBLIC_URL:-}
+      MCP_BASE_URL: ${MCP_BASE_URL:-}
     ports:
       - "${MCP_PORT:-3100}:3100"
     depends_on:

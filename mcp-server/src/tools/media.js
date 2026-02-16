@@ -72,14 +72,14 @@ export function registerMediaTools(server, apiRequest, options = {}) {
         // Build result metadata
         const resultMeta = { filename, size: buffer.length, mediaType };
 
-        // If VCC_PUBLIC_URL is set, also generate a signed URL for direct browser access
-        if (process.env.VCC_PUBLIC_URL && mediaItem.url) {
+        // If MCP_BASE_URL is set, also generate a signed URL for direct browser access
+        if (process.env.MCP_BASE_URL && mediaItem.url) {
           try {
             const signResult = await apiRequest('/files/sign', {
               params: { path: mediaItem.url },
             });
             if (signResult.success && signResult.data?.signedUrl) {
-              resultMeta.signedUrl = `${process.env.VCC_PUBLIC_URL}${signResult.data.signedUrl}`;
+              resultMeta.signedUrl = `${process.env.MCP_BASE_URL}${signResult.data.signedUrl}`;
             }
           } catch {
             // Signed URL generation failed — continue without it

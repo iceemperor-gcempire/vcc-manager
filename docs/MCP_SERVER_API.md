@@ -210,5 +210,5 @@ MCP `image` 콘텐츠 (base64 인라인) + 메타데이터 (`filename`, `size`, 
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | `"video"` |
-| `signedUrl` | Signed URL (VCC_PUBLIC_URL 설정 시) |
+| `signedUrl` | Signed URL (`MCP_BASE_URL` 설정 시) |
 | `note` | 안내 메시지 |
