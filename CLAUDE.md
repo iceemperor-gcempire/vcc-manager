@@ -10,6 +10,7 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 
 - **Frontend**: React 18 + Material-UI + React Query
 - **Backend**: Node.js + Express + MongoDB + Redis (Bull Queue)
+- **MCP Server**: MCP SDK 기반 AI 에이전트 연동 (stdio/HTTP 모드)
 - **배포**: Docker Compose
 
 ---
@@ -145,13 +146,21 @@ docker-compose logs -f backend
 │   ├── models/             # MongoDB 모델
 │   ├── routes/             # API 라우트
 │   ├── services/           # 비즈니스 로직
-│   └── middleware/         # Express 미들웨어
+│   ├── middleware/         # Express 미들웨어
+│   └── utils/              # 유틸리티 (signedUrl 등)
 ├── frontend/src/           # 프론트엔드 소스
 │   ├── components/         # React 컴포넌트
 │   │   ├── common/         # 공통 컴포넌트
 │   │   └── admin/          # 관리자 컴포넌트
 │   ├── pages/              # 페이지 컴포넌트
 │   └── services/           # API 서비스
+├── mcp-server/             # MCP 서버
+│   └── src/
+│       ├── tools/          # MCP 도구 정의 (workboards, jobs, media)
+│       └── utils/          # API 클라이언트
+├── .claude/
+│   └── skills/             # Claude Code skill 파일
+│       └── vcc-manager/    # /vcc-manager 슬래시 커맨드
 ├── docs/                   # 프로젝트 문서
 └── uploads/                # 업로드 파일 저장소
 ```
@@ -240,6 +249,7 @@ docker-compose logs -f backend
 - `docs/TEST_CHECKLIST.md` - 테스트 체크리스트
 - `docs/COMFYUI_WORKFLOW.md` - ComfyUI 워크플로우 가이드
 - `docs/API.md` - API 문서
+- `docs/MCP_SERVER_API.md` - MCP Server 도구 호출 명세
 - `docs/DEPLOYMENT.md` - 배포 가이드
 
 ---
@@ -247,5 +257,5 @@ docker-compose logs -f backend
 ## 현재 버전 정보
 
 - **현재 개발 브랜치**: `dev`
-- **마지막 릴리스**: v1.4.0
-- **마지막 업데이트**: 2026-02-15
+- **마지막 릴리스**: v1.4.2
+- **마지막 업데이트**: 2026-02-16
