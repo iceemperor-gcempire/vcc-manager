@@ -30,15 +30,15 @@ export function registerMediaTools(server, apiRequest, options = {}) {
   const isHttp = options.transport === 'http';
 
   // ── download_result ────────────────────────────────────────────────
-  const mcpBaseUrl = process.env.MCP_BASE_URL;
+  const vccBaseUrl = process.env.VCC_BASE_URL_FOR_MCP;
 
   server.tool(
     'download_result',
     isHttp
-      ? mcpBaseUrl
-        ? 'Get a generated image or video via signed URL. Returns a direct-access URL for the media file. Get media IDs from get_job_status results.'
-        : 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results.'
-      : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results.',
+      ? vccBaseUrl
+        ? 'Get a generated image or video via signed URL. Returns a direct-access URL for the media file. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
+        : 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
+      : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results. Response includes responseType field to identify the format.',
     {
       mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos)'),
       mediaType: z.enum(['image', 'video']).describe('Type of media to download'),
@@ -66,18 +66,18 @@ export function registerMediaTools(server, apiRequest, options = {}) {
       if (isHttp) {
         const resultMeta = { filename, mediaType, size: mediaItem.size };
 
-        // MCP_BASE_URL 설정 시: signed URL 우선 반환 (바이너리 다운로드 불필요)
-        if (mcpBaseUrl && mediaItem.url) {
+        // VCC_BASE_URL_FOR_MCP 설정 시: signed URL 우선 반환 (바이너리 다운로드 불필요)
+        if (vccBaseUrl && mediaItem.url) {
           try {
             const signResult = await apiRequest('/files/sign', {
               params: { path: mediaItem.url },
             });
             if (signResult.success && signResult.data?.signedUrl) {
-              const signedUrl = `${mcpBaseUrl}${signResult.data.signedUrl}`;
+              const signedUrl = `${vccBaseUrl}${signResult.data.signedUrl}`;
               return {
                 content: [{
                   type: 'text',
-                  text: JSON.stringify({ ...resultMeta, signedUrl }, null, 2),
+                  text: JSON.stringify({ responseType: 'signedUrl', ...resultMeta, signedUrl }, null, 2),
                 }],
               };
             }
@@ -86,7 +86,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           }
         }
 
-        // Fallback: MCP_BASE_URL 미설정 또는 signed URL 생성 실패
+        // Fallback: VCC_BASE_URL_FOR_MCP 미설정 또는 signed URL 생성 실패
         const downloadPath = mediaType === 'image'
           ? `/images/generated/${mediaId}/download`
           : `/images/videos/${mediaId}/download`;
@@ -108,7 +108,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
               },
               {
                 type: 'text',
-                text: JSON.stringify(resultMeta, null, 2),
+                text: JSON.stringify({ responseType: 'base64', ...resultMeta }, null, 2),
               },
             ],
           };
@@ -119,8 +119,9 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           content: [{
             type: 'text',
             text: JSON.stringify({
+              responseType: 'metadata',
               ...resultMeta,
-              note: 'MCP_BASE_URL이 설정되지 않아 signed URL을 제공할 수 없습니다. VCC Manager 웹 UI에서 다운로드하거나, MCP_BASE_URL 환경 변수를 설정해주세요.',
+              note: 'VCC_BASE_URL_FOR_MCP가 설정되지 않아 signed URL을 제공할 수 없습니다. VCC Manager 웹 UI에서 다운로드하거나, VCC_BASE_URL_FOR_MCP 환경 변수를 설정해주세요.',
             }, null, 2),
           }],
         };
@@ -149,6 +150,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
         content: [{
           type: 'text',
           text: JSON.stringify({
+            responseType: 'file',
             saved: filePath,
             filename,
             size: buffer.length,

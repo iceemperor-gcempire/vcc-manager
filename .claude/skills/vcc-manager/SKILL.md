@@ -123,10 +123,11 @@ download_result(mediaId, mediaType) → 이미지/비디오 획득
 | `mediaType` | `"image"` \| `"video"` | **필수** | 미디어 유형 |
 | `downloadDir` | string | - | 다운로드 디렉토리 (stdio 모드 전용, 기본: `~/Downloads/vcc`) |
 
-**응답 동작:**
-- **stdio 모드**: 로컬 디스크에 파일 저장, `saved` 경로 반환
-- **HTTP 모드 (`MCP_BASE_URL` 설정 시)**: signed URL 반환 (이미지/비디오 모두)
-- **HTTP 모드 (`MCP_BASE_URL` 미설정 시)**: 이미지는 base64 인라인, 비디오는 메타데이터만 반환
+**응답 동작 (`responseType` 필드로 구분):**
+- **stdio 모드** (`responseType: "file"`): 로컬 디스크에 파일 저장, `saved` 경로 반환
+- **HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 설정 시** (`responseType: "signedUrl"`): signed URL 반환 (이미지/비디오 모두)
+- **HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 시, 이미지** (`responseType: "base64"`): base64 인라인 반환
+- **HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 시, 비디오** (`responseType: "metadata"`): 메타데이터만 반환
 
 ---
 
