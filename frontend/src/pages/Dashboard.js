@@ -117,72 +117,6 @@ function Dashboard() {
           </Grid>
         )}
 
-        {/* 서버 전체 작업 상태 */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom>
-                서버 작업 상태
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="warning.main">
-                      {queue.waiting || 0}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      대기 중
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="info.main">
-                      {queue.active || 0}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      처리 중
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        {/* 내 작업 상태 */}
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography variant="subtitle1" gutterBottom>
-                내 작업 상태
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={6}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="warning.main">
-                      {myPendingJobs}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      대기 중
-                    </Typography>
-                  </Box>
-                </Grid>
-                <Grid item xs={6}>
-                  <Box textAlign="center">
-                    <Typography variant="h4" color="info.main">
-                      {myProcessingJobs}
-                    </Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      처리 중
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
-            </CardContent>
-          </Card>
-        </Grid>
-
         {/* 빠른 액션 */}
         <Grid item xs={12} md={6}>
           <Card>
@@ -192,7 +126,7 @@ function Dashboard() {
               </Typography>
               <Box
                 display="flex"
-                flexDirection={{ xs: 'column', sm: 'row' }}
+                flexDirection="column"
                 gap={2}
                 justifyContent="center"
                 flexWrap="wrap"
@@ -222,6 +156,61 @@ function Dashboard() {
                   업데이트 내역 보기
                 </Button>
               </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* 작업 상태 */}
+        <Grid item xs={12} sm={6}>
+          <Card>
+            <CardContent>
+              <Typography variant="subtitle1" gutterBottom>
+                작업 상태
+              </Typography>
+              <Grid container spacing={2}>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary" display="block" mb={1}>서버</Typography>
+                  <Box display="flex" gap={3}>
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="warning.main">
+                        {queue.waiting || 0}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        대기 중
+                      </Typography>
+                    </Box>
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="info.main">
+                        {queue.active || 0}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        처리 중
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="textSecondary" display="block" mb={1}>내 작업</Typography>
+                  <Box display="flex" gap={3}>
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="warning.main">
+                        {myPendingJobs}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        대기 중
+                      </Typography>
+                    </Box>
+                    <Box textAlign="center">
+                      <Typography variant="h4" color="info.main">
+                        {myProcessingJobs}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary">
+                        처리 중
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
