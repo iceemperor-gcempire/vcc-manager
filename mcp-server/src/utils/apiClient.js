@@ -52,7 +52,15 @@ export function createApiClient(apiKey) {
       };
     }
 
-    const data = await res.json().catch(() => ({}));
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch (parseError) {
+      console.error(`[MCP] JSON parse error on ${method} ${path} (${res.status}):`, rawText.slice(0, 500));
+      throw new Error(`API response is not valid JSON (${res.status} ${method} ${path})`);
+    }
+
     if (!res.ok) {
       throw new Error(`API request failed (${res.status}): ${data.message || res.statusText}`);
     }
