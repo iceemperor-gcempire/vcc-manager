@@ -2,6 +2,7 @@ const crypto = require('crypto');
 
 const SECRET = process.env.JWT_SECRET || 'default-secret';
 const DEFAULT_EXPIRY = parseInt(process.env.SIGNED_URL_EXPIRY, 10) || 3600; // 1 hour
+const ROUND_SECONDS = parseInt(process.env.SIGNED_URL_ROUND_SECONDS, 10) || 1440; // 24 min
 
 /**
  * Generate HMAC-SHA256 signature for a file path + expiry.
@@ -23,9 +24,8 @@ function createSignature(filePath, expires) {
 function generateSignedUrl(uploadPath, expirySeconds = DEFAULT_EXPIRY) {
   // Strip '/uploads' prefix to get relative file path
   const filePath = uploadPath.replace(/^\/uploads/, '');
-  // 만료 시간을 5분 단위로 라운딩하여 동일 구간 내에서는 같은 URL 생성
+  // 만료 시간을 라운딩하여 동일 구간 내에서는 같은 URL 생성
   // → 빈번한 API refetch 시에도 URL이 바뀌지 않아 <video>/<img> 재로드 방지
-  const ROUND_SECONDS = 300; // 5분
   const now = Math.floor(Date.now() / 1000);
   const expires = Math.ceil((now + expirySeconds) / ROUND_SECONDS) * ROUND_SECONDS;
   const sig = createSignature(filePath, expires);
