@@ -220,7 +220,10 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
         reject(new Error('Workflow execution timeout'));
       }, 300000); // 5 minutes timeout
 
-      ws.on('message', async (data) => {
+      ws.on('message', async (data, isBinary) => {
+        // ComfyUI sends binary messages (image previews, etc.) — skip them
+        if (isBinary) return;
+
         try {
           const message = JSON.parse(data.toString());
 
