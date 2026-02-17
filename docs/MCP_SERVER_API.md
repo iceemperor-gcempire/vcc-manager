@@ -179,11 +179,11 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `download_result`
 
-생성된 이미지/비디오 다운로드.
+생성된 이미지/비디오 다운로드. 모든 응답에 `responseType` 필드가 포함되어 클라이언트가 응답 형식을 판별할 수 있습니다.
 
-- **stdio 모드**: 로컬 디스크에 파일 저장
-- **HTTP 모드 (`MCP_BASE_URL` 설정 시)**: signed URL 반환 (이미지/비디오 모두)
-- **HTTP 모드 (`MCP_BASE_URL` 미설정 시)**: 이미지는 base64 인라인, 비디오는 메타데이터만 반환
+- **stdio 모드**: 로컬 디스크에 파일 저장 (`responseType: "file"`)
+- **HTTP 모드 (`VCC_BASE_URL_FOR_MCP` 설정 시)**: signed URL 반환 (`responseType: "signedUrl"`)
+- **HTTP 모드 (`VCC_BASE_URL_FOR_MCP` 미설정 시)**: 이미지는 base64 인라인 (`responseType: "base64"`), 비디오는 메타데이터만 반환 (`responseType: "metadata"`)
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -191,35 +191,56 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `mediaType` | `"image"` \| `"video"` | **필수** | 미디어 유형 |
 | `downloadDir` | string | - | 다운로드 디렉토리 (stdio 모드 전용, 기본: `~/Downloads/vcc` 또는 `VCC_DOWNLOAD_DIR`) |
 
-**응답 (stdio 모드):**
+**`responseType` 값:**
+
+| 값 | 조건 | 설명 |
+|---|------|------|
+| `signedUrl` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 설정 | 이미지/비디오 모두 signed URL 반환 |
+| `base64` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 + 이미지 | base64 인라인 이미지 |
+| `metadata` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 + 비디오 | 메타데이터만 반환 (바이너리 없음) |
+| `file` | stdio 모드 | 로컬 디스크에 파일 저장 |
+
+**응답 (stdio 모드 — `responseType: "file"`):**
 
 | 필드 | 설명 |
 |------|------|
+| `responseType` | `"file"` |
 | `saved` | 저장된 파일 경로 |
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | 미디어 유형 |
 
-**응답 (HTTP 모드 - `MCP_BASE_URL` 설정 시):**
+**응답 (HTTP 모드 — `responseType: "signedUrl"`):**
 
-이미지/비디오 모두 동일한 형식으로 signed URL을 반환합니다.
+`VCC_BASE_URL_FOR_MCP` 설정 시 이미지/비디오 모두 동일한 형식으로 signed URL을 반환합니다.
 
 | 필드 | 설명 |
 |------|------|
+| `responseType` | `"signedUrl"` |
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | 미디어 유형 |
 | `signedUrl` | 직접 접근 가능한 Signed URL |
 
-**응답 (HTTP 모드 - `MCP_BASE_URL` 미설정 시, 이미지):**
+**응답 (HTTP 모드 — `responseType: "base64"`):**
 
-MCP `image` 콘텐츠 (base64 인라인) + 메타데이터 (`filename`, `size`, `mediaType`)
-
-**응답 (HTTP 모드 - `MCP_BASE_URL` 미설정 시, 비디오):**
+`VCC_BASE_URL_FOR_MCP` 미설정 시 이미지에 대해 MCP `image` 콘텐츠 (base64 인라인) + 메타데이터를 반환합니다.
 
 | 필드 | 설명 |
 |------|------|
+| `responseType` | `"base64"` |
+| `filename` | 파일명 |
+| `size` | 파일 크기 (bytes) |
+| `mediaType` | 미디어 유형 |
+
+**응답 (HTTP 모드 — `responseType: "metadata"`):**
+
+`VCC_BASE_URL_FOR_MCP` 미설정 시 비디오에 대해 메타데이터만 반환합니다.
+
+| 필드 | 설명 |
+|------|------|
+| `responseType` | `"metadata"` |
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | `"video"` |
-| `note` | `MCP_BASE_URL` 설정 안내 메시지 |
+| `note` | `VCC_BASE_URL_FOR_MCP` 설정 안내 메시지 |
