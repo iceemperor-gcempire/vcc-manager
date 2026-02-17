@@ -66,24 +66,17 @@ export function registerMediaTools(server, apiRequest, options = {}) {
       if (isHttp) {
         const resultMeta = { filename, mediaType, size: mediaItem.size };
 
-        // VCC_BASE_URL_FOR_MCP 설정 시: signed URL 우선 반환 (바이너리 다운로드 불필요)
+        // VCC_BASE_URL_FOR_MCP 설정 시: signed URL 반환 (바이너리 다운로드 불필요)
+        // 백엔드 응답 미들웨어가 /uploads/ 경로를 signed URL (/api/files/...?sig=...)로 자동 변환하므로
+        // mediaItem.url은 이미 서명된 경로 — VCC_BASE_URL_FOR_MCP를 앞에 붙여 완전한 URL로 반환
         if (vccBaseUrl && mediaItem.url) {
-          try {
-            const signResult = await apiRequest('/files/sign', {
-              params: { path: mediaItem.url },
-            });
-            if (signResult.success && signResult.data?.signedUrl) {
-              const signedUrl = `${vccBaseUrl}${signResult.data.signedUrl}`;
-              return {
-                content: [{
-                  type: 'text',
-                  text: JSON.stringify({ responseType: 'signedUrl', ...resultMeta, signedUrl }, null, 2),
-                }],
-              };
-            }
-          } catch {
-            // Signed URL 생성 실패 시 아래 fallback으로 진행
-          }
+          const signedUrl = `${vccBaseUrl}${mediaItem.url}`;
+          return {
+            content: [{
+              type: 'text',
+              text: JSON.stringify({ responseType: 'signedUrl', ...resultMeta, signedUrl }, null, 2),
+            }],
+          };
         }
 
         // Fallback: VCC_BASE_URL_FOR_MCP 미설정 또는 signed URL 생성 실패
