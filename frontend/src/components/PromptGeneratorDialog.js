@@ -7,17 +7,12 @@ import {
   Button,
   Box,
   Typography,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   CircularProgress,
   Alert,
   List,
   ListItem,
   ListItemButton,
-  ListItemText,
-  Chip
+  ListItemText
 } from '@mui/material';
 import { Chat, Check } from '@mui/icons-material';
 import { useQuery } from 'react-query';
@@ -112,19 +107,44 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
         }}
       >
         <DialogTitle>
-          <Box display="flex" alignItems="center" justifyContent="space-between">
-            <Box display="flex" alignItems="center" gap={1}>
+          <Box
+            display="flex"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ flexWrap: { xs: 'wrap', sm: 'nowrap' }, gap: 1 }}
+          >
+            <Box display="flex" alignItems="center" gap={1} sx={{ minWidth: 0 }}>
               <Chat color="secondary" />
-              <Typography variant="h6">AI 프롬프트 생성</Typography>
+              <Typography variant="h6" noWrap>AI 프롬프트 생성</Typography>
             </Box>
             {selectedWorkboard ? (
-              <Chip 
-                label={selectedWorkboard.name} 
-                color="secondary" 
-                variant="outlined"
-                onDelete={() => setSelectDialogOpen(true)}
-                deleteIcon={<Typography variant="caption" sx={{ px: 1 }}>변경</Typography>}
-              />
+              <Box
+                display="flex"
+                alignItems="center"
+                sx={{ borderRadius: 1, overflow: 'hidden', border: '1px solid', borderColor: 'secondary.main', cursor: 'pointer' }}
+                onClick={() => setSelectDialogOpen(true)}
+              >
+                <Typography
+                  variant="body2"
+                  noWrap
+                  sx={{ px: 1.5, py: 0.5, color: 'secondary.main', maxWidth: { xs: 160, sm: 280 } }}
+                >
+                  {selectedWorkboard.name}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    borderLeft: '1px solid',
+                    borderColor: 'secondary.main',
+                    color: 'text.secondary',
+                    '&:hover': { bgcolor: 'action.hover' },
+                  }}
+                >
+                  변경
+                </Typography>
+              </Box>
             ) : null}
           </Box>
         </DialogTitle>
