@@ -1,0 +1,65 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 1,
+    "minor": 3
+  },
+  "exportedAt": "2026-02-18T00:23:49.749Z",
+  "workboard": {
+    "name": "SDXL Simple T2I",
+    "description": "Upscale 없는 생성으로 빠르게.",
+    "workboardType": "image",
+    "apiFormat": "ComfyUI",
+    "outputFormat": "image",
+    "baseInputFields": {
+      "temperature": 0.7,
+      "maxTokens": 2000,
+      "aiModel": [
+        {
+          "key": "WAI Illustrious v16",
+          "value": "waiIllustriousSDXL_v160.safetensors"
+        },
+        {
+          "key": "Nova Flat XL v9",
+          "value": "novaFlatXL_v90.safetensors"
+        }
+      ],
+      "imageSizes": [
+        {
+          "key": "1024x1024",
+          "value": "1024x1024"
+        },
+        {
+          "key": "896x1152",
+          "value": "896x1152"
+        },
+        {
+          "key": "1152x896",
+          "value": "1152x896"
+        }
+      ],
+      "referenceImageMethods": [
+        {
+          "key": "Image to Image",
+          "value": "img2img"
+        },
+        {
+          "key": "ControlNet Canny",
+          "value": "controlnet_canny"
+        }
+      ],
+      "systemPrompt": "",
+      "referenceImages": [],
+      "stylePresets": [],
+      "upscaleMethods": []
+    },
+    "additionalInputFields": [],
+    "workflowData": "{\n  \"3\": {\n    \"inputs\": {\n      \"seed\": 12312312,\n      \"steps\": 28,\n      \"cfg\": 8,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"6\",\n        0\n      ],\n      \"negative\": [\n        \"7\",\n        0\n      ],\n      \"latent_image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"KSampler\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"ckpt_name\": \"{{##model##}}\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"체크포인트 로드\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"빈 잠재 이미지\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"text\": \"{{##prompt##}}\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP 텍스트 인코딩 (프롬프트)\"\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"text\": \"text, watermark\",\n      \"clip\": [\n        \"4\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP 텍스트 인코딩 (프롬프트)\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"3\",\n        0\n      ],\n      \"vae\": [\n        \"4\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE 디코드\"\n    }\n  },\n  \"9\": {\n    \"inputs\": {\n      \"filename_prefix\": \"ComfyUI\",\n      \"images\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"이미지 저장\"\n    }\n  }\n}",
+    "version": 17
+  },
+  "server": {
+    "name": "ComfyUI",
+    "serverType": "ComfyUI",
+    "outputType": "Image"
+  }
+}

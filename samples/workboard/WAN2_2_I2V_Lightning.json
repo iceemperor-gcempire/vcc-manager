@@ -1,0 +1,73 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 1,
+    "minor": 3
+  },
+  "exportedAt": "2026-02-18T00:26:06.126Z",
+  "workboard": {
+    "name": "WAN2.2 I2V Lightning",
+    "description": "WAN 2.2 Lightning 기본 사양.",
+    "workboardType": "image",
+    "apiFormat": "ComfyUI",
+    "outputFormat": "video",
+    "baseInputFields": {
+      "aiModel": [
+        {
+          "key": "WAN2.2 고정",
+          "value": "--"
+        }
+      ],
+      "imageSizes": [
+        {
+          "key": "640x640",
+          "value": "640x640"
+        },
+        {
+          "key": "384x704",
+          "value": "384x704"
+        },
+        {
+          "key": "704x384",
+          "value": "704x384"
+        }
+      ],
+      "referenceImageMethods": [
+        {
+          "key": "Image to Image",
+          "value": "img2img"
+        },
+        {
+          "key": "ControlNet Canny",
+          "value": "controlnet_canny"
+        }
+      ],
+      "systemPrompt": "",
+      "referenceImages": [],
+      "maxTokens": 2000,
+      "stylePresets": [],
+      "temperature": 0.7,
+      "upscaleMethods": []
+    },
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "name": "start_frame",
+        "label": "시작 프레임",
+        "type": "image",
+        "required": true,
+        "formatString": "{{##start_frame##}}",
+        "options": []
+      }
+    ],
+    "workflowData": "{\n  \"84\": {\n    \"inputs\": {\n      \"clip_name\": \"umt5_xxl_fp8_e4m3fn_scaled.safetensors\",\n      \"type\": \"wan\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"CLIP 로드\"\n    }\n  },\n  \"85\": {\n    \"inputs\": {\n      \"add_noise\": \"disable\",\n      \"noise_seed\": 0,\n      \"steps\": 4,\n      \"cfg\": 1,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 2,\n      \"end_at_step\": 4,\n      \"return_with_leftover_noise\": \"disable\",\n      \"model\": [\n        \"103\",\n        0\n      ],\n      \"positive\": [\n        \"98\",\n        0\n      ],\n      \"negative\": [\n        \"98\",\n        1\n      ],\n      \"latent_image\": [\n        \"86\",\n        0\n      ]\n    },\n    \"class_type\": \"KSamplerAdvanced\",\n    \"_meta\": {\n      \"title\": \"고급 KSampler\"\n    }\n  },\n  \"86\": {\n    \"inputs\": {\n      \"add_noise\": \"enable\",\n      \"noise_seed\": 286912644530253,\n      \"steps\": 4,\n      \"cfg\": 1,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"start_at_step\": 0,\n      \"end_at_step\": 2,\n      \"return_with_leftover_noise\": \"enable\",\n      \"model\": [\n        \"104\",\n        0\n      ],\n      \"positive\": [\n        \"98\",\n        0\n      ],\n      \"negative\": [\n        \"98\",\n        1\n      ],\n      \"latent_image\": [\n        \"98\",\n        2\n      ]\n    },\n    \"class_type\": \"KSamplerAdvanced\",\n    \"_meta\": {\n      \"title\": \"고급 KSampler\"\n    }\n  },\n  \"87\": {\n    \"inputs\": {\n      \"samples\": [\n        \"85\",\n        0\n      ],\n      \"vae\": [\n        \"90\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"VAE 디코드\"\n    }\n  },\n  \"89\": {\n    \"inputs\": {\n      \"text\": \"色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走\",\n      \"clip\": [\n        \"84\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Negative Prompt)\"\n    }\n  },\n  \"90\": {\n    \"inputs\": {\n      \"vae_name\": \"WAN\\\\Wan2_1_VAE_bf16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"VAE 로드\"\n    }\n  },\n  \"93\": {\n    \"inputs\": {\n      \"text\": \"{{##prompt##}}\",\n      \"clip\": [\n        \"84\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIP Text Encode (Positive Prompt)\"\n    }\n  },\n  \"94\": {\n    \"inputs\": {\n      \"fps\": 16,\n      \"images\": [\n        \"87\",\n        0\n      ]\n    },\n    \"class_type\": \"CreateVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 생성\"\n    }\n  },\n  \"95\": {\n    \"inputs\": {\n      \"unet_name\": \"WAN2.2\\\\Wan2_2-I2V-A14B-HIGH_fp8_e4m3fn_scaled_KJ.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"확산 모델 로드\"\n    }\n  },\n  \"96\": {\n    \"inputs\": {\n      \"unet_name\": \"WAN2.2\\\\Wan2_2-I2V-A14B-LOW_fp8_e4m3fn_scaled_KJ.safetensors\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"확산 모델 로드\"\n    }\n  },\n  \"97\": {\n    \"inputs\": {\n      \"image\": \"{{##start_frame##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"arg:이미지 로드\"\n    }\n  },\n  \"98\": {\n    \"inputs\": {\n      \"width\": {{##width##}},\n      \"height\": {{##height##}},\n      \"length\": 97,\n      \"batch_size\": 1,\n      \"positive\": [\n        \"93\",\n        0\n      ],\n      \"negative\": [\n        \"89\",\n        0\n      ],\n      \"vae\": [\n        \"90\",\n        0\n      ],\n      \"start_image\": [\n        \"97\",\n        0\n      ]\n    },\n    \"class_type\": \"WanImageToVideo\",\n    \"_meta\": {\n      \"title\": \"WAN 비디오 생성 (이미지 → 비디오)\"\n    }\n  },\n  \"101\": {\n    \"inputs\": {\n      \"lora_name\": \"optimizer\\\\WAN\\\\wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors\",\n      \"strength_model\": 1,\n      \"model\": [\n        \"95\",\n        0\n      ]\n    },\n    \"class_type\": \"LoraLoaderModelOnly\",\n    \"_meta\": {\n      \"title\": \"LoRA 로드 (모델 전용)\"\n    }\n  },\n  \"102\": {\n    \"inputs\": {\n      \"lora_name\": \"optimizer\\\\WAN\\\\wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors\",\n      \"strength_model\": 1,\n      \"model\": [\n        \"96\",\n        0\n      ]\n    },\n    \"class_type\": \"LoraLoaderModelOnly\",\n    \"_meta\": {\n      \"title\": \"LoRA 로드 (모델 전용)\"\n    }\n  },\n  \"103\": {\n    \"inputs\": {\n      \"shift\": 5.000000000000001,\n      \"model\": [\n        \"102\",\n        0\n      ]\n    },\n    \"class_type\": \"ModelSamplingSD3\",\n    \"_meta\": {\n      \"title\": \"모델 샘플링 (SD3)\"\n    }\n  },\n  \"104\": {\n    \"inputs\": {\n      \"shift\": 5.000000000000001,\n      \"model\": [\n        \"101\",\n        0\n      ]\n    },\n    \"class_type\": \"ModelSamplingSD3\",\n    \"_meta\": {\n      \"title\": \"모델 샘플링 (SD3)\"\n    }\n  },\n  \"108\": {\n    \"inputs\": {\n      \"filename_prefix\": \"wan22-lightning\",\n      \"format\": \"auto\",\n      \"codec\": \"auto\",\n      \"video\": [\n        \"94\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 저장\"\n    }\n  }\n}",
+    "version": 4
+  },
+  "server": {
+    "name": "ComfyUI",
+    "serverType": "ComfyUI",
+    "outputType": "Image"
+  }
+}
