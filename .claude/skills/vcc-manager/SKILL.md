@@ -20,6 +20,7 @@ VCC Manager MCP 서버의 도구를 사용하여 이미지/비디오 생성 작�
 | `continue_job` | 기존 작업 기반 재생성 (이어가기) |
 | `get_job_status` | 작업 상태 및 결과 확인 |
 | `list_jobs` | 내 작업 목록 조회 |
+| `upload_image` | base64 이미지를 VCC 서버에 업로드하여 이미지 ID 획득 |
 | `download_result` | 생성된 이미지/비디오 다운로드 |
 
 ---
@@ -81,7 +82,7 @@ generate(workboardId, prompt, aiModel, ...) → jobId 획득
 | `upscaleMethod` | string | - | 업스케일 방식 값 |
 | `seed` | number | - | 특정 시드 번호 |
 | `randomSeed` | boolean | - | 랜덤 시드 사용 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값) |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 이미지 타입 필드는 `upload_image`로 얻은 imageId 문자열을 전달 |
 
 ### 3단계: 완료 대기
 
@@ -131,6 +132,35 @@ download_result(mediaId, mediaType) → 이미지/비디오 획득
 
 ---
 
+## 이미지 업로드 (upload_image)
+
+작업판의 이미지 타입 커스텀 필드(예: 참조 이미지)에 사용할 이미지를 업로드합니다.
+
+```
+upload_image(data, filename?, mimeType?) → imageId 획득
+generate(..., additionalParams: { "참조이미지필드명": imageId }) → 생성
+```
+
+**upload_image 파라미터:**
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `data` | string | **필수** | base64 인코딩된 이미지 데이터 (data URI prefix 제외) |
+| `filename` | string | - | 파일명 (기본: upload.png) |
+| `mimeType` | `"image/png"` \| `"image/jpeg"` \| `"image/webp"` | - | MIME 타입 (기본: image/png) |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `imageId` | 업로드된 이미지 ID (`generate`의 `additionalParams`에서 이미지 타입 필드 값으로 사용) |
+| `filename` | 파일명 |
+| `size` | 파일 크기 (bytes) |
+| `width` | 이미지 너비 (px) |
+| `height` | 이미지 높이 (px) |
+
+---
+
 ## 이어가기 (continue_job)
 
 기존 작업을 기반으로 파라미터를 변경하여 재생성할 때 사용합니다. 스마트 필드 매칭으로 원본 파라미터를 대상 작업판에 자동 매핑합니다.
@@ -151,7 +181,7 @@ continue_job(jobId, prompt?, aiModel?, ...) → 새 작업 생성
 | `imageSize` | string | - | 이미지 크기 오버라이드 |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (이미지 타입 필드는 imageId 문자열 전달) |
 
 - `targetWorkboardId` 지정 시 다른 작업판으로 이어가기 가능
 - 지정하지 않은 파라미터는 원본에서 자동 매칭
