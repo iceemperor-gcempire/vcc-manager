@@ -33,6 +33,17 @@ const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 
 dotenv.config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+const sessionSecret = process.env.SESSION_SECRET;
+
+if (isProduction && !sessionSecret) {
+  throw new Error('SESSION_SECRET is required in production');
+}
+
+if (!isProduction && !sessionSecret) {
+  console.warn('[SECURITY] SESSION_SECRET is not set. Using development fallback secret.');
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -58,7 +69,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Session configuration
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'your-secret-key',
+  secret: sessionSecret || 'your-secret-key',
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({

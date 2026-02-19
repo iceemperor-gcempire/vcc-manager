@@ -41,6 +41,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, userAPI } from '../services/api';
 import Pagination from '../components/common/Pagination';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 // 비디오 URL 감지 (type 필드 우선, URL 확장자 폴백)
 function isVideoMedia(img) {
@@ -234,7 +235,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
                 '& p': { margin: 0 }
               }}
               dangerouslySetInnerHTML={{
-                __html: lora.civitai.description.substring(0, 500)
+                __html: sanitizeHtml(lora.civitai.description.substring(0, 500))
               }}
             />
           )}
