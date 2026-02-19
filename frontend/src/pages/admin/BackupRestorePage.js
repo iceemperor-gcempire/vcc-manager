@@ -196,7 +196,7 @@ function BackupRestorePage() {
 
   // 복구 실행
   const restoreMutation = useMutation(
-    ({ jobId, filePath, options }) => backupAPI.restore({ jobId, filePath, options }),
+    ({ jobId, options }) => backupAPI.restore({ jobId, options }),
     {
       onSuccess: (response) => {
         const jobId = response.data.data.jobId;
@@ -259,7 +259,6 @@ function BackupRestorePage() {
 
     restoreMutation.mutate({
       jobId: validationResult.jobId,
-      filePath: validationResult.filePath,
       options: restoreOptions
     });
   };

@@ -39,7 +39,7 @@
   - 서브디렉토리 allowlist (`/generated/`, `/reference/`) 적용 — allowlist 외 경로 접근 차단
   - `generateSignedUrl()`에 `path.normalize()` 적용하여 서명-검증 간 경로 일관성 보장
 
-### F-02 (High) 복구 API에서 사용자 입력 `filePath` 신뢰로 임의 파일 삭제 가능
+### F-02 (High) 복구 API에서 사용자 입력 `filePath` 신뢰로 임의 파일 삭제 가능 — ✅ Fixed (2026-02-19)
 - Category: 파일 접근/경로 조작
 - Evidence:
   - `src/routes/backup.js:276` `filePath`를 요청 본문에서 수신
@@ -50,6 +50,12 @@
 - Recommendation:
   - `restore/validate`에서 발급한 서버측 토큰(jobId↔temp path mapping)만 사용하고 클라이언트가 파일 경로를 직접 전달하지 못하게 변경.
   - 삭제 대상은 전용 임시 디렉토리 하위인지 `realpath`/`relative`로 강제 검증.
+- Remediation:
+  - RestoreJob 모델에 `tempFilePath` 필드를 추가하여 검증 시 서버 측에 임시 파일 경로 저장
+  - `POST /restore/validate` 응답에서 `filePath` 제거 — 클라이언트에 경로를 노출하지 않음
+  - `POST /restore`에서 `req.body.filePath` 수신 제거 — DB에 저장된 `tempFilePath`만 사용
+  - `path.resolve()` + `startsWith()` 기반 경로 검증으로 backup-temp 디렉토리 하위 접근만 허용
+  - 프론트엔드에서 `filePath` 전달 코드 제거
 
 ### F-03 (High) 외부 HTML sanitize 없이 `dangerouslySetInnerHTML` 렌더링
 - Category: XSS
