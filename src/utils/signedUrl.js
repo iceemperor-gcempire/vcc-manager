@@ -1,6 +1,17 @@
 const crypto = require('crypto');
 
-const SECRET = process.env.JWT_SECRET || 'default-secret';
+const isProduction = process.env.NODE_ENV === 'production';
+const jwtSecret = process.env.JWT_SECRET;
+
+if (isProduction && !jwtSecret) {
+  throw new Error('JWT_SECRET is required in production');
+}
+
+if (!isProduction && !jwtSecret) {
+  console.warn('[SECURITY] JWT_SECRET is not set. Using development fallback secret.');
+}
+
+const SECRET = jwtSecret || 'default-secret';
 const DEFAULT_EXPIRY = parseInt(process.env.SIGNED_URL_EXPIRY, 10) || 3600; // 1 hour
 const ROUND_SECONDS = parseInt(process.env.SIGNED_URL_ROUND_SECONDS, 10) || 1440; // 24 min
 
