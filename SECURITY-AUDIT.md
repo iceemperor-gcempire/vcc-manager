@@ -19,7 +19,7 @@
 
 ## Findings
 
-### F-01 (High) Signed URL 경로 검증 우회 및 파일 접근 통제 미흡
+### F-01 (High) Signed URL 경로 검증 우회 및 파일 접근 통제 미흡 — ✅ Fixed (2026-02-19)
 - Category: 파일 접근/경로 조작, 인증/인가
 - Evidence:
   - `src/routes/files.js:27` `uploadPath`는 `startsWith('/uploads/')`만 검사
@@ -33,8 +33,13 @@
   - `path.normalize` 후 `..`, null-byte, 이중 인코딩을 차단하고 allowlist 서브디렉토리(`generated|reference|videos`)만 허용.
   - 경로 검증은 `path.relative(resolvedRoot, absolutePath)` 기반으로 수행(`..` 또는 absolute면 차단).
   - `/sign`에서 해당 파일이 `req.user` 소유인지 DB 조회로 검증.
+- Remediation:
+  - IDOR 취약점이 있는 미사용 `GET /api/files/sign` 엔드포인트 제거
+  - `GET /api/files/*` 파일 서빙 경로에 null byte 차단, `..` 경로 조작 차단, `path.normalize()` 적용
+  - 서브디렉토리 allowlist (`/generated/`, `/reference/`) 적용 — allowlist 외 경로 접근 차단
+  - `generateSignedUrl()`에 `path.normalize()` 적용하여 서명-검증 간 경로 일관성 보장
 
-### F-02 (High) 복구 API에서 사용자 입력 `filePath` 신뢰로 임의 파일 삭제 가능
+### F-02 (High) 복구 API에서 사용자 입력 `filePath` 신뢰로 임의 파일 삭제 가능 — ✅ Fixed (2026-02-19)
 - Category: 파일 접근/경로 조작
 - Evidence:
   - `src/routes/backup.js:276` `filePath`를 요청 본문에서 수신
@@ -45,8 +50,14 @@
 - Recommendation:
   - `restore/validate`에서 발급한 서버측 토큰(jobId↔temp path mapping)만 사용하고 클라이언트가 파일 경로를 직접 전달하지 못하게 변경.
   - 삭제 대상은 전용 임시 디렉토리 하위인지 `realpath`/`relative`로 강제 검증.
+- Remediation:
+  - RestoreJob 모델에 `tempFilePath` 필드를 추가하여 검증 시 서버 측에 임시 파일 경로 저장
+  - `POST /restore/validate` 응답에서 `filePath` 제거 — 클라이언트에 경로를 노출하지 않음
+  - `POST /restore`에서 `req.body.filePath` 수신 제거 — DB에 저장된 `tempFilePath`만 사용
+  - `path.resolve()` + `startsWith()` 기반 경로 검증으로 backup-temp 디렉토리 하위 접근만 허용
+  - 프론트엔드에서 `filePath` 전달 코드 제거
 
-### F-03 (High) 외부 HTML sanitize 없이 `dangerouslySetInnerHTML` 렌더링
+### F-03 (High) 외부 HTML sanitize 없이 `dangerouslySetInnerHTML` 렌더링 — ✅ Fixed (2026-02-20)
 - Category: XSS
 - Evidence:
   - `src/services/loraMetadataService.js:136` 외부(Civitai) `description` 저장
@@ -58,6 +69,10 @@
 - Recommendation:
   - 서버 또는 클라이언트에서 DOMPurify 등으로 sanitize 후 렌더링.
   - 가능하면 plain text 렌더링으로 전환.
+- Remediation:
+  - DOMPurify 라이브러리 설치 (`frontend/`)
+  - `frontend/src/utils/sanitizeHtml.js` 유틸리티 생성 — 서식 태그만 허용 (script, iframe, img[onerror], style, 이벤트 핸들러 등 제거)
+  - 프론트엔드 3곳의 `dangerouslySetInnerHTML`에 `sanitizeHtml()` 래핑 적용
 
 ### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재
 - Category: CSRF, 인증/인가

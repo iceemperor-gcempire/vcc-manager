@@ -1,37 +1,10 @@
 const express = require('express');
 const path = require('path');
-const { verifySignature, generateSignedUrl } = require('../utils/signedUrl');
-const { verifyJWT, verifyApiKey } = require('../middleware/auth');
+const { verifySignature } = require('../utils/signedUrl');
 
 const router = express.Router();
 const UPLOAD_ROOT = process.env.UPLOAD_PATH || './uploads';
-
-/**
- * GET /api/files/sign?path=/uploads/...
- *
- * Authenticated endpoint to generate a signed URL for a given upload path.
- * Used by MCP server in HTTP mode to get signed URLs for media files.
- */
-router.get('/sign', (req, res, next) => {
-  // This endpoint requires JWT or API Key auth
-  const apiKey = req.header('X-API-Key');
-  if (apiKey) {
-    return verifyApiKey(req, res, next);
-  }
-  const token = req.header('Authorization')?.replace('Bearer ', '');
-  if (token) {
-    return verifyJWT(req, res, next);
-  }
-  return res.status(401).json({ success: false, message: 'Authentication required' });
-}, (req, res) => {
-  const uploadPath = req.query.path;
-  if (!uploadPath || !uploadPath.startsWith('/uploads/')) {
-    return res.status(400).json({ success: false, message: 'Invalid path parameter' });
-  }
-
-  const signedUrl = generateSignedUrl(uploadPath);
-  res.json({ success: true, data: { signedUrl } });
-});
+const ALLOWED_SUBDIRS = ['/generated/', '/reference/'];
 
 /**
  * GET /api/files/*
@@ -40,13 +13,26 @@ router.get('/sign', (req, res, next) => {
  * No JWT/API Key auth required — the signature itself is the auth.
  */
 router.get('/*', (req, res) => {
-  const filePath = '/' + req.params[0]; // e.g. '/generated/uuid.png'
+  const rawPath = '/' + req.params[0]; // e.g. '/generated/uuid.png'
   const { expires, sig } = req.query;
 
   if (!expires || !sig) {
     return res.status(403).json({ success: false, message: 'Missing signature parameters' });
   }
 
+  // Block null bytes and path traversal sequences before any processing
+  if (rawPath.includes('\0') || rawPath.includes('..')) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  const filePath = path.normalize(rawPath);
+
+  // Subdirectory allowlist — only serve files from known upload directories
+  if (!ALLOWED_SUBDIRS.some((dir) => filePath.startsWith(dir))) {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+
+  // Verify signature using the normalized path
   const { valid, expired } = verifySignature(filePath, expires, sig);
 
   if (expired) {

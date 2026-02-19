@@ -10,6 +10,9 @@ const restoreJobSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  tempFilePath: {
+    type: String
+  },
   backupMetadata: {
     version: String,
     createdAt: Date,

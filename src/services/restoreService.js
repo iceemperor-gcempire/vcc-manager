@@ -135,6 +135,7 @@ async function validateBackup(zipPath, userId) {
   const job = new RestoreJob({
     status: 'validating',
     backupFileName: path.basename(zipPath),
+    tempFilePath: zipPath,
     createdBy: userId
   });
   await job.save();

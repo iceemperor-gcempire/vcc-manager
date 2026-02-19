@@ -49,6 +49,7 @@ import {
   insertLoraTag,
   insertTriggerWordWithLora
 } from '../utils/promptUtils';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 
 // 비디오 URL 감지 (type 필드 우선, URL 확장자 폴백)
 function isVideoMedia(img) {
@@ -746,7 +747,7 @@ function LoraCard({
                 '& p': { margin: 0 }
               }}
               dangerouslySetInnerHTML={{
-                __html: lora.civitai.description.substring(0, 500)
+                __html: sanitizeHtml(lora.civitai.description.substring(0, 500))
               }}
             />
           )}

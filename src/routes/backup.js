@@ -250,8 +250,7 @@ router.post('/restore/validate', requireAdmin, upload.single('backup'), async (r
       data: {
         jobId: job._id,
         validationResult: job.validationResult,
-        backupMetadata: job.backupMetadata,
-        filePath: req.file.path
+        backupMetadata: job.backupMetadata
       }
     });
   } catch (error) {
@@ -273,12 +272,12 @@ router.post('/restore/validate', requireAdmin, upload.single('backup'), async (r
  */
 router.post('/restore', requireAdmin, async (req, res) => {
   try {
-    const { jobId, filePath, options = {} } = req.body;
+    const { jobId, options = {} } = req.body;
 
-    if (!jobId || !filePath) {
+    if (!jobId) {
       return res.status(400).json({
         success: false,
-        message: 'jobId와 filePath가 필요합니다.'
+        message: 'jobId가 필요합니다.'
       });
     }
 
@@ -288,6 +287,25 @@ router.post('/restore', requireAdmin, async (req, res) => {
       return res.status(400).json({
         success: false,
         message: '검증되지 않은 백업 파일입니다. 먼저 검증을 수행해주세요.'
+      });
+    }
+
+    // 서버 측에서 저장된 임시 파일 경로 사용 (클라이언트 입력 신뢰 제거)
+    const filePath = validationJob.tempFilePath;
+    if (!filePath) {
+      return res.status(400).json({
+        success: false,
+        message: '임시 파일 경로를 찾을 수 없습니다. 다시 검증을 수행해주세요.'
+      });
+    }
+
+    // 경로 검증: backup-temp 디렉토리 하위인지 확인
+    const resolvedPath = path.resolve(filePath);
+    const resolvedUploadDir = path.resolve(UPLOAD_DIR);
+    if (!resolvedPath.startsWith(resolvedUploadDir + path.sep) && resolvedPath !== resolvedUploadDir) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
       });
     }
 
