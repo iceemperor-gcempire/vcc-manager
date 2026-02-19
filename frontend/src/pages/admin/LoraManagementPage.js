@@ -52,6 +52,7 @@ import { useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, adminAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 // LoRA 카드 컴포넌트
 function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
@@ -193,7 +194,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
                 '& p': { margin: 0 }
               }}
               dangerouslySetInnerHTML={{
-                __html: lora.civitai.description.substring(0, 500)
+                __html: sanitizeHtml(lora.civitai.description.substring(0, 500))
               }}
             />
           )}

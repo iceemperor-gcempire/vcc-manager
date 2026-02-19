@@ -57,7 +57,7 @@
   - `path.resolve()` + `startsWith()` 기반 경로 검증으로 backup-temp 디렉토리 하위 접근만 허용
   - 프론트엔드에서 `filePath` 전달 코드 제거
 
-### F-03 (High) 외부 HTML sanitize 없이 `dangerouslySetInnerHTML` 렌더링
+### F-03 (High) 외부 HTML sanitize 없이 `dangerouslySetInnerHTML` 렌더링 — ✅ Fixed (2026-02-20)
 - Category: XSS
 - Evidence:
   - `src/services/loraMetadataService.js:136` 외부(Civitai) `description` 저장
@@ -69,6 +69,10 @@
 - Recommendation:
   - 서버 또는 클라이언트에서 DOMPurify 등으로 sanitize 후 렌더링.
   - 가능하면 plain text 렌더링으로 전환.
+- Remediation:
+  - DOMPurify 라이브러리 설치 (`frontend/`)
+  - `frontend/src/utils/sanitizeHtml.js` 유틸리티 생성 — 서식 태그만 허용 (script, iframe, img[onerror], style, 이벤트 핸들러 등 제거)
+  - 프론트엔드 3곳의 `dangerouslySetInnerHTML`에 `sanitizeHtml()` 래핑 적용
 
 ### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재
 - Category: CSRF, 인증/인가
