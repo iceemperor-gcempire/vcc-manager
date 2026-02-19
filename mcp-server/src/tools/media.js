@@ -153,4 +153,45 @@ export function registerMediaTools(server, apiRequest, options = {}) {
       };
     },
   );
+
+  // ── upload_image ──────────────────────────────────────────────────
+  server.tool(
+    'upload_image',
+    'Upload a base64-encoded image to VCC Manager. Returns an imageId that can be used as an image-type field value in generate/continue_job additionalParams.',
+    {
+      data: z.string().describe('Base64-encoded image data (without data URI prefix)'),
+      filename: z.string().optional().describe('Filename (default: upload.png)'),
+      mimeType: z.enum(['image/png', 'image/jpeg', 'image/webp']).optional()
+        .describe('MIME type (default: image/png)'),
+    },
+    async ({ data, filename, mimeType }) => {
+      const mime = mimeType || 'image/png';
+      const fname = filename || `upload.${mime === 'image/jpeg' ? 'jpg' : mime === 'image/webp' ? 'webp' : 'png'}`;
+
+      // base64 → Blob → FormData
+      const buffer = Buffer.from(data, 'base64');
+      const blob = new Blob([buffer], { type: mime });
+      const formData = new FormData();
+      formData.append('image', blob, fname);
+
+      const result = await apiRequest('/images/upload', {
+        method: 'POST',
+        formData,
+      });
+
+      const img = result.image;
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            imageId: img._id,
+            filename: img.originalName,
+            size: img.size,
+            width: img.metadata?.width,
+            height: img.metadata?.height,
+          }, null, 2),
+        }],
+      };
+    },
+  );
 }
