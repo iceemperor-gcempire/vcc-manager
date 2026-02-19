@@ -19,7 +19,7 @@
 
 ## Findings
 
-### F-01 (High) Signed URL 경로 검증 우회 및 파일 접근 통제 미흡
+### F-01 (High) Signed URL 경로 검증 우회 및 파일 접근 통제 미흡 — ✅ Fixed (2026-02-19)
 - Category: 파일 접근/경로 조작, 인증/인가
 - Evidence:
   - `src/routes/files.js:27` `uploadPath`는 `startsWith('/uploads/')`만 검사
@@ -33,6 +33,11 @@
   - `path.normalize` 후 `..`, null-byte, 이중 인코딩을 차단하고 allowlist 서브디렉토리(`generated|reference|videos`)만 허용.
   - 경로 검증은 `path.relative(resolvedRoot, absolutePath)` 기반으로 수행(`..` 또는 absolute면 차단).
   - `/sign`에서 해당 파일이 `req.user` 소유인지 DB 조회로 검증.
+- Remediation:
+  - IDOR 취약점이 있는 미사용 `GET /api/files/sign` 엔드포인트 제거
+  - `GET /api/files/*` 파일 서빙 경로에 null byte 차단, `..` 경로 조작 차단, `path.normalize()` 적용
+  - 서브디렉토리 allowlist (`/generated/`, `/reference/`) 적용 — allowlist 외 경로 접근 차단
+  - `generateSignedUrl()`에 `path.normalize()` 적용하여 서명-검증 간 경로 일관성 보장
 
 ### F-02 (High) 복구 API에서 사용자 입력 `filePath` 신뢰로 임의 파일 삭제 가능
 - Category: 파일 접근/경로 조작

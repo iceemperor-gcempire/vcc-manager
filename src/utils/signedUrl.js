@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const path = require('path');
 
 const isProduction = process.env.NODE_ENV === 'production';
 const jwtSecret = process.env.JWT_SECRET;
@@ -33,8 +34,8 @@ function createSignature(filePath, expires) {
  * @returns {string} e.g. '/api/files/generated/uuid.png?expires=1700000000&sig=abc123'
  */
 function generateSignedUrl(uploadPath, expirySeconds = DEFAULT_EXPIRY) {
-  // Strip '/uploads' prefix to get relative file path
-  const filePath = uploadPath.replace(/^\/uploads/, '');
+  // Strip '/uploads' prefix and normalize to prevent signing inconsistencies
+  const filePath = path.normalize(uploadPath.replace(/^\/uploads/, ''));
   // 만료 시간을 라운딩하여 동일 구간 내에서는 같은 URL 생성
   // → 빈번한 API refetch 시에도 URL이 바뀌지 않아 <video>/<img> 재로드 방지
   const now = Math.floor(Date.now() / 1000);
