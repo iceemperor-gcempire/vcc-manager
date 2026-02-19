@@ -64,7 +64,7 @@ export function registerJobTools(server, apiRequest) {
         }
       }
 
-      // Map additionalParams (select fields need key-value mapping)
+      // Map additionalParams (select fields need key-value mapping, image fields need { imageId } format)
       let additionalParams = params.additionalParams || {};
       if (Object.keys(additionalParams).length > 0 && wb.additionalInputFields) {
         const mapped = { ...additionalParams };
@@ -75,6 +75,9 @@ export function registerJobTools(server, apiRequest) {
             if (option) {
               mapped[field.name] = { key: option.key, value: option.value };
             }
+          }
+          if (val !== undefined && field.type === 'image') {
+            mapped[field.name] = { imageId: String(val) };
           }
         }
         additionalParams = mapped;
@@ -207,6 +210,14 @@ export function registerJobTools(server, apiRequest) {
           const inputVal = overrideVal !== undefined ? overrideVal : originalVal;
 
           if (inputVal === undefined) continue;
+
+          if (field.type === 'image') {
+            // 이미 { imageId } 형식이면 그대로, 문자열이면 변환
+            additionalParams[field.name] = typeof inputVal === 'object' && inputVal.imageId
+              ? inputVal
+              : { imageId: String(inputVal) };
+            continue;
+          }
 
           if (field.type === 'select' && field.options) {
             const matched = matchSelectValue(field.options, inputVal);

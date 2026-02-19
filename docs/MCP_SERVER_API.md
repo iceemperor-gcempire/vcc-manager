@@ -81,7 +81,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `upscaleMethod` | string | - | 업스케일 방식 값 |
 | `seed` | number | - | 특정 시드 번호 |
 | `randomSeed` | boolean | - | 랜덤 시드 사용 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값) |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 이미지 타입 필드는 `upload_image`로 획득한 imageId 문자열을 전달하면 자동으로 `{ imageId }` 형식으로 변환됨 |
 
 **응답 필드:**
 
@@ -107,7 +107,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `imageSize` | string | - | 이미지 크기 오버라이드 |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (지정한 키만 오버라이드) |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (지정한 키만 오버라이드). 이미지 타입 필드는 imageId 문자열 전달 |
 
 **응답 필드:**
 
@@ -244,3 +244,33 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `size` | 파일 크기 (bytes) |
 | `mediaType` | `"video"` |
 | `note` | `VCC_BASE_URL_FOR_MCP` 설정 안내 메시지 |
+
+---
+
+### `upload_image`
+
+base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를 `generate`/`continue_job`의 `additionalParams`에서 이미지 타입 필드 값으로 사용.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `data` | string | **필수** | base64 인코딩된 이미지 데이터 (data URI prefix 제외) |
+| `filename` | string | - | 파일명 (기본: upload.png) |
+| `mimeType` | `"image/png"` \| `"image/jpeg"` \| `"image/webp"` | - | MIME 타입 (기본: image/png) |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `imageId` | 업로드된 이미지 ID |
+| `filename` | 파일명 |
+| `size` | 파일 크기 (bytes) |
+| `width` | 이미지 너비 (px) |
+| `height` | 이미지 높이 (px) |
+
+**사용 예시:**
+
+```
+1. upload_image(data: "iVBOR...") → imageId: "abc123"
+2. generate(workboardId, prompt, aiModel, additionalParams: { "referenceImage": "abc123" })
+   → 이미지 타입 필드가 자동으로 { imageId: "abc123" } 형식으로 변환됨
+```

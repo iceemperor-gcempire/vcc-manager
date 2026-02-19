@@ -20,7 +20,7 @@ export function createApiClient(apiKey) {
   }
 
   return async function apiRequest(path, options = {}) {
-    const { method = 'GET', body, params, responseType } = options;
+    const { method = 'GET', body, params, responseType, formData } = options;
 
     const url = new URL(`${API_URL}/api${path}`);
     if (params) {
@@ -35,9 +35,10 @@ export function createApiClient(apiKey) {
       method,
       headers: {
         'X-API-Key': apiKey,
-        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        // formData일 때는 Content-Type 헤더를 설정하지 않음 (fetch가 boundary 자동 생성)
+        ...(body && !formData ? { 'Content-Type': 'application/json' } : {}),
       },
-      ...(body ? { body: JSON.stringify(body) } : {}),
+      ...(formData ? { body: formData } : body ? { body: JSON.stringify(body) } : {}),
     };
 
     const res = await fetch(url.toString(), fetchOptions);
