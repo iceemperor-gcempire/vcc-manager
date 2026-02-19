@@ -131,6 +131,15 @@ describe('GET /api/files/* - 파일 서빙 라우트', () => {
       expect(res.body.message).toBe('Invalid signature');
     });
 
+    test('videos 경로 허용 (서명 검증 단계까지 도달)', async () => {
+      const res = await request(app)
+        .get('/api/files/videos/generated_12345_0.mp4')
+        .query({ expires: '9999999999', sig: 'fakesig' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toBe('Invalid signature');
+    });
+
     test('allowlist 외 경로 차단: backup-temp', async () => {
       const res = await request(app)
         .get('/api/files/backup-temp/data.zip')

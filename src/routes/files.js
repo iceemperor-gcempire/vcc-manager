@@ -4,7 +4,7 @@ const { verifySignature } = require('../utils/signedUrl');
 
 const router = express.Router();
 const UPLOAD_ROOT = process.env.UPLOAD_PATH || './uploads';
-const ALLOWED_SUBDIRS = ['/generated/', '/reference/'];
+const ALLOWED_SUBDIRS = ['/generated/', '/reference/', '/videos/'];
 
 /**
  * GET /api/files/*
