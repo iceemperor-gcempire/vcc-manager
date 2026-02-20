@@ -7,6 +7,7 @@ const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
 const SystemSettings = require('../models/SystemSettings');
 const ApiKey = require('../models/ApiKey');
+const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
@@ -18,8 +19,8 @@ router.get('/users', requireAdmin, async (req, res) => {
     
     if (search) {
       filter.$or = [
-        { email: { $regex: search, $options: 'i' } },
-        { nickname: { $regex: search, $options: 'i' } }
+        { email: { $regex: escapeRegex(search), $options: 'i' } },
+        { nickname: { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
     

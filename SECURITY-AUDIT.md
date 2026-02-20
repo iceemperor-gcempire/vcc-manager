@@ -138,7 +138,7 @@
   - `validate()` 미들웨어에서 `req.body` 전체 로그 (`console.log`) 제거
   - 검증 에러 로그(`Validation errors`)도 함께 제거 — 에러 내용은 API 응답으로 클라이언트에 전달되므로 서버 로그 불필요
 
-### F-08 (Low) 사용자 입력 기반 정규식 사용으로 ReDoS 가능성
+### F-08 (Low) 사용자 입력 기반 정규식 사용으로 ReDoS 가능성 — ✅ Fixed (2026-02-20)
 - Category: 웹 취약점(DoS)
 - Evidence:
   - `src/routes/images.js:178,189,361,401` `new RegExp(search, 'i')`/`$regex: search`
@@ -147,6 +147,10 @@
 - Recommendation:
   - 사용자 입력은 escape 후 literal 검색으로 변환.
   - 검색 길이 제한 및 요청 rate limit 강화.
+- Remediation:
+  - `escapeRegex()` 유틸 함수 생성 (`src/utils/escapeRegex.js`) — 정규식 특수문자를 이스케이프하여 literal 검색으로 변환
+  - 전체 라우트/모델 24곳의 `$regex: search` 및 `new RegExp(search)` 호출에 `escapeRegex()` 적용
+  - 적용 파일: images.js, promptData.js, jobs.js, admin.js, projects.js, tags.js, workboards.js, PromptData.js (model)
 
 ## Requested Items Check
 

@@ -3,6 +3,7 @@ const router = express.Router();
 const { reverseSignedUrl } = require('../utils/signedUrl');
 const PromptData = require('../models/PromptData');
 const Tag = require('../models/Tag');
+const { escapeRegex } = require('../utils/escapeRegex');
 const { verifyJWT } = require('../middleware/auth');
 
 router.get('/', verifyJWT, async (req, res) => {
@@ -14,9 +15,9 @@ router.get('/', verifyJWT, async (req, res) => {
     
     if (search) {
       query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { memo: { $regex: search, $options: 'i' } },
-        { prompt: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapeRegex(search), $options: 'i' } },
+        { memo: { $regex: escapeRegex(search), $options: 'i' } },
+        { prompt: { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
     
