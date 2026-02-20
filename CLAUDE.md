@@ -161,7 +161,7 @@ docker-compose logs -f backend
 │   └── src/
 │       ├── tools/          # MCP 도구 정의 (workboards, jobs, media)
 │       └── utils/          # API 클라이언트
-├── .claude/
+├── claude/
 │   └── skills/             # Claude Code skill 파일
 │       └── vcc-manager/    # /vcc-manager 슬래시 커맨드
 ├── docs/                   # 프로젝트 문서
