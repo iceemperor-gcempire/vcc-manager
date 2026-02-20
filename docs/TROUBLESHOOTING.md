@@ -225,7 +225,6 @@ git commit -m "Remove .env from tracking"
    ```bash
    MONGO_ROOT_PASSWORD=secure_password_here
    REDIS_PASSWORD=secure_redis_password
-   SESSION_SECRET=secure_session_secret
    ```
 
 ### 네트워크 보안

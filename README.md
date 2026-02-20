@@ -198,7 +198,6 @@ graph TB
 ```bash
 # 보안 (필수)
 JWT_SECRET=your-super-secret-jwt-key-here
-SESSION_SECRET=your-session-secret-here
 
 # 데이터베이스
 MONGODB_URI=mongodb://admin:password@mongodb:27017/vcc-manager?authSource=admin

@@ -99,24 +99,20 @@ const passwordChangeSchema = Joi.object({
 
 const validate = (schema) => {
   return (req, res, next) => {
-    console.log('Validation input:', JSON.stringify(req.body, null, 2));
-    
     const { error } = schema.validate(req.body, { abortEarly: false });
-    
+
     if (error) {
       const errors = error.details.map(detail => ({
         field: detail.path[0],
         message: detail.message
       }));
-      
-      console.log('Validation errors:', errors);
-      
+
       return res.status(400).json({
         message: 'Validation failed',
         errors
       });
     }
-    
+
     next();
   };
 };

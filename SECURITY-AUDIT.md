@@ -74,7 +74,7 @@
   - `frontend/src/utils/sanitizeHtml.js` 유틸리티 생성 — 서식 태그만 허용 (script, iframe, img[onerror], style, 이벤트 핸들러 등 제거)
   - 프론트엔드 3곳의 `dangerouslySetInnerHTML`에 `sanitizeHtml()` 래핑 적용
 
-### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재
+### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재 — ✅ Fixed (2026-02-20)
 - Category: CSRF, 인증/인가
 - Evidence:
   - `src/server.js:92-99` 토큰 없으면 세션 인증 경로로 계속 진행
@@ -85,8 +85,15 @@
 - Recommendation:
   - CSRF 토큰(`csurf`) 또는 SameSite=strict + Origin/Referer 검증 + 상태 변경 엔드포인트 재인증 적용.
   - 세션 기반 API와 Bearer API를 분리해 정책을 명확화.
+- Remediation:
+  - 세션 인프라 자체를 제거하여 CSRF 공격 표면을 완전히 제거
+  - `express-session`, `connect-mongo` 의존성 제거
+  - `passport.session()`, `passport.serializeUser/deserializeUser` 제거
+  - `req.login()`, `req.logout()`, `req.session.destroy()` 호출 제거
+  - JWT/API Key 없는 요청에 대해 세션 폴백 대신 401 반환
+  - 환경변수 `SESSION_SECRET` 제거
 
-### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달
+### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달 — ✅ Fixed (2026-02-20)
 - Category: 인증/토큰 관리
 - Evidence:
   - `src/routes/auth.js:48` `.../auth/callback?token=${token}`
@@ -96,11 +103,16 @@
 - Recommendation:
   - 토큰을 URL fragment(`#token=`) 또는 one-time code 교환 방식으로 변경.
   - 가능하면 서버가 HttpOnly/Secure 쿠키로 직접 설정.
+- Remediation:
+  - 백엔드 OAuth 콜백 리다이렉트를 `?token=` → `#token=`으로 변경 — fragment는 서버에 전송되지 않아 로그/Referer 노출 차단
+  - 프론트엔드 `AuthCallback.js`에서 `window.location.hash` 기반 토큰 파싱으로 전환
+  - 토큰 추출 직후 `window.history.replaceState()`로 URL에서 fragment 제거 — 브라우저 히스토리 노출 방지
+  - 에러 파라미터(`?error=`)는 민감 정보가 아니므로 query parameter 유지
 
-### F-06 (Medium) 약한 기본 secret/fallback 값 존재
+### F-06 (Medium) 약한 기본 secret/fallback 값 존재 — ✅ Fixed (2026-02-20)
 - Category: 하드코딩 시크릿/보안 설정
 - Evidence:
-  - `src/server.js:61` `SESSION_SECRET || 'your-secret-key'`
+  - ~~`src/server.js:61` `SESSION_SECRET || 'your-secret-key'`~~ (F-04에서 세션 인프라 제거로 해소)
   - `src/utils/signedUrl.js:3` `JWT_SECRET || 'default-secret'`
   - `docker-compose.yml:9,24,42,43` 기본 비밀번호(`password`, `redispassword`) 폴백
   - `docker-compose.prod.yml:8,23,47,48` 동일 폴백
@@ -109,8 +121,12 @@
 - Recommendation:
   - 부팅 시 필수 시크릿 미설정이면 즉시 종료(fail-fast).
   - 운영 compose에서 insecure default 제거.
+- Remediation:
+  - `signedUrl.js`에서 `'default-secret'` 폴백 제거 — `JWT_SECRET` 미설정 시 환경 무관 즉시 throw
+  - `docker-compose.prod.yml`에서 `MONGO_ROOT_PASSWORD`, `REDIS_PASSWORD` 폴백을 `${VAR:?error}` 구문으로 교체 — 미설정 시 컨테이너 기동 실패
+  - 개발용 `docker-compose.yml`의 기본값은 편의상 유지 (로컬 개발 전용)
 
-### F-07 (Low) 민감 입력 로그 노출 위험
+### F-07 (Low) 민감 입력 로그 노출 위험 — ✅ Fixed (2026-02-20)
 - Category: 기타 보안 우려사항
 - Evidence:
   - `src/utils/validation.js:102` 요청 본문 전체 로그(`password` 포함 가능)
@@ -118,8 +134,11 @@
   - 로그 수집 시스템/콘솔을 통해 평문 민감정보 노출 가능.
 - Recommendation:
   - 민감 필드 마스킹 후 로그, 또는 검증 실패 시 필드명/에러코드만 기록.
+- Remediation:
+  - `validate()` 미들웨어에서 `req.body` 전체 로그 (`console.log`) 제거
+  - 검증 에러 로그(`Validation errors`)도 함께 제거 — 에러 내용은 API 응답으로 클라이언트에 전달되므로 서버 로그 불필요
 
-### F-08 (Low) 사용자 입력 기반 정규식 사용으로 ReDoS 가능성
+### F-08 (Low) 사용자 입력 기반 정규식 사용으로 ReDoS 가능성 — ✅ Fixed (2026-02-20)
 - Category: 웹 취약점(DoS)
 - Evidence:
   - `src/routes/images.js:178,189,361,401` `new RegExp(search, 'i')`/`$regex: search`
@@ -128,6 +147,10 @@
 - Recommendation:
   - 사용자 입력은 escape 후 literal 검색으로 변환.
   - 검색 길이 제한 및 요청 rate limit 강화.
+- Remediation:
+  - `escapeRegex()` 유틸 함수 생성 (`src/utils/escapeRegex.js`) — 정규식 특수문자를 이스케이프하여 literal 검색으로 변환
+  - 전체 라우트/모델 24곳의 `$regex: search` 및 `new RegExp(search)` 호출에 `escapeRegex()` 적용
+  - 적용 파일: images.js, promptData.js, jobs.js, admin.js, projects.js, tags.js, workboards.js, PromptData.js (model)
 
 ## Requested Items Check
 

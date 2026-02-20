@@ -4,6 +4,7 @@ const Tag = require('../models/Tag');
 const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
 const PromptData = require('../models/PromptData');
+const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
 router.get('/', requireAuth, async (req, res) => {
@@ -12,7 +13,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     const filter = { userId: req.user._id };
     if (search) {
-      filter.name = { $regex: search, $options: 'i' };
+      filter.name = { $regex: escapeRegex(search), $options: 'i' };
     }
     
     const tags = await Tag.find(filter)

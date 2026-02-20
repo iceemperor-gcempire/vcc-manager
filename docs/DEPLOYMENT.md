@@ -106,8 +106,7 @@ GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
-# 세션 및 JWT
-SESSION_SECRET=your_session_secret_key
+# JWT
 JWT_SECRET=your_jwt_secret_key
 JWT_EXPIRES_IN=7d
 
@@ -149,7 +148,6 @@ GOOGLE_CLIENT_SECRET=production_google_client_secret
 GOOGLE_CALLBACK_URL=https://yourdomain.com/auth/google/callback
 
 # 보안 키 (32자 이상)
-SESSION_SECRET=production_session_secret_min_32_chars
 JWT_SECRET=production_jwt_secret_min_32_chars
 JWT_EXPIRES_IN=7d
 

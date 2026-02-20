@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Container, Box, CircularProgress, Typography, Alert } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,36 +7,47 @@ function AuthCallback() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const handleCallback = async () => {
-      const token = searchParams.get('token');
-      const error = searchParams.get('error');
-
-      if (error) {
-        console.error('OAuth error:', error);
+      // Error is still passed via query parameter (not sensitive)
+      const queryError = searchParams.get('error');
+      if (queryError) {
+        setError(queryError);
         setTimeout(() => navigate('/login'), 3000);
         return;
       }
 
+      // Token is now passed via URL fragment (#token=...) for security
+      const hash = window.location.hash;
+      let token = null;
+      if (hash) {
+        const hashParams = new URLSearchParams(hash.substring(1));
+        token = hashParams.get('token');
+      }
+
       if (token) {
+        // Remove token from URL immediately to prevent exposure via history/referrer
+        window.history.replaceState(null, '', window.location.pathname);
+
         try {
           login(token);
           navigate('/dashboard');
-        } catch (error) {
-          console.error('Login failed:', error);
+        } catch (err) {
+          console.error('Login failed:', err);
+          setError('login_failed');
           setTimeout(() => navigate('/login'), 3000);
         }
       } else {
         console.error('No token received');
+        setError('no_token');
         setTimeout(() => navigate('/login'), 3000);
       }
     };
 
     handleCallback();
   }, [searchParams, login, navigate]);
-
-  const error = searchParams.get('error');
 
   return (
     <Container maxWidth="sm">

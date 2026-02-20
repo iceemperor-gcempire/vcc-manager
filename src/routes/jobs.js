@@ -8,6 +8,7 @@ const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
+const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
 const router = express.Router();
 
@@ -118,8 +119,8 @@ router.get('/my', requireAuth, async (req, res) => {
     
     // 프롬프트 검색 기능 추가
     if (search) {
-      filter['inputData.prompt'] = { 
-        $regex: search, 
+      filter['inputData.prompt'] = {
+        $regex: escapeRegex(search),
         $options: 'i' // case insensitive
       };
     }

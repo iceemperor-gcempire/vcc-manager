@@ -17,7 +17,6 @@ const path = require('path');
 jest.mock('../middleware/auth', () => ({
   requireAdmin: (req, res, next) => {
     req.user = { _id: 'test-admin-id', isAdmin: true };
-    req.isAuthenticated = () => true;
     next();
   }
 }));
