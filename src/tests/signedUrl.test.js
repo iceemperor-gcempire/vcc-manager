@@ -1,3 +1,5 @@
+// signedUrl 모듈은 로드 시점에 JWT_SECRET을 검사하므로 require 전에 설정
+process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-jest';
 const { generateSignedUrl, verifySignature } = require('../utils/signedUrl');
 
 describe('signedUrl - generateSignedUrl 경로 정규화', () => {

@@ -109,7 +109,7 @@
   - 토큰 추출 직후 `window.history.replaceState()`로 URL에서 fragment 제거 — 브라우저 히스토리 노출 방지
   - 에러 파라미터(`?error=`)는 민감 정보가 아니므로 query parameter 유지
 
-### F-06 (Medium) 약한 기본 secret/fallback 값 존재
+### F-06 (Medium) 약한 기본 secret/fallback 값 존재 — ✅ Fixed (2026-02-20)
 - Category: 하드코딩 시크릿/보안 설정
 - Evidence:
   - ~~`src/server.js:61` `SESSION_SECRET || 'your-secret-key'`~~ (F-04에서 세션 인프라 제거로 해소)
@@ -121,6 +121,10 @@
 - Recommendation:
   - 부팅 시 필수 시크릿 미설정이면 즉시 종료(fail-fast).
   - 운영 compose에서 insecure default 제거.
+- Remediation:
+  - `signedUrl.js`에서 `'default-secret'` 폴백 제거 — `JWT_SECRET` 미설정 시 환경 무관 즉시 throw
+  - `docker-compose.prod.yml`에서 `MONGO_ROOT_PASSWORD`, `REDIS_PASSWORD` 폴백을 `${VAR:?error}` 구문으로 교체 — 미설정 시 컨테이너 기동 실패
+  - 개발용 `docker-compose.yml`의 기본값은 편의상 유지 (로컬 개발 전용)
 
 ### F-07 (Low) 민감 입력 로그 노출 위험
 - Category: 기타 보안 우려사항
