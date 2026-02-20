@@ -5,6 +5,7 @@ const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
+const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
 const EXPORT_VERSION = 1;
@@ -35,8 +36,8 @@ router.get('/', requireAuth, async (req, res) => {
     }
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapeRegex(search), $options: 'i' } },
+        { description: { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
     

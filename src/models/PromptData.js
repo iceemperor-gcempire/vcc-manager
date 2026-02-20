@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { escapeRegex } = require('../utils/escapeRegex');
 
 const promptDataSchema = new mongoose.Schema({
   name: {
@@ -62,9 +63,9 @@ promptDataSchema.statics.findByUser = function(userId, options = {}) {
   
   if (search) {
     query.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { memo: { $regex: search, $options: 'i' } },
-      { prompt: { $regex: search, $options: 'i' } }
+      { name: { $regex: escapeRegex(search), $options: 'i' } },
+      { memo: { $regex: escapeRegex(search), $options: 'i' } },
+      { prompt: { $regex: escapeRegex(search), $options: 'i' } }
     ];
   }
   

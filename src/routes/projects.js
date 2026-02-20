@@ -8,6 +8,7 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
 // GET /favorites - 즐겨찾기 프로젝트 목록 (대시보드용) - 구체적 경로를 /:id 위에 배치
@@ -68,8 +69,8 @@ router.get('/', requireAuth, async (req, res) => {
 
     if (search) {
       filter.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { name: { $regex: escapeRegex(search), $options: 'i' } },
+        { description: { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
 

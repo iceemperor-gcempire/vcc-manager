@@ -7,6 +7,7 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
+const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
 // 일괄 삭제 - 선택 항목
@@ -174,8 +175,8 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     if (type === 'uploaded') {
       if (search) {
         filter.$or = [
-          { originalName: { $regex: search, $options: 'i' } },
-          { tags: { $in: [new RegExp(search, 'i')] } }
+          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+          { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } }
         ];
       }
       if (tags) {
@@ -185,9 +186,9 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     } else if (type === 'generated') {
       if (search) {
         filter.$or = [
-          { originalName: { $regex: search, $options: 'i' } },
-          { tags: { $in: [new RegExp(search, 'i')] } },
-          { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+          { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } },
+          { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
         ];
       }
       if (tags) {
@@ -198,8 +199,8 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
       // video
       if (search) {
         filter.$or = [
-          { originalName: { $regex: search, $options: 'i' } },
-          { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+          { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
         ];
       }
     }
@@ -357,8 +358,8 @@ router.get('/uploaded', requireAuth, async (req, res) => {
     
     if (search) {
       filter.$or = [
-        { originalName: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } }
+        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+        { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } }
       ];
     }
     
@@ -397,9 +398,9 @@ router.get('/generated', requireAuth, async (req, res) => {
     
     if (search) {
       filter.$or = [
-        { originalName: { $regex: search, $options: 'i' } },
-        { tags: { $in: [new RegExp(search, 'i')] } },
-        { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+        { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } },
+        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
     
@@ -716,8 +717,8 @@ router.get('/videos', requireAuth, async (req, res) => {
     
     if (search) {
       filter.$or = [
-        { originalName: { $regex: search, $options: 'i' } },
-        { 'generationParams.prompt': { $regex: search, $options: 'i' } }
+        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
       ];
     }
     
