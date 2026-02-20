@@ -113,7 +113,7 @@ temp/
 *.sw?
 
 # Claude Code local settings
-.claude/settings.local.json
+.claude/
 
 # OS generated files
 .DS_Store
