@@ -93,7 +93,7 @@
   - JWT/API Key 없는 요청에 대해 세션 폴백 대신 401 반환
   - 환경변수 `SESSION_SECRET` 제거
 
-### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달
+### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달 — ✅ Fixed (2026-02-20)
 - Category: 인증/토큰 관리
 - Evidence:
   - `src/routes/auth.js:48` `.../auth/callback?token=${token}`
@@ -103,6 +103,11 @@
 - Recommendation:
   - 토큰을 URL fragment(`#token=`) 또는 one-time code 교환 방식으로 변경.
   - 가능하면 서버가 HttpOnly/Secure 쿠키로 직접 설정.
+- Remediation:
+  - 백엔드 OAuth 콜백 리다이렉트를 `?token=` → `#token=`으로 변경 — fragment는 서버에 전송되지 않아 로그/Referer 노출 차단
+  - 프론트엔드 `AuthCallback.js`에서 `window.location.hash` 기반 토큰 파싱으로 전환
+  - 토큰 추출 직후 `window.history.replaceState()`로 URL에서 fragment 제거 — 브라우저 히스토리 노출 방지
+  - 에러 파라미터(`?error=`)는 민감 정보가 아니므로 query parameter 유지
 
 ### F-06 (Medium) 약한 기본 secret/fallback 값 존재
 - Category: 하드코딩 시크릿/보안 설정

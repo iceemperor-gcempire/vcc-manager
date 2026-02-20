@@ -45,7 +45,7 @@ router.get('/google/callback',
       const token = generateJWT(user);
       
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
-      res.redirect(`${frontendUrl}/auth/callback?token=${token}`);
+      res.redirect(`${frontendUrl}/auth/callback#token=${token}`);
     } catch (error) {
       console.error('Google auth callback error:', error);
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3001';
