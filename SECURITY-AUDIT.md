@@ -126,7 +126,7 @@
   - `docker-compose.prod.yml`에서 `MONGO_ROOT_PASSWORD`, `REDIS_PASSWORD` 폴백을 `${VAR:?error}` 구문으로 교체 — 미설정 시 컨테이너 기동 실패
   - 개발용 `docker-compose.yml`의 기본값은 편의상 유지 (로컬 개발 전용)
 
-### F-07 (Low) 민감 입력 로그 노출 위험
+### F-07 (Low) 민감 입력 로그 노출 위험 — ✅ Fixed (2026-02-20)
 - Category: 기타 보안 우려사항
 - Evidence:
   - `src/utils/validation.js:102` 요청 본문 전체 로그(`password` 포함 가능)
@@ -134,6 +134,9 @@
   - 로그 수집 시스템/콘솔을 통해 평문 민감정보 노출 가능.
 - Recommendation:
   - 민감 필드 마스킹 후 로그, 또는 검증 실패 시 필드명/에러코드만 기록.
+- Remediation:
+  - `validate()` 미들웨어에서 `req.body` 전체 로그 (`console.log`) 제거
+  - 검증 에러 로그(`Validation errors`)도 함께 제거 — 에러 내용은 API 응답으로 클라이언트에 전달되므로 서버 로그 불필요
 
 ### F-08 (Low) 사용자 입력 기반 정규식 사용으로 ReDoS 가능성
 - Category: 웹 취약점(DoS)
