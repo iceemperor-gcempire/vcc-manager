@@ -42,7 +42,6 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_CALLBACK_URL: http://localhost:3001/auth/google/callback
-      SESSION_SECRET: dev-session-secret
       ADMIN_EMAILS: admin@example.com
       UPLOAD_PATH: /app/uploads
       MAX_FILE_SIZE: 10485760

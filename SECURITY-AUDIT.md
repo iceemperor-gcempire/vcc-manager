@@ -74,7 +74,7 @@
   - `frontend/src/utils/sanitizeHtml.js` 유틸리티 생성 — 서식 태그만 허용 (script, iframe, img[onerror], style, 이벤트 핸들러 등 제거)
   - 프론트엔드 3곳의 `dangerouslySetInnerHTML`에 `sanitizeHtml()` 래핑 적용
 
-### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재
+### F-04 (Medium) 세션 기반 인증 경로에 CSRF 보호 부재 — ✅ Fixed (2026-02-20)
 - Category: CSRF, 인증/인가
 - Evidence:
   - `src/server.js:92-99` 토큰 없으면 세션 인증 경로로 계속 진행
@@ -85,8 +85,15 @@
 - Recommendation:
   - CSRF 토큰(`csurf`) 또는 SameSite=strict + Origin/Referer 검증 + 상태 변경 엔드포인트 재인증 적용.
   - 세션 기반 API와 Bearer API를 분리해 정책을 명확화.
+- Remediation:
+  - 세션 인프라 자체를 제거하여 CSRF 공격 표면을 완전히 제거
+  - `express-session`, `connect-mongo` 의존성 제거
+  - `passport.session()`, `passport.serializeUser/deserializeUser` 제거
+  - `req.login()`, `req.logout()`, `req.session.destroy()` 호출 제거
+  - JWT/API Key 없는 요청에 대해 세션 폴백 대신 401 반환
+  - 환경변수 `SESSION_SECRET` 제거
 
-### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달
+### F-05 (Medium) OAuth 콜백에서 JWT를 URL query로 전달 — ✅ Fixed (2026-02-20)
 - Category: 인증/토큰 관리
 - Evidence:
   - `src/routes/auth.js:48` `.../auth/callback?token=${token}`
@@ -96,11 +103,16 @@
 - Recommendation:
   - 토큰을 URL fragment(`#token=`) 또는 one-time code 교환 방식으로 변경.
   - 가능하면 서버가 HttpOnly/Secure 쿠키로 직접 설정.
+- Remediation:
+  - 백엔드 OAuth 콜백 리다이렉트를 `?token=` → `#token=`으로 변경 — fragment는 서버에 전송되지 않아 로그/Referer 노출 차단
+  - 프론트엔드 `AuthCallback.js`에서 `window.location.hash` 기반 토큰 파싱으로 전환
+  - 토큰 추출 직후 `window.history.replaceState()`로 URL에서 fragment 제거 — 브라우저 히스토리 노출 방지
+  - 에러 파라미터(`?error=`)는 민감 정보가 아니므로 query parameter 유지
 
 ### F-06 (Medium) 약한 기본 secret/fallback 값 존재
 - Category: 하드코딩 시크릿/보안 설정
 - Evidence:
-  - `src/server.js:61` `SESSION_SECRET || 'your-secret-key'`
+  - ~~`src/server.js:61` `SESSION_SECRET || 'your-secret-key'`~~ (F-04에서 세션 인프라 제거로 해소)
   - `src/utils/signedUrl.js:3` `JWT_SECRET || 'default-secret'`
   - `docker-compose.yml:9,24,42,43` 기본 비밀번호(`password`, `redispassword`) 폴백
   - `docker-compose.prod.yml:8,23,47,48` 동일 폴백

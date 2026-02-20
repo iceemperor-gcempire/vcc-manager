@@ -128,13 +128,8 @@ router.delete('/account', requireAuth, async (req, res) => {
       ApiKey.deleteMany({ userId: req.user._id }),
       User.findByIdAndDelete(req.user._id)
     ]);
-    
-    req.logout((err) => {
-      if (err) {
-        return res.status(500).json({ message: 'Account deleted but logout failed' });
-      }
-      res.json({ message: 'Account deleted successfully' });
-    });
+
+    res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

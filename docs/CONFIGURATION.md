@@ -40,7 +40,6 @@ cp .env.example .env
 
 | 변수명 | 설명 |
 |---|---|
-| `SESSION_SECRET` | 세션 암호화 키 (임의의 긴 문자열) |
 | `JWT_SECRET` | JWT 토큰 서명 키 |
 | `JWT_EXPIRES_IN` | JWT 토큰 만료 시간 |
 | `ADMIN_EMAILS` | 관리자 권한을 부여할 이메일 목록 (쉼표 구분) |

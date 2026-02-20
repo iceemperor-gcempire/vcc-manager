@@ -103,7 +103,6 @@ npm start
 | 변수명 | 설명 | 예시 |
 |--------|------|------|
 | `JWT_SECRET` | JWT 암호화 키 (32자 이상) | `your-super-secret-jwt-key-here` |
-| `SESSION_SECRET` | 세션 암호화 키 | `your-session-secret-here` |
 | `MONGODB_URI` | MongoDB 연결 URI | `mongodb://localhost:27017/vcc-manager` |
 | `REDIS_URL` | Redis 연결 URL | `redis://localhost:6379` |
 
