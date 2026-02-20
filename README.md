@@ -244,21 +244,6 @@ curl http://your-comfyui-server:8188/system_stats
 curl http://localhost/api/jobs/queue/stats
 ```
 
-## 기여하기
-
-1. **Fork** 및 **Clone**
-2. **기능 브랜치** 생성 (`git checkout -b feature/amazing-feature`)
-3. **커밋** (`git commit -m 'feat: add amazing feature'`)
-4. **Push** (`git push origin feature/amazing-feature`)
-5. **Pull Request** 생성
-
-### 커밋 규칙
-- **feat**: 새로운 기능
-- **fix**: 버그 수정
-- **docs**: 문서 변경
-- **refactor**: 리팩토링
-- **chore**: 빌드, 설정 변경
-
 ## 시스템 통계
 
 - **지원 미디어 형식**: PNG, JPEG, WebP (이미지) / MP4 (비디오)
@@ -269,12 +254,6 @@ curl http://localhost/api/jobs/queue/stats
 ## 라이선스
 
 이 프로젝트는 [MIT 라이선스](./LICENSE)를 따릅니다.
-
-## 지원 및 문의
-
-- **버그 리포트**: [GitHub Issues](../../issues)
-- **기능 요청**: [GitHub Discussions](../../discussions)
-- **보안 문제**: SECURITY.md 참조
 
 ---
 
