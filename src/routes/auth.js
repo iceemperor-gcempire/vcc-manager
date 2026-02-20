@@ -20,11 +20,11 @@ const forgotPasswordRateLimit = rateLimit({
 });
 
 router.get('/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] })
+  passport.authenticate('google', { session: false, scope: ['profile', 'email'] })
 );
 
-router.get('/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
+router.get('/google/callback',
+  passport.authenticate('google', { session: false, failureRedirect: '/login' }),
   async (req, res) => {
     try {
       const user = req.user;
@@ -69,17 +69,7 @@ router.get('/me', verifyJWT, (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-  req.logout((err) => {
-    if (err) {
-      return res.status(500).json({ message: 'Logout failed' });
-    }
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: 'Session destruction failed' });
-      }
-      res.json({ message: 'Logged out successfully' });
-    });
-  });
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Email/Password Registration
@@ -117,27 +107,20 @@ router.post('/signup', signupRateLimit, validate(signupSchema), async (req, res)
     
     // Generate JWT token
     const token = generateJWT(newUser);
-    
-    // Log the user in
-    req.login(newUser, (err) => {
-      if (err) {
-        return res.status(500).json({ message: '로그인 처리 중 오류가 발생했습니다' });
-      }
-      
-      res.status(201).json({
-        message: '회원가입이 완료되었습니다',
-        user: {
-          id: newUser._id,
-          email: newUser.email,
-          nickname: newUser.nickname,
-          isAdmin: newUser.isAdmin,
-          authProvider: newUser.authProvider,
-          preferences: newUser.preferences
-        },
-        token
-      });
+
+    res.status(201).json({
+      message: '회원가입이 완료되었습니다',
+      user: {
+        id: newUser._id,
+        email: newUser.email,
+        nickname: newUser.nickname,
+        isAdmin: newUser.isAdmin,
+        authProvider: newUser.authProvider,
+        preferences: newUser.preferences
+      },
+      token
     });
-    
+
   } catch (error) {
     console.error('Signup error:', error);
     res.status(500).json({ message: '회원가입 처리 중 오류가 발생했습니다' });
@@ -199,28 +182,21 @@ router.post('/signin', authRateLimit, validate(signinSchema), async (req, res) =
     
     // Generate JWT token
     const token = generateJWT(user);
-    
-    // Log the user in
-    req.login(user, (err) => {
-      if (err) {
-        return res.status(500).json({ message: '로그인 처리 중 오류가 발생했습니다' });
-      }
-      
-      res.json({
-        message: '로그인되었습니다',
-        user: {
-          id: user._id,
-          email: user.email,
-          nickname: user.nickname,
-          avatar: user.avatar,
-          isAdmin: user.isAdmin,
-          authProvider: user.authProvider,
-          preferences: user.preferences
-        },
-        token
-      });
+
+    res.json({
+      message: '로그인되었습니다',
+      user: {
+        id: user._id,
+        email: user.email,
+        nickname: user.nickname,
+        avatar: user.avatar,
+        isAdmin: user.isAdmin,
+        authProvider: user.authProvider,
+        preferences: user.preferences
+      },
+      token
     });
-    
+
   } catch (error) {
     console.error('Signin error:', error);
     res.status(500).json({ message: '로그인 처리 중 오류가 발생했습니다' });
@@ -258,10 +234,10 @@ router.get('/check-nickname/:nickname', async (req, res) => {
 });
 
 router.get('/status', (req, res) => {
-  const isAuth = req.isAuthenticated && req.isAuthenticated();
+  const isAuth = !!req.user;
   res.json({
     authenticated: isAuth,
-    user: isAuth && req.user ? {
+    user: isAuth ? {
       id: req.user._id,
       email: req.user.email,
       nickname: req.user.nickname,

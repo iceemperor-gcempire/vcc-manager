@@ -119,7 +119,6 @@ GOOGLE_CALLBACK_URL=https://yourdomain.com/auth/google/callback
 ```bash
 # 강력한 JWT 시크릿 생성 (256비트 이상)
 JWT_SECRET=$(openssl rand -base64 64)
-SESSION_SECRET=$(openssl rand -base64 64)
 
 # JWT 설정
 JWT_EXPIRES_IN=7d        # 적절한 만료 시간

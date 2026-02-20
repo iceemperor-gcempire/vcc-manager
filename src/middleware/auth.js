@@ -4,7 +4,7 @@ const User = require('../models/User');
 const ApiKey = require('../models/ApiKey');
 
 const requireAuth = (req, res, next) => {
-  if (!req.isAuthenticated() && !req.user) {
+  if (!req.user) {
     return res.status(401).json({ message: 'Authentication required' });
   }
   
@@ -31,7 +31,7 @@ const requireAuth = (req, res, next) => {
 };
 
 const requireAdmin = async (req, res, next) => {
-  if (!req.isAuthenticated() && !req.user) {
+  if (!req.user) {
     return res.status(401).json({ message: 'Authentication required' });
   }
   
@@ -126,7 +126,6 @@ const verifyJWT = async (req, res, next) => {
     }
     
     req.user = user;
-    req.isAuthenticated = () => true;
     next();
   } catch (error) {
     if (error.name === 'TokenExpiredError') {
@@ -170,7 +169,6 @@ const verifyApiKey = async (req, res, next) => {
 
     req.user = user;
     req.authMethod = 'apikey';
-    req.isAuthenticated = () => true;
 
     // Fire-and-forget lastUsedAt update
     ApiKey.updateOne({ _id: apiKeyDoc._id }, { lastUsedAt: new Date() }).catch(() => {});

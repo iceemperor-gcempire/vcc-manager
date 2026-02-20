@@ -3,8 +3,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
-const session = require('express-session');
-const MongoStore = require('connect-mongo');
 const passport = require('passport');
 const dotenv = require('dotenv');
 
@@ -33,17 +31,6 @@ const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 
 dotenv.config();
 
-const isProduction = process.env.NODE_ENV === 'production';
-const sessionSecret = process.env.SESSION_SECRET;
-
-if (isProduction && !sessionSecret) {
-  throw new Error('SESSION_SECRET is required in production');
-}
-
-if (!isProduction && !sessionSecret) {
-  console.warn('[SECURITY] SESSION_SECRET is not set. Using development fallback secret.');
-}
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -67,24 +54,9 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// Session configuration
-app.use(session({
-  secret: sessionSecret || 'your-secret-key',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGODB_URI || 'mongodb://localhost:27017/vcc-manager'
-  }),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000 // 24 hours
-  }
-}));
-
 // Passport configuration
 require('./config/passport');
 app.use(passport.initialize());
-app.use(passport.session());
 
 // JWT / API Key authentication middleware for API routes
 app.use('/api', (req, res, next) => {
@@ -100,13 +72,12 @@ app.use('/api', (req, res, next) => {
     return verifyApiKey(req, res, next);
   }
 
-  // Try JWT, fall back to session-based auth
+  // Require JWT for all other API routes
   const token = req.header('Authorization')?.replace('Bearer ', '');
   if (token) {
     return verifyJWT(req, res, next);
   } else {
-    // For session-based auth (Google OAuth)
-    return next();
+    return res.status(401).json({ message: 'Authentication required' });
   }
 });
 
