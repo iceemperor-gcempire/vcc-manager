@@ -145,6 +145,14 @@ graph TB
 
 최신 변경사항은 [업데이트 내역](./docs/updatelogs/v1.md)을 참조하세요.
 
+### v1.4 주요 변경사항
+- **Signed URL 파일 접근 제어** - HMAC-SHA256 서명 기반 미디어 파일 보안 (#85)
+- **보안 감사 및 수정** - 경로 검증 강화, XSS 방지(DOMPurify), 운영 시크릿 fail-fast (#105, #106, #107)
+- **MCP 이미지 업로드** - base64 이미지 업로드 및 이미지 타입 필드 지원 (#103)
+- **MCP 멀티유저** - API Key 기반 독립 인증 및 Streamable HTTP 전환 (#79)
+- **API Key 인증** - 외부 프로그램에서 X-API-Key 헤더로 API 접근 (#79)
+- **작업 이어가기** - 다른 작업판으로 스마트 필드 매칭 기반 작업 계속 (#76)
+
 ### v1.3 주요 변경사항
 - **작업판 백업/복원** - 내보내기/가져오기 기능으로 작업판 설정 이동 (#52)
 - **MCP Server HTTP 전환** - stdio에서 Streamable HTTP로 전환 및 Docker 분리
@@ -271,5 +279,5 @@ curl http://localhost/api/jobs/queue/stats
 ---
 
 <p align="center">
-  <sub>마지막 업데이트: 2026년 2월 12일</sub>
+  <sub>마지막 업데이트: 2026년 2월 20일</sub>
 </p>
