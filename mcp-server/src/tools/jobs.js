@@ -11,15 +11,15 @@ export function registerJobTools(server, apiRequest) {
   // ── generate ───────────────────────────────────────────────────────
   server.tool(
     'generate',
-    'Generate an image or video using a workboard. Call get_workboard first to see available options. Select fields (aiModel, imageSize, etc.) only need the "value" string — key-value mapping is handled automatically.',
+    'Generate an image or video using a workboard. Call get_workboard first to see available options. Select fields (aiModel, imageSize, etc.) use the display name (key) — mapping is handled automatically.',
     {
       workboardId: z.string().describe('Workboard ID (get from list_workboards)'),
       prompt: z.string().describe('Generation prompt text'),
-      aiModel: z.string().describe('AI model value (from get_workboard aiModel options)'),
+      aiModel: z.string().describe('AI model name (from get_workboard aiModel options)'),
       negativePrompt: z.string().optional().describe('Negative prompt'),
-      imageSize: z.string().optional().describe('Image size value (from get_workboard imageSizes options)'),
-      stylePreset: z.string().optional().describe('Style preset value'),
-      upscaleMethod: z.string().optional().describe('Upscale method value'),
+      imageSize: z.string().optional().describe('Image size name (from get_workboard imageSizes options)'),
+      stylePreset: z.string().optional().describe('Style preset name'),
+      upscaleMethod: z.string().optional().describe('Upscale method name'),
       seed: z.number().int().optional().describe('Specific seed number'),
       randomSeed: z.boolean().optional().default(true).describe('Use random seed (default true)'),
       additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
@@ -30,48 +30,48 @@ export function registerJobTools(server, apiRequest) {
       const wbData = await apiRequest(`/workboards/${params.workboardId}`);
       const wb = wbData.workboard;
 
-      // Map aiModel
+      // Map aiModel (match by key/display name)
       let aiModel = params.aiModel;
-      const modelOption = wb.baseInputFields?.aiModel?.find((m) => m.value === params.aiModel);
+      const modelOption = wb.baseInputFields?.aiModel?.find((m) => m.key === params.aiModel);
       if (modelOption) {
         aiModel = { key: modelOption.key, value: modelOption.value };
       }
 
-      // Map imageSize
+      // Map imageSize (match by key/display name)
       let imageSize = params.imageSize;
       if (params.imageSize && wb.baseInputFields?.imageSizes) {
-        const sizeOption = wb.baseInputFields.imageSizes.find((s) => s.value === params.imageSize);
+        const sizeOption = wb.baseInputFields.imageSizes.find((s) => s.key === params.imageSize);
         if (sizeOption) {
           imageSize = { key: sizeOption.key, value: sizeOption.value };
         }
       }
 
-      // Map stylePreset
+      // Map stylePreset (match by key/display name)
       let stylePreset = params.stylePreset;
       if (params.stylePreset && wb.baseInputFields?.stylePresets) {
-        const presetOption = wb.baseInputFields.stylePresets.find((p) => p.value === params.stylePreset);
+        const presetOption = wb.baseInputFields.stylePresets.find((p) => p.key === params.stylePreset);
         if (presetOption) {
           stylePreset = { key: presetOption.key, value: presetOption.value };
         }
       }
 
-      // Map upscaleMethod
+      // Map upscaleMethod (match by key/display name)
       let upscaleMethod = params.upscaleMethod;
       if (params.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
-        const upscaleOption = wb.baseInputFields.upscaleMethods.find((u) => u.value === params.upscaleMethod);
+        const upscaleOption = wb.baseInputFields.upscaleMethods.find((u) => u.key === params.upscaleMethod);
         if (upscaleOption) {
           upscaleMethod = { key: upscaleOption.key, value: upscaleOption.value };
         }
       }
 
-      // Map additionalParams (select fields need key-value mapping, image fields need { imageId } format)
+      // Map additionalParams (select fields match by key/display name, image fields need { imageId } format)
       let additionalParams = params.additionalParams || {};
       if (Object.keys(additionalParams).length > 0 && wb.additionalInputFields) {
         const mapped = { ...additionalParams };
         for (const field of wb.additionalInputFields) {
           const val = additionalParams[field.name];
           if (val !== undefined && field.type === 'select' && field.options) {
-            const option = field.options.find((o) => o.value === String(val));
+            const option = field.options.find((o) => o.key === String(val));
             if (option) {
               mapped[field.name] = { key: option.key, value: option.value };
             }
@@ -123,8 +123,8 @@ export function registerJobTools(server, apiRequest) {
       targetWorkboardId: z.string().optional().describe('Target workboard ID. If omitted, uses the original workboard.'),
       prompt: z.string().optional().describe('Override prompt (uses original if omitted)'),
       negativePrompt: z.string().optional().describe('Override negative prompt'),
-      aiModel: z.string().optional().describe('Override AI model value'),
-      imageSize: z.string().optional().describe('Override image size value'),
+      aiModel: z.string().optional().describe('Override AI model name'),
+      imageSize: z.string().optional().describe('Override image size name'),
       seed: z.number().int().optional().describe('Override seed value'),
       randomSeed: z.boolean().optional().describe('Use random seed (default true)'),
       additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
@@ -145,17 +145,17 @@ export function registerJobTools(server, apiRequest) {
       const wbData = await apiRequest(`/workboards/${targetWorkboardId}`);
       const wb = wbData.workboard;
 
-      // Helper: match a select value by value first, then by key
+      // Helper: match a select option by key (display name) first, then by value
       const matchSelectValue = (options, inputValue) => {
         if (!options || !inputValue) return null;
-        const val = typeof inputValue === 'object' ? inputValue.value : inputValue;
         const key = typeof inputValue === 'object' ? inputValue.key : inputValue;
+        const val = typeof inputValue === 'object' ? inputValue.value : inputValue;
 
-        // Match by value first
-        let match = options.find((o) => o.value === val);
-        // Fallback: match by key
-        if (!match && key) {
-          match = options.find((o) => o.key === key);
+        // Match by key (display name) first
+        let match = options.find((o) => o.key === key);
+        // Fallback: match by value
+        if (!match && val) {
+          match = options.find((o) => o.value === val);
         }
         return match ? { key: match.key, value: match.value } : null;
       };
