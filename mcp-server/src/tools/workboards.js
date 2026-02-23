@@ -31,8 +31,8 @@ export function registerWorkboardTools(server, apiRequest) {
         apiFormat: wb.apiFormat,
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
-        models: (wb.baseInputFields?.aiModel || []).map((m) => m.value).join(', '),
-        sizes: (wb.baseInputFields?.imageSizes || []).map((s) => s.value).join(', '),
+        models: (wb.baseInputFields?.aiModel || []).map((m) => m.key).join(', '),
+        sizes: (wb.baseInputFields?.imageSizes || []).map((s) => s.key).join(', '),
         usageCount: wb.usageCount,
       }));
 
@@ -71,29 +71,29 @@ export function registerWorkboardTools(server, apiRequest) {
         aiModel: {
           required: true,
           options: (wb.baseInputFields?.aiModel || []).map((m) => ({
-            value: m.value,
-            description: m.key,
+            value: m.key,
+            description: m.value,
           })),
         },
         imageSizes: {
           required: false,
           options: (wb.baseInputFields?.imageSizes || []).map((s) => ({
-            value: s.value,
-            description: s.key,
+            value: s.key,
+            description: s.value,
           })),
         },
         stylePresets: {
           available: (wb.baseInputFields?.stylePresets || []).length > 0,
           options: (wb.baseInputFields?.stylePresets || []).map((p) => ({
-            value: p.value,
-            description: p.key,
+            value: p.key,
+            description: p.value,
           })),
         },
         upscaleMethods: {
           available: (wb.baseInputFields?.upscaleMethods || []).length > 0,
           options: (wb.baseInputFields?.upscaleMethods || []).map((u) => ({
-            value: u.value,
-            description: u.key,
+            value: u.key,
+            description: u.value,
           })),
         },
 
@@ -107,8 +107,8 @@ export function registerWorkboardTools(server, apiRequest) {
           defaultValue: f.defaultValue,
           ...(f.type === 'select' ? {
             options: (f.options || []).map((o) => ({
-              value: o.value,
-              description: o.key,
+              value: o.key,
+              description: o.value,
             })),
           } : {}),
           ...(f.type === 'number' && f.validation ? {
