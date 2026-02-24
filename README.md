@@ -52,7 +52,7 @@ curl http://localhost/api/auth/status
 ### 접속 URL
 - **프론트엔드**: http://localhost
 - **백엔드 API**: http://localhost/api
-- **MCP 서버**: http://localhost:3100 (설정 시)
+- **MCP 서버**: http://localhost:4136 (설정 시)
 - **관리자**: 첫 번째 가입 사용자가 자동으로 관리자 권한 획득
 
 ## 기술 스택
@@ -217,7 +217,7 @@ SMTP_USER=your-email@gmail.com
 SMTP_PASSWORD=your-app-password
 
 # MCP 서버 (선택사항)
-MCP_PORT=3100
+MCP_PORT=4136
 MCP_EMAIL=mcp-agent@your-domain.com
 MCP_PASSWORD=your-mcp-password
 ```

@@ -113,7 +113,7 @@ Docker Compose에서 모든 서비스의 포트를 환경변수로 제어할 수
 | 변수명 | 기본값 | 설명 |
 |--------|--------|------|
 | `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 |
-| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 |
+| `BACKEND_PORT` | 3136 | 백엔드 API 서버 포트 |
 | `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 |
 | `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 |
 | `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) |
@@ -136,7 +136,7 @@ docker-compose up -d
 ```bash
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:3000/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3136/api/auth/google/callback
 ```
 
 ### 파일 업로드 설정
@@ -163,7 +163,7 @@ docker-compose ps
 docker-compose logs backend
 
 # 수동 설치
-curl http://localhost:3000/health
+curl http://localhost:3136/health
 ```
 
 ### 2. 데이터베이스 연결 확인
@@ -178,7 +178,7 @@ redis-cli ping
 ### 3. 기본 기능 테스트
 ```bash
 # API 상태 확인
-curl http://localhost:3000/api/auth/status
+curl http://localhost:3136/api/auth/status
 
 # 프론트엔드 접속
 # 브라우저에서 http://localhost 방문
@@ -191,7 +191,7 @@ curl http://localhost:3000/api/auth/status
 ### 포트 충돌
 ```bash
 # 포트 사용 중인 프로세스 확인
-lsof -i :3000
+lsof -i :3136
 lsof -i :3001
 lsof -i :27017
 lsof -i :6379

@@ -98,7 +98,7 @@ echo -e "\n${BLUE}🏥 서비스 헬스 체크:${NC}"
 # Backend 헬스 체크
 BACKEND_PORT=$(grep "^BACKEND_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
 if [ -z "$BACKEND_PORT" ]; then
-    BACKEND_PORT="3000"
+    BACKEND_PORT="3136"
 fi
 
 # 실제 Docker 컨테이너에서 포트 확인
@@ -119,7 +119,7 @@ fi
 # Frontend 헬스 체크  
 FRONTEND_PORT=$(grep "^FRONTEND_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
 if [ -z "$FRONTEND_PORT" ]; then
-    FRONTEND_PORT="80"
+    FRONTEND_PORT="8136"
 fi
 
 # 실제 Docker 컨테이너에서 포트 확인
@@ -139,7 +139,7 @@ fi
 # MCP Server 헬스 체크
 MCP_PORT=$(grep "^MCP_PORT=" $ENV_FILE | cut -d '=' -f2 2>/dev/null)
 if [ -z "$MCP_PORT" ]; then
-    MCP_PORT="3100"
+    MCP_PORT="4136"
 fi
 
 ACTUAL_MCP_PORT=$(docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE port mcp-server 3100 2>/dev/null | cut -d ':' -f2)

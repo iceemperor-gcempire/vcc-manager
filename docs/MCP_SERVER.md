@@ -90,7 +90,7 @@ docker-compose up --build -d mcp-server
 ### 3-2. 헬스체크 확인
 
 ```bash
-curl http://localhost:3100/health
+curl http://localhost:4136/health
 # {"status":"ok","transport":"streamable-http","activeSessions":0}
 ```
 
@@ -102,7 +102,7 @@ CLI로 추가하거나 `.mcp.json` 파일을 직접 편집합니다:
 
 ```bash
 # CLI로 추가 (VCC API Key를 Bearer 토큰으로 설정)
-claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
+claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
   --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 ```
 
@@ -113,7 +113,7 @@ claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
   "mcpServers": {
     "vcc-manager": {
       "type": "http",
-      "url": "http://your-server:3100/mcp",
+      "url": "http://your-server:4136/mcp",
       "headers": {
         "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
       }
@@ -149,7 +149,7 @@ HTTP URL을 사용하려면 `--allow-http` 플래그가 필요합니다.
     "vcc-manager": {
       "command": "npx",
       "args": [
-        "mcp-remote", "http://your-server:3100/mcp",
+        "mcp-remote", "http://your-server:4136/mcp",
         "--transport", "http-only",
         "--allow-http",
         "--header", "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
@@ -271,14 +271,14 @@ Claude Code에서 MCP 서버를 등록하는 방법과 적용 범위(스코프)�
 
 ```bash
 # HTTP 모드 (원격 서버) — VCC API Key를 Bearer 토큰으로 전달
-claude mcp add --transport http vcc-manager http://your-server:3100/mcp \
+claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
   --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 
 # stdio 모드 (로컬 실행)
 claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
 
 # JSON으로 등록
-claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/mcp","headers":{"Authorization":"Bearer vcc_xxxxxxxxxxxxxxxx"}}'
+claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headers":{"Authorization":"Bearer vcc_xxxxxxxxxxxxxxxx"}}'
 ```
 
 #### 설정 파일 직접 편집
@@ -290,7 +290,7 @@ claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:3100/m
   "mcpServers": {
     "vcc-manager": {
       "type": "http",
-      "url": "http://your-server:3100/mcp",
+      "url": "http://your-server:4136/mcp",
       "headers": {
         "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
       }
@@ -311,15 +311,15 @@ MCP 서버 등록 시 `--scope` 옵션으로 적용 범위를 지정할 수 있�
 
 ```bash
 # 이 프로젝트에서만, 나만 사용 (기본값)
-claude mcp add --transport http vcc-manager http://server:3100/mcp \
+claude mcp add --transport http vcc-manager http://server:4136/mcp \
   --header "Authorization: Bearer vcc_xxx"
 
 # 이 프로젝트의 팀 전원이 사용 (.mcp.json에 저장, Git 커밋 대상)
-claude mcp add --transport http vcc-manager --scope project http://server:3100/mcp \
+claude mcp add --transport http vcc-manager --scope project http://server:4136/mcp \
   --header "Authorization: Bearer vcc_xxx"
 
 # 내 모든 프로젝트에서 전역 사용
-claude mcp add --transport http vcc-manager --scope user http://server:3100/mcp \
+claude mcp add --transport http vcc-manager --scope user http://server:4136/mcp \
   --header "Authorization: Bearer vcc_xxx"
 ```
 
@@ -397,7 +397,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | 변수 | 필수 | 설명 | 기본값 |
 |---|---|---|---|
 | `MCP_TRANSPORT` | No | Transport 모드 (`stdio` / `http`) | `stdio` |
-| `MCP_PORT` | No | HTTP 서버 포트 | `3100` |
+| `MCP_PORT` | No | HTTP 서버 포트 | `4136` |
 | `VCC_API_URL` | No | VCC Manager API 서버 URL | `http://localhost:3000` |
 
 > **참고**: HTTP 모드에서는 서버 측 API Key 설정이 필요 없습니다. 각 클라이언트가 자신의 VCC API Key를 Bearer 토큰으로 전송하며, MCP 서버는 이를 백엔드로 전달합니다.
@@ -580,7 +580,7 @@ VCC_API_KEY=vcc_xxx npx @modelcontextprotocol/inspector node index.js
 docker-compose up -d mcp-server
 
 # Inspector로 연결 (Bearer 토큰 포함)
-npx @modelcontextprotocol/inspector --url http://localhost:3100/mcp \
+npx @modelcontextprotocol/inspector --url http://localhost:4136/mcp \
   --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
 ```
 
@@ -634,8 +634,8 @@ Inspector에서 확인할 항목:
 
 ### MCP 서버 연결 불가 (HTTP 모드)
 
-- 헬스체크 확인: `curl http://your-server:3100/health`
-- 방화벽/보안그룹에서 MCP 포트(기본 3100)가 열려 있는지 확인하세요
+- 헬스체크 확인: `curl http://your-server:4136/health`
+- 방화벽/보안그룹에서 MCP 포트(기본 4136)가 열려 있는지 확인하세요
 - Docker 로그 확인: `docker-compose logs mcp-server`
 
 ### Claude Desktop에서 HTTP URL 연결 불가
@@ -649,5 +649,5 @@ Inspector에서 확인할 항목:
 - `mcp-remote`가 SSE 방식으로 연결을 시도하여 발생하는 에러입니다.
 - VCC MCP 서버는 Streamable HTTP만 지원하므로, `--transport http-only` 플래그를 추가하세요:
   ```json
-  "args": ["mcp-remote", "http://your-server:3100/mcp", "--transport", "http-only", "--allow-http"]
+  "args": ["mcp-remote", "http://your-server:4136/mcp", "--transport", "http-only", "--allow-http"]
   ```
