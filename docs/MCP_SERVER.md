@@ -444,17 +444,17 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
 ### `generate` — 이미지/비디오 생성
 
-이미지 또는 비디오 생성을 요청합니다. select 필드(aiModel, imageSize 등)는 `value` 문자열만 전달하면 key-value 매핑이 자동 처리됩니다.
+이미지 또는 비디오 생성을 요청합니다. select 필드(aiModel, imageSize 등)는 `get_workboard`의 옵션 배열에서 문자열을 그대로 전달하면 key-value 매핑이 자동 처리됩니다.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `workboardId` | string | **Yes** | 작업판 ID |
 | `prompt` | string | **Yes** | 생성 프롬프트 |
-| `aiModel` | string | **Yes** | AI 모델 value |
+| `aiModel` | string | **Yes** | AI 모델 이름 (`get_workboard` options에서 확인) |
 | `negativePrompt` | string | No | 네거티브 프롬프트 |
-| `imageSize` | string | No | 이미지 크기 value |
-| `stylePreset` | string | No | 스타일 프리셋 value |
-| `upscaleMethod` | string | No | 업스케일 방법 value |
+| `imageSize` | string | No | 이미지 크기 이름 |
+| `stylePreset` | string | No | 스타일 프리셋 이름 |
+| `upscaleMethod` | string | No | 업스케일 방법 이름 |
 | `seed` | number | No | 시드 값 |
 | `randomSeed` | boolean | No | 랜덤 시드 사용 (기본 true) |
 | `additionalParams` | object | No | 추가 파라미터 (필드명 → 값) |
@@ -476,7 +476,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | `additionalParams` | object | No | 추가 파라미터 override (지정한 키만 override, 나머지는 원본에서 매칭) |
 
 **스마트 필드 매칭 동작:**
-- select 필드(aiModel, imageSize 등): value로 먼저 매칭 → 실패 시 key로 매칭 → 실패 시 첫 번째 옵션 fallback
+- select 필드(aiModel, imageSize 등): 이름(key)으로 먼저 매칭 → 실패 시 내부값(value)으로 매칭 → 실패 시 첫 번째 옵션 fallback
 - additionalParams: 대상 작업판에 존재하는 필드만 매칭
 - 응답에 매칭 리포트(`matching`) 포함: 소스/타겟 작업판, 매칭된 필드 목록
 

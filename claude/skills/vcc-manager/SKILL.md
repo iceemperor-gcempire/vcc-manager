@@ -53,21 +53,20 @@ get_workboard(workboardId) → 선택한 작업판의 모델, 크기, 파라미�
 | `workboardId` | string | **필수** | 작업판 ID |
 
 **get_workboard 주요 응답 필드:**
-- `aiModel` — AI 모델 옵션 (`options[].value`=명칭, `options[].description`=내부 경로)
-- `imageSizes` — 이미지 크기 옵션 (동일 구조)
-- `stylePresets` — 스타일 프리셋 옵션
-- `upscaleMethods` — 업스케일 방식 옵션
-- `additionalFields[]` — 추가 입력 필드 (`name`, `label`, `type`, `required`, `defaultValue`)
+- `aiModel` — AI 모델 옵션 (`options: string[]` — 모델 이름 배열)
+- `imageSizes` — 이미지 크기 옵션 (`options: string[]`)
+- `stylePresets` — 스타일 프리셋 옵션 (`options: string[]`)
+- `upscaleMethods` — 업스케일 방식 옵션 (`options: string[]`)
+- `additionalFields[]` — 추가 입력 필드 (`name`, `label`, `type`, `required`, `defaultValue`, select 타입은 `options: string[]`)
 - `promptRequired` — 프롬프트 필수 여부
 - `negativePromptSupported` — 네거티브 프롬프트 지원 여부
 - `seedSupported` — 시드 지원 여부
 
-> **중요**: 모든 select 옵션의 `value`에는 사람이 읽기 쉬운 **명칭(key)**이 들어갑니다. `description`에는 내부 경로/값이 들어갑니다.
-> `generate`/`continue_job` 호출 시 `value`에 표시된 명칭을 그대로 전달하면 됩니다.
+> **중요**: 모든 select 옵션은 문자열 배열입니다. `generate`/`continue_job` 호출 시 배열의 문자열을 그대로 전달하면 됩니다.
 
 ### 2단계: 생성 요청
 
-작업판 정보를 기반으로 생성 요청을 보냅니다. Select 필드(`aiModel`, `imageSize` 등)는 `get_workboard`에서 확인한 **명칭(value)**을 그대로 전달합니다.
+작업판 정보를 기반으로 생성 요청을 보냅니다. Select 필드(`aiModel`, `imageSize` 등)는 `get_workboard`에서 확인한 **옵션 배열의 문자열**을 그대로 전달합니다.
 
 ```
 generate(workboardId, prompt, aiModel, ...) → jobId 획득
@@ -79,11 +78,11 @@ generate(workboardId, prompt, aiModel, ...) → jobId 획득
 |---------|------|------|------|
 | `workboardId` | string | **필수** | 작업판 ID |
 | `prompt` | string | **필수** | 생성 프롬프트 |
-| `aiModel` | string | **필수** | AI 모델 명칭 (`get_workboard` aiModel options의 `value`에서 확인) |
+| `aiModel` | string | **필수** | AI 모델 이름 (`get_workboard` aiModel options 배열에서 확인) |
 | `negativePrompt` | string | - | 네거티브 프롬프트 |
-| `imageSize` | string | - | 이미지 크기 명칭 |
-| `stylePreset` | string | - | 스타일 프리셋 명칭 |
-| `upscaleMethod` | string | - | 업스케일 방식 명칭 |
+| `imageSize` | string | - | 이미지 크기 이름 |
+| `stylePreset` | string | - | 스타일 프리셋 이름 |
+| `upscaleMethod` | string | - | 업스케일 방식 이름 |
 | `seed` | number | - | 특정 시드 번호 |
 | `randomSeed` | boolean | - | 랜덤 시드 사용 (기본 true) |
 | `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 이미지 타입 필드는 `upload_image`로 얻은 imageId 문자열을 전달 |
@@ -181,8 +180,8 @@ continue_job(jobId, prompt?, aiModel?, ...) → 새 작업 생성
 | `targetWorkboardId` | string | - | 대상 작업판 ID (생략 시 원본과 동일) |
 | `prompt` | string | - | 프롬프트 오버라이드 |
 | `negativePrompt` | string | - | 네거티브 프롬프트 오버라이드 |
-| `aiModel` | string | - | AI 모델 명칭 오버라이드 |
-| `imageSize` | string | - | 이미지 크기 명칭 오버라이드 |
+| `aiModel` | string | - | AI 모델 이름 오버라이드 |
+| `imageSize` | string | - | 이미지 크기 이름 오버라이드 |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
 | `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (이미지 타입 필드는 imageId 문자열 전달) |
