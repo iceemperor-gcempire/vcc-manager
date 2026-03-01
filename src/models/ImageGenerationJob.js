@@ -48,6 +48,10 @@ const imageGenerationJobSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  resolvedWorkflowData: {
+    type: String,
+    required: false
+  },
   comfyJobId: String,
   progress: {
     type: Number,
