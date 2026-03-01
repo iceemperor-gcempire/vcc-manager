@@ -228,9 +228,13 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
     
     // 배열인 경우 첫 번째 이미지만 사용 (단일 이미지 필드)
     if (Array.isArray(fieldValue)) {
+      if (fieldValue.length === 0) {
+        console.log(`⏭️ Image field "${fieldName}" is empty array, skipping`);
+        continue;
+      }
       fieldValue = fieldValue[0];
     }
-    
+
     const imageId = fieldValue.imageId || fieldValue;
     
     if (!imageId) {
