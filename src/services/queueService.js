@@ -129,12 +129,26 @@ const processImageGeneration = async (job) => {
     );
     job.progress(15);
     
-    const { workflowJson, actualSeed } = await injectInputsIntoWorkflow(
-      workboardData.workflowData, 
-      inputData, 
-      workboardData,
-      uploadedImageMap
-    );
+    let workflowJson, actualSeed;
+    try {
+      ({ workflowJson, actualSeed } = await injectInputsIntoWorkflow(
+        workboardData.workflowData,
+        inputData,
+        workboardData,
+        uploadedImageMap
+      ));
+    } catch (injectError) {
+      // 워크플로우 주입 실패 시 치환된 워크플로우 문자열을 저장하여 디버깅 가능하게 함
+      const resolvedString = injectError.resolvedWorkflowString || workboardData.workflowData;
+      try {
+        await ImageGenerationJob.findByIdAndUpdate(jobId, {
+          resolvedWorkflowData: resolvedString
+        });
+      } catch (saveError) {
+        console.error(`⚠️ Failed to save workflow data for job ${jobId}:`, saveError.message);
+      }
+      throw injectError;
+    }
     job.progress(20);
 
     // resolved 워크플로우 JSON 저장 (전송 전 저장하여 실패한 작업도 확인 가능)
@@ -452,11 +466,17 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   } catch (error) {
     console.error('Error parsing workflow template as JSON:', error);
     // fallback: 기존 문자열 치환 방식
-    const fallbackResult = fallbackStringReplacement(workflowTemplate, replacements);
-    return {
-      workflowJson: fallbackResult,
-      actualSeed: seedValue
-    };
+    try {
+      const fallbackResult = fallbackStringReplacement(workflowTemplate, replacements);
+      return {
+        workflowJson: fallbackResult,
+        actualSeed: seedValue
+      };
+    } catch (fallbackError) {
+      // 치환된 워크플로우 문자열을 에러에 포함
+      fallbackError.actualSeed = seedValue;
+      throw fallbackError;
+    }
   }
 };
 
@@ -505,19 +525,25 @@ const replaceInObject = (obj, replacements, seedValue = null) => {
 // 기존 문자열 치환 방식 (fallback) - 역슬래시 자동 이스케이핑 적용
 const fallbackStringReplacement = (workflowTemplate, replacements) => {
   let workflowString = workflowTemplate;
-  
+
   Object.keys(replacements).forEach(key => {
     const { value } = replacements[key];
     // JSON 문자열에서 안전하게 사용할 수 있도록 값을 이스케이핑
     const escapedValue = escapeForJsonString(value);
     workflowString = workflowString.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), escapedValue);
-    
+
     if (value !== escapedValue) {
       console.log(`🔧 Auto-escaped backslashes in value: "${value}" → "${escapedValue}"`);
     }
   });
-  
-  return JSON.parse(workflowString);
+
+  try {
+    return JSON.parse(workflowString);
+  } catch (parseError) {
+    const error = new Error(`Workflow JSON parse failed: ${parseError.message}`);
+    error.resolvedWorkflowString = workflowString;
+    throw error;
+  }
 };
 
 const getExtensionFromMimeType = (mimeType) => {
