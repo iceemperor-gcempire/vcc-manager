@@ -136,7 +136,16 @@ const processImageGeneration = async (job) => {
       uploadedImageMap
     );
     job.progress(20);
-    
+
+    // resolved 워크플로우 JSON 저장 (전송 전 저장하여 실패한 작업도 확인 가능)
+    try {
+      await ImageGenerationJob.findByIdAndUpdate(jobId, {
+        resolvedWorkflowData: JSON.stringify(workflowJson)
+      });
+    } catch (saveError) {
+      console.error(`⚠️ Failed to save resolved workflow data for job ${jobId}:`, saveError.message);
+    }
+
     // 실제 사용된 시드 값을 inputData에 추가
     const enhancedInputData = {
       ...inputData,
