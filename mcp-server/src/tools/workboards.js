@@ -67,34 +67,22 @@ export function registerWorkboardTools(server, apiRequest) {
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
 
-        // Base input fields guide
+        // Base input fields guide (use these values in generate parameters)
         aiModel: {
           required: true,
-          options: (wb.baseInputFields?.aiModel || []).map((m) => ({
-            value: m.key,
-            description: m.value,
-          })),
+          options: (wb.baseInputFields?.aiModel || []).map((m) => m.key),
         },
         imageSizes: {
           required: false,
-          options: (wb.baseInputFields?.imageSizes || []).map((s) => ({
-            value: s.key,
-            description: s.value,
-          })),
+          options: (wb.baseInputFields?.imageSizes || []).map((s) => s.key),
         },
         stylePresets: {
           available: (wb.baseInputFields?.stylePresets || []).length > 0,
-          options: (wb.baseInputFields?.stylePresets || []).map((p) => ({
-            value: p.key,
-            description: p.value,
-          })),
+          options: (wb.baseInputFields?.stylePresets || []).map((p) => p.key),
         },
         upscaleMethods: {
           available: (wb.baseInputFields?.upscaleMethods || []).length > 0,
-          options: (wb.baseInputFields?.upscaleMethods || []).map((u) => ({
-            value: u.key,
-            description: u.value,
-          })),
+          options: (wb.baseInputFields?.upscaleMethods || []).map((u) => u.key),
         },
 
         // Additional custom fields
@@ -106,10 +94,7 @@ export function registerWorkboardTools(server, apiRequest) {
           description: f.description || '',
           defaultValue: f.defaultValue,
           ...(f.type === 'select' ? {
-            options: (f.options || []).map((o) => ({
-              value: o.key,
-              description: o.value,
-            })),
+            options: (f.options || []).map((o) => o.key),
           } : {}),
           ...(f.type === 'number' && f.validation ? {
             min: f.validation.min,

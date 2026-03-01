@@ -7,7 +7,7 @@ VCC Manager는 ComfyUI와 연동된 비주얼 콘텐츠 생성 관리 시스템�
 ## 아키텍처
 
 - **Frontend**: React 기반 웹 인터페이스 (개발: 포트 3001, 프로덕션: 포트 80)
-- **Backend**: Node.js API 서버 (개발: 포트 3000, 프로덕션: 사용자 정의 포트)
+- **Backend**: Node.js API 서버 (개발: 포트 3136, 프로덕션: 사용자 정의 포트)
 - **MongoDB**: 데이터베이스 (내부 포트 27017, 프로덕션에서는 외부 노출 안함)
 - **Redis**: 작업 큐 및 세션 저장소 (내부 포트 6379, 프로덕션에서는 외부 노출 안함)
 - **Nginx**: Frontend 컨테이너 내장 (프록시 처리)
@@ -26,7 +26,7 @@ docker-compose up -d
 
 # 3. 접속
 # Frontend: http://localhost
-# Backend API: http://localhost:3000
+# Backend API: http://localhost:3136
 # MongoDB: localhost:27017 (외부 접속 가능)
 # Redis: localhost:6379 (외부 접속 가능)
 ```
@@ -104,7 +104,7 @@ MONGODB_URI=mongodb://localhost:27017/vcc-manager
 # Google OAuth
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:3136/auth/google/callback
 
 # JWT
 JWT_SECRET=your_jwt_secret_key
@@ -132,7 +132,7 @@ FRONTEND_URL=http://localhost:3001
 ```bash
 # Docker 포트 설정
 FRONTEND_PORT=80
-BACKEND_PORT=3000
+BACKEND_PORT=3136
 HTTP_PORT=80
 HTTPS_PORT=443
 
@@ -173,7 +173,7 @@ FRONTEND_URL=https://yourdomain.com
 | 환경변수 | 기본값 | 설명 | 보안 권장사항 |
 |---------|--------|------|-------------|
 | `FRONTEND_PORT` | 80 | 프론트엔드 웹서버 포트 | ✅ 외부 노출 안전 |
-| `BACKEND_PORT` | 3000 | 백엔드 API 서버 포트 | ⚠️ 필요시에만 노출 |
+| `BACKEND_PORT` | 3136 | 백엔드 API 서버 포트 | ⚠️ 필요시에만 노출 |
 | `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 | ❌ 프로덕션에서 노출 금지 |
 | `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 | ❌ 프로덕션에서 노출 금지 |
 
@@ -204,7 +204,7 @@ docker-compose up -d
 # 프로덕션에서는 데이터베이스 포트 설정 금지
 cat >> .env.production << EOF
 FRONTEND_PORT=80
-BACKEND_PORT=3000
+BACKEND_PORT=3136
 HTTP_PORT=80
 HTTPS_PORT=443
 # MONGODB_PORT=27017  # 보안상 설정하지 않음
@@ -239,7 +239,7 @@ docker-compose up -d backend
 | 서비스 | 개발환경 기본 | 프로덕션 기본 | 환경변수 제어 | 접근성 |
 |--------|---------------|---------------|---------------|---------|
 | Frontend | 80 | 80 | `FRONTEND_PORT` | 외부 접근 |
-| Backend | 3000 | 3000 | `BACKEND_PORT` | 외부 접근 |
+| Backend | 3136 | 3136 | `BACKEND_PORT` | 외부 접근 |
 | MongoDB | 27017 | 없음* | `MONGODB_PORT` | 개발: 외부, 프로덕션: 내부만 |
 | Redis | 6379 | 없음* | `REDIS_PORT` | 개발: 외부, 프로덕션: 내부만 |
 | Nginx | 없음 | 80, 443 | `HTTP_PORT`, `HTTPS_PORT` | 프로덕션 전용 |
@@ -251,7 +251,7 @@ docker-compose up -d backend
 ```bash
 # 포트 사용 중인 프로세스 확인
 lsof -i :80
-lsof -i :3000
+lsof -i :3136
 
 # 사용 중인 포트 변경
 FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d

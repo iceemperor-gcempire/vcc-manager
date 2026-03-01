@@ -187,7 +187,7 @@ const replacements = {
    services:
      backend:
        ports:
-         - "${BACKEND_PORT:-3000}:3000"
+         - "${BACKEND_PORT:-3136}:3000"
    ```
 
 ### 컨테이너 재시작 루프

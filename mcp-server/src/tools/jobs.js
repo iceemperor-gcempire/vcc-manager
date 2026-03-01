@@ -30,48 +30,54 @@ export function registerJobTools(server, apiRequest) {
       const wbData = await apiRequest(`/workboards/${params.workboardId}`);
       const wb = wbData.workboard;
 
-      // Map aiModel (match by key/display name)
+      // Helper: match select option by key (display name) first, then by value (path)
+      const matchOption = (options, input) => {
+        if (!options || !input) return null;
+        return options.find((o) => o.key === input) || options.find((o) => o.value === input);
+      };
+
+      // Map aiModel
       let aiModel = params.aiModel;
-      const modelOption = wb.baseInputFields?.aiModel?.find((m) => m.key === params.aiModel);
+      const modelOption = matchOption(wb.baseInputFields?.aiModel, params.aiModel);
       if (modelOption) {
         aiModel = { key: modelOption.key, value: modelOption.value };
       }
 
-      // Map imageSize (match by key/display name)
+      // Map imageSize
       let imageSize = params.imageSize;
       if (params.imageSize && wb.baseInputFields?.imageSizes) {
-        const sizeOption = wb.baseInputFields.imageSizes.find((s) => s.key === params.imageSize);
+        const sizeOption = matchOption(wb.baseInputFields.imageSizes, params.imageSize);
         if (sizeOption) {
           imageSize = { key: sizeOption.key, value: sizeOption.value };
         }
       }
 
-      // Map stylePreset (match by key/display name)
+      // Map stylePreset
       let stylePreset = params.stylePreset;
       if (params.stylePreset && wb.baseInputFields?.stylePresets) {
-        const presetOption = wb.baseInputFields.stylePresets.find((p) => p.key === params.stylePreset);
+        const presetOption = matchOption(wb.baseInputFields.stylePresets, params.stylePreset);
         if (presetOption) {
           stylePreset = { key: presetOption.key, value: presetOption.value };
         }
       }
 
-      // Map upscaleMethod (match by key/display name)
+      // Map upscaleMethod
       let upscaleMethod = params.upscaleMethod;
       if (params.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
-        const upscaleOption = wb.baseInputFields.upscaleMethods.find((u) => u.key === params.upscaleMethod);
+        const upscaleOption = matchOption(wb.baseInputFields.upscaleMethods, params.upscaleMethod);
         if (upscaleOption) {
           upscaleMethod = { key: upscaleOption.key, value: upscaleOption.value };
         }
       }
 
-      // Map additionalParams (select fields match by key/display name, image fields need { imageId } format)
+      // Map additionalParams (select fields match by key or value, image fields need { imageId } format)
       let additionalParams = params.additionalParams || {};
       if (Object.keys(additionalParams).length > 0 && wb.additionalInputFields) {
         const mapped = { ...additionalParams };
         for (const field of wb.additionalInputFields) {
           const val = additionalParams[field.name];
           if (val !== undefined && field.type === 'select' && field.options) {
-            const option = field.options.find((o) => o.key === String(val));
+            const option = matchOption(field.options, String(val));
             if (option) {
               mapped[field.name] = { key: option.key, value: option.value };
             }

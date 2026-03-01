@@ -68,7 +68,7 @@ services:
       SIGNED_URL_ROUND_SECONDS: ${SIGNED_URL_ROUND_SECONDS:-1440}
     # 🔒 필요에 따라 백엔드 포트도 숨길 수 있음 (nginx 사용 시)
     ports:
-      - "${BACKEND_PORT:-3000}:3000"
+      - "${BACKEND_PORT:-3136}:3000"
     volumes:
       - uploads_data:/app/uploads
       - backups_data:/app/backups
@@ -87,7 +87,7 @@ services:
     container_name: vcc-frontend
     restart: unless-stopped
     ports:
-      - "${FRONTEND_PORT:-80}:80"
+      - "${FRONTEND_PORT:-8136}:80"
     depends_on:
       - backend
     networks:
@@ -111,7 +111,7 @@ services:
       VCC_API_URL: http://backend:3000
       VCC_BASE_URL_FOR_MCP: ${VCC_BASE_URL_FOR_MCP:-}
     ports:
-      - "${MCP_PORT:-3100}:3100"
+      - "${MCP_PORT:-4136}:3100"
     depends_on:
       - backend
     networks:

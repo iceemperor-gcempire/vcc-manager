@@ -92,7 +92,7 @@ volumes:
 
 ```bash
 # 백업 생성 시작
-curl -X POST http://localhost:3000/api/admin/backup \
+curl -X POST http://localhost:3136/api/admin/backup \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # 응답
@@ -106,11 +106,11 @@ curl -X POST http://localhost:3000/api/admin/backup \
 }
 
 # 백업 상태 확인
-curl http://localhost:3000/api/admin/backup/status/backup_job_id \
+curl http://localhost:3136/api/admin/backup/status/backup_job_id \
   -H "Authorization: Bearer YOUR_TOKEN"
 
 # 백업 파일 다운로드
-curl -O http://localhost:3000/api/admin/backup/download/backup_job_id \
+curl -O http://localhost:3136/api/admin/backup/download/backup_job_id \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 
@@ -163,7 +163,7 @@ vcc-backup-2024-01-15T10-30-00-000Z.zip
 
 ```bash
 # 1. 백업 파일 검증
-curl -X POST http://localhost:3000/api/admin/backup/restore/validate \
+curl -X POST http://localhost:3136/api/admin/backup/restore/validate \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "backup=@vcc-backup-2024-01-15.zip"
 
@@ -187,7 +187,7 @@ curl -X POST http://localhost:3000/api/admin/backup/restore/validate \
 }
 
 # 2. 복구 실행
-curl -X POST http://localhost:3000/api/admin/backup/restore \
+curl -X POST http://localhost:3136/api/admin/backup/restore \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -201,7 +201,7 @@ curl -X POST http://localhost:3000/api/admin/backup/restore \
   }'
 
 # 3. 복구 상태 확인
-curl http://localhost:3000/api/admin/backup/restore/status/restore_job_id \
+curl http://localhost:3136/api/admin/backup/restore/status/restore_job_id \
   -H "Authorization: Bearer YOUR_TOKEN"
 ```
 

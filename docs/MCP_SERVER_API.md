@@ -53,11 +53,11 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `apiFormat` | API 포맷 |
 | `outputFormat` | 출력 포맷 |
 | `server` | 연결된 서버 이름 |
-| `aiModel` | AI 모델 옵션 (`required: true`, `options[].value`, `options[].description`) |
-| `imageSizes` | 이미지 크기 옵션 |
-| `stylePresets` | 스타일 프리셋 옵션 |
-| `upscaleMethods` | 업스케일 방식 옵션 |
-| `additionalFields[]` | 추가 입력 필드 (`name`, `label`, `type`, `required`, `defaultValue` 등) |
+| `aiModel` | AI 모델 옵션 (`required: true`, `options: string[]` — 표시 이름 배열) |
+| `imageSizes` | 이미지 크기 옵션 (`options: string[]`) |
+| `stylePresets` | 스타일 프리셋 옵션 (`options: string[]`) |
+| `upscaleMethods` | 업스케일 방식 옵션 (`options: string[]`) |
+| `additionalFields[]` | 추가 입력 필드 (`name`, `label`, `type`, `required`, `defaultValue` 등, select 타입은 `options: string[]`) |
 | `promptRequired` | 프롬프트 필수 여부 (true) |
 | `negativePromptSupported` | 네거티브 프롬프트 지원 여부 (true) |
 | `seedSupported` | 시드 지원 여부 (true) |
@@ -68,13 +68,13 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `generate`
 
-이미지/비디오 생성. 사전에 `get_workboard`로 옵션 확인 필요. Select 필드(aiModel, imageSize 등)는 `value` 문자열만 전달하면 key-value 매핑은 자동 처리.
+이미지/비디오 생성. 사전에 `get_workboard`로 옵션 확인 필요. Select 필드(aiModel, imageSize 등)는 옵션 배열의 문자열을 그대로 전달하면 key-value 매핑은 자동 처리.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
 | `workboardId` | string | **필수** | 작업판 ID (`list_workboards`에서 확인) |
 | `prompt` | string | **필수** | 생성 프롬프트 |
-| `aiModel` | string | **필수** | AI 모델 값 (`get_workboard` aiModel options에서 확인) |
+| `aiModel` | string | **필수** | AI 모델 이름 (`get_workboard` aiModel options 배열에서 확인) |
 | `negativePrompt` | string | - | 네거티브 프롬프트 |
 | `imageSize` | string | - | 이미지 크기 값 (`get_workboard` imageSizes options에서 확인) |
 | `stylePreset` | string | - | 스타일 프리셋 값 |

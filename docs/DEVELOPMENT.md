@@ -127,7 +127,7 @@ docker-compose -f docker-compose.dev.yml up -d
 
 ### 3. 개별 서비스 실행
 ```bash
-# 백엔드 (포트 3000)
+# 백엔드 (포트 3136)
 npm start
 
 # 프론트엔드 (포트 3001)
