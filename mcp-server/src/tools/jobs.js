@@ -90,6 +90,24 @@ export function registerJobTools(server, apiRequest) {
           additionalParams = mapped;
         }
 
+        // Validate required additionalFields (#136)
+        if (wb.additionalInputFields) {
+          const missing = wb.additionalInputFields
+            .filter((field) => field.required && (additionalParams[field.name] === undefined || additionalParams[field.name] === ''))
+            .map((field) => `${field.name} ("${field.label}")`);
+          if (missing.length > 0) {
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  error: `Missing required additional parameters: ${missing.join(', ')}. Use additionalParams to provide them. Check get_workboard for available options.`,
+                }, null, 2),
+              }],
+              isError: true,
+            };
+          }
+        }
+
         const payload = {
           workboardId: params.workboardId,
           prompt: params.prompt,
@@ -248,6 +266,24 @@ export function registerJobTools(server, apiRequest) {
             } else {
               additionalParams[field.name] = inputVal;
             }
+          }
+        }
+
+        // Validate required additionalFields (#136)
+        if (wb.additionalInputFields) {
+          const missing = wb.additionalInputFields
+            .filter((field) => field.required && (additionalParams[field.name] === undefined || additionalParams[field.name] === ''))
+            .map((field) => `${field.name} ("${field.label}")`);
+          if (missing.length > 0) {
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  error: `Missing required additional parameters: ${missing.join(', ')}. Use additionalParams to provide them. Check get_workboard for available options.`,
+                }, null, 2),
+              }],
+              isError: true,
+            };
           }
         }
 
