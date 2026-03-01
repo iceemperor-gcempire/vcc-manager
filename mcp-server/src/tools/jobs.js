@@ -26,97 +26,102 @@ export function registerJobTools(server, apiRequest) {
         .describe('Additional parameters as key-value pairs (field name → value)'),
     },
     async (params) => {
-      // Fetch workboard to map select values to {key, value} format
-      const wbData = await apiRequest(`/workboards/${params.workboardId}`);
-      const wb = wbData.workboard;
+      try {
+        // Fetch workboard to map select values to {key, value} format
+        const wbData = await apiRequest(`/workboards/${params.workboardId}`);
+        const wb = wbData.workboard;
 
-      // Helper: match select option by key (display name) first, then by value (path)
-      const matchOption = (options, input) => {
-        if (!options || !input) return null;
-        return options.find((o) => o.key === input) || options.find((o) => o.value === input);
-      };
+        // Helper: match select option by key (display name) first, then by value (path)
+        const matchOption = (options, input) => {
+          if (!options || !input) return null;
+          return options.find((o) => o.key === input) || options.find((o) => o.value === input);
+        };
 
-      // Map aiModel
-      let aiModel = params.aiModel;
-      const modelOption = matchOption(wb.baseInputFields?.aiModel, params.aiModel);
-      if (modelOption) {
-        aiModel = { key: modelOption.key, value: modelOption.value };
-      }
-
-      // Map imageSize
-      let imageSize = params.imageSize;
-      if (params.imageSize && wb.baseInputFields?.imageSizes) {
-        const sizeOption = matchOption(wb.baseInputFields.imageSizes, params.imageSize);
-        if (sizeOption) {
-          imageSize = { key: sizeOption.key, value: sizeOption.value };
+        // Map aiModel
+        let aiModel = params.aiModel;
+        const modelOption = matchOption(wb.baseInputFields?.aiModel, params.aiModel);
+        if (modelOption) {
+          aiModel = { key: modelOption.key, value: modelOption.value };
         }
-      }
 
-      // Map stylePreset
-      let stylePreset = params.stylePreset;
-      if (params.stylePreset && wb.baseInputFields?.stylePresets) {
-        const presetOption = matchOption(wb.baseInputFields.stylePresets, params.stylePreset);
-        if (presetOption) {
-          stylePreset = { key: presetOption.key, value: presetOption.value };
+        // Map imageSize
+        let imageSize = params.imageSize;
+        if (params.imageSize && wb.baseInputFields?.imageSizes) {
+          const sizeOption = matchOption(wb.baseInputFields.imageSizes, params.imageSize);
+          if (sizeOption) {
+            imageSize = { key: sizeOption.key, value: sizeOption.value };
+          }
         }
-      }
 
-      // Map upscaleMethod
-      let upscaleMethod = params.upscaleMethod;
-      if (params.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
-        const upscaleOption = matchOption(wb.baseInputFields.upscaleMethods, params.upscaleMethod);
-        if (upscaleOption) {
-          upscaleMethod = { key: upscaleOption.key, value: upscaleOption.value };
+        // Map stylePreset
+        let stylePreset = params.stylePreset;
+        if (params.stylePreset && wb.baseInputFields?.stylePresets) {
+          const presetOption = matchOption(wb.baseInputFields.stylePresets, params.stylePreset);
+          if (presetOption) {
+            stylePreset = { key: presetOption.key, value: presetOption.value };
+          }
         }
-      }
 
-      // Map additionalParams (select fields match by key or value, image fields need { imageId } format)
-      let additionalParams = params.additionalParams || {};
-      if (Object.keys(additionalParams).length > 0 && wb.additionalInputFields) {
-        const mapped = { ...additionalParams };
-        for (const field of wb.additionalInputFields) {
-          const val = additionalParams[field.name];
-          if (val !== undefined && field.type === 'select' && field.options) {
-            const option = matchOption(field.options, String(val));
-            if (option) {
-              mapped[field.name] = { key: option.key, value: option.value };
+        // Map upscaleMethod
+        let upscaleMethod = params.upscaleMethod;
+        if (params.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
+          const upscaleOption = matchOption(wb.baseInputFields.upscaleMethods, params.upscaleMethod);
+          if (upscaleOption) {
+            upscaleMethod = { key: upscaleOption.key, value: upscaleOption.value };
+          }
+        }
+
+        // Map additionalParams (select fields match by key or value, image fields need { imageId } format)
+        let additionalParams = params.additionalParams || {};
+        if (Object.keys(additionalParams).length > 0 && wb.additionalInputFields) {
+          const mapped = { ...additionalParams };
+          for (const field of wb.additionalInputFields) {
+            const val = additionalParams[field.name];
+            if (val !== undefined && field.type === 'select' && field.options) {
+              const option = matchOption(field.options, String(val));
+              if (option) {
+                mapped[field.name] = { key: option.key, value: option.value };
+              }
+            }
+            if (val !== undefined && field.type === 'image') {
+              mapped[field.name] = { imageId: String(val) };
             }
           }
-          if (val !== undefined && field.type === 'image') {
-            mapped[field.name] = { imageId: String(val) };
-          }
+          additionalParams = mapped;
         }
-        additionalParams = mapped;
+
+        const payload = {
+          workboardId: params.workboardId,
+          prompt: params.prompt,
+          aiModel,
+          negativePrompt: params.negativePrompt,
+          imageSize,
+          stylePreset,
+          upscaleMethod,
+          additionalParams,
+          seed: params.seed,
+          randomSeed: params.randomSeed ?? true,
+        };
+
+        const data = await apiRequest('/jobs/generate', {
+          method: 'POST',
+          body: payload,
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              jobId: data.job.id,
+              status: data.job.status,
+              message: data.message,
+            }, null, 2),
+          }],
+        };
+      } catch (error) {
+        console.error(`[MCP] generate failed:`, error.message);
+        throw error;
       }
-
-      const payload = {
-        workboardId: params.workboardId,
-        prompt: params.prompt,
-        aiModel,
-        negativePrompt: params.negativePrompt,
-        imageSize,
-        stylePreset,
-        upscaleMethod,
-        additionalParams,
-        seed: params.seed,
-        randomSeed: params.randomSeed ?? true,
-      };
-
-      const data = await apiRequest('/jobs/generate', {
-        method: 'POST',
-        body: payload,
-      });
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            jobId: data.job.id,
-            status: data.job.status,
-            message: data.message,
-          }, null, 2),
-        }],
-      };
     },
   );
 
@@ -137,169 +142,174 @@ export function registerJobTools(server, apiRequest) {
         .describe('Override additional parameters (only specified keys are overridden, rest are matched from original)'),
     },
     async (params) => {
-      // 1. Fetch original job
-      const jobData = await apiRequest(`/jobs/${params.jobId}`);
-      const job = jobData.job;
-      const inputData = job.inputData || {};
+      try {
+        // 1. Fetch original job
+        const jobData = await apiRequest(`/jobs/${params.jobId}`);
+        const job = jobData.job;
+        const inputData = job.inputData || {};
 
-      // Determine target workboard
-      const originalWorkboardId = typeof job.workboardId === 'object'
-        ? job.workboardId._id : job.workboardId;
-      const targetWorkboardId = params.targetWorkboardId || originalWorkboardId;
+        // Determine target workboard
+        const originalWorkboardId = typeof job.workboardId === 'object'
+          ? job.workboardId._id : job.workboardId;
+        const targetWorkboardId = params.targetWorkboardId || originalWorkboardId;
 
-      // 2. Fetch target workboard
-      const wbData = await apiRequest(`/workboards/${targetWorkboardId}`);
-      const wb = wbData.workboard;
+        // 2. Fetch target workboard
+        const wbData = await apiRequest(`/workboards/${targetWorkboardId}`);
+        const wb = wbData.workboard;
 
-      // Helper: match a select option by key (display name) first, then by value
-      const matchSelectValue = (options, inputValue) => {
-        if (!options || !inputValue) return null;
-        const key = typeof inputValue === 'object' ? inputValue.key : inputValue;
-        const val = typeof inputValue === 'object' ? inputValue.value : inputValue;
+        // Helper: match a select option by key (display name) first, then by value
+        const matchSelectValue = (options, inputValue) => {
+          if (!options || !inputValue) return null;
+          const key = typeof inputValue === 'object' ? inputValue.key : inputValue;
+          const val = typeof inputValue === 'object' ? inputValue.value : inputValue;
 
-        // Match by key (display name) first
-        let match = options.find((o) => o.key === key);
-        // Fallback: match by value
-        if (!match && val) {
-          match = options.find((o) => o.value === val);
-        }
-        return match ? { key: match.key, value: match.value } : null;
-      };
-
-      // 3. Smart field matching
-
-      // AI Model
-      const rawAiModel = params.aiModel || inputData.aiModel;
-      let aiModel;
-      if (rawAiModel && wb.baseInputFields?.aiModel) {
-        aiModel = matchSelectValue(wb.baseInputFields.aiModel, rawAiModel);
-        if (!aiModel) {
-          // Fallback to first option
-          const first = wb.baseInputFields.aiModel[0];
-          if (first) aiModel = { key: first.key, value: first.value };
-        }
-      }
-
-      // Image Size
-      const rawImageSize = params.imageSize || inputData.imageSize;
-      let imageSize;
-      if (rawImageSize && wb.baseInputFields?.imageSizes) {
-        imageSize = matchSelectValue(wb.baseInputFields.imageSizes, rawImageSize);
-        if (!imageSize) {
-          const first = wb.baseInputFields.imageSizes[0];
-          if (first) imageSize = { key: first.key, value: first.value };
-        }
-      }
-
-      // Style Preset
-      let stylePreset;
-      if (inputData.stylePreset && wb.baseInputFields?.stylePresets) {
-        stylePreset = matchSelectValue(wb.baseInputFields.stylePresets, inputData.stylePreset);
-      }
-
-      // Upscale Method
-      let upscaleMethod;
-      if (inputData.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
-        upscaleMethod = matchSelectValue(wb.baseInputFields.upscaleMethods, inputData.upscaleMethod);
-      }
-
-      // Additional Params: match from original, then apply overrides
-      const additionalParams = {};
-      const originalAdditional = inputData.additionalParams || {};
-      const overrideAdditional = params.additionalParams || {};
-
-      if (wb.additionalInputFields) {
-        for (const field of wb.additionalInputFields) {
-          // Check override first, then original
-          const overrideVal = overrideAdditional[field.name];
-          const originalVal = originalAdditional[field.name];
-          const inputVal = overrideVal !== undefined ? overrideVal : originalVal;
-
-          if (inputVal === undefined) continue;
-
-          if (field.type === 'image') {
-            // 이미 { imageId } 형식이면 그대로, 문자열이면 변환
-            additionalParams[field.name] = typeof inputVal === 'object' && inputVal.imageId
-              ? inputVal
-              : { imageId: String(inputVal) };
-            continue;
+          // Match by key (display name) first
+          let match = options.find((o) => o.key === key);
+          // Fallback: match by value
+          if (!match && val) {
+            match = options.find((o) => o.value === val);
           }
+          return match ? { key: match.key, value: match.value } : null;
+        };
 
-          if (field.type === 'select' && field.options) {
-            const matched = matchSelectValue(field.options, inputVal);
-            if (matched) {
-              additionalParams[field.name] = matched;
-            } else {
-              // Fallback to default or first option
-              const fallback = field.defaultValue || field.options[0]?.value;
-              if (fallback) {
-                const fallbackOption = field.options.find((o) => o.value === fallback);
-                if (fallbackOption) {
-                  additionalParams[field.name] = { key: fallbackOption.key, value: fallbackOption.value };
+        // 3. Smart field matching
+
+        // AI Model
+        const rawAiModel = params.aiModel || inputData.aiModel;
+        let aiModel;
+        if (rawAiModel && wb.baseInputFields?.aiModel) {
+          aiModel = matchSelectValue(wb.baseInputFields.aiModel, rawAiModel);
+          if (!aiModel) {
+            // Fallback to first option
+            const first = wb.baseInputFields.aiModel[0];
+            if (first) aiModel = { key: first.key, value: first.value };
+          }
+        }
+
+        // Image Size
+        const rawImageSize = params.imageSize || inputData.imageSize;
+        let imageSize;
+        if (rawImageSize && wb.baseInputFields?.imageSizes) {
+          imageSize = matchSelectValue(wb.baseInputFields.imageSizes, rawImageSize);
+          if (!imageSize) {
+            const first = wb.baseInputFields.imageSizes[0];
+            if (first) imageSize = { key: first.key, value: first.value };
+          }
+        }
+
+        // Style Preset
+        let stylePreset;
+        if (inputData.stylePreset && wb.baseInputFields?.stylePresets) {
+          stylePreset = matchSelectValue(wb.baseInputFields.stylePresets, inputData.stylePreset);
+        }
+
+        // Upscale Method
+        let upscaleMethod;
+        if (inputData.upscaleMethod && wb.baseInputFields?.upscaleMethods) {
+          upscaleMethod = matchSelectValue(wb.baseInputFields.upscaleMethods, inputData.upscaleMethod);
+        }
+
+        // Additional Params: match from original, then apply overrides
+        const additionalParams = {};
+        const originalAdditional = inputData.additionalParams || {};
+        const overrideAdditional = params.additionalParams || {};
+
+        if (wb.additionalInputFields) {
+          for (const field of wb.additionalInputFields) {
+            // Check override first, then original
+            const overrideVal = overrideAdditional[field.name];
+            const originalVal = originalAdditional[field.name];
+            const inputVal = overrideVal !== undefined ? overrideVal : originalVal;
+
+            if (inputVal === undefined) continue;
+
+            if (field.type === 'image') {
+              // 이미 { imageId } 형식이면 그대로, 문자열이면 변환
+              additionalParams[field.name] = typeof inputVal === 'object' && inputVal.imageId
+                ? inputVal
+                : { imageId: String(inputVal) };
+              continue;
+            }
+
+            if (field.type === 'select' && field.options) {
+              const matched = matchSelectValue(field.options, inputVal);
+              if (matched) {
+                additionalParams[field.name] = matched;
+              } else {
+                // Fallback to default or first option
+                const fallback = field.defaultValue || field.options[0]?.value;
+                if (fallback) {
+                  const fallbackOption = field.options.find((o) => o.value === fallback);
+                  if (fallbackOption) {
+                    additionalParams[field.name] = { key: fallbackOption.key, value: fallbackOption.value };
+                  }
                 }
               }
+            } else {
+              additionalParams[field.name] = inputVal;
             }
-          } else {
-            additionalParams[field.name] = inputVal;
           }
         }
+
+        // 4. Build payload
+        const prompt = params.prompt || inputData.prompt;
+        const negativePrompt = params.negativePrompt !== undefined
+          ? params.negativePrompt : inputData.negativePrompt;
+
+        const payload = {
+          workboardId: targetWorkboardId,
+          prompt,
+          aiModel,
+          negativePrompt,
+          imageSize,
+          stylePreset,
+          upscaleMethod,
+          additionalParams,
+          seed: params.seed !== undefined ? params.seed : inputData.seed,
+          randomSeed: params.randomSeed ?? true,
+          ...(inputData.tags?.length > 0 && { tags: inputData.tags }),
+        };
+
+        // 5. Submit new job
+        const data = await apiRequest('/jobs/generate', {
+          method: 'POST',
+          body: payload,
+        });
+
+        // 6. Build matching report
+        const isCrossWorkboard = targetWorkboardId !== originalWorkboardId;
+        const matchReport = {
+          sourceJob: params.jobId,
+          sourceWorkboard: job.workboardId?.name || originalWorkboardId,
+          targetWorkboard: wb.name,
+          crossWorkboard: isCrossWorkboard,
+          matchedFields: [],
+        };
+
+        if (aiModel) matchReport.matchedFields.push(`aiModel: ${aiModel.key}`);
+        if (imageSize) matchReport.matchedFields.push(`imageSize: ${imageSize.key}`);
+        if (stylePreset) matchReport.matchedFields.push(`stylePreset: ${stylePreset.key}`);
+        if (upscaleMethod) matchReport.matchedFields.push(`upscaleMethod: ${upscaleMethod.key}`);
+        Object.keys(additionalParams).forEach((k) => {
+          const v = additionalParams[k];
+          matchReport.matchedFields.push(`${k}: ${typeof v === 'object' ? v.key : v}`);
+        });
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              jobId: data.job.id,
+              status: data.job.status,
+              message: data.message,
+              matching: matchReport,
+            }, null, 2),
+          }],
+        };
+      } catch (error) {
+        console.error(`[MCP] continue_job failed (jobId=${params.jobId}):`, error.message);
+        throw error;
       }
-
-      // 4. Build payload
-      const prompt = params.prompt || inputData.prompt;
-      const negativePrompt = params.negativePrompt !== undefined
-        ? params.negativePrompt : inputData.negativePrompt;
-
-      const payload = {
-        workboardId: targetWorkboardId,
-        prompt,
-        aiModel,
-        negativePrompt,
-        imageSize,
-        stylePreset,
-        upscaleMethod,
-        additionalParams,
-        seed: params.seed !== undefined ? params.seed : inputData.seed,
-        randomSeed: params.randomSeed ?? true,
-        ...(inputData.tags?.length > 0 && { tags: inputData.tags }),
-      };
-
-      // 5. Submit new job
-      const data = await apiRequest('/jobs/generate', {
-        method: 'POST',
-        body: payload,
-      });
-
-      // 6. Build matching report
-      const isCrossWorkboard = targetWorkboardId !== originalWorkboardId;
-      const matchReport = {
-        sourceJob: params.jobId,
-        sourceWorkboard: job.workboardId?.name || originalWorkboardId,
-        targetWorkboard: wb.name,
-        crossWorkboard: isCrossWorkboard,
-        matchedFields: [],
-      };
-
-      if (aiModel) matchReport.matchedFields.push(`aiModel: ${aiModel.key}`);
-      if (imageSize) matchReport.matchedFields.push(`imageSize: ${imageSize.key}`);
-      if (stylePreset) matchReport.matchedFields.push(`stylePreset: ${stylePreset.key}`);
-      if (upscaleMethod) matchReport.matchedFields.push(`upscaleMethod: ${upscaleMethod.key}`);
-      Object.keys(additionalParams).forEach((k) => {
-        const v = additionalParams[k];
-        matchReport.matchedFields.push(`${k}: ${typeof v === 'object' ? v.key : v}`);
-      });
-
-      return {
-        content: [{
-          type: 'text',
-          text: JSON.stringify({
-            jobId: data.job.id,
-            status: data.job.status,
-            message: data.message,
-            matching: matchReport,
-          }, null, 2),
-        }],
-      };
     },
   );
 
@@ -339,6 +349,7 @@ export function registerJobTools(server, apiRequest) {
 
       if (job.status === 'failed') {
         result.error = job.error;
+        console.error(`[MCP] Job ${jobId} failed:`, job.error?.message || 'Unknown error', job.error?.code ? `(${job.error.code})` : '');
       }
 
       return {
