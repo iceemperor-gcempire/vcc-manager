@@ -21,7 +21,8 @@ import {
   IconButton,
   Alert,
   CircularProgress,
-  Avatar
+  Avatar,
+  Collapse
 } from '@mui/material';
 import {
   Search,
@@ -38,7 +39,11 @@ import {
   Cancel,
   Save,
   Videocam,
-  SwapHoriz
+  SwapHoriz,
+  Code,
+  ContentCopy,
+  ExpandMore,
+  ExpandLess
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
@@ -615,11 +620,39 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 }
 
 function JobDetailDialog({ job, open, onClose, onImageView }) {
+  const [showWorkflow, setShowWorkflow] = useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setShowWorkflow(false);
+    }
+  }, [open]);
+
   if (!job) return null;
 
   // 태그 표시
   const tags = job.inputData?.tags || [];
   const populatedTags = tags.filter(t => typeof t === 'object' && t.name);
+
+  const handleCopyWorkflow = () => {
+    try {
+      const parsed = JSON.parse(job.resolvedWorkflowData);
+      navigator.clipboard.writeText(JSON.stringify(parsed, null, 2));
+      toast.success('워크플로우 JSON이 클립보드에 복사되었습니다');
+    } catch {
+      navigator.clipboard.writeText(job.resolvedWorkflowData);
+      toast.success('워크플로우 데이터가 클립보드에 복사되었습니다');
+    }
+  };
+
+  let formattedWorkflow = null;
+  if (job.resolvedWorkflowData) {
+    try {
+      formattedWorkflow = JSON.stringify(JSON.parse(job.resolvedWorkflowData), null, 2);
+    } catch {
+      formattedWorkflow = job.resolvedWorkflowData;
+    }
+  }
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -786,6 +819,51 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Alert>
           </Box>
         )}
+
+        {formattedWorkflow && (
+          <Box mb={3}>
+            <Box
+              onClick={() => setShowWorkflow(!showWorkflow)}
+              sx={{
+                display: 'flex', alignItems: 'center', cursor: 'pointer',
+                '&:hover': { opacity: 0.8 }
+              }}
+            >
+              <Code sx={{ mr: 1, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="h6" sx={{ flex: 1 }}>요청 워크플로우 JSON</Typography>
+              {showWorkflow ? <ExpandLess /> : <ExpandMore />}
+            </Box>
+            <Collapse in={showWorkflow}>
+              <Box sx={{ mt: 1, position: 'relative' }}>
+                <IconButton
+                  onClick={handleCopyWorkflow}
+                  size="small"
+                  sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'background.paper', '&:hover': { bgcolor: 'grey.200' } }}
+                  title="클립보드에 복사"
+                >
+                  <ContentCopy fontSize="small" />
+                </IconButton>
+                <Box
+                  component="pre"
+                  sx={{
+                    bgcolor: 'grey.100',
+                    p: 2,
+                    borderRadius: 1,
+                    overflow: 'auto',
+                    maxHeight: 400,
+                    fontSize: '0.75rem',
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    m: 0
+                  }}
+                >
+                  {formattedWorkflow}
+                </Box>
+              </Box>
+            </Collapse>
+          </Box>
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -879,7 +957,19 @@ function JobHistoryPanel({
     onError: (error) => { toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)); }
   });
 
-  const handleView = (job) => { setSelectedJob(job); setDetailOpen(true); };
+  const handleView = async (job) => {
+    setSelectedJob(job);
+    setDetailOpen(true);
+    try {
+      const response = await jobAPI.getById(job._id);
+      const fullJob = response.data?.job;
+      if (fullJob) {
+        setSelectedJob(fullJob);
+      }
+    } catch (error) {
+      console.error('Failed to fetch job detail:', error);
+    }
+  };
   const handleRetry = (job) => { if (window.confirm('작업을 재시도하시겠습니까?')) retryMutation.mutate(job._id); };
   const handleCancel = (job) => { if (window.confirm('작업을 취소하시겠습니까?')) cancelMutation.mutate(job._id); };
 

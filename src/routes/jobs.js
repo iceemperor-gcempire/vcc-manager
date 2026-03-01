@@ -126,6 +126,7 @@ router.get('/my', requireAuth, async (req, res) => {
     }
     
     const jobs = await ImageGenerationJob.find(filter)
+      .select('-resolvedWorkflowData -workflowData')
       .populate('workboardId', 'name')
       .populate('resultImages')
       .populate('resultVideos')
