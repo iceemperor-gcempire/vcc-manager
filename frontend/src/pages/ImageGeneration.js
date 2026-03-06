@@ -36,7 +36,8 @@ import {
   Shuffle,
   FolderOpen,
   AutoAwesome,
-  AutoFixHigh
+  AutoFixHigh,
+  Storage as StorageIcon
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -45,6 +46,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
+import ModelListModal from '../components/ModelListModal';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
@@ -377,9 +379,11 @@ function ImageGeneration() {
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   const [loraModalOpen, setLoraModalOpen] = useState(false);
+  const [modelModalOpen, setModelModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const [promptValue, setPromptValue] = useState('');
+  const [selectedCheckpointModel, setSelectedCheckpointModel] = useState('');
   const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
   const promptInputRef = useRef(null);
@@ -398,6 +402,24 @@ function ImageGeneration() {
 
   const handleLoraModalClose = () => {
     setLoraModalOpen(false);
+  };
+
+  const handleModelModalOpen = () => {
+    setModelModalOpen(true);
+  };
+
+  const handleModelModalClose = () => {
+    setModelModalOpen(false);
+  };
+
+  const handleCheckpointModelSelect = (modelPath) => {
+    setSelectedCheckpointModel(modelPath);
+
+    if (userSelectedOption?.value) {
+      setValue('aiModel', userSelectedOption.value);
+    } else {
+      toast.error('이 작업판에는 UserSelected AI 모델 옵션이 없습니다.');
+    }
   };
 
   // LoRA 모달에서 프롬프트 변경 핸들러
@@ -437,7 +459,7 @@ function ImageGeneration() {
     toast.success('AI 생성 프롬프트가 적용되었습니다');
   };
 
-  const { control, handleSubmit, setValue, reset, getValues, formState: { errors } } = useForm({
+  const { control, handleSubmit, setValue, reset, getValues, watch, formState: { errors } } = useForm({
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true
@@ -467,6 +489,9 @@ function ImageGeneration() {
   );
 
   const workboardData = workboard?.data?.workboard;
+  const userSelectedOption = workboardData?.baseInputFields?.aiModel?.find((model) => model.key === 'UserSelected');
+  const currentAiModel = watch('aiModel');
+  const isUserSelectedAiModel = !!userSelectedOption && currentAiModel === userSelectedOption.value;
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
@@ -564,6 +589,10 @@ function ImageGeneration() {
 
             if (matchedValue) {
               safeSetValue(key, matchedValue);
+
+              if (typeof inputValue === 'object' && inputValue.key === 'UserSelected' && inputValue.value) {
+                setSelectedCheckpointModel(inputValue.value);
+              }
             } else {
               console.warn(`AI model ${JSON.stringify(inputValue)} not found in workboard, using default`);
               safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
@@ -786,10 +815,23 @@ function ImageGeneration() {
       if (formData.aiModel && workboardData?.baseInputFields?.aiModel) {
         const selectedModel = workboardData.baseInputFields.aiModel.find(model => model.value === formData.aiModel);
         if (selectedModel) {
-          processedFormData.aiModel = {
-            key: selectedModel.key,
-            value: selectedModel.value
-          };
+          if (selectedModel.key === 'UserSelected') {
+            if (!selectedCheckpointModel) {
+              toast.error('UserSelected 모델은 체크포인트 모델 선택이 필요합니다.');
+              setGenerating(false);
+              return;
+            }
+
+            processedFormData.aiModel = {
+              key: 'UserSelected',
+              value: selectedCheckpointModel
+            };
+          } else {
+            processedFormData.aiModel = {
+              key: selectedModel.key,
+              value: selectedModel.value
+            };
+          }
           console.log('🤖 AI Model mapped:', processedFormData.aiModel);
         } else {
           console.warn('⚠️ AI model not found:', formData.aiModel);
@@ -1000,8 +1042,16 @@ function ImageGeneration() {
                 )}
               />
 
-              {/* LoRA 목록 버튼 */}
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+              {/* LoRA/모델 목록 버튼 */}
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={handleModelModalOpen}
+                  startIcon={<StorageIcon />}
+                >
+                  모델 목록
+                </Button>
                 <Button
                   variant="outlined"
                   size="small"
@@ -1011,6 +1061,14 @@ function ImageGeneration() {
                   LoRA 목록
                 </Button>
               </Box>
+
+              {isUserSelectedAiModel && (
+                <Alert severity={selectedCheckpointModel ? 'info' : 'warning'} sx={{ mb: 2 }}>
+                  {selectedCheckpointModel
+                    ? `선택된 체크포인트: ${selectedCheckpointModel}`
+                    : 'AI 모델이 UserSelected입니다. "모델 목록"에서 체크포인트를 선택해주세요.'}
+                </Alert>
+              )}
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
@@ -1254,6 +1312,14 @@ function ImageGeneration() {
         promptRef={promptInputRef}
         currentPrompt={promptValue}
         onPromptChange={handlePromptChangeFromLora}
+      />
+
+      <ModelListModal
+        open={modelModalOpen}
+        onClose={handleModelModalClose}
+        serverId={workboardData?.serverId?._id || workboardData?.serverId}
+        selectedModel={selectedCheckpointModel}
+        onSelectModel={handleCheckpointModelSelect}
       />
 
       {/* 프롬프트 데이터 선택 다이얼로그 */}

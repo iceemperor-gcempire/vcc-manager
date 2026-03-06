@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
+const ModelCache = require('../models/ModelCache');
 const { verifyJWT, requireAdmin } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
+const comfyUIService = require('../services/comfyUIService');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
@@ -300,6 +302,79 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 
 // ===== LoRA 메타데이터 API =====
 
+// Checkpoint 모델 목록 조회
+router.get('/:id/models', verifyJWT, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    if (server.serverType !== 'ComfyUI') {
+      return res.status(400).json({
+        success: false,
+        message: '모델 목록은 ComfyUI 서버에서만 조회할 수 있습니다.'
+      });
+    }
+
+    const forceRefresh = req.query.refresh === 'true';
+    const cacheTtlMs = 10 * 60 * 1000;
+
+    if (!forceRefresh) {
+      const cached = await ModelCache.findOne({ serverId: server._id });
+      const isFresh = cached?.lastFetched && (Date.now() - new Date(cached.lastFetched).getTime() < cacheTtlMs);
+
+      if (cached && isFresh) {
+        return res.json({
+          success: true,
+          data: {
+            checkpointModels: cached.checkpointModels || [],
+            lastFetched: cached.lastFetched,
+            fromCache: true
+          }
+        });
+      }
+    }
+
+    const checkpointModels = await comfyUIService.getCheckpointModels(server.serverUrl);
+
+    const saved = await ModelCache.findOneAndUpdate(
+      { serverId: server._id },
+      {
+        serverId: server._id,
+        serverUrl: server.serverUrl,
+        checkpointModels,
+        lastFetched: new Date()
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true
+      }
+    );
+
+    res.json({
+      success: true,
+      data: {
+        checkpointModels: saved.checkpointModels || [],
+        lastFetched: saved.lastFetched,
+        fromCache: false
+      }
+    });
+  } catch (error) {
+    console.error('모델 목록 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '모델 목록을 불러오는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
 // LoRA 목록 조회 (검색 지원)
 router.get('/:id/loras', verifyJWT, async (req, res) => {
   try {
@@ -441,6 +516,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
     // LoRA 캐시 삭제
     await ServerLoraCache.deleteOne({ serverId: server._id });
+    await ModelCache.deleteOne({ serverId: server._id });
 
     await Server.findByIdAndDelete(req.params.id);
 

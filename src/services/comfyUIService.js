@@ -367,6 +367,21 @@ const getLoraModels = async (serverUrl) => {
   }
 };
 
+const getCheckpointModels = async (serverUrl) => {
+  try {
+    const response = await axios.get(`${serverUrl}/object_info/CheckpointLoaderSimple`);
+    const checkpointLoader = response.data?.CheckpointLoaderSimple;
+
+    if (checkpointLoader && checkpointLoader.input && checkpointLoader.input.required && checkpointLoader.input.required.ckpt_name) {
+      return checkpointLoader.input.required.ckpt_name[0] || [];
+    }
+
+    return [];
+  } catch (error) {
+    throw new Error(`Failed to get checkpoint models: ${error.message}`);
+  }
+};
+
 const uploadImage = async (serverUrl, imageBuffer, filename) => {
   const FormData = require('form-data');
   
@@ -409,5 +424,6 @@ module.exports = {
   interruptExecution,
   getQueue,
   getLoraModels,
+  getCheckpointModels,
   uploadImage
 };
