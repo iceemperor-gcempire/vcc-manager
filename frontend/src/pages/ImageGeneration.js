@@ -417,9 +417,9 @@ function ImageGeneration() {
 
     if (userSelectedOption?.value) {
       setValue('aiModel', userSelectedOption.value);
-    } else {
-      toast.error('이 작업판에는 UserSelected AI 모델 옵션이 없습니다.');
     }
+    // UserSelected 옵션이 없어도 모델 선택은 유지 — 제출 시 오버라이드됨
+    toast.success(`모델 선택: ${modelPath.split(/[/\\]/).pop()}`);
   };
 
   // LoRA 모달에서 프롬프트 변경 핸들러
@@ -813,28 +813,24 @@ function ImageGeneration() {
 
       // AI 모델 키-값 매핑
       if (formData.aiModel && workboardData?.baseInputFields?.aiModel) {
-        const selectedModel = workboardData.baseInputFields.aiModel.find(model => model.value === formData.aiModel);
-        if (selectedModel) {
-          if (selectedModel.key === 'UserSelected') {
-            if (!selectedCheckpointModel) {
-              toast.error('UserSelected 모델은 체크포인트 모델 선택이 필요합니다.');
-              setGenerating(false);
-              return;
-            }
-
-            processedFormData.aiModel = {
-              key: 'UserSelected',
-              value: selectedCheckpointModel
-            };
-          } else {
+        // 모델 브라우저에서 선택한 체크포인트가 있으면 우선 사용
+        if (selectedCheckpointModel) {
+          processedFormData.aiModel = {
+            key: 'UserSelected',
+            value: selectedCheckpointModel
+          };
+          console.log('🤖 AI Model (user selected checkpoint):', processedFormData.aiModel);
+        } else {
+          const selectedModel = workboardData.baseInputFields.aiModel.find(model => model.value === formData.aiModel);
+          if (selectedModel) {
             processedFormData.aiModel = {
               key: selectedModel.key,
               value: selectedModel.value
             };
+            console.log('🤖 AI Model mapped:', processedFormData.aiModel);
+          } else {
+            console.warn('⚠️ AI model not found:', formData.aiModel);
           }
-          console.log('🤖 AI Model mapped:', processedFormData.aiModel);
-        } else {
-          console.warn('⚠️ AI model not found:', formData.aiModel);
         }
       }
 
