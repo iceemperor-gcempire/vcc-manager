@@ -161,6 +161,7 @@ export const serverAPI = {
   deleteServer: (id) => api.delete(`/servers/${id}`),
   checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
+  getCheckpointModels: (id, params) => api.get(`/servers/${id}/models`, { params }),
   // LoRA 메타데이터 API
   getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
   syncLoras: (id, options = {}) => api.post(`/servers/${id}/loras/sync`, options),

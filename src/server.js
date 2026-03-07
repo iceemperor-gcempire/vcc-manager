@@ -35,7 +35,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Trust proxy for rate limiting (behind nginx/docker)
-app.set('trust proxy', true);
+app.set('trust proxy', 1);
 
 // Database and queue initialization will be done in startServer function
 
