@@ -1058,14 +1058,6 @@ function ImageGeneration() {
                 </Button>
               </Box>
 
-              {isUserSelectedAiModel && (
-                <Alert severity={selectedCheckpointModel ? 'info' : 'warning'} sx={{ mb: 2 }}>
-                  {selectedCheckpointModel
-                    ? `선택된 체크포인트: ${selectedCheckpointModel}`
-                    : 'AI 모델이 UserSelected입니다. "모델 목록"에서 체크포인트를 선택해주세요.'}
-                </Alert>
-              )}
-
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
                 <Controller
@@ -1074,7 +1066,7 @@ function ImageGeneration() {
                   defaultValue={workboardData.baseInputFields.aiModel[0]?.value || ''}
                   rules={{ required: 'AI 모델을 선택해주세요' }}
                   render={({ field }) => (
-                    <FormControl fullWidth sx={{ mb: 3 }} error={!!errors.aiModel}>
+                    <FormControl fullWidth sx={{ mb: selectedCheckpointModel ? 1 : 3 }} error={!!errors.aiModel}>
                       <InputLabel>AI 모델</InputLabel>
                       <Select
                         {...field}
@@ -1095,6 +1087,22 @@ function ImageGeneration() {
                     </FormControl>
                   )}
                 />
+              )}
+
+              {/* 모델 브라우저에서 선택한 체크포인트 표시 */}
+              {selectedCheckpointModel && (
+                <Alert
+                  severity="info"
+                  sx={{ mb: 3 }}
+                  onClose={() => setSelectedCheckpointModel('')}
+                >
+                  <Typography variant="body2">
+                    <strong>선택된 모델:</strong> {selectedCheckpointModel.split(/[/\\]/).pop()}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {selectedCheckpointModel}
+                  </Typography>
+                </Alert>
               )}
 
               {/* 이미지 크기 */}
