@@ -13,7 +13,12 @@ const APP_VERSION = { major: 1, minor: 3 };
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
+    const { search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
+
+    const parsedPage = Number.parseInt(req.query.page, 10);
+    const parsedLimit = Number.parseInt(req.query.limit, 10);
+    const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
+    const limit = Number.isFinite(parsedLimit) && parsedLimit > 0 ? Math.min(parsedLimit, 50) : 10;
     const skip = (page - 1) * limit;
 
     const filter = {};
@@ -47,16 +52,19 @@ router.get('/', requireAuth, async (req, res) => {
       .select('-workflowData')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limit);
     
     const total = await Workboard.countDocuments(filter);
+    const pages = Math.ceil(total / limit);
     
     res.json({
       workboards,
       pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
+        total,
+        pages,
+        page,
+        limit,
+        current: page
       }
     });
   } catch (error) {
