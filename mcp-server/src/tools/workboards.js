@@ -16,8 +16,8 @@ export function registerWorkboardTools(server, apiRequest) {
       search: z.string().optional().describe('Search by name or description'),
       apiFormat: z.enum(['ComfyUI', 'OpenAI Compatible']).optional().describe('Filter by API format'),
       outputFormat: z.enum(['image', 'video', 'text']).optional().describe('Filter by output format'),
-      page: z.number().int().positive().optional().describe('Page number (default 1)'),
-      limit: z.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
+      page: z.coerce.number().int().positive().optional().describe('Page number (default 1)'),
+      limit: z.coerce.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
     },
     async ({ search, apiFormat, outputFormat, page, limit }) => {
       const data = await apiRequest('/workboards', {
