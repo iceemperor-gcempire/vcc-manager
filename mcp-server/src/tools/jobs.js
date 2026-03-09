@@ -20,7 +20,7 @@ export function registerJobTools(server, apiRequest) {
       imageSize: z.string().optional().describe('Image size name (from get_workboard imageSizes options)'),
       stylePreset: z.string().optional().describe('Style preset name'),
       upscaleMethod: z.string().optional().describe('Upscale method name'),
-      seed: z.number().int().optional().describe('Specific seed number'),
+      seed: z.coerce.number().int().optional().describe('Specific seed number'),
       randomSeed: z.boolean().optional().default(true).describe('Use random seed (default true)'),
       additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
         .describe('Additional parameters as key-value pairs (field name → value)'),
@@ -154,7 +154,7 @@ export function registerJobTools(server, apiRequest) {
       negativePrompt: z.string().optional().describe('Override negative prompt'),
       aiModel: z.string().optional().describe('Override AI model name'),
       imageSize: z.string().optional().describe('Override image size name'),
-      seed: z.number().int().optional().describe('Override seed value'),
+      seed: z.coerce.number().int().optional().describe('Override seed value'),
       randomSeed: z.boolean().optional().describe('Use random seed (default true)'),
       additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
         .describe('Override additional parameters (only specified keys are overridden, rest are matched from original)'),
@@ -405,8 +405,8 @@ export function registerJobTools(server, apiRequest) {
       status: z.enum(['pending', 'processing', 'completed', 'failed', 'cancelled']).optional()
         .describe('Filter by job status'),
       search: z.string().optional().describe('Search in prompts'),
-      page: z.number().int().positive().optional().describe('Page number (default 1)'),
-      limit: z.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
+      page: z.coerce.number().int().positive().optional().describe('Page number (default 1)'),
+      limit: z.coerce.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
     },
     async ({ status, search, page, limit }) => {
       const data = await apiRequest('/jobs/my', {
