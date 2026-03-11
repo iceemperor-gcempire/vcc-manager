@@ -21,14 +21,16 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import {
   Search,
   PlayArrow,
   Info,
   TrendingUp,
-  Computer
+  Computer,
+  ContentCopy
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
@@ -78,6 +80,15 @@ function WorkboardCard({ workboard, projectId }) {
     setInfoOpen(false);
   };
 
+  const handleCopyWorkboardId = async () => {
+    try {
+      await navigator.clipboard.writeText(workboard._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
+  };
+
   const getOutputFormatLabel = (format) => {
     switch (format) {
       case 'image': return '이미지';
@@ -121,6 +132,15 @@ function WorkboardCard({ workboard, projectId }) {
             <Typography variant="caption" color="textSecondary">
               사용횟수: {workboard.usageCount || 0}회
             </Typography>
+          </Box>
+
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              ID: {workboard._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
           </Box>
 
           <Box display="flex" flexWrap="wrap" gap={0.5} mb={2}>
@@ -184,6 +204,15 @@ function WorkboardCard({ workboard, projectId }) {
           <DialogContentText paragraph>
             {workboard.description || '설명이 없습니다.'}
           </DialogContentText>
+
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              작업판 ID: {workboard._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
+          </Box>
 
           <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
             <Chip
