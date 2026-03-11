@@ -37,7 +37,8 @@ import {
   FolderOpen,
   AutoAwesome,
   AutoFixHigh,
-  Storage as StorageIcon
+  Storage as StorageIcon,
+  ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -395,6 +396,17 @@ function ImageGeneration() {
     { enabled: !!projectId }
   );
   const projectContext = projectData?.data?.data?.project;
+
+  const handleCopyWorkboardId = async () => {
+    if (!workboardData?._id) return;
+
+    try {
+      await navigator.clipboard.writeText(workboardData._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
+  };
 
   const handleLoraModalOpen = () => {
     setLoraModalOpen(true);
@@ -984,6 +996,14 @@ function ImageGeneration() {
             {workboardData.description}
           </Typography>
         )}
+        <Box display="flex" alignItems="center" gap={0.5} mb={1}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            작업판 ID: {workboardData?._id}
+          </Typography>
+          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+            <ContentCopy fontSize="inherit" />
+          </IconButton>
+        </Box>
       </Box>
 
       <form key={workboardData?._id} onSubmit={handleSubmit(onSubmit)}>

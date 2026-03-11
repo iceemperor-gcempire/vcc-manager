@@ -6,16 +6,19 @@ import {
   Box,
   Alert,
   CircularProgress,
-  Chip
+  Chip,
+  IconButton
 } from '@mui/material';
 import {
   ArrowBack,
-  Chat
+  Chat,
+  ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
+import toast from 'react-hot-toast';
 
 function PromptGeneration() {
   const { workboardId } = useParams();
@@ -28,6 +31,17 @@ function PromptGeneration() {
   );
 
   const workboard = workboardData?.data?.workboard;
+
+  const handleCopyWorkboardId = async () => {
+    if (!workboard?._id) return;
+
+    try {
+      await navigator.clipboard.writeText(workboard._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
+  };
 
   if (workboardLoading) {
     return (
@@ -70,6 +84,15 @@ function PromptGeneration() {
           <Typography variant="h5">{workboard.name}</Typography>
         </Box>
         <Chip label="프롬프트 생성" color="secondary" size="small" />
+      </Box>
+
+      <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          작업판 ID: {workboard._id}
+        </Typography>
+        <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+          <ContentCopy fontSize="inherit" />
+        </IconButton>
       </Box>
 
       {workboard.description && (

@@ -45,6 +45,7 @@ import {
   DragIndicator,
   FileDownload,
   FileUpload,
+  Check,
   CheckCircle,
   Warning
 } from '@mui/icons-material';
@@ -66,6 +67,15 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleCopyWorkboardId = async () => {
+    try {
+      await navigator.clipboard.writeText(workboard._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
   };
 
   return (
@@ -120,6 +130,15 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           <Typography variant="caption" color="textSecondary">
             사용횟수: {workboard.usageCount || 0}회
           </Typography>
+        </Box>
+
+        <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            ID: {workboard._id}
+          </Typography>
+          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+            <ContentCopy fontSize="inherit" />
+          </IconButton>
         </Box>
 
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
@@ -215,6 +234,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [copiedVariable, setCopiedVariable] = useState('');
+  const copyResetTimerRef = React.useRef(null);
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
@@ -240,6 +261,48 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   const apiFormat = watch('apiFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
+
+  React.useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyVariable = async (variable) => {
+    try {
+      await navigator.clipboard.writeText(variable);
+      setCopiedVariable(variable);
+
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+      copyResetTimerRef.current = setTimeout(() => {
+        setCopiedVariable('');
+      }, 1500);
+    } catch (error) {
+      toast.error('변수 복사에 실패했습니다.');
+    }
+  };
+
+  const renderVariableRow = (variable, description, rowKey = variable) => (
+    <tr key={rowKey}>
+      <td>
+        <Box display="flex" alignItems="center" gap={1}>
+          <code>{variable}</code>
+          <IconButton
+            size="small"
+            onClick={() => handleCopyVariable(variable)}
+            aria-label={`${variable} 복사`}
+          >
+            {copiedVariable === variable ? <Check fontSize="small" color="success" /> : <ContentCopy fontSize="small" />}
+          </IconButton>
+        </Box>
+      </td>
+      <td>{description}</td>
+    </tr>
+  );
 
   // 관리자 전용 API로 완전한 데이터 로딩
   React.useEffect(() => {
@@ -430,6 +493,19 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </Box>
           ) : (
             <>
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              작업판 ID: {workboard?._id}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => handleCopyVariable(workboard?._id)}
+              aria-label="작업판 ID 복사"
+              disabled={!workboard?._id}
+            >
+              {copiedVariable === workboard?._id ? <Check fontSize="small" color="success" /> : <ContentCopy fontSize="small" />}
+            </IconButton>
+          </Box>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
@@ -1333,33 +1409,33 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>기본 변수</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##prompt##}}'}</code></td><td>프롬프트 (문자열)</td></tr>
-                      <tr><td><code>{'{{##negative_prompt##}}'}</code></td><td>네거티브 프롬프트 (문자열)</td></tr>
-                      <tr><td><code>{'{{##model##}}'}</code></td><td>AI 모델 (문자열)</td></tr>
-                      <tr><td><code>{'{{##width##}}'}</code></td><td>이미지 너비 (숫자)</td></tr>
-                      <tr><td><code>{'{{##height##}}'}</code></td><td>이미지 높이 (숫자)</td></tr>
-                      <tr><td><code>{'{{##seed##}}'}</code></td><td>시드값 (숫자, 64비트)</td></tr>
+                      {renderVariableRow('{{##prompt##}}', '프롬프트 (문자열)')}
+                      {renderVariableRow('{{##negative_prompt##}}', '네거티브 프롬프트 (문자열)')}
+                      {renderVariableRow('{{##model##}}', 'AI 모델 (문자열)')}
+                      {renderVariableRow('{{##width##}}', '이미지 너비 (숫자)')}
+                      {renderVariableRow('{{##height##}}', '이미지 높이 (숫자)')}
+                      {renderVariableRow('{{##seed##}}', '시드값 (숫자, 64비트)')}
                     </tbody>
                   </Box>
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>샘플링 파라미터</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##steps##}}'}</code></td><td>스텝 수 (숫자, 기본값: 20)</td></tr>
-                      <tr><td><code>{'{{##cfg##}}'}</code></td><td>CFG 스케일 (숫자, 기본값: 7)</td></tr>
-                      <tr><td><code>{'{{##sampler##}}'}</code></td><td>샘플러 (문자열, 기본값: euler)</td></tr>
-                      <tr><td><code>{'{{##scheduler##}}'}</code></td><td>스케줄러 (문자열, 기본값: normal)</td></tr>
+                      {renderVariableRow('{{##steps##}}', '스텝 수 (숫자, 기본값: 20)')}
+                      {renderVariableRow('{{##cfg##}}', 'CFG 스케일 (숫자, 기본값: 7)')}
+                      {renderVariableRow('{{##sampler##}}', '샘플러 (문자열, 기본값: euler)')}
+                      {renderVariableRow('{{##scheduler##}}', '스케줄러 (문자열, 기본값: normal)')}
                     </tbody>
                   </Box>
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>추가 기능</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##reference_method##}}'}</code></td><td>참조 이미지 방식 (문자열)</td></tr>
-                      <tr><td><code>{'{{##upscale_method##}}'}</code></td><td>업스케일 방식 (문자열)</td></tr>
-                      <tr><td><code>{'{{##upscale##}}'}</code></td><td>업스케일 방식 별칭 (문자열)</td></tr>
-                      <tr><td><code>{'{{##base_style##}}'}</code></td><td>기본 스타일 (문자열)</td></tr>
-                      <tr><td><code>{'{{##user_id##}}'}</code></td><td>사용자 ID 해시 (문자열, 8자리)</td></tr>
+                      {renderVariableRow('{{##reference_method##}}', '참조 이미지 방식 (문자열)')}
+                      {renderVariableRow('{{##upscale_method##}}', '업스케일 방식 (문자열)')}
+                      {renderVariableRow('{{##upscale##}}', '업스케일 방식 별칭 (문자열)')}
+                      {renderVariableRow('{{##base_style##}}', '기본 스타일 (문자열)')}
+                      {renderVariableRow('{{##user_id##}}', '사용자 ID 해시 (문자열, 8자리)')}
                     </tbody>
                   </Box>
 
@@ -1369,10 +1445,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       <tbody>
                         {watch('additionalCustomFields').map((field, idx) => (
                           field.name && (
-                            <tr key={idx}>
-                              <td><code>{field.formatString || `{{##${field.name}##}}`}</code></td>
-                              <td>{field.label || field.name} ({field.type === 'number' ? '숫자' : field.type === 'select' ? '선택' : field.type === 'image' ? '이미지' : '문자열'})</td>
-                            </tr>
+                            renderVariableRow(
+                              field.formatString || `{{##${field.name}##}}`,
+                              `${field.label || field.name} (${field.type === 'number' ? '숫자' : field.type === 'select' ? '선택' : field.type === 'image' ? '이미지' : '문자열'})`,
+                              `custom-${idx}`
+                            )
                           )
                         ))}
                       </tbody>
