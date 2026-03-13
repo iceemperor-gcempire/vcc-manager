@@ -502,6 +502,7 @@ function ImageGeneration() {
 
   const workboardData = workboard?.data?.workboard;
   const userSelectedOption = workboardData?.baseInputFields?.aiModel?.find((model) => model.key === 'UserSelected');
+  const isComfyUIWorkboard = workboardData?.apiFormat === 'ComfyUI';
   const currentAiModel = watch('aiModel');
   const isUserSelectedAiModel = !!userSelectedOption && currentAiModel === userSelectedOption.value;
 
@@ -1059,24 +1060,26 @@ function ImageGeneration() {
               />
 
               {/* LoRA/모델 목록 버튼 */}
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleModelModalOpen}
-                  startIcon={<StorageIcon />}
-                >
-                  모델 목록
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleLoraModalOpen}
-                  startIcon={<AutoFixHigh />}
-                >
-                  LoRA 목록
-                </Button>
-              </Box>
+              {isComfyUIWorkboard && (
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleModelModalOpen}
+                    startIcon={<StorageIcon />}
+                  >
+                    모델 목록
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleLoraModalOpen}
+                    startIcon={<AutoFixHigh />}
+                  >
+                    LoRA 목록
+                  </Button>
+                </Box>
+              )}
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
@@ -1328,23 +1331,27 @@ function ImageGeneration() {
       </form>
 
       {/* LoRA 목록 모달 */}
-      <LoraListModal
-        open={loraModalOpen}
-        onClose={handleLoraModalClose}
-        workboardId={id}
-        serverId={workboardData?.serverId?._id || workboardData?.serverId}
-        promptRef={promptInputRef}
-        currentPrompt={promptValue}
-        onPromptChange={handlePromptChangeFromLora}
-      />
+      {isComfyUIWorkboard && (
+        <LoraListModal
+          open={loraModalOpen}
+          onClose={handleLoraModalClose}
+          workboardId={id}
+          serverId={workboardData?.serverId?._id || workboardData?.serverId}
+          promptRef={promptInputRef}
+          currentPrompt={promptValue}
+          onPromptChange={handlePromptChangeFromLora}
+        />
+      )}
 
-      <ModelListModal
-        open={modelModalOpen}
-        onClose={handleModelModalClose}
-        serverId={workboardData?.serverId?._id || workboardData?.serverId}
-        selectedModel={selectedCheckpointModel}
-        onSelectModel={handleCheckpointModelSelect}
-      />
+      {isComfyUIWorkboard && (
+        <ModelListModal
+          open={modelModalOpen}
+          onClose={handleModelModalClose}
+          serverId={workboardData?.serverId?._id || workboardData?.serverId}
+          selectedModel={selectedCheckpointModel}
+          onSelectModel={handleCheckpointModelSelect}
+        />
+      )}
 
       {/* 프롬프트 데이터 선택 다이얼로그 */}
       <PromptDataSelectDialog

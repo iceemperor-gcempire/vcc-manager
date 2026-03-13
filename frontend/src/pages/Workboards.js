@@ -42,7 +42,7 @@ function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const isComfyUI = workboard.apiFormat === 'ComfyUI';
+  const isImageWorkboard = workboard.apiFormat !== 'OpenAI Compatible';
   const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
@@ -65,7 +65,7 @@ function WorkboardCard({ workboard, projectId }) {
       }
     }
 
-    if (isComfyUI) {
+    if (isImageWorkboard) {
       navigate(`/generate/${workboard._id}${projectQuery}`);
     } else {
       navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
@@ -102,6 +102,7 @@ function WorkboardCard({ workboard, projectId }) {
     switch (format) {
       case 'ComfyUI': return 'ComfyUI API';
       case 'OpenAI Compatible': return 'OpenAI Compatible API';
+      case 'Gemini': return 'Gemini Image API';
       default: return format;
     }
   };
@@ -187,7 +188,7 @@ function WorkboardCard({ workboard, projectId }) {
           <Button
             size="small"
             variant="contained"
-            color={isComfyUI ? 'primary' : 'secondary'}
+            color={isImageWorkboard ? 'primary' : 'secondary'}
             onClick={handleSelect}
             startIcon={<PlayArrow />}
             sx={{ ml: 'auto' }}
@@ -242,7 +243,7 @@ function WorkboardCard({ workboard, projectId }) {
             ))}
           </Box>
 
-          {isComfyUI && workboard.baseInputFields?.imageSizes?.length > 0 && (
+          {isImageWorkboard && workboard.baseInputFields?.imageSizes?.length > 0 && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 지원 이미지 크기
@@ -475,6 +476,7 @@ function Workboards() {
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+            <MenuItem value="Gemini">Gemini Image API</MenuItem>
           </Select>
         </FormControl>
       </Box>

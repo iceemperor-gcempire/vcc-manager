@@ -18,11 +18,24 @@ import { serverAPI } from '../../services/api';
 
 function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
   const apiFormat = useWatch({ control, name: 'apiFormat' }) || 'ComfyUI';
+  const outputFormat = useWatch({ control, name: 'outputFormat' }) || 'image';
+  const getApiFormatLabel = (format) => {
+    switch (format) {
+      case 'ComfyUI':
+        return 'ComfyUI API';
+      case 'OpenAI Compatible':
+        return 'OpenAI Compatible API';
+      case 'Gemini':
+        return 'Gemini Image API';
+      default:
+        return format;
+    }
+  };
 
   const { data: serversData } = useQuery(
     ['servers', apiFormat],
     () => serverAPI.getServers({
-      serverType: apiFormat === 'OpenAI Compatible' ? 'OpenAI Compatible' : 'ComfyUI'
+      serverType: apiFormat
     }),
     { enabled: isDialogOpen }
   );
@@ -46,6 +59,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                   >
                     <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
                     <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+                    <MenuItem value="Gemini">Gemini Image API</MenuItem>
                   </Select>
                 </FormControl>
               )}
@@ -61,10 +75,12 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                   <Select
                     {...field}
                     label="출력 형식"
+                    value={apiFormat === 'Gemini' ? 'image' : outputFormat}
+                    disabled={apiFormat === 'Gemini'}
                   >
                     <MenuItem value="image">이미지</MenuItem>
-                    <MenuItem value="video">비디오</MenuItem>
-                    <MenuItem value="text">텍스트</MenuItem>
+                    {apiFormat !== 'Gemini' && <MenuItem value="video">비디오</MenuItem>}
+                    {apiFormat !== 'Gemini' && <MenuItem value="text">텍스트</MenuItem>}
                   </Select>
                 </FormControl>
               )}
@@ -73,8 +89,10 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
           <Grid item xs={12}>
             <Typography variant="caption" color="textSecondary">
               {apiFormat === 'OpenAI Compatible'
-                ? 'OpenAI Compatible API를 사용하여 콘텐츠를 생성합니다.'
-                : 'ComfyUI API를 사용하여 콘텐츠를 생성합니다.'}
+                ? 'OpenAI Compatible API를 사용하여 텍스트 기반 콘텐츠를 생성합니다.'
+                : apiFormat === 'Gemini'
+                  ? 'Gemini Image API를 사용하여 이미지 기반 콘텐츠를 생성합니다.'
+                  : 'ComfyUI API를 사용하여 이미지/비디오 콘텐츠를 생성합니다.'}
             </Typography>
           </Grid>
         </>
@@ -134,7 +152,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                 ) : (
                   servers.map((server) => (
                     <MenuItem key={server._id} value={server._id}>
-                      {server.name} ({server.serverType === 'ComfyUI' ? 'ComfyUI API' : 'OpenAI Compatible API'})
+                      {server.name} ({getApiFormatLabel(server.serverType)})
                     </MenuItem>
                   ))
                 )}
@@ -169,7 +187,9 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
           <Alert severity="warning">
             {apiFormat === 'OpenAI Compatible'
               ? '작업판을 생성하기 전에 서버 관리에서 OpenAI Compatible 서버를 등록해주세요.'
-              : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
+              : apiFormat === 'Gemini'
+                ? '작업판을 생성하기 전에 서버 관리에서 Gemini 서버를 등록해주세요.'
+                : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
           </Alert>
         </Grid>
       )}
