@@ -42,7 +42,8 @@ function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const isImageWorkboard = workboard.apiFormat !== 'OpenAI Compatible';
+  const apiFormat = workboard.apiFormat || 'ComfyUI';
+  const isImageWorkboard = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
   const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
@@ -319,7 +320,7 @@ function WorkboardCard({ workboard, projectId }) {
           <Button
             onClick={handleSelect}
             variant="contained"
-            color={workboard.apiFormat === 'ComfyUI' ? 'primary' : 'secondary'}
+            color={isImageWorkboard ? 'primary' : 'secondary'}
             startIcon={<PlayArrow />}
           >
             선택하기

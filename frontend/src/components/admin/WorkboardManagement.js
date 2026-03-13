@@ -290,7 +290,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const isGemini = apiFormat === 'Gemini';
   const isGptImage = apiFormat === 'GPT Image';
   const isPromptFormat = apiFormat === 'OpenAI Compatible';
-  const isImageFormat = !isPromptFormat;
+  const isImageFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
 
   React.useEffect(() => {
     return () => {
@@ -480,15 +480,17 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       });
     }
 
-    const isComfyUIFormat = data.apiFormat === 'ComfyUI';
-    const isPromptApiFormat = data.apiFormat === 'OpenAI Compatible';
-    const isImageApiFormat = !isPromptApiFormat;
+    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
+    const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
+    const isPromptApiFormat = normalizedApiFormat === 'OpenAI Compatible';
+    const isImageApiFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      apiFormat: data.apiFormat || 'ComfyUI',
-      outputFormat: data.outputFormat || 'image',
+      apiFormat: normalizedApiFormat,
+      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image'),
       workflowData: !isComfyUIFormat ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
@@ -2103,15 +2105,23 @@ function WorkboardManagement() {
   };
 
   const handleSave = (data) => {
+    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
+    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    const normalizedData = {
+      ...data,
+      apiFormat: normalizedApiFormat,
+      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image')
+    };
+
     if (selectedWorkboard) {
-      updateMutation.mutate({ id: selectedWorkboard._id, data });
+      updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      const isOpenAI = data.apiFormat === 'OpenAI Compatible';
-      const isGeminiApi = data.apiFormat === 'Gemini';
-      const isGptImageApi = data.apiFormat === 'GPT Image';
+      const isOpenAI = normalizedApiFormat === 'OpenAI Compatible';
+      const isGeminiApi = normalizedApiFormat === 'Gemini';
+      const isGptImageApi = normalizedApiFormat === 'GPT Image';
 
       const workboardData = {
-        ...data,
+        ...normalizedData,
         baseInputFields: isOpenAI ? {
           aiModel: [
             { key: 'GPT-4', value: 'gpt-4' },

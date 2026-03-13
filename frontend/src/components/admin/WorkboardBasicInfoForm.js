@@ -9,8 +9,7 @@ import {
   FormControlLabel,
   Switch,
   Typography,
-  Alert,
-  Box
+  Alert
 } from '@mui/material';
 import { Controller, useWatch } from 'react-hook-form';
 import { useQuery } from 'react-query';
@@ -19,6 +18,7 @@ import { serverAPI } from '../../services/api';
 function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
   const apiFormat = useWatch({ control, name: 'apiFormat' }) || 'ComfyUI';
   const outputFormat = useWatch({ control, name: 'outputFormat' }) || 'image';
+  const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(apiFormat);
   const getApiFormatLabel = (format) => {
     switch (format) {
       case 'ComfyUI':
@@ -78,12 +78,12 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                   <Select
                     {...field}
                     label="출력 형식"
-                    value={['Gemini', 'GPT Image'].includes(apiFormat) ? 'image' : outputFormat}
-                    disabled={['Gemini', 'GPT Image'].includes(apiFormat)}
+                    value={isFixedImageApiFormat ? 'image' : outputFormat}
+                    disabled={isFixedImageApiFormat}
                   >
                     <MenuItem value="image">이미지</MenuItem>
-                    {!['Gemini', 'GPT Image'].includes(apiFormat) && <MenuItem value="video">비디오</MenuItem>}
-                    {!['Gemini', 'GPT Image'].includes(apiFormat) && <MenuItem value="text">텍스트</MenuItem>}
+                    {!isFixedImageApiFormat && <MenuItem value="video">비디오</MenuItem>}
+                    {!isFixedImageApiFormat && <MenuItem value="text">텍스트</MenuItem>}
                   </Select>
                 </FormControl>
               )}
