@@ -68,6 +68,8 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         return 'OpenAI Compatible API';
       case 'Gemini':
         return 'Gemini Image API';
+      case 'GPT Image':
+        return 'GPT Image API';
       default:
         return format;
     }
@@ -78,6 +80,8 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         return 'secondary';
       case 'Gemini':
         return 'info';
+      case 'GPT Image':
+        return 'success';
       default:
         return 'primary';
     }
@@ -284,6 +288,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const apiFormat = watch('apiFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
   const isGemini = apiFormat === 'Gemini';
+  const isGptImage = apiFormat === 'GPT Image';
   const isPromptFormat = apiFormat === 'OpenAI Compatible';
   const isImageFormat = !isPromptFormat;
 
@@ -614,6 +619,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                             ? '모델 ID (예: gpt-4)'
                                             : apiFormat === 'Gemini'
                                               ? '모델 ID (예: gemini-2.5-flash-image)'
+                                              : apiFormat === 'GPT Image'
+                                                ? '모델 ID (예: gpt-image-1.5)'
                                               : '모델 파일 경로'
                                         }
                                         size="small"
@@ -1530,6 +1537,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   Gemini 작업판은 워크플로우 JSON 없이 REST API로 이미지를 생성합니다.
                 </Alert>
               )}
+              {isGptImage && (
+                <Alert severity="info">
+                  GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
+                </Alert>
+              )}
             </Box>
           )}
             </>
@@ -2096,6 +2108,7 @@ function WorkboardManagement() {
     } else {
       const isOpenAI = data.apiFormat === 'OpenAI Compatible';
       const isGeminiApi = data.apiFormat === 'Gemini';
+      const isGptImageApi = data.apiFormat === 'GPT Image';
 
       const workboardData = {
         ...data,
@@ -2111,6 +2124,18 @@ function WorkboardManagement() {
             { key: 'Nano Banana', value: 'gemini-2.5-flash-image' },
             { key: 'Nano Banana Pro', value: 'gemini-3-pro-image-preview' },
             { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
+          ],
+          imageSizes: [
+            { key: '1024x1024', value: '1024x1024' },
+            { key: '1024x1536', value: '1024x1536' },
+            { key: '1536x1024', value: '1536x1024' }
+          ],
+          referenceImageMethods: []
+        } : isGptImageApi ? {
+          aiModel: [
+            { key: 'GPT Image 1.5', value: 'gpt-image-1.5' },
+            { key: 'GPT Image 1', value: 'gpt-image-1' },
+            { key: 'GPT Image 1 Mini', value: 'gpt-image-1-mini' }
           ],
           imageSizes: [
             { key: '1024x1024', value: '1024x1024' },
@@ -2136,8 +2161,22 @@ function WorkboardManagement() {
             { key: 'ControlNet Canny', value: 'controlnet_canny' }
           ]
         },
-        additionalInputFields: [],
-        workflowData: (isOpenAI || isGeminiApi) ? '' : JSON.stringify({
+        additionalInputFields: isGptImageApi ? [
+          {
+            name: 'quality',
+            label: '품질',
+            type: 'select',
+            required: true,
+            defaultValue: 'medium',
+            options: [
+              { key: 'Low', value: 'low' },
+              { key: 'Medium', value: 'medium' },
+              { key: 'High', value: 'high' }
+            ],
+            description: 'GPT Image 생성 품질을 선택합니다.'
+          }
+        ] : [],
+        workflowData: (isOpenAI || isGeminiApi || isGptImageApi) ? '' : JSON.stringify({
           "prompt": "{{##prompt##}}",
           "negative_prompt": "{{##negative_prompt##}}",
           "model": "{{##model##}}",
@@ -2196,6 +2235,7 @@ function WorkboardManagement() {
             <MenuItem value="ComfyUI">ComfyUI</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
             <MenuItem value="Gemini">Gemini</MenuItem>
+            <MenuItem value="GPT Image">GPT Image</MenuItem>
           </Select>
         </FormControl>
         <FormControl sx={{ minWidth: 150 }}>

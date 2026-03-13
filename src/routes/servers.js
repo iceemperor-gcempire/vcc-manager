@@ -91,7 +91,7 @@ router.post('/', requireAdmin, async (req, res) => {
     }
 
     // 서버 타입 검증
-    if (!['ComfyUI', 'OpenAI Compatible', 'Gemini'].includes(serverType)) {
+    if (!['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'].includes(serverType)) {
       return res.status(400).json({
         success: false,
         message: '지원하지 않는 서버 타입입니다.'

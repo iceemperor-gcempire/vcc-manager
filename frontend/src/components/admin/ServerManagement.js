@@ -77,6 +77,8 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
         return <TextFields />;
       case 'Gemini':
         return <Storage />;
+      case 'GPT Image':
+        return <Storage />;
       default:
         return <Storage />;
     }
@@ -90,6 +92,8 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
         return 'OpenAI Compatible API';
       case 'Gemini':
         return 'Gemini Image API';
+      case 'GPT Image':
+        return 'GPT Image API';
       default:
         return serverType;
     }
@@ -342,6 +346,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                   <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
                   <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
                   <MenuItem value="Gemini">Gemini Image API</MenuItem>
+                  <MenuItem value="GPT Image">GPT Image API</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -365,7 +370,13 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 onChange={(e) => setFormData(prev => ({ ...prev, serverUrl: e.target.value }))}
                 error={!!errors.serverUrl}
                 helperText={errors.serverUrl}
-                placeholder={formData.serverType === 'Gemini' ? 'https://generativelanguage.googleapis.com' : 'http://localhost:8188'}
+                placeholder={
+                  formData.serverType === 'Gemini'
+                    ? 'https://generativelanguage.googleapis.com'
+                    : formData.serverType === 'GPT Image'
+                      ? 'https://api.openai.com'
+                      : 'http://localhost:8188'
+                }
                 required
               />
             </Grid>

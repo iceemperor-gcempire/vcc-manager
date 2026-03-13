@@ -74,7 +74,7 @@ const workboardSchema = new mongoose.Schema({
   },
   apiFormat: {
     type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini'],
+    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
     default: 'ComfyUI'
   },
   outputFormat: {
@@ -187,7 +187,7 @@ workboardSchema.statics.findByFormat = function(apiFormat, outputFormat, filter 
 };
 
 workboardSchema.methods.validateWorkflowData = function() {
-  if (this.apiFormat === 'OpenAI Compatible' || this.apiFormat === 'Gemini') {
+  if (['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(this.apiFormat)) {
     return true;
   }
   

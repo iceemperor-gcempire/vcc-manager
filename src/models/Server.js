@@ -13,7 +13,7 @@ const serverSchema = new mongoose.Schema({
   },
   serverType: {
     type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini'],
+    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
     required: true
   },
   serverUrl: {
@@ -92,6 +92,9 @@ serverSchema.methods.checkHealth = async function() {
         break;
       case 'Gemini':
         healthEndpoint = `${this.serverUrl}/v1beta/models`;
+        break;
+      case 'GPT Image':
+        healthEndpoint = `${this.serverUrl}/v1/models`;
         break;
       default:
         healthEndpoint = this.serverUrl;

@@ -103,6 +103,7 @@ function WorkboardCard({ workboard, projectId }) {
       case 'ComfyUI': return 'ComfyUI API';
       case 'OpenAI Compatible': return 'OpenAI Compatible API';
       case 'Gemini': return 'Gemini Image API';
+      case 'GPT Image': return 'GPT Image API';
       default: return format;
     }
   };
@@ -477,6 +478,7 @@ function Workboards() {
             <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
             <MenuItem value="Gemini">Gemini Image API</MenuItem>
+            <MenuItem value="GPT Image">GPT Image API</MenuItem>
           </Select>
         </FormControl>
       </Box>
