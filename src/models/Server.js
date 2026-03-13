@@ -13,7 +13,7 @@ const serverSchema = new mongoose.Schema({
   },
   serverType: {
     type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible'],
+    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini'],
     required: true
   },
   serverUrl: {
@@ -90,16 +90,26 @@ serverSchema.methods.checkHealth = async function() {
       case 'OpenAI Compatible':
         healthEndpoint = `${this.serverUrl}/v1/models`;
         break;
+      case 'Gemini':
+        healthEndpoint = `${this.serverUrl}/v1beta/models`;
+        break;
       default:
         healthEndpoint = this.serverUrl;
     }
-    
-    const response = await axios.get(healthEndpoint, {
+
+    const requestConfig = {
       timeout: Math.min(timeout, 10000), // 최대 10초
       headers: this.configuration?.apiKey ? {
         'Authorization': `Bearer ${this.configuration.apiKey}`
       } : {}
-    });
+    };
+
+    if (this.serverType === 'Gemini' && this.configuration?.apiKey) {
+      requestConfig.params = { key: this.configuration.apiKey };
+      requestConfig.headers = {};
+    }
+
+    const response = await axios.get(healthEndpoint, requestConfig);
     
     const responseTime = Date.now() - startTime;
     

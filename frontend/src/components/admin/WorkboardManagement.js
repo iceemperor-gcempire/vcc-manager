@@ -60,6 +60,28 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const isInactive = !workboard.isActive;
+  const getApiFormatLabel = (format) => {
+    switch (format) {
+      case 'ComfyUI':
+        return 'ComfyUI API';
+      case 'OpenAI Compatible':
+        return 'OpenAI Compatible API';
+      case 'Gemini':
+        return 'Gemini Image API';
+      default:
+        return format;
+    }
+  };
+  const getApiFormatColor = (format) => {
+    switch (format) {
+      case 'OpenAI Compatible':
+        return 'secondary';
+      case 'Gemini':
+        return 'info';
+      default:
+        return 'primary';
+    }
+  };
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -143,8 +165,8 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
-            label={workboard.apiFormat === 'OpenAI Compatible' ? 'OpenAI Compatible API' : 'ComfyUI API'}
-            color={workboard.apiFormat === 'OpenAI Compatible' ? 'secondary' : 'primary'}
+            label={getApiFormatLabel(workboard.apiFormat)}
+            color={getApiFormatColor(workboard.apiFormat)}
             size="small"
           />
           <Chip
@@ -261,6 +283,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   const apiFormat = watch('apiFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
+  const isGemini = apiFormat === 'Gemini';
+  const isPromptFormat = apiFormat === 'OpenAI Compatible';
+  const isImageFormat = !isPromptFormat;
 
   React.useEffect(() => {
     return () => {
@@ -451,6 +476,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     }
 
     const isComfyUIFormat = data.apiFormat === 'ComfyUI';
+    const isPromptApiFormat = data.apiFormat === 'OpenAI Compatible';
+    const isImageApiFormat = !isPromptApiFormat;
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
@@ -461,12 +488,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: isComfyUIFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        imageSizes: isImageApiFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
         referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: !isComfyUIFormat ? (data.systemPrompt || '') : '',
-        referenceImages: !isComfyUIFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
-        temperature: !isComfyUIFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
-        maxTokens: !isComfyUIFormat ? (parseInt(data.maxTokens) || 2000) : undefined
+        systemPrompt: isPromptApiFormat ? (data.systemPrompt || '') : '',
+        referenceImages: isPromptApiFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
+        temperature: isPromptApiFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
+        maxTokens: isPromptApiFormat ? (parseInt(data.maxTokens) || 2000) : undefined
       },
       additionalInputFields
     };
@@ -582,7 +609,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     render={({ field }) => (
                                       <TextField
                                         {...field}
-                                        label={apiFormat === 'OpenAI Compatible' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
+                                        label={
+                                          apiFormat === 'OpenAI Compatible'
+                                            ? '모델 ID (예: gpt-4)'
+                                            : apiFormat === 'Gemini'
+                                              ? '모델 ID (예: gemini-2.5-flash-image)'
+                                              : '모델 파일 경로'
+                                        }
                                         size="small"
                                         sx={{ flex: 2 }}
                                       />
@@ -611,7 +644,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               </Accordion>
 
               {/* 프롬프트 작업판 전용 설정 */}
-              {!isComfyUI && (
+              {isPromptFormat && (
                 <>
                   <Accordion defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -743,7 +776,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               )}
 
               {/* 이미지 작업판 전용 설정 */}
-              {isComfyUI && (
+              {isImageFormat && (
                 <>
                   <Accordion>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -755,9 +788,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           <Typography variant="body2" color="textSecondary">
                             이미지 생성 크기 옵션들을 설정합니다.
                           </Typography>
-                          <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                            Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
-                          </Typography>
+                          {isComfyUI && (
+                            <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                              Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
+                            </Typography>
+                          )}
                         </Box>
                         <Button
                           startIcon={<Add />}
@@ -805,7 +840,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     </AccordionDetails>
                   </Accordion>
 
-                  <Accordion>
+                  {isComfyUI && (
+                    <Accordion>
                     <AccordionSummary expandIcon={<ExpandMore />}>
                       <Typography variant="h6">참고 이미지 사용방식</Typography>
                     </AccordionSummary>
@@ -863,7 +899,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         </Box>
                       ))}
                     </AccordionDetails>
-                  </Accordion>
+                    </Accordion>
+                  )}
                 </>
               )}
             </Box>
@@ -1469,23 +1506,30 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionDetails>
               </Accordion>
 
-              <Controller
-                name="workflowData"
-                control={control}
-                rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={20}
-                    label="ComfyUI Workflow JSON"
-                    error={!!errors.workflowData}
-                    helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                    sx={{ fontFamily: 'monospace' }}
-                  />
-                )}
-              />
+              {isComfyUI && (
+                <Controller
+                  name="workflowData"
+                  control={control}
+                  rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      rows={20}
+                      label="ComfyUI Workflow JSON"
+                      error={!!errors.workflowData}
+                      helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
+                      sx={{ fontFamily: 'monospace' }}
+                    />
+                  )}
+                />
+              )}
+              {isGemini && (
+                <Alert severity="info">
+                  Gemini 작업판은 워크플로우 JSON 없이 REST API로 이미지를 생성합니다.
+                </Alert>
+              )}
             </Box>
           )}
             </>
@@ -2051,6 +2095,7 @@ function WorkboardManagement() {
       updateMutation.mutate({ id: selectedWorkboard._id, data });
     } else {
       const isOpenAI = data.apiFormat === 'OpenAI Compatible';
+      const isGeminiApi = data.apiFormat === 'Gemini';
 
       const workboardData = {
         ...data,
@@ -2061,6 +2106,18 @@ function WorkboardManagement() {
           ],
           systemPrompt: '',
           referenceImages: []
+        } : isGeminiApi ? {
+          aiModel: [
+            { key: 'Nano Banana', value: 'gemini-2.5-flash-image' },
+            { key: 'Nano Banana Pro', value: 'gemini-3-pro-image-preview' },
+            { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
+          ],
+          imageSizes: [
+            { key: '1024x1024', value: '1024x1024' },
+            { key: '1024x1536', value: '1024x1536' },
+            { key: '1536x1024', value: '1536x1024' }
+          ],
+          referenceImageMethods: []
         } : {
           aiModel: [
             { key: 'Default Model', value: 'default.safetensors' }
@@ -2080,7 +2137,7 @@ function WorkboardManagement() {
           ]
         },
         additionalInputFields: [],
-        workflowData: isOpenAI ? '' : JSON.stringify({
+        workflowData: (isOpenAI || isGeminiApi) ? '' : JSON.stringify({
           "prompt": "{{##prompt##}}",
           "negative_prompt": "{{##negative_prompt##}}",
           "model": "{{##model##}}",
@@ -2138,6 +2195,7 @@ function WorkboardManagement() {
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+            <MenuItem value="Gemini">Gemini</MenuItem>
           </Select>
         </FormControl>
         <FormControl sx={{ minWidth: 150 }}>
