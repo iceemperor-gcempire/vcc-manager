@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const geminiService = require('./geminiService');
+const gptImageService = require('./gptImageService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -141,6 +142,27 @@ const processImageGeneration = async (job) => {
           imageSize: extractOptionValue(inputData.imageSize),
           aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
           images: geminiImages,
+          timeout: workboardData.timeout
+        }
+      );
+      job.progress(90);
+    } else if (workboardData.apiFormat === 'GPT Image') {
+      generationResult = await gptImageService.generateImage(
+        workboardData.serverUrl,
+        workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
+        buildGeminiPrompt(inputData),
+        {
+          model: inputData.aiModel,
+          size: extractOptionValue(inputData.imageSize),
+          quality: extractOptionValue(
+            inputData.additionalParams?.quality || inputData.quality
+          ),
+          n: extractOptionValue(
+            inputData.additionalParams?.n || inputData.n
+          ) || 1,
+          outputFormat: extractOptionValue(
+            inputData.additionalParams?.outputFormat || inputData.outputFormat
+          ) || 'png',
           timeout: workboardData.timeout
         }
       );

@@ -27,6 +27,8 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
         return 'OpenAI Compatible API';
       case 'Gemini':
         return 'Gemini Image API';
+      case 'GPT Image':
+        return 'GPT Image API';
       default:
         return format;
     }
@@ -60,6 +62,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                     <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
                     <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
                     <MenuItem value="Gemini">Gemini Image API</MenuItem>
+                    <MenuItem value="GPT Image">GPT Image API</MenuItem>
                   </Select>
                 </FormControl>
               )}
@@ -75,12 +78,12 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                   <Select
                     {...field}
                     label="출력 형식"
-                    value={apiFormat === 'Gemini' ? 'image' : outputFormat}
-                    disabled={apiFormat === 'Gemini'}
+                    value={['Gemini', 'GPT Image'].includes(apiFormat) ? 'image' : outputFormat}
+                    disabled={['Gemini', 'GPT Image'].includes(apiFormat)}
                   >
                     <MenuItem value="image">이미지</MenuItem>
-                    {apiFormat !== 'Gemini' && <MenuItem value="video">비디오</MenuItem>}
-                    {apiFormat !== 'Gemini' && <MenuItem value="text">텍스트</MenuItem>}
+                    {!['Gemini', 'GPT Image'].includes(apiFormat) && <MenuItem value="video">비디오</MenuItem>}
+                    {!['Gemini', 'GPT Image'].includes(apiFormat) && <MenuItem value="text">텍스트</MenuItem>}
                   </Select>
                 </FormControl>
               )}
@@ -92,6 +95,8 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                 ? 'OpenAI Compatible API를 사용하여 텍스트 기반 콘텐츠를 생성합니다.'
                 : apiFormat === 'Gemini'
                   ? 'Gemini Image API를 사용하여 이미지 기반 콘텐츠를 생성합니다.'
+                  : apiFormat === 'GPT Image'
+                    ? 'GPT Image API를 사용하여 OpenAI 이미지 모델로 이미지를 생성합니다.'
                   : 'ComfyUI API를 사용하여 이미지/비디오 콘텐츠를 생성합니다.'}
             </Typography>
           </Grid>
@@ -189,6 +194,8 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
               ? '작업판을 생성하기 전에 서버 관리에서 OpenAI Compatible 서버를 등록해주세요.'
               : apiFormat === 'Gemini'
                 ? '작업판을 생성하기 전에 서버 관리에서 Gemini 서버를 등록해주세요.'
+                : apiFormat === 'GPT Image'
+                  ? '작업판을 생성하기 전에 서버 관리에서 GPT Image 서버를 등록해주세요.'
                 : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
           </Alert>
         </Grid>
