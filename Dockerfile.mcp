@@ -2,16 +2,17 @@ FROM node:18-alpine
 
 WORKDIR /app
 
+# Non-root user for security
+RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001 -G nodejs
+
 # Install dependencies first for layer caching
-COPY mcp-server/package*.json ./
+COPY --chown=nodeuser:nodejs mcp-server/package*.json ./
 RUN npm install --omit=dev
 
 # Copy application source
-COPY mcp-server/src/ ./src/
-COPY mcp-server/index.js ./
-
-# Non-root user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001
+COPY --chown=nodeuser:nodejs mcp-server/src/ ./src/
+COPY --chown=nodeuser:nodejs mcp-server/index.js ./
+RUN chmod -R u=rwX,go=rX /app
 USER nodeuser
 
 EXPOSE 3100
