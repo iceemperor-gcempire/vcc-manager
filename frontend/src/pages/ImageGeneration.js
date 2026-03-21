@@ -37,7 +37,8 @@ import {
   FolderOpen,
   AutoAwesome,
   AutoFixHigh,
-  Storage as StorageIcon
+  Storage as StorageIcon,
+  ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -396,6 +397,17 @@ function ImageGeneration() {
   );
   const projectContext = projectData?.data?.data?.project;
 
+  const handleCopyWorkboardId = async () => {
+    if (!workboardData?._id) return;
+
+    try {
+      await navigator.clipboard.writeText(workboardData._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
+  };
+
   const handleLoraModalOpen = () => {
     setLoraModalOpen(true);
   };
@@ -490,6 +502,7 @@ function ImageGeneration() {
 
   const workboardData = workboard?.data?.workboard;
   const userSelectedOption = workboardData?.baseInputFields?.aiModel?.find((model) => model.key === 'UserSelected');
+  const isComfyUIWorkboard = workboardData?.apiFormat === 'ComfyUI';
   const currentAiModel = watch('aiModel');
   const isUserSelectedAiModel = !!userSelectedOption && currentAiModel === userSelectedOption.value;
 
@@ -984,6 +997,14 @@ function ImageGeneration() {
             {workboardData.description}
           </Typography>
         )}
+        <Box display="flex" alignItems="center" gap={0.5} mb={1}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            작업판 ID: {workboardData?._id}
+          </Typography>
+          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+            <ContentCopy fontSize="inherit" />
+          </IconButton>
+        </Box>
       </Box>
 
       <form key={workboardData?._id} onSubmit={handleSubmit(onSubmit)}>
@@ -1039,24 +1060,26 @@ function ImageGeneration() {
               />
 
               {/* LoRA/모델 목록 버튼 */}
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleModelModalOpen}
-                  startIcon={<StorageIcon />}
-                >
-                  모델 목록
-                </Button>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={handleLoraModalOpen}
-                  startIcon={<AutoFixHigh />}
-                >
-                  LoRA 목록
-                </Button>
-              </Box>
+              {isComfyUIWorkboard && (
+                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleModelModalOpen}
+                    startIcon={<StorageIcon />}
+                  >
+                    모델 목록
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={handleLoraModalOpen}
+                    startIcon={<AutoFixHigh />}
+                  >
+                    LoRA 목록
+                  </Button>
+                </Box>
+              )}
 
               {/* AI 모델 선택 */}
               {workboardData?.baseInputFields?.aiModel && (
@@ -1308,23 +1331,27 @@ function ImageGeneration() {
       </form>
 
       {/* LoRA 목록 모달 */}
-      <LoraListModal
-        open={loraModalOpen}
-        onClose={handleLoraModalClose}
-        workboardId={id}
-        serverId={workboardData?.serverId?._id || workboardData?.serverId}
-        promptRef={promptInputRef}
-        currentPrompt={promptValue}
-        onPromptChange={handlePromptChangeFromLora}
-      />
+      {isComfyUIWorkboard && (
+        <LoraListModal
+          open={loraModalOpen}
+          onClose={handleLoraModalClose}
+          workboardId={id}
+          serverId={workboardData?.serverId?._id || workboardData?.serverId}
+          promptRef={promptInputRef}
+          currentPrompt={promptValue}
+          onPromptChange={handlePromptChangeFromLora}
+        />
+      )}
 
-      <ModelListModal
-        open={modelModalOpen}
-        onClose={handleModelModalClose}
-        serverId={workboardData?.serverId?._id || workboardData?.serverId}
-        selectedModel={selectedCheckpointModel}
-        onSelectModel={handleCheckpointModelSelect}
-      />
+      {isComfyUIWorkboard && (
+        <ModelListModal
+          open={modelModalOpen}
+          onClose={handleModelModalClose}
+          serverId={workboardData?.serverId?._id || workboardData?.serverId}
+          selectedModel={selectedCheckpointModel}
+          onSelectModel={handleCheckpointModelSelect}
+        />
+      )}
 
       {/* 프롬프트 데이터 선택 다이얼로그 */}
       <PromptDataSelectDialog

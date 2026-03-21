@@ -21,14 +21,16 @@ import {
   FormControl,
   InputLabel,
   Select,
-  MenuItem
+  MenuItem,
+  IconButton
 } from '@mui/material';
 import {
   Search,
   PlayArrow,
   Info,
   TrendingUp,
-  Computer
+  Computer,
+  ContentCopy
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
@@ -40,7 +42,8 @@ function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const isComfyUI = workboard.apiFormat === 'ComfyUI';
+  const apiFormat = workboard.apiFormat || 'ComfyUI';
+  const isImageWorkboard = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
   const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
@@ -63,7 +66,7 @@ function WorkboardCard({ workboard, projectId }) {
       }
     }
 
-    if (isComfyUI) {
+    if (isImageWorkboard) {
       navigate(`/generate/${workboard._id}${projectQuery}`);
     } else {
       navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
@@ -76,6 +79,15 @@ function WorkboardCard({ workboard, projectId }) {
 
   const handleInfoClose = () => {
     setInfoOpen(false);
+  };
+
+  const handleCopyWorkboardId = async () => {
+    try {
+      await navigator.clipboard.writeText(workboard._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
   };
 
   const getOutputFormatLabel = (format) => {
@@ -91,6 +103,8 @@ function WorkboardCard({ workboard, projectId }) {
     switch (format) {
       case 'ComfyUI': return 'ComfyUI API';
       case 'OpenAI Compatible': return 'OpenAI Compatible API';
+      case 'Gemini': return 'Gemini Image API';
+      case 'GPT Image': return 'GPT Image API';
       default: return format;
     }
   };
@@ -121,6 +135,15 @@ function WorkboardCard({ workboard, projectId }) {
             <Typography variant="caption" color="textSecondary">
               사용횟수: {workboard.usageCount || 0}회
             </Typography>
+          </Box>
+
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              ID: {workboard._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
           </Box>
 
           <Box display="flex" flexWrap="wrap" gap={0.5} mb={2}>
@@ -167,7 +190,7 @@ function WorkboardCard({ workboard, projectId }) {
           <Button
             size="small"
             variant="contained"
-            color={isComfyUI ? 'primary' : 'secondary'}
+            color={isImageWorkboard ? 'primary' : 'secondary'}
             onClick={handleSelect}
             startIcon={<PlayArrow />}
             sx={{ ml: 'auto' }}
@@ -184,6 +207,15 @@ function WorkboardCard({ workboard, projectId }) {
           <DialogContentText paragraph>
             {workboard.description || '설명이 없습니다.'}
           </DialogContentText>
+
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              작업판 ID: {workboard._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
+          </Box>
 
           <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
             <Chip
@@ -213,7 +245,7 @@ function WorkboardCard({ workboard, projectId }) {
             ))}
           </Box>
 
-          {isComfyUI && workboard.baseInputFields?.imageSizes?.length > 0 && (
+          {isImageWorkboard && workboard.baseInputFields?.imageSizes?.length > 0 && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 지원 이미지 크기
@@ -232,7 +264,7 @@ function WorkboardCard({ workboard, projectId }) {
             </>
           )}
 
-          {isComfyUI && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
+          {workboard.apiFormat === 'ComfyUI' && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 참고 이미지 사용 방식
@@ -251,7 +283,7 @@ function WorkboardCard({ workboard, projectId }) {
             </>
           )}
 
-          {!isComfyUI && workboard.baseInputFields?.systemPrompt && (
+          {workboard.apiFormat !== 'ComfyUI' && workboard.baseInputFields?.systemPrompt && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 시스템 프롬프트
@@ -288,7 +320,7 @@ function WorkboardCard({ workboard, projectId }) {
           <Button
             onClick={handleSelect}
             variant="contained"
-            color={isComfyUI ? 'primary' : 'secondary'}
+            color={isImageWorkboard ? 'primary' : 'secondary'}
             startIcon={<PlayArrow />}
           >
             선택하기
@@ -446,6 +478,8 @@ function Workboards() {
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+            <MenuItem value="Gemini">Gemini Image API</MenuItem>
+            <MenuItem value="GPT Image">GPT Image API</MenuItem>
           </Select>
         </FormControl>
       </Box>

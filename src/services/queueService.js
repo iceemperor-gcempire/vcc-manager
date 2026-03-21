@@ -5,6 +5,8 @@ const fs = require('fs');
 const crypto = require('crypto');
 const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
+const geminiService = require('./geminiService');
+const gptImageService = require('./gptImageService');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -121,93 +123,138 @@ const processImageGeneration = async (job) => {
   try {
     job.progress(5);
     
-    // 이미지 타입 필드들을 ComfyUI에 업로드
-    const uploadedImageMap = await uploadImageFieldsToComfyUI(
-      workboardData.serverUrl,
-      workboardData.additionalInputFields || [],
-      inputData
-    );
-    job.progress(15);
-    
-    let workflowJson, actualSeed;
-    try {
-      ({ workflowJson, actualSeed } = await injectInputsIntoWorkflow(
-        workboardData.workflowData,
-        inputData,
-        workboardData,
-        uploadedImageMap
-      ));
-    } catch (injectError) {
-      // 워크플로우 주입 실패 시 치환된 워크플로우 문자열을 저장하여 디버깅 가능하게 함
-      const resolvedString = injectError.resolvedWorkflowString || workboardData.workflowData;
+    let generationResult;
+    let enhancedInputData = { ...inputData };
+
+    if (workboardData.apiFormat === 'Gemini') {
+      const geminiImages = await loadImageInputs(
+        workboardData.additionalInputFields || [],
+        inputData
+      );
+      job.progress(20);
+
+      generationResult = await geminiService.generateImage(
+        workboardData.serverUrl,
+        workboardData.apiKey || process.env.GEMINI_API_KEY,
+        buildGeminiPrompt(inputData),
+        {
+          model: inputData.aiModel,
+          imageSize: extractOptionValue(inputData.imageSize),
+          aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
+          images: geminiImages,
+          timeout: workboardData.timeout
+        }
+      );
+      job.progress(90);
+    } else if (workboardData.apiFormat === 'GPT Image') {
+      generationResult = await gptImageService.generateImage(
+        workboardData.serverUrl,
+        workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
+        buildGeminiPrompt(inputData),
+        {
+          model: inputData.aiModel,
+          size: extractOptionValue(inputData.imageSize),
+          quality: extractOptionValue(
+            inputData.additionalParams?.quality || inputData.quality
+          ),
+          n: extractOptionValue(
+            inputData.additionalParams?.n || inputData.n
+          ) || 1,
+          outputFormat: extractOptionValue(
+            inputData.additionalParams?.outputFormat || inputData.outputFormat
+          ) || 'png',
+          timeout: workboardData.timeout
+        }
+      );
+      job.progress(90);
+    } else {
+      // 이미지 타입 필드들을 ComfyUI에 업로드
+      const uploadedImageMap = await uploadImageFieldsToComfyUI(
+        workboardData.serverUrl,
+        workboardData.additionalInputFields || [],
+        inputData
+      );
+      job.progress(15);
+
+      let workflowJson, actualSeed;
+      try {
+        ({ workflowJson, actualSeed } = await injectInputsIntoWorkflow(
+          workboardData.workflowData,
+          inputData,
+          workboardData,
+          uploadedImageMap
+        ));
+      } catch (injectError) {
+        // 워크플로우 주입 실패 시 치환된 워크플로우 문자열을 저장하여 디버깅 가능하게 함
+        const resolvedString = injectError.resolvedWorkflowString || workboardData.workflowData;
+        try {
+          await ImageGenerationJob.findByIdAndUpdate(jobId, {
+            resolvedWorkflowData: resolvedString
+          });
+        } catch (saveError) {
+          console.error(`⚠️ Failed to save workflow data for job ${jobId}:`, saveError.message);
+        }
+        throw injectError;
+      }
+      job.progress(20);
+
+      // resolved 워크플로우 JSON 저장 (전송 전 저장하여 실패한 작업도 확인 가능)
       try {
         await ImageGenerationJob.findByIdAndUpdate(jobId, {
-          resolvedWorkflowData: resolvedString
+          resolvedWorkflowData: JSON.stringify(workflowJson)
         });
       } catch (saveError) {
-        console.error(`⚠️ Failed to save workflow data for job ${jobId}:`, saveError.message);
+        console.error(`⚠️ Failed to save resolved workflow data for job ${jobId}:`, saveError.message);
       }
-      throw injectError;
-    }
-    job.progress(20);
 
-    // resolved 워크플로우 JSON 저장 (전송 전 저장하여 실패한 작업도 확인 가능)
-    try {
-      await ImageGenerationJob.findByIdAndUpdate(jobId, {
-        resolvedWorkflowData: JSON.stringify(workflowJson)
+      enhancedInputData = {
+        ...inputData,
+        seed: actualSeed
+      };
+
+      console.log(`🚀 Submitting workflow to ComfyUI for job ${jobId} with seed: ${actualSeed}`);
+      console.log(`🔗 ComfyUI Server URL: ${workboardData.serverUrl}`);
+      console.log(`📝 Workflow JSON preview:`, JSON.stringify(workflowJson).substring(0, 200) + '...');
+
+      generationResult = await comfyUIService.submitWorkflow(
+        workboardData.serverUrl,
+        workflowJson,
+        (progress) => job.progress(20 + (progress * 0.7))
+      );
+      job.progress(90);
+
+      console.log(`✅ ComfyUI workflow completed for job ${jobId}`);
+      console.log(`📊 ComfyUI result:`, {
+        hasImages: !!generationResult.images,
+        imageCount: generationResult.images?.length || 0,
+        hasVideos: !!generationResult.videos,
+        videoCount: generationResult.videos?.length || 0,
+        resultKeys: Object.keys(generationResult),
+        fullResult: generationResult
       });
-    } catch (saveError) {
-      console.error(`⚠️ Failed to save resolved workflow data for job ${jobId}:`, saveError.message);
     }
-
-    // 실제 사용된 시드 값을 inputData에 추가
-    const enhancedInputData = {
-      ...inputData,
-      seed: actualSeed
-    };
     
-    console.log(`🚀 Submitting workflow to ComfyUI for job ${jobId} with seed: ${actualSeed}`);
-    console.log(`🔗 ComfyUI Server URL: ${workboardData.serverUrl}`);
-    console.log(`📝 Workflow JSON preview:`, JSON.stringify(workflowJson).substring(0, 200) + '...');
-    
-    const comfyResult = await comfyUIService.submitWorkflow(
-      workboardData.serverUrl,
-      workflowJson,
-      (progress) => job.progress(20 + (progress * 0.7))
-    );
-    job.progress(90);
-    
-    console.log(`✅ ComfyUI workflow completed for job ${jobId}`);
-    console.log(`📊 ComfyUI result:`, {
-      hasImages: !!comfyResult.images,
-      imageCount: comfyResult.images?.length || 0,
-      hasVideos: !!comfyResult.videos,
-      videoCount: comfyResult.videos?.length || 0,
-      resultKeys: Object.keys(comfyResult),
-      fullResult: comfyResult
-    });
-    
-    const hasImages = comfyResult.images && comfyResult.images.length > 0;
-    const hasVideos = comfyResult.videos && comfyResult.videos.length > 0;
+    const hasImages = generationResult.images && generationResult.images.length > 0;
+    const hasVideos = generationResult.videos && generationResult.videos.length > 0;
     
     if (!hasImages && !hasVideos) {
-      console.error('❌ No images or videos returned from ComfyUI!');
-      console.error('🔍 Full ComfyUI result for debugging:', JSON.stringify(comfyResult, null, 2));
-      throw new Error('No media returned from ComfyUI');
+      console.error('❌ No images or videos returned from generation backend!');
+      console.error('🔍 Full generation result for debugging:', JSON.stringify(generationResult, null, 2));
+      throw new Error('No media returned from generation backend');
     }
     
     let savedImages = [];
     let savedVideos = [];
     
     if (hasImages) {
-      console.log(`💾 Starting to save ${comfyResult.images.length} images...`);
-      savedImages = await saveGeneratedMedia(jobId, comfyResult.images, enhancedInputData, 'image');
+      console.log(`💾 Starting to save ${generationResult.images.length} images...`);
+      savedImages = await saveGeneratedMedia(jobId, generationResult.images, enhancedInputData, 'image');
       console.log(`✅ Saved ${savedImages.length} images successfully`);
     }
     
     if (hasVideos) {
-      console.log(`🎬 Starting to save ${comfyResult.videos.length} videos...`);
-      savedVideos = await saveGeneratedMedia(jobId, comfyResult.videos, enhancedInputData, 'video');
+      console.log(`🎬 Starting to save ${generationResult.videos.length} videos...`);
+      savedVideos = await saveGeneratedMedia(jobId, generationResult.videos, enhancedInputData, 'video');
       console.log(`✅ Saved ${savedVideos.length} videos successfully`);
     }
     
@@ -218,6 +265,91 @@ const processImageGeneration = async (job) => {
     console.error(`Error processing job ${jobId}:`, error);
     throw error;
   }
+};
+
+const extractOptionValue = (value) => {
+  if (value && typeof value === 'object' && value.value !== undefined) {
+    return value.value;
+  }
+  return value;
+};
+
+const deriveAspectRatio = (imageSize) => {
+  if (!imageSize || typeof imageSize !== 'string') return undefined;
+
+  const match = imageSize.match(/^(\d+)x(\d+)$/i);
+  if (!match) return undefined;
+
+  const width = parseInt(match[1], 10);
+  const height = parseInt(match[2], 10);
+  if (!width || !height) return undefined;
+
+  const gcd = (a, b) => (b === 0 ? a : gcd(b, a % b));
+  const divisor = gcd(width, height);
+  return `${width / divisor}:${height / divisor}`;
+};
+
+const buildGeminiPrompt = (inputData) => {
+  const segments = [inputData.prompt];
+
+  if (inputData.negativePrompt) {
+    segments.push(`Avoid: ${inputData.negativePrompt}`);
+  }
+
+  return segments.filter(Boolean).join('\n\n');
+};
+
+const findImageDocumentById = async (imageId) => {
+  let imageDoc = await GeneratedImage.findById(imageId);
+  if (!imageDoc) {
+    imageDoc = await UploadedImage.findById(imageId);
+  }
+  return imageDoc;
+};
+
+const loadImageInput = async (imageId) => {
+  if (!imageId) return null;
+
+  const imageDoc = await findImageDocumentById(imageId);
+  if (!imageDoc?.path || !fs.existsSync(imageDoc.path)) {
+    return null;
+  }
+
+  const buffer = await fs.promises.readFile(imageDoc.path);
+  return {
+    buffer,
+    mimeType: imageDoc.mimeType,
+    filename: imageDoc.filename || path.basename(imageDoc.path)
+  };
+};
+
+const loadImageInputs = async (additionalInputFields, inputData) => {
+  const loadedImages = [];
+
+  if (Array.isArray(inputData.referenceImages)) {
+    for (const referenceImage of inputData.referenceImages) {
+      const loaded = await loadImageInput(referenceImage?.imageId);
+      if (loaded) {
+        loadedImages.push(loaded);
+      }
+    }
+  }
+
+  const imageFields = (additionalInputFields || []).filter((field) => field.type === 'image');
+  for (const field of imageFields) {
+    let fieldValue = inputData.additionalParams?.[field.name] || inputData[field.name];
+    if (!fieldValue) continue;
+
+    const values = Array.isArray(fieldValue) ? fieldValue : [fieldValue];
+    for (const entry of values) {
+      const loaded = await loadImageInput(entry?.imageId || entry);
+      if (loaded) {
+        loadedImages.push(loaded);
+      }
+    }
+  }
+
+  return loadedImages;
 };
 
 // 이미지 타입 필드들을 ComfyUI에 업로드하고 파일명 맵 반환
@@ -260,10 +392,7 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
       console.log(`🔍 Looking up image for field "${fieldName}": ${imageId}`);
       
       // 이미지 정보 조회 (GeneratedImage 또는 UploadedImage)
-      let imageDoc = await GeneratedImage.findById(imageId);
-      if (!imageDoc) {
-        imageDoc = await UploadedImage.findById(imageId);
-      }
+      const imageDoc = await findImageDocumentById(imageId);
       
       if (!imageDoc) {
         console.warn(`⚠️ Image not found for field "${fieldName}": ${imageId}`);
@@ -727,7 +856,7 @@ const updateJobProgress = async (jobId, progress) => {
 const addImageGenerationJob = async (userId, workboardId, inputData) => {
   try {
     const Workboard = require('../models/Workboard');
-    const workboard = await Workboard.findById(workboardId);
+    const workboard = await Workboard.findById(workboardId).populate('serverId');
     
     if (!workboard || !workboard.isActive) {
       throw new Error('Workboard not found or inactive');
@@ -745,7 +874,10 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
     const queueJob = await imageGenerationQueue.add('generateImage', {
       jobId: job._id.toString(),
       workboardData: {
+        apiFormat: workboard.apiFormat,
         serverUrl: workboard.serverUrl,
+        apiKey: workboard.serverId?.configuration?.apiKey,
+        timeout: workboard.serverId?.configuration?.timeout,
         workflowData: workboard.workflowData,
         additionalInputFields: workboard.additionalInputFields
       },

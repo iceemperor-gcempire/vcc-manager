@@ -246,7 +246,9 @@ router.post('/', requireAdmin, async (req, res) => {
 
     // apiFormat 기반으로 workboardType 자동 설정 (하위호환)
     const resolvedApiFormat = apiFormat || (workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI');
-    const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
+    const resolvedOutputFormat = ['Gemini', 'GPT Image'].includes(resolvedApiFormat)
+      ? 'image'
+      : outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
     const resolvedWorkboardType = workboardType || (resolvedApiFormat === 'OpenAI Compatible' ? 'prompt' : 'image');
     
     // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
@@ -287,7 +289,7 @@ router.post('/', requireAdmin, async (req, res) => {
       outputFormat: resolvedOutputFormat,
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
-      workflowData: resolvedApiFormat === 'OpenAI Compatible' ? '' : workflowData,
+      workflowData: ['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(resolvedApiFormat) ? '' : workflowData,
       createdBy: req.user._id
     });
     
@@ -362,14 +364,19 @@ router.put('/:id', requireAdmin, async (req, res) => {
       workboard.apiFormat = apiFormat;
       // workboardType도 동기화 (하위호환)
       workboard.workboardType = apiFormat === 'OpenAI Compatible' ? 'prompt' : 'image';
+      if (['Gemini', 'GPT Image'].includes(apiFormat)) {
+        workboard.outputFormat = 'image';
+      }
     } else if (workboardType) {
       workboard.workboardType = workboardType;
     }
-    if (outputFormat) workboard.outputFormat = outputFormat;
+    if (outputFormat) {
+      workboard.outputFormat = ['Gemini', 'GPT Image'].includes(workboard.apiFormat) ? 'image' : outputFormat;
+    }
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
-      workboard.workflowData = workboard.apiFormat === 'OpenAI Compatible' ? '' : workflowData;
+      workboard.workflowData = ['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(workboard.apiFormat) ? '' : workflowData;
       if (workboard.apiFormat === 'ComfyUI' && workflowData && !workboard.validateWorkflowData()) {
         return res.status(400).json({ message: 'Invalid workflow data format' });
       }

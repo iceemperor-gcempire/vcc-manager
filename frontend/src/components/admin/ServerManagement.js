@@ -75,8 +75,27 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
         return <Computer />;
       case 'OpenAI Compatible':
         return <TextFields />;
+      case 'Gemini':
+        return <Storage />;
+      case 'GPT Image':
+        return <Storage />;
       default:
         return <Storage />;
+    }
+  };
+
+  const getServerTypeLabel = (serverType) => {
+    switch (serverType) {
+      case 'ComfyUI':
+        return 'ComfyUI API';
+      case 'OpenAI Compatible':
+        return 'OpenAI Compatible API';
+      case 'Gemini':
+        return 'Gemini Image API';
+      case 'GPT Image':
+        return 'GPT Image API';
+      default:
+        return serverType;
     }
   };
 
@@ -118,7 +137,7 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
           <Box display="flex" alignItems="center" gap={1}>
             {getTypeIcon(server.serverType)}
             <Typography variant="body2">
-              <strong>AI API 형식:</strong> {server.serverType === 'ComfyUI' ? 'ComfyUI API' : 'OpenAI Compatible API'}
+              <strong>AI API 형식:</strong> {getServerTypeLabel(server.serverType)}
             </Typography>
           </Box>
           
@@ -326,6 +345,8 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 >
                   <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
                   <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
+                  <MenuItem value="Gemini">Gemini Image API</MenuItem>
+                  <MenuItem value="GPT Image">GPT Image API</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -349,7 +370,13 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 onChange={(e) => setFormData(prev => ({ ...prev, serverUrl: e.target.value }))}
                 error={!!errors.serverUrl}
                 helperText={errors.serverUrl}
-                placeholder="http://localhost:8188"
+                placeholder={
+                  formData.serverType === 'Gemini'
+                    ? 'https://generativelanguage.googleapis.com'
+                    : formData.serverType === 'GPT Image'
+                      ? 'https://api.openai.com'
+                      : 'http://localhost:8188'
+                }
                 required
               />
             </Grid>

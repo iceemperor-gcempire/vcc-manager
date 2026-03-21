@@ -45,6 +45,7 @@ import {
   DragIndicator,
   FileDownload,
   FileUpload,
+  Check,
   CheckCircle,
   Warning
 } from '@mui/icons-material';
@@ -59,6 +60,32 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const isInactive = !workboard.isActive;
+  const getApiFormatLabel = (format) => {
+    switch (format) {
+      case 'ComfyUI':
+        return 'ComfyUI API';
+      case 'OpenAI Compatible':
+        return 'OpenAI Compatible API';
+      case 'Gemini':
+        return 'Gemini Image API';
+      case 'GPT Image':
+        return 'GPT Image API';
+      default:
+        return format;
+    }
+  };
+  const getApiFormatColor = (format) => {
+    switch (format) {
+      case 'OpenAI Compatible':
+        return 'secondary';
+      case 'Gemini':
+        return 'info';
+      case 'GPT Image':
+        return 'success';
+      default:
+        return 'primary';
+    }
+  };
 
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
@@ -66,6 +93,15 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
   const handleMenuClose = () => {
     setAnchorEl(null);
+  };
+
+  const handleCopyWorkboardId = async () => {
+    try {
+      await navigator.clipboard.writeText(workboard._id);
+      toast.success('작업판 ID를 복사했습니다.');
+    } catch (error) {
+      toast.error('작업판 ID 복사에 실패했습니다.');
+    }
   };
 
   return (
@@ -122,10 +158,19 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           </Typography>
         </Box>
 
+        <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            ID: {workboard._id}
+          </Typography>
+          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+            <ContentCopy fontSize="inherit" />
+          </IconButton>
+        </Box>
+
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
-            label={workboard.apiFormat === 'OpenAI Compatible' ? 'OpenAI Compatible API' : 'ComfyUI API'}
-            color={workboard.apiFormat === 'OpenAI Compatible' ? 'secondary' : 'primary'}
+            label={getApiFormatLabel(workboard.apiFormat)}
+            color={getApiFormatColor(workboard.apiFormat)}
             size="small"
           />
           <Chip
@@ -215,6 +260,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [copiedVariable, setCopiedVariable] = useState('');
+  const copyResetTimerRef = React.useRef(null);
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
@@ -240,6 +287,52 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   const apiFormat = watch('apiFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
+  const isGemini = apiFormat === 'Gemini';
+  const isGptImage = apiFormat === 'GPT Image';
+  const isPromptFormat = apiFormat === 'OpenAI Compatible';
+  const isImageFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
+
+  React.useEffect(() => {
+    return () => {
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleCopyVariable = async (variable) => {
+    try {
+      await navigator.clipboard.writeText(variable);
+      setCopiedVariable(variable);
+
+      if (copyResetTimerRef.current) {
+        clearTimeout(copyResetTimerRef.current);
+      }
+      copyResetTimerRef.current = setTimeout(() => {
+        setCopiedVariable('');
+      }, 1500);
+    } catch (error) {
+      toast.error('변수 복사에 실패했습니다.');
+    }
+  };
+
+  const renderVariableRow = (variable, description, rowKey = variable) => (
+    <tr key={rowKey}>
+      <td>
+        <Box display="flex" alignItems="center" gap={1}>
+          <code>{variable}</code>
+          <IconButton
+            size="small"
+            onClick={() => handleCopyVariable(variable)}
+            aria-label={`${variable} 복사`}
+          >
+            {copiedVariable === variable ? <Check fontSize="small" color="success" /> : <ContentCopy fontSize="small" />}
+          </IconButton>
+        </Box>
+      </td>
+      <td>{description}</td>
+    </tr>
+  );
 
   // 관리자 전용 API로 완전한 데이터 로딩
   React.useEffect(() => {
@@ -387,23 +480,27 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       });
     }
 
-    const isComfyUIFormat = data.apiFormat === 'ComfyUI';
+    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
+    const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
+    const isPromptApiFormat = normalizedApiFormat === 'OpenAI Compatible';
+    const isImageApiFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      apiFormat: data.apiFormat || 'ComfyUI',
-      outputFormat: data.outputFormat || 'image',
+      apiFormat: normalizedApiFormat,
+      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image'),
       workflowData: !isComfyUIFormat ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: isComfyUIFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        imageSizes: isImageApiFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
         referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: !isComfyUIFormat ? (data.systemPrompt || '') : '',
-        referenceImages: !isComfyUIFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
-        temperature: !isComfyUIFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
-        maxTokens: !isComfyUIFormat ? (parseInt(data.maxTokens) || 2000) : undefined
+        systemPrompt: isPromptApiFormat ? (data.systemPrompt || '') : '',
+        referenceImages: isPromptApiFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
+        temperature: isPromptApiFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
+        maxTokens: isPromptApiFormat ? (parseInt(data.maxTokens) || 2000) : undefined
       },
       additionalInputFields
     };
@@ -430,6 +527,19 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </Box>
           ) : (
             <>
+          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+              작업판 ID: {workboard?._id}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => handleCopyVariable(workboard?._id)}
+              aria-label="작업판 ID 복사"
+              disabled={!workboard?._id}
+            >
+              {copiedVariable === workboard?._id ? <Check fontSize="small" color="success" /> : <ContentCopy fontSize="small" />}
+            </IconButton>
+          </Box>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
@@ -506,7 +616,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     render={({ field }) => (
                                       <TextField
                                         {...field}
-                                        label={apiFormat === 'OpenAI Compatible' ? '모델 ID (예: gpt-4)' : '모델 파일 경로'}
+                                        label={
+                                          apiFormat === 'OpenAI Compatible'
+                                            ? '모델 ID (예: gpt-4)'
+                                            : apiFormat === 'Gemini'
+                                              ? '모델 ID (예: gemini-2.5-flash-image)'
+                                              : apiFormat === 'GPT Image'
+                                                ? '모델 ID (예: gpt-image-1.5)'
+                                              : '모델 파일 경로'
+                                        }
                                         size="small"
                                         sx={{ flex: 2 }}
                                       />
@@ -535,7 +653,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               </Accordion>
 
               {/* 프롬프트 작업판 전용 설정 */}
-              {!isComfyUI && (
+              {isPromptFormat && (
                 <>
                   <Accordion defaultExpanded>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -667,7 +785,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               )}
 
               {/* 이미지 작업판 전용 설정 */}
-              {isComfyUI && (
+              {isImageFormat && (
                 <>
                   <Accordion>
                     <AccordionSummary expandIcon={<ExpandMore />}>
@@ -679,9 +797,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           <Typography variant="body2" color="textSecondary">
                             이미지 생성 크기 옵션들을 설정합니다.
                           </Typography>
-                          <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                            Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
-                          </Typography>
+                          {isComfyUI && (
+                            <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
+                              Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
+                            </Typography>
+                          )}
                         </Box>
                         <Button
                           startIcon={<Add />}
@@ -729,7 +849,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     </AccordionDetails>
                   </Accordion>
 
-                  <Accordion>
+                  {isComfyUI && (
+                    <Accordion>
                     <AccordionSummary expandIcon={<ExpandMore />}>
                       <Typography variant="h6">참고 이미지 사용방식</Typography>
                     </AccordionSummary>
@@ -787,7 +908,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         </Box>
                       ))}
                     </AccordionDetails>
-                  </Accordion>
+                    </Accordion>
+                  )}
                 </>
               )}
             </Box>
@@ -1333,33 +1455,33 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>기본 변수</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##prompt##}}'}</code></td><td>프롬프트 (문자열)</td></tr>
-                      <tr><td><code>{'{{##negative_prompt##}}'}</code></td><td>네거티브 프롬프트 (문자열)</td></tr>
-                      <tr><td><code>{'{{##model##}}'}</code></td><td>AI 모델 (문자열)</td></tr>
-                      <tr><td><code>{'{{##width##}}'}</code></td><td>이미지 너비 (숫자)</td></tr>
-                      <tr><td><code>{'{{##height##}}'}</code></td><td>이미지 높이 (숫자)</td></tr>
-                      <tr><td><code>{'{{##seed##}}'}</code></td><td>시드값 (숫자, 64비트)</td></tr>
+                      {renderVariableRow('{{##prompt##}}', '프롬프트 (문자열)')}
+                      {renderVariableRow('{{##negative_prompt##}}', '네거티브 프롬프트 (문자열)')}
+                      {renderVariableRow('{{##model##}}', 'AI 모델 (문자열)')}
+                      {renderVariableRow('{{##width##}}', '이미지 너비 (숫자)')}
+                      {renderVariableRow('{{##height##}}', '이미지 높이 (숫자)')}
+                      {renderVariableRow('{{##seed##}}', '시드값 (숫자, 64비트)')}
                     </tbody>
                   </Box>
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>샘플링 파라미터</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##steps##}}'}</code></td><td>스텝 수 (숫자, 기본값: 20)</td></tr>
-                      <tr><td><code>{'{{##cfg##}}'}</code></td><td>CFG 스케일 (숫자, 기본값: 7)</td></tr>
-                      <tr><td><code>{'{{##sampler##}}'}</code></td><td>샘플러 (문자열, 기본값: euler)</td></tr>
-                      <tr><td><code>{'{{##scheduler##}}'}</code></td><td>스케줄러 (문자열, 기본값: normal)</td></tr>
+                      {renderVariableRow('{{##steps##}}', '스텝 수 (숫자, 기본값: 20)')}
+                      {renderVariableRow('{{##cfg##}}', 'CFG 스케일 (숫자, 기본값: 7)')}
+                      {renderVariableRow('{{##sampler##}}', '샘플러 (문자열, 기본값: euler)')}
+                      {renderVariableRow('{{##scheduler##}}', '스케줄러 (문자열, 기본값: normal)')}
                     </tbody>
                   </Box>
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>추가 기능</Typography>
                   <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                     <tbody>
-                      <tr><td><code>{'{{##reference_method##}}'}</code></td><td>참조 이미지 방식 (문자열)</td></tr>
-                      <tr><td><code>{'{{##upscale_method##}}'}</code></td><td>업스케일 방식 (문자열)</td></tr>
-                      <tr><td><code>{'{{##upscale##}}'}</code></td><td>업스케일 방식 별칭 (문자열)</td></tr>
-                      <tr><td><code>{'{{##base_style##}}'}</code></td><td>기본 스타일 (문자열)</td></tr>
-                      <tr><td><code>{'{{##user_id##}}'}</code></td><td>사용자 ID 해시 (문자열, 8자리)</td></tr>
+                      {renderVariableRow('{{##reference_method##}}', '참조 이미지 방식 (문자열)')}
+                      {renderVariableRow('{{##upscale_method##}}', '업스케일 방식 (문자열)')}
+                      {renderVariableRow('{{##upscale##}}', '업스케일 방식 별칭 (문자열)')}
+                      {renderVariableRow('{{##base_style##}}', '기본 스타일 (문자열)')}
+                      {renderVariableRow('{{##user_id##}}', '사용자 ID 해시 (문자열, 8자리)')}
                     </tbody>
                   </Box>
 
@@ -1369,10 +1491,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       <tbody>
                         {watch('additionalCustomFields').map((field, idx) => (
                           field.name && (
-                            <tr key={idx}>
-                              <td><code>{field.formatString || `{{##${field.name}##}}`}</code></td>
-                              <td>{field.label || field.name} ({field.type === 'number' ? '숫자' : field.type === 'select' ? '선택' : field.type === 'image' ? '이미지' : '문자열'})</td>
-                            </tr>
+                            renderVariableRow(
+                              field.formatString || `{{##${field.name}##}}`,
+                              `${field.label || field.name} (${field.type === 'number' ? '숫자' : field.type === 'select' ? '선택' : field.type === 'image' ? '이미지' : '문자열'})`,
+                              `custom-${idx}`
+                            )
                           )
                         ))}
                       </tbody>
@@ -1392,23 +1515,35 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </AccordionDetails>
               </Accordion>
 
-              <Controller
-                name="workflowData"
-                control={control}
-                rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    fullWidth
-                    multiline
-                    rows={20}
-                    label="ComfyUI Workflow JSON"
-                    error={!!errors.workflowData}
-                    helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                    sx={{ fontFamily: 'monospace' }}
-                  />
-                )}
-              />
+              {isComfyUI && (
+                <Controller
+                  name="workflowData"
+                  control={control}
+                  rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
+                  render={({ field }) => (
+                    <TextField
+                      {...field}
+                      fullWidth
+                      multiline
+                      rows={20}
+                      label="ComfyUI Workflow JSON"
+                      error={!!errors.workflowData}
+                      helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
+                      sx={{ fontFamily: 'monospace' }}
+                    />
+                  )}
+                />
+              )}
+              {isGemini && (
+                <Alert severity="info">
+                  Gemini 작업판은 워크플로우 JSON 없이 REST API로 이미지를 생성합니다.
+                </Alert>
+              )}
+              {isGptImage && (
+                <Alert severity="info">
+                  GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
+                </Alert>
+              )}
             </Box>
           )}
             </>
@@ -1970,13 +2105,23 @@ function WorkboardManagement() {
   };
 
   const handleSave = (data) => {
+    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
+    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    const normalizedData = {
+      ...data,
+      apiFormat: normalizedApiFormat,
+      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image')
+    };
+
     if (selectedWorkboard) {
-      updateMutation.mutate({ id: selectedWorkboard._id, data });
+      updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      const isOpenAI = data.apiFormat === 'OpenAI Compatible';
+      const isOpenAI = normalizedApiFormat === 'OpenAI Compatible';
+      const isGeminiApi = normalizedApiFormat === 'Gemini';
+      const isGptImageApi = normalizedApiFormat === 'GPT Image';
 
       const workboardData = {
-        ...data,
+        ...normalizedData,
         baseInputFields: isOpenAI ? {
           aiModel: [
             { key: 'GPT-4', value: 'gpt-4' },
@@ -1984,6 +2129,30 @@ function WorkboardManagement() {
           ],
           systemPrompt: '',
           referenceImages: []
+        } : isGeminiApi ? {
+          aiModel: [
+            { key: 'Nano Banana', value: 'gemini-2.5-flash-image' },
+            { key: 'Nano Banana Pro', value: 'gemini-3-pro-image-preview' },
+            { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
+          ],
+          imageSizes: [
+            { key: '1024x1024', value: '1024x1024' },
+            { key: '1024x1536', value: '1024x1536' },
+            { key: '1536x1024', value: '1536x1024' }
+          ],
+          referenceImageMethods: []
+        } : isGptImageApi ? {
+          aiModel: [
+            { key: 'GPT Image 1.5', value: 'gpt-image-1.5' },
+            { key: 'GPT Image 1', value: 'gpt-image-1' },
+            { key: 'GPT Image 1 Mini', value: 'gpt-image-1-mini' }
+          ],
+          imageSizes: [
+            { key: '1024x1024', value: '1024x1024' },
+            { key: '1024x1536', value: '1024x1536' },
+            { key: '1536x1024', value: '1536x1024' }
+          ],
+          referenceImageMethods: []
         } : {
           aiModel: [
             { key: 'Default Model', value: 'default.safetensors' }
@@ -2002,8 +2171,22 @@ function WorkboardManagement() {
             { key: 'ControlNet Canny', value: 'controlnet_canny' }
           ]
         },
-        additionalInputFields: [],
-        workflowData: isOpenAI ? '' : JSON.stringify({
+        additionalInputFields: isGptImageApi ? [
+          {
+            name: 'quality',
+            label: '품질',
+            type: 'select',
+            required: true,
+            defaultValue: 'medium',
+            options: [
+              { key: 'Low', value: 'low' },
+              { key: 'Medium', value: 'medium' },
+              { key: 'High', value: 'high' }
+            ],
+            description: 'GPT Image 생성 품질을 선택합니다.'
+          }
+        ] : [],
+        workflowData: (isOpenAI || isGeminiApi || isGptImageApi) ? '' : JSON.stringify({
           "prompt": "{{##prompt##}}",
           "negative_prompt": "{{##negative_prompt##}}",
           "model": "{{##model##}}",
@@ -2061,6 +2244,8 @@ function WorkboardManagement() {
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+            <MenuItem value="Gemini">Gemini</MenuItem>
+            <MenuItem value="GPT Image">GPT Image</MenuItem>
           </Select>
         </FormControl>
         <FormControl sx={{ minWidth: 150 }}>
