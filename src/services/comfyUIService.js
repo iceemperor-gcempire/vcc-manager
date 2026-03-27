@@ -358,7 +358,8 @@ const getLoraModels = async (serverUrl) => {
     const loraLoader = response.data?.LoraLoader;
     
     if (loraLoader && loraLoader.input && loraLoader.input.required && loraLoader.input.required.lora_name) {
-      return loraLoader.input.required.lora_name[0] || [];
+      const models = loraLoader.input.required.lora_name[0] || [];
+      return [...models].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }
     
     return [];
@@ -373,7 +374,8 @@ const getCheckpointModels = async (serverUrl) => {
     const checkpointLoader = response.data?.CheckpointLoaderSimple;
 
     if (checkpointLoader && checkpointLoader.input && checkpointLoader.input.required && checkpointLoader.input.required.ckpt_name) {
-      return checkpointLoader.input.required.ckpt_name[0] || [];
+      const models = checkpointLoader.input.required.ckpt_name[0] || [];
+      return [...models].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
     }
 
     return [];
