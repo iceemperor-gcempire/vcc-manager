@@ -571,44 +571,48 @@ function ImageGeneration() {
           if (!inputValue) return;
 
           if (key === 'aiModel' && workboardData.baseInputFields?.aiModel) {
-            // AI 모델 매칭: 우선 값으로, 없으면 키로 매칭
-            let matchedValue = null;
-
-            if (typeof inputValue === 'object' && inputValue.value) {
-              // 키-값 객체인 경우, 먼저 값으로 매칭
-              matchedValue = workboardData.baseInputFields.aiModel.find(
-                model => model.value === inputValue.value
-              )?.value;
-
-              // 값 매칭 실패 시 키로 매칭
-              if (!matchedValue) {
-                matchedValue = workboardData.baseInputFields.aiModel.find(
-                  model => model.key === inputValue.key
-                )?.value;
-              }
-            } else if (typeof inputValue === 'string') {
-              // 문자열인 경우, 먼저 값으로 매칭
-              matchedValue = workboardData.baseInputFields.aiModel.find(
-                model => model.value === inputValue
-              )?.value;
-
-              // 값 매칭 실패 시 키로 매칭
-              if (!matchedValue) {
-                matchedValue = workboardData.baseInputFields.aiModel.find(
-                  model => model.key === inputValue
-                )?.value;
-              }
-            }
-
-            if (matchedValue) {
-              safeSetValue(key, matchedValue);
-
-              if (typeof inputValue === 'object' && inputValue.key === 'UserSelected' && inputValue.value) {
-                setSelectedCheckpointModel(inputValue.value);
-              }
-            } else {
-              console.warn(`AI model ${JSON.stringify(inputValue)} not found in workboard, using default`);
+            // UserSelected 모델 (모델 브라우저에서 선택한 체크포인트) 복원
+            if (typeof inputValue === 'object' && inputValue.key === 'UserSelected' && inputValue.value) {
+              setSelectedCheckpointModel(inputValue.value);
+              // 드롭다운은 첫 번째 기본값으로 설정 (표시는 selectedCheckpointModel이 담당)
               safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
+              console.log('🤖 AI Model restored (UserSelected):', inputValue.value);
+            } else {
+              // AI 모델 매칭: 우선 값으로, 없으면 키로 매칭
+              let matchedValue = null;
+
+              if (typeof inputValue === 'object' && inputValue.value) {
+                // 키-값 객체인 경우, 먼저 값으로 매칭
+                matchedValue = workboardData.baseInputFields.aiModel.find(
+                  model => model.value === inputValue.value
+                )?.value;
+
+                // 값 매칭 실패 시 키로 매칭
+                if (!matchedValue) {
+                  matchedValue = workboardData.baseInputFields.aiModel.find(
+                    model => model.key === inputValue.key
+                  )?.value;
+                }
+              } else if (typeof inputValue === 'string') {
+                // 문자열인 경우, 먼저 값으로 매칭
+                matchedValue = workboardData.baseInputFields.aiModel.find(
+                  model => model.value === inputValue
+                )?.value;
+
+                // 값 매칭 실패 시 키로 매칭
+                if (!matchedValue) {
+                  matchedValue = workboardData.baseInputFields.aiModel.find(
+                    model => model.key === inputValue
+                  )?.value;
+                }
+              }
+
+              if (matchedValue) {
+                safeSetValue(key, matchedValue);
+              } else {
+                console.warn(`AI model ${JSON.stringify(inputValue)} not found in workboard, using default`);
+                safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
+              }
             }
 
           } else if (key === 'imageSize' && workboardData.baseInputFields?.imageSizes) {
