@@ -528,9 +528,11 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             </Box>
             <Box>
               <Typography variant="caption" color="textSecondary" display="block">AI 모델</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
-                  ? job.inputData.aiModel.key
+                  ? (job.inputData.aiModel.key === 'UserSelected'
+                    ? job.inputData.aiModel.value?.split(/[/\\]/).pop() || 'UserSelected'
+                    : job.inputData.aiModel.key)
                   : job.inputData?.aiModel || '-'}
               </Typography>
             </Box>
@@ -701,9 +703,11 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="textSecondary">AI 모델</Typography>
-            <Typography variant="body1">
+            <Typography variant="body1" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''}>
               {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
-                ? job.inputData.aiModel.key
+                ? (job.inputData.aiModel.key === 'UserSelected'
+                  ? job.inputData.aiModel.value?.split(/[/\\]/).pop() || 'UserSelected'
+                  : job.inputData.aiModel.key)
                 : job.inputData?.aiModel || '-'}
             </Typography>
           </Grid>
