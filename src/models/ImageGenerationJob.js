@@ -46,7 +46,7 @@ const imageGenerationJobSchema = new mongoose.Schema({
   },
   workflowData: {
     type: String,
-    required: true
+    default: ''
   },
   resolvedWorkflowData: {
     type: String,

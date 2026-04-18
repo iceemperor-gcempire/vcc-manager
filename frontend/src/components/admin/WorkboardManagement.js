@@ -2136,9 +2136,12 @@ function WorkboardManagement() {
             { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
           ],
           imageSizes: [
-            { key: '1024x1024', value: '1024x1024' },
-            { key: '1024x1536', value: '1024x1536' },
-            { key: '1536x1024', value: '1536x1024' }
+            { key: '정사각 (1:1)', value: '1:1' },
+            { key: '가로 와이드 (16:9)', value: '16:9' },
+            { key: '세로 와이드 (9:16)', value: '9:16' },
+            { key: '가로 (4:3)', value: '4:3' },
+            { key: '세로 (3:4)', value: '3:4' },
+            { key: '영화 (21:9)', value: '21:9' }
           ],
           referenceImageMethods: []
         } : isGptImageApi ? {
@@ -2184,6 +2187,20 @@ function WorkboardManagement() {
               { key: 'High', value: 'high' }
             ],
             description: 'GPT Image 생성 품질을 선택합니다.'
+          }
+        ] : isGeminiApi ? [
+          {
+            name: 'resolution',
+            label: '해상도',
+            type: 'select',
+            required: true,
+            defaultValue: '2K',
+            options: [
+              { key: '1K (기본)', value: '1K' },
+              { key: '2K', value: '2K' },
+              { key: '4K', value: '4K' }
+            ],
+            description: 'Gemini 이미지 출력 해상도를 선택합니다.'
           }
         ] : [],
         workflowData: (isOpenAI || isGeminiApi || isGptImageApi) ? '' : JSON.stringify({
