@@ -2,6 +2,11 @@ const axios = require('axios');
 
 const DEFAULT_SERVER_URL = 'https://generativelanguage.googleapis.com';
 
+const SUPPORTED_ASPECT_RATIOS = new Set([
+  '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'
+]);
+const SUPPORTED_RESOLUTIONS = new Set(['1K', '2K', '4K']);
+
 const extractValue = (input) => {
   if (input && typeof input === 'object' && input.value !== undefined) {
     return input.value;
@@ -9,18 +14,19 @@ const extractValue = (input) => {
   return input;
 };
 
-const buildPromptText = (prompt, options = {}) => {
-  const lines = [prompt];
+const buildImageConfig = (options) => {
+  const config = {};
+  const aspectRatio = extractValue(options.aspectRatio);
+  const resolution = extractValue(options.resolution);
 
-  if (options.aspectRatio) {
-    lines.push(`Aspect ratio: ${options.aspectRatio}`);
+  if (typeof aspectRatio === 'string' && SUPPORTED_ASPECT_RATIOS.has(aspectRatio)) {
+    config.aspectRatio = aspectRatio;
+  }
+  if (typeof resolution === 'string' && SUPPORTED_RESOLUTIONS.has(resolution)) {
+    config.imageSize = resolution;
   }
 
-  if (options.imageSize) {
-    lines.push(`Target image size: ${options.imageSize}`);
-  }
-
-  return lines.filter(Boolean).join('\n');
+  return config;
 };
 
 const getExtensionFromMimeType = (mimeType = '') => {
@@ -55,20 +61,21 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
     });
   }
 
-  parts.push({
-    text: buildPromptText(prompt, {
-      aspectRatio: options.aspectRatio,
-      imageSize: options.imageSize
-    })
-  });
+  parts.push({ text: prompt });
+
+  const generationConfig = {
+    responseModalities: ['TEXT', 'IMAGE']
+  };
+  const imageConfig = buildImageConfig(options);
+  if (Object.keys(imageConfig).length > 0) {
+    generationConfig.imageConfig = imageConfig;
+  }
 
   const response = await axios.post(
     `${resolvedServerUrl}/v1beta/models/${model}:generateContent`,
     {
       contents: [{ parts }],
-      generationConfig: {
-        responseModalities: ['TEXT', 'IMAGE']
-      }
+      generationConfig
     },
     {
       params: { key: apiKey },
