@@ -81,10 +81,10 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
 
   const partsList = response.data?.candidates?.[0]?.content?.parts || [];
   const images = partsList
-    .filter((part) => part.inline_data?.data)
+    .filter((part) => part.inlineData?.data)
     .map((part, index) => {
-      const mimeType = part.inline_data.mime_type || 'image/png';
-      const buffer = Buffer.from(part.inline_data.data, 'base64');
+      const mimeType = part.inlineData.mimeType || 'image/png';
+      const buffer = Buffer.from(part.inlineData.data, 'base64');
       const extension = getExtensionFromMimeType(mimeType);
       const filename = `gemini_${Date.now()}_${index}.${extension}`;
 
