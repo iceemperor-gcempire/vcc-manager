@@ -139,8 +139,8 @@ const processImageGeneration = async (job) => {
         buildGeminiPrompt(inputData),
         {
           model: inputData.aiModel,
-          imageSize: extractOptionValue(inputData.imageSize),
           aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
+          resolution: extractOptionValue(inputData.additionalParams?.resolution),
           images: geminiImages,
           timeout: workboardData.timeout
         }
@@ -276,6 +276,8 @@ const extractOptionValue = (value) => {
 
 const deriveAspectRatio = (imageSize) => {
   if (!imageSize || typeof imageSize !== 'string') return undefined;
+
+  if (/^\d+:\d+$/.test(imageSize)) return imageSize;
 
   const match = imageSize.match(/^(\d+)x(\d+)$/i);
   if (!match) return undefined;
