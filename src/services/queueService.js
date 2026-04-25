@@ -163,6 +163,8 @@ const processImageGeneration = async (job) => {
           outputFormat: extractOptionValue(
             inputData.additionalParams?.outputFormat || inputData.outputFormat
           ) || 'png',
+          background: extractOptionValue(inputData.additionalParams?.background),
+          outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
           timeout: workboardData.timeout
         }
       );
