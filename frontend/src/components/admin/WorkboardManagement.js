@@ -1560,32 +1560,30 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   );
 }
 
-function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
-  const isEditing = !!workboard;
-  
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm({
+function WorkboardCreateDialog({ open, onClose, onSave }) {
+  const { control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
-      name: workboard?.name || '',
-      description: workboard?.description || '',
-      apiFormat: workboard?.apiFormat || 'ComfyUI',
-      outputFormat: workboard?.outputFormat || 'image',
-      serverId: workboard?.serverId?._id || '',
-      isActive: workboard?.isActive ?? true
+      name: '',
+      description: '',
+      apiFormat: 'ComfyUI',
+      outputFormat: 'image',
+      serverId: '',
+      isActive: true
     }
   });
 
   React.useEffect(() => {
     if (open) {
       reset({
-        name: workboard?.name || '',
-        description: workboard?.description || '',
-        apiFormat: workboard?.apiFormat || (workboard?.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
-        outputFormat: workboard?.outputFormat || (workboard?.workboardType === 'prompt' ? 'text' : 'image'),
-        serverId: workboard?.serverId?._id || '',
-        isActive: workboard?.isActive ?? true
+        name: '',
+        description: '',
+        apiFormat: 'ComfyUI',
+        outputFormat: 'image',
+        serverId: '',
+        isActive: true
       });
     }
-  }, [open, workboard, reset]);
+  }, [open, reset]);
 
   const onSubmit = (data) => {
     onSave(data);
@@ -1593,34 +1591,25 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {isEditing ? '작업판 편집' : '새 작업판 생성'}
-      </DialogTitle>
+      <DialogTitle>새 작업판 생성</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <WorkboardBasicInfoForm
             control={control}
             errors={errors}
             showActiveSwitch={false}
-            showTypeSelector={!isEditing}
+            showTypeSelector={true}
             isDialogOpen={open}
           />
 
-          {!isEditing && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
-              생성 후 상세 편집에서 추가할 수 있습니다.
-            </Alert>
-          )}
+          <Alert severity="info" sx={{ mt: 2 }}>
+            기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은
+            생성 후 편집에서 추가할 수 있습니다.
+          </Alert>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>취소</Button>
-          <Button 
-            type="submit" 
-            variant="contained"
-          >
-            {isEditing ? '수정' : '생성'}
-          </Button>
+          <Button type="submit" variant="contained">생성</Button>
         </DialogActions>
       </form>
     </Dialog>
@@ -2329,10 +2318,9 @@ function WorkboardManagement() {
         </Grid>
       )}
 
-      <WorkboardDialog
+      <WorkboardCreateDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        workboard={selectedWorkboard}
         onSave={handleSave}
       />
 
