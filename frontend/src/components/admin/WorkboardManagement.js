@@ -38,7 +38,6 @@ import {
   VisibilityOff,
   Computer,
   TrendingUp,
-  Settings,
   ExpandMore,
   ToggleOn,
   ToggleOff,
@@ -211,13 +210,9 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           <Visibility sx={{ mr: 1 }} fontSize="small" />
           보기
         </MenuItem>
-        <MenuItem onClick={() => { onEdit(workboard); handleMenuClose(); }}>
+        <MenuItem onClick={() => { onEdit(workboard, 'detailed'); handleMenuClose(); }}>
           <Edit sx={{ mr: 1 }} fontSize="small" />
           편집
-        </MenuItem>
-        <MenuItem onClick={() => { onEdit(workboard, 'detailed'); handleMenuClose(); }}>
-          <Settings sx={{ mr: 1 }} fontSize="small" />
-          상세 편집
         </MenuItem>
         <MenuItem onClick={() => { onDuplicate(workboard); handleMenuClose(); }}>
           <ContentCopy sx={{ mr: 1 }} fontSize="small" />
