@@ -1540,9 +1540,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </Alert>
               )}
               {isGptImage && (
-                <Alert severity="info">
-                  GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
-                </Alert>
+                <>
+                  <Alert severity="info">
+                    GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
+                  </Alert>
+                  <Alert severity="warning" sx={{ mt: 1 }}>
+                    <strong>gpt-image-2</strong> 모델은 OpenAI 조직 인증(Verify Organization) 완료 후 약 15분 뒤부터 사용 가능합니다. 인증 페이지: <a href="https://platform.openai.com/settings/organization/general" target="_blank" rel="noopener noreferrer">platform.openai.com/settings/organization/general</a>
+                  </Alert>
+                </>
               )}
             </Box>
           )}
@@ -2146,11 +2151,13 @@ function WorkboardManagement() {
           referenceImageMethods: []
         } : isGptImageApi ? {
           aiModel: [
+            { key: 'GPT Image 2 (조직 인증 필요)', value: 'gpt-image-2' },
             { key: 'GPT Image 1.5', value: 'gpt-image-1.5' },
             { key: 'GPT Image 1', value: 'gpt-image-1' },
             { key: 'GPT Image 1 Mini', value: 'gpt-image-1-mini' }
           ],
           imageSizes: [
+            { key: '자동 (auto)', value: 'auto' },
             { key: '1024x1024', value: '1024x1024' },
             { key: '1024x1536', value: '1024x1536' },
             { key: '1536x1024', value: '1536x1024' }
@@ -2180,13 +2187,34 @@ function WorkboardManagement() {
             label: '품질',
             type: 'select',
             required: true,
-            defaultValue: 'medium',
+            defaultValue: 'auto',
             options: [
+              { key: 'Auto', value: 'auto' },
               { key: 'Low', value: 'low' },
               { key: 'Medium', value: 'medium' },
               { key: 'High', value: 'high' }
             ],
             description: 'GPT Image 생성 품질을 선택합니다.'
+          },
+          {
+            name: 'background',
+            label: '배경',
+            type: 'select',
+            required: false,
+            defaultValue: 'opaque',
+            options: [
+              { key: '불투명 (opaque)', value: 'opaque' },
+              { key: '투명 (transparent)', value: 'transparent' }
+            ],
+            description: 'gpt-image-2 전용. 투명 배경으로 출력하려면 transparent. 다른 모델에서는 무시됨.'
+          },
+          {
+            name: 'output_compression',
+            label: '출력 압축률',
+            type: 'number',
+            required: false,
+            defaultValue: 100,
+            description: 'gpt-image-2 의 JPEG/WebP 출력 시 압축률 (1-100). PNG 에는 영향 없음. 다른 모델에서는 무시됨.'
           }
         ] : isGeminiApi ? [
           {
