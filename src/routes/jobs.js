@@ -1,7 +1,7 @@
 const express = require('express');
-const axios = require('axios');
 const { requireAuth } = require('../middleware/auth');
 const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
+const openAIChatService = require('../services/openAIChatService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
@@ -408,49 +408,16 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       messages.push({ role: 'system', content: systemPrompt });
     }
     messages.push({ role: 'user', content: inputData.userPrompt });
-    
-    const apiUrl = `${server.serverUrl}/v1/chat/completions`;
-    const requestBody = {
-      model,
+
+    const { content: result, usage } = await openAIChatService.complete(
+      server.serverUrl,
+      server.configuration?.apiKey,
       messages,
-      temperature,
-      max_tokens: maxTokens
-    };
-    
-    const headers = {
-      'Content-Type': 'application/json'
-    };
-    
-    if (server.configuration?.apiKey) {
-      headers['Authorization'] = `Bearer ${server.configuration.apiKey}`;
-    }
-    
-    const response = await axios.post(apiUrl, requestBody, { headers, timeout: 60000 });
-    
-    console.log('LLM API response:', JSON.stringify(response.data, null, 2));
-    
-    if (!response.data?.choices || !Array.isArray(response.data.choices) || response.data.choices.length === 0) {
-      console.error('Invalid LLM response structure:', response.data);
-      return res.status(502).json({
-        message: response.data?.error?.message || 'LLM 서버에서 유효한 응답을 받지 못했습니다. 서버 URL과 설정을 확인해주세요.'
-      });
-    }
-    
-    const result = response.data.choices[0]?.message?.content || '';
-    if (!result) {
-      return res.status(502).json({
-        message: 'LLM 서버에서 빈 응답을 반환했습니다.'
-      });
-    }
-    
-    const usage = {
-      promptTokens: response.data?.usage?.prompt_tokens || 0,
-      completionTokens: response.data?.usage?.completion_tokens || 0,
-      totalTokens: response.data?.usage?.total_tokens || 0
-    };
-    
+      { model, temperature, maxTokens, timeout: 60000 }
+    );
+
     await workboard.incrementUsage();
-    
+
     res.json({
       success: true,
       result,
@@ -459,14 +426,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Prompt generation error:', error);
-    
-    if (error.response) {
-      return res.status(error.response.status).json({
-        message: error.response.data?.error?.message || 'API request failed'
-      });
-    }
-    
-    res.status(500).json({ message: error.message });
+    res.status(502).json({ message: error.message });
   }
 });
 
