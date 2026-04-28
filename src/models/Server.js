@@ -13,7 +13,9 @@ const serverSchema = new mongoose.Schema({
   },
   serverType: {
     type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
+    // 'GPT Image' 는 deprecated — Phase 2 마이그레이션으로 'OpenAI' 로 전환됨.
+    // enum 에는 다음 메이저까지 잔존시켜 stale 문서가 있어도 Mongoose 검증 실패가 안 나도록 함.
+    enum: ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
     required: true
   },
   serverUrl: {
@@ -32,11 +34,6 @@ const serverSchema = new mongoose.Schema({
       },
       message: '올바른 URL 형식이 아닙니다.'
     }
-  },
-  outputType: {
-    type: String,
-    enum: ['Image', 'Video', 'Text'],
-    required: false
   },
   isActive: {
     type: Boolean,
@@ -87,14 +84,13 @@ serverSchema.methods.checkHealth = async function() {
       case 'ComfyUI':
         healthEndpoint = `${this.serverUrl}/system_stats`;
         break;
+      case 'OpenAI':
       case 'OpenAI Compatible':
+      case 'GPT Image': // deprecated — Phase 2 후 데이터는 'OpenAI' 로 마이그레이션됨
         healthEndpoint = `${this.serverUrl}/v1/models`;
         break;
       case 'Gemini':
         healthEndpoint = `${this.serverUrl}/v1beta/models`;
-        break;
-      case 'GPT Image':
-        healthEndpoint = `${this.serverUrl}/v1/models`;
         break;
       default:
         healthEndpoint = this.serverUrl;

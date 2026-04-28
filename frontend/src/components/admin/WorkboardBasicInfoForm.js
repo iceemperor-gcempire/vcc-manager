@@ -34,10 +34,13 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
     }
   };
 
+  // 'GPT Image' apiFormat 은 deprecated — Phase 2 마이그레이션 이후 서버는 'OpenAI' 로 저장됨.
+  // workboard.apiFormat 은 deprecation 기간 동안 그대로 유지되므로 서버 조회 시에만 매핑.
+  const apiFormatToServerType = (af) => (af === 'GPT Image' ? 'OpenAI' : af);
   const { data: serversData } = useQuery(
     ['servers', apiFormat],
     () => serverAPI.getServers({
-      serverType: apiFormat
+      serverType: apiFormatToServerType(apiFormat)
     }),
     { enabled: isDialogOpen }
   );

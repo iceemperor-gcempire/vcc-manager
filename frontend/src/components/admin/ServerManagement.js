@@ -73,11 +73,11 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
     switch (serverType) {
       case 'ComfyUI':
         return <Computer />;
+      case 'OpenAI':
       case 'OpenAI Compatible':
+      case 'GPT Image':
         return <TextFields />;
       case 'Gemini':
-        return <Storage />;
-      case 'GPT Image':
         return <Storage />;
       default:
         return <Storage />;
@@ -88,12 +88,14 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
     switch (serverType) {
       case 'ComfyUI':
         return 'ComfyUI API';
+      case 'OpenAI':
+        return 'OpenAI API';
       case 'OpenAI Compatible':
         return 'OpenAI Compatible API';
       case 'Gemini':
-        return 'Gemini Image API';
+        return 'Gemini API';
       case 'GPT Image':
-        return 'GPT Image API';
+        return 'GPT Image API (deprecated)';
       default:
         return serverType;
     }
@@ -344,9 +346,9 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                   label="AI API 형식"
                 >
                   <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
+                  <MenuItem value="OpenAI">OpenAI API</MenuItem>
                   <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
-                  <MenuItem value="Gemini">Gemini Image API</MenuItem>
-                  <MenuItem value="GPT Image">GPT Image API</MenuItem>
+                  <MenuItem value="Gemini">Gemini API</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
@@ -373,7 +375,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 placeholder={
                   formData.serverType === 'Gemini'
                     ? 'https://generativelanguage.googleapis.com'
-                    : formData.serverType === 'GPT Image'
+                    : formData.serverType === 'OpenAI'
                       ? 'https://api.openai.com'
                       : 'http://localhost:8188'
                 }

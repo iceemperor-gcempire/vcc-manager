@@ -1805,7 +1805,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
                   >
                     {availableServers.map((s) => (
                       <MenuItem key={s._id} value={s._id}>
-                        {s.name} ({s.serverType} - {s.outputType})
+                        {s.name} ({s.serverType})
                       </MenuItem>
                     ))}
                   </Select>
