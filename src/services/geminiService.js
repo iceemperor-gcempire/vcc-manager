@@ -110,6 +110,62 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
   return { images, videos: [] };
 };
 
+// Gemini LLM (Chat) — generateContent 호출 후 첫 번째 candidate 의 텍스트 본문 반환.
+// Phase 4/5 에서 Gemini Chat 워크보드 도입 시 호출되도록 마련해 둔 인터페이스.
+const complete = async (serverUrl, apiKey, messages, options = {}) => {
+  const resolvedServerUrl = (serverUrl || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+  const model = extractValue(options.model);
+  if (!model) throw new Error('Gemini Chat: model is required');
+  if (!apiKey) throw new Error('Gemini Chat: api key is required');
+
+  const contents = (Array.isArray(messages) ? messages : []).map((m) => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content || '' }],
+  }));
+  if (contents.length === 0) {
+    throw new Error('Gemini Chat: messages is empty');
+  }
+
+  const generationConfig = {
+    responseModalities: ['TEXT'],
+  };
+  if (options.temperature !== undefined) {
+    generationConfig.temperature = options.temperature;
+  }
+  if (options.maxTokens !== undefined) {
+    generationConfig.maxOutputTokens = options.maxTokens;
+  }
+
+  const response = await axios.post(
+    `${resolvedServerUrl}/v1beta/models/${model}:generateContent`,
+    { contents, generationConfig },
+    {
+      params: { key: apiKey },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: options.timeout || 60000,
+    }
+  );
+
+  const parts = response.data?.candidates?.[0]?.content?.parts || [];
+  const content = parts
+    .map((p) => p.text || '')
+    .filter(Boolean)
+    .join('');
+
+  if (!content) {
+    throw new Error('Gemini Chat: 빈 응답이 반환되었습니다.');
+  }
+
+  const usage = {
+    promptTokens: response.data?.usageMetadata?.promptTokenCount || 0,
+    completionTokens: response.data?.usageMetadata?.candidatesTokenCount || 0,
+    totalTokens: response.data?.usageMetadata?.totalTokenCount || 0,
+  };
+
+  return { content, usage, model };
+};
+
 module.exports = {
-  generateImage
+  generateImage,
+  complete,
 };
