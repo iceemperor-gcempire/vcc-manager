@@ -55,15 +55,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import { getWorkboardTemplate } from '../../templates';
-
-// Deprecated apiFormat → 신규 serverType 매핑. 'GPT Image' workboard 의 server 는
-// Phase 2 에서 'OpenAI' 로 마이그레이션됐으므로 템플릿 키도 OpenAI 로 매핑.
-const APIFORMAT_TO_SERVERTYPE = {
-  ComfyUI: 'ComfyUI',
-  Gemini: 'Gemini',
-  'GPT Image': 'OpenAI',
-  'OpenAI Compatible': 'OpenAI Compatible',
-};
+import { deriveLegacyApiFormat } from '../../templates/capabilities';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -272,6 +264,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       name: '',
       description: '',
       serverId: '',
+      serverType: '',
       apiFormat: 'ComfyUI',
       outputFormat: 'image',
       workflowData: '',
@@ -356,6 +349,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             name: fullData.name || '',
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
+            serverType: fullData.serverId?.serverType || '',
             apiFormat: fullData.apiFormat || (fullData.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
@@ -556,6 +550,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           {tabValue === 0 && (
             <WorkboardBasicInfoForm
               control={control}
+              setValue={setValue}
               errors={errors}
               showActiveSwitch={true}
               showTypeSelector={true}
@@ -1571,13 +1566,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 }
 
 function WorkboardCreateDialog({ open, onClose, onSave }) {
-  const { control, handleSubmit, reset, formState: { errors } } = useForm({
+  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
       description: '',
-      apiFormat: 'ComfyUI',
       outputFormat: 'image',
       serverId: '',
+      serverType: '',
       isActive: true
     }
   });
@@ -1587,9 +1582,9 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
       reset({
         name: '',
         description: '',
-        apiFormat: 'ComfyUI',
         outputFormat: 'image',
         serverId: '',
+        serverType: '',
         isActive: true
       });
     }
@@ -1606,6 +1601,7 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
         <DialogContent>
           <WorkboardBasicInfoForm
             control={control}
+            setValue={setValue}
             errors={errors}
             showActiveSwitch={false}
             showTypeSelector={true}
@@ -2104,24 +2100,27 @@ function WorkboardManagement() {
   };
 
   const handleSave = (data) => {
-    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
-    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
-    const normalizedData = {
-      ...data,
-      apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image')
-    };
-
     if (selectedWorkboard) {
+      // 편집: 기존 apiFormat 유지. data 는 form 에서 온 새 값으로 덮어씀.
+      const normalizedData = { ...data };
+      // 폼이 더 이상 apiFormat 을 노출하지 않으므로 기존 값 보존
+      if (selectedWorkboard.apiFormat && !normalizedData.apiFormat) {
+        normalizedData.apiFormat = selectedWorkboard.apiFormat;
+      }
+      delete normalizedData.serverType; // 폼 내부 헬퍼 필드
       updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      // Phase 4: 템플릿은 frontend/src/templates/<serverType>-<outputFormat>.json 에서 로드.
-      // 'GPT Image' apiFormat 은 Phase 2 에서 server 가 'OpenAI' 로 마이그레이션됐으므로 매핑.
-      const serverType = APIFORMAT_TO_SERVERTYPE[normalizedApiFormat] || normalizedApiFormat;
-      const template = getWorkboardTemplate(serverType, normalizedData.outputFormat);
+      // 생성: serverType + outputFormat → 템플릿 + legacy apiFormat 파생
+      const serverType = data.serverType || 'ComfyUI';
+      const outputFormat = data.outputFormat || 'image';
+      const template = getWorkboardTemplate(serverType, outputFormat);
+      const apiFormat = deriveLegacyApiFormat(serverType, outputFormat);
 
+      const { serverType: _omit, ...rest } = data;
       const workboardData = {
-        ...normalizedData,
+        ...rest,
+        apiFormat,
+        outputFormat,
         ...template,
       };
       createMutation.mutate(workboardData);
