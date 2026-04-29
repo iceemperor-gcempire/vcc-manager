@@ -10,18 +10,14 @@ const comfyUIService = require('../services/comfyUIService');
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
   try {
-    const { serverType, outputType, includeInactive = false } = req.query;
-    
+    const { serverType, includeInactive = false } = req.query;
+
     let filter = {};
-    
+
     if (serverType) {
       filter.serverType = serverType;
     }
-    
-    if (outputType) {
-      filter.outputType = outputType;
-    }
-    
+
     if (!includeInactive || includeInactive === 'false') {
       filter.isActive = true;
     }
@@ -78,10 +74,9 @@ router.post('/', requireAdmin, async (req, res) => {
       description,
       serverType,
       serverUrl,
-      outputType,
       configuration = {}
     } = req.body;
-    
+
     // 필수 필드 검증
     if (!name || !serverType || !serverUrl) {
       return res.status(400).json({
@@ -90,14 +85,14 @@ router.post('/', requireAdmin, async (req, res) => {
       });
     }
 
-    // 서버 타입 검증
-    if (!['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'].includes(serverType)) {
+    // 서버 타입 검증 ('GPT Image' 는 deprecated — 신규 생성 차단)
+    if (!['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(serverType)) {
       return res.status(400).json({
         success: false,
         message: '지원하지 않는 서버 타입입니다.'
       });
     }
-    
+
     // 중복 이름 검증
     const existingServer = await Server.findOne({ name });
     if (existingServer) {
@@ -106,13 +101,12 @@ router.post('/', requireAdmin, async (req, res) => {
         message: '같은 이름의 서버가 이미 존재합니다.'
       });
     }
-    
+
     const server = new Server({
       name,
       description,
       serverType,
       serverUrl,
-      outputType,
       configuration,
       createdBy: req.user.id
     });
@@ -159,7 +153,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
       description,
       serverType,
       serverUrl,
-      outputType,
       configuration,
       isActive
     } = req.body;
@@ -193,7 +186,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (description !== undefined) updateFields.description = description;
     if (serverType !== undefined) updateFields.serverType = serverType;
     if (serverUrl !== undefined) updateFields.serverUrl = serverUrl;
-    if (outputType !== undefined) updateFields.outputType = outputType;
     if (configuration !== undefined) {
       // API 키가 비어있으면 기존 값을 유지
       if (!configuration.apiKey && server.configuration?.apiKey) {

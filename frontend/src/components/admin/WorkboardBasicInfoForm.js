@@ -9,100 +9,43 @@ import {
   FormControlLabel,
   Switch,
   Typography,
-  Alert
+  Alert,
 } from '@mui/material';
 import { Controller, useWatch } from 'react-hook-form';
 import { useQuery } from 'react-query';
 import { serverAPI } from '../../services/api';
+import {
+  getCapableOutputFormats,
+  getOutputFormatLabel,
+  getServerTypeLabel,
+} from '../../templates/capabilities';
 
-function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
-  const apiFormat = useWatch({ control, name: 'apiFormat' }) || 'ComfyUI';
+function WorkboardBasicInfoForm({ control, setValue, errors, showActiveSwitch = false, showTypeSelector = false, isDialogOpen = true }) {
+  const selectedServerId = useWatch({ control, name: 'serverId' });
   const outputFormat = useWatch({ control, name: 'outputFormat' }) || 'image';
-  const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(apiFormat);
-  const getApiFormatLabel = (format) => {
-    switch (format) {
-      case 'ComfyUI':
-        return 'ComfyUI API';
-      case 'OpenAI Compatible':
-        return 'OpenAI Compatible API';
-      case 'Gemini':
-        return 'Gemini Image API';
-      case 'GPT Image':
-        return 'GPT Image API';
-      default:
-        return format;
-    }
-  };
 
   const { data: serversData } = useQuery(
-    ['servers', apiFormat],
-    () => serverAPI.getServers({
-      serverType: apiFormat
-    }),
+    'servers-all-active',
+    () => serverAPI.getServers({}),
     { enabled: isDialogOpen }
   );
 
   const servers = serversData?.data?.data?.servers || [];
+  const selectedServer = servers.find((s) => s._id === selectedServerId);
+  const selectedServerType = selectedServer?.serverType;
+  const capableOutputFormats = selectedServerType ? getCapableOutputFormats(selectedServerType) : [];
+
+  // 서버가 바뀌면 폼의 serverType 을 동기화하고, 현재 outputFormat 이 capability 에 없으면 첫 옵션으로 보정.
+  React.useEffect(() => {
+    if (!setValue) return;
+    setValue('serverType', selectedServerType || '');
+    if (selectedServerType && capableOutputFormats.length > 0 && !capableOutputFormats.includes(outputFormat)) {
+      setValue('outputFormat', capableOutputFormats[0]);
+    }
+  }, [setValue, selectedServerType, capableOutputFormats, outputFormat]);
 
   return (
     <Grid container spacing={2}>
-      {showTypeSelector && (
-        <>
-          <Grid item xs={12} sm={6}>
-            <Controller
-              name="apiFormat"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>AI API 형식</InputLabel>
-                  <Select
-                    {...field}
-                    label="AI API 형식"
-                  >
-                    <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
-                    <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
-                    <MenuItem value="Gemini">Gemini Image API</MenuItem>
-                    <MenuItem value="GPT Image">GPT Image API</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6}>
-            <Controller
-              name="outputFormat"
-              control={control}
-              render={({ field }) => (
-                <FormControl fullWidth>
-                  <InputLabel>출력 형식</InputLabel>
-                  <Select
-                    {...field}
-                    label="출력 형식"
-                    value={isFixedImageApiFormat ? 'image' : outputFormat}
-                    disabled={isFixedImageApiFormat}
-                  >
-                    <MenuItem value="image">이미지</MenuItem>
-                    {!isFixedImageApiFormat && <MenuItem value="video">비디오</MenuItem>}
-                    {!isFixedImageApiFormat && <MenuItem value="text">텍스트</MenuItem>}
-                  </Select>
-                </FormControl>
-              )}
-            />
-          </Grid>
-          <Grid item xs={12}>
-            <Typography variant="caption" color="textSecondary">
-              {apiFormat === 'OpenAI Compatible'
-                ? 'OpenAI Compatible API를 사용하여 텍스트 기반 콘텐츠를 생성합니다.'
-                : apiFormat === 'Gemini'
-                  ? 'Gemini Image API를 사용하여 이미지 기반 콘텐츠를 생성합니다.'
-                  : apiFormat === 'GPT Image'
-                    ? 'GPT Image API를 사용하여 OpenAI 이미지 모델로 이미지를 생성합니다.'
-                  : 'ComfyUI API를 사용하여 이미지/비디오 콘텐츠를 생성합니다.'}
-            </Typography>
-          </Grid>
-        </>
-      )}
-
       <Grid item xs={12}>
         <Controller
           name="name"
@@ -137,7 +80,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
         />
       </Grid>
 
-      <Grid item xs={12}>
+      <Grid item xs={12} sm={showTypeSelector ? 6 : 12}>
         <Controller
           name="serverId"
           control={control}
@@ -151,13 +94,11 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
                 disabled={servers.length === 0}
               >
                 {servers.length === 0 ? (
-                  <MenuItem disabled>
-                    사용 가능한 서버가 없습니다
-                  </MenuItem>
+                  <MenuItem disabled>사용 가능한 서버가 없습니다</MenuItem>
                 ) : (
                   servers.map((server) => (
                     <MenuItem key={server._id} value={server._id}>
-                      {server.name} ({getApiFormatLabel(server.serverType)})
+                      {server.name} ({getServerTypeLabel(server.serverType)})
                     </MenuItem>
                   ))
                 )}
@@ -171,6 +112,42 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
           )}
         />
       </Grid>
+
+      {showTypeSelector && (
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="outputFormat"
+            control={control}
+            render={({ field }) => (
+              <FormControl fullWidth>
+                <InputLabel>출력 형식</InputLabel>
+                <Select
+                  {...field}
+                  label="출력 형식"
+                  value={capableOutputFormats.includes(outputFormat) ? outputFormat : (capableOutputFormats[0] || '')}
+                  disabled={!selectedServerType || capableOutputFormats.length <= 1}
+                >
+                  {capableOutputFormats.length === 0 ? (
+                    <MenuItem value="" disabled>먼저 서버를 선택하세요</MenuItem>
+                  ) : (
+                    capableOutputFormats.map((fmt) => (
+                      <MenuItem key={fmt} value={fmt}>{getOutputFormatLabel(fmt)}</MenuItem>
+                    ))
+                  )}
+                </Select>
+              </FormControl>
+            )}
+          />
+        </Grid>
+      )}
+
+      {showTypeSelector && selectedServerType && (
+        <Grid item xs={12}>
+          <Typography variant="caption" color="textSecondary">
+            선택된 서버 타입: <strong>{getServerTypeLabel(selectedServerType)}</strong> · 지원 출력 형식: {capableOutputFormats.map(getOutputFormatLabel).join(', ') || '없음'}
+          </Typography>
+        </Grid>
+      )}
 
       {showActiveSwitch && (
         <Grid item xs={12}>
@@ -190,13 +167,7 @@ function WorkboardBasicInfoForm({ control, errors, showActiveSwitch = false, sho
       {servers.length === 0 && (
         <Grid item xs={12}>
           <Alert severity="warning">
-            {apiFormat === 'OpenAI Compatible'
-              ? '작업판을 생성하기 전에 서버 관리에서 OpenAI Compatible 서버를 등록해주세요.'
-              : apiFormat === 'Gemini'
-                ? '작업판을 생성하기 전에 서버 관리에서 Gemini 서버를 등록해주세요.'
-                : apiFormat === 'GPT Image'
-                  ? '작업판을 생성하기 전에 서버 관리에서 GPT Image 서버를 등록해주세요.'
-                : '작업판을 생성하기 전에 서버 관리에서 ComfyUI 서버를 등록해주세요.'}
+            작업판을 생성하기 전에 서버 관리에서 사용할 서버를 등록해주세요.
           </Alert>
         </Grid>
       )}

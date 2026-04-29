@@ -11,6 +11,12 @@ const router = express.Router();
 const EXPORT_VERSION = 1;
 const APP_VERSION = { major: 1, minor: 3 };
 
+// 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
+// Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
+const SERVER_TYPE_LEGACY_FALLBACK = {
+  'GPT Image': 'OpenAI',
+};
+
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
@@ -48,7 +54,7 @@ router.get('/', requireAuth, async (req, res) => {
     
     const workboards = await Workboard.find(filter)
       .populate('createdBy', 'nickname email')
-      .populate('serverId', 'name serverType serverUrl outputType isActive')
+      .populate('serverId', 'name serverType serverUrl isActive')
       .select('-workflowData')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
@@ -106,16 +112,23 @@ router.post('/import', requireAdmin, async (req, res) => {
       serverMatchInfo = { name: server.name, matched: true, manual: true };
     } else if (data.server) {
       // 자동 매칭 시도
-      const server = await Server.findOne({
+      let server = await Server.findOne({
         name: data.server.name,
         serverType: data.server.serverType
       });
+      // Phase 2 마이그레이션으로 deprecated 된 serverType 의 자동 폴백 (옛 환경 export 호환)
+      if (!server && SERVER_TYPE_LEGACY_FALLBACK[data.server.serverType]) {
+        server = await Server.findOne({
+          name: data.server.name,
+          serverType: SERVER_TYPE_LEGACY_FALLBACK[data.server.serverType]
+        });
+      }
       if (server) {
         matchedServerId = server._id;
         serverMatchInfo = { name: server.name, matched: true, manual: false };
       } else {
         // 매칭 실패 - 서버 목록과 함께 반환
-        const servers = await Server.find({ isActive: true }).select('name serverType outputType');
+        const servers = await Server.find({ isActive: true }).select('name serverType');
         return res.json({
           needsServer: true,
           preview: {
@@ -131,7 +144,7 @@ router.post('/import', requireAdmin, async (req, res) => {
       }
     } else {
       // 서버 정보가 없는 경우
-      const servers = await Server.find({ isActive: true }).select('name serverType outputType');
+      const servers = await Server.find({ isActive: true }).select('name serverType');
       return res.json({
         needsServer: true,
         preview: {
@@ -170,7 +183,7 @@ router.post('/import', requireAdmin, async (req, res) => {
 
     await newWorkboard.save();
     await newWorkboard.populate('createdBy', 'nickname email');
-    await newWorkboard.populate('serverId', 'name serverType serverUrl outputType isActive');
+    await newWorkboard.populate('serverId', 'name serverType serverUrl isActive');
 
     res.status(201).json({
       message: '작업판을 가져왔습니다.',
@@ -188,7 +201,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
       .populate('createdBy', 'nickname email')
-      .populate('serverId', 'name serverType serverUrl outputType isActive');
+      .populate('serverId', 'name serverType serverUrl isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -209,7 +222,7 @@ router.get('/admin/:id', requireAdmin, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
       .populate('createdBy', 'nickname email')
-      .populate('serverId', 'name serverType serverUrl outputType isActive');
+      .populate('serverId', 'name serverType serverUrl isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -299,7 +312,7 @@ router.post('/', requireAdmin, async (req, res) => {
     
     await workboard.save();
     await workboard.populate('createdBy', 'nickname email');
-    await workboard.populate('serverId', 'name serverType serverUrl outputType isActive');
+    await workboard.populate('serverId', 'name serverType serverUrl isActive');
     
     res.status(201).json({
       message: 'Workboard created successfully',
@@ -387,7 +400,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     console.log('Before save:', workboard.toObject());
     await workboard.save();
     await workboard.populate('createdBy', 'nickname email');
-    await workboard.populate('serverId', 'name serverType serverUrl outputType isActive');
+    await workboard.populate('serverId', 'name serverType serverUrl isActive');
     
     res.json({
       message: 'Workboard updated successfully',
@@ -519,8 +532,7 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
       if (server) {
         serverInfo = {
           name: server.name,
-          serverType: server.serverType,
-          outputType: server.outputType
+          serverType: server.serverType
         };
       }
     }

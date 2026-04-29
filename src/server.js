@@ -28,6 +28,7 @@ const { transformUploadUrls } = require('./utils/signedUrl');
 const { initializeQueues } = require('./services/queueService');
 const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
 const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
+const migrateServerTypeToOpenAI = require('./migrations/migrateServerTypeToOpenAI');
 
 dotenv.config();
 
@@ -171,6 +172,7 @@ const startServer = async () => {
     console.log('Running migrations...');
     await migrateWorkboardApiFormat();
     await migrateMediaOrderIndex();
+    await migrateServerTypeToOpenAI();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');

@@ -38,7 +38,6 @@ import {
   VisibilityOff,
   Computer,
   TrendingUp,
-  Settings,
   ExpandMore,
   ToggleOn,
   ToggleOff,
@@ -55,6 +54,8 @@ import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
+import { getWorkboardTemplate } from '../../templates';
+import { deriveLegacyApiFormat } from '../../templates/capabilities';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -211,13 +212,9 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           <Visibility sx={{ mr: 1 }} fontSize="small" />
           보기
         </MenuItem>
-        <MenuItem onClick={() => { onEdit(workboard); handleMenuClose(); }}>
+        <MenuItem onClick={() => { onEdit(workboard, 'detailed'); handleMenuClose(); }}>
           <Edit sx={{ mr: 1 }} fontSize="small" />
           편집
-        </MenuItem>
-        <MenuItem onClick={() => { onEdit(workboard, 'detailed'); handleMenuClose(); }}>
-          <Settings sx={{ mr: 1 }} fontSize="small" />
-          상세 편집
         </MenuItem>
         <MenuItem onClick={() => { onDuplicate(workboard); handleMenuClose(); }}>
           <ContentCopy sx={{ mr: 1 }} fontSize="small" />
@@ -267,6 +264,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       name: '',
       description: '',
       serverId: '',
+      serverType: '',
       apiFormat: 'ComfyUI',
       outputFormat: 'image',
       workflowData: '',
@@ -351,6 +349,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             name: fullData.name || '',
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
+            serverType: fullData.serverId?.serverType || '',
             apiFormat: fullData.apiFormat || (fullData.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
@@ -551,6 +550,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           {tabValue === 0 && (
             <WorkboardBasicInfoForm
               control={control}
+              setValue={setValue}
               errors={errors}
               showActiveSwitch={true}
               showTypeSelector={true}
@@ -1565,32 +1565,30 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   );
 }
 
-function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
-  const isEditing = !!workboard;
-  
-  const { control, handleSubmit, reset, watch, formState: { errors } } = useForm({
+function WorkboardCreateDialog({ open, onClose, onSave }) {
+  const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
-      name: workboard?.name || '',
-      description: workboard?.description || '',
-      apiFormat: workboard?.apiFormat || 'ComfyUI',
-      outputFormat: workboard?.outputFormat || 'image',
-      serverId: workboard?.serverId?._id || '',
-      isActive: workboard?.isActive ?? true
+      name: '',
+      description: '',
+      outputFormat: 'image',
+      serverId: '',
+      serverType: '',
+      isActive: true
     }
   });
 
   React.useEffect(() => {
     if (open) {
       reset({
-        name: workboard?.name || '',
-        description: workboard?.description || '',
-        apiFormat: workboard?.apiFormat || (workboard?.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
-        outputFormat: workboard?.outputFormat || (workboard?.workboardType === 'prompt' ? 'text' : 'image'),
-        serverId: workboard?.serverId?._id || '',
-        isActive: workboard?.isActive ?? true
+        name: '',
+        description: '',
+        outputFormat: 'image',
+        serverId: '',
+        serverType: '',
+        isActive: true
       });
     }
-  }, [open, workboard, reset]);
+  }, [open, reset]);
 
   const onSubmit = (data) => {
     onSave(data);
@@ -1598,34 +1596,26 @@ function WorkboardDialog({ open, onClose, workboard = null, onSave }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {isEditing ? '작업판 편집' : '새 작업판 생성'}
-      </DialogTitle>
+      <DialogTitle>새 작업판 생성</DialogTitle>
       <form onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <WorkboardBasicInfoForm
             control={control}
+            setValue={setValue}
             errors={errors}
             showActiveSwitch={false}
-            showTypeSelector={!isEditing}
+            showTypeSelector={true}
             isDialogOpen={open}
           />
 
-          {!isEditing && (
-            <Alert severity="info" sx={{ mt: 2 }}>
-              기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은 
-              생성 후 상세 편집에서 추가할 수 있습니다.
-            </Alert>
-          )}
+          <Alert severity="info" sx={{ mt: 2 }}>
+            기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은
+            생성 후 편집에서 추가할 수 있습니다.
+          </Alert>
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>취소</Button>
-          <Button 
-            type="submit" 
-            variant="contained"
-          >
-            {isEditing ? '수정' : '생성'}
-          </Button>
+          <Button type="submit" variant="contained">생성</Button>
         </DialogActions>
       </form>
     </Dialog>
@@ -1821,7 +1811,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
                   >
                     {availableServers.map((s) => (
                       <MenuItem key={s._id} value={s._id}>
-                        {s.name} ({s.serverType} - {s.outputType})
+                        {s.name} ({s.serverType})
                       </MenuItem>
                     ))}
                   </Select>
@@ -2110,134 +2100,28 @@ function WorkboardManagement() {
   };
 
   const handleSave = (data) => {
-    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
-    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
-    const normalizedData = {
-      ...data,
-      apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image')
-    };
-
     if (selectedWorkboard) {
+      // 편집: 기존 apiFormat 유지. data 는 form 에서 온 새 값으로 덮어씀.
+      const normalizedData = { ...data };
+      // 폼이 더 이상 apiFormat 을 노출하지 않으므로 기존 값 보존
+      if (selectedWorkboard.apiFormat && !normalizedData.apiFormat) {
+        normalizedData.apiFormat = selectedWorkboard.apiFormat;
+      }
+      delete normalizedData.serverType; // 폼 내부 헬퍼 필드
       updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      const isOpenAI = normalizedApiFormat === 'OpenAI Compatible';
-      const isGeminiApi = normalizedApiFormat === 'Gemini';
-      const isGptImageApi = normalizedApiFormat === 'GPT Image';
+      // 생성: serverType + outputFormat → 템플릿 + legacy apiFormat 파생
+      const serverType = data.serverType || 'ComfyUI';
+      const outputFormat = data.outputFormat || 'image';
+      const template = getWorkboardTemplate(serverType, outputFormat);
+      const apiFormat = deriveLegacyApiFormat(serverType, outputFormat);
 
+      const { serverType: _omit, ...rest } = data;
       const workboardData = {
-        ...normalizedData,
-        baseInputFields: isOpenAI ? {
-          aiModel: [
-            { key: 'GPT-4', value: 'gpt-4' },
-            { key: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }
-          ],
-          systemPrompt: '',
-          referenceImages: []
-        } : isGeminiApi ? {
-          aiModel: [
-            { key: 'Nano Banana', value: 'gemini-2.5-flash-image' },
-            { key: 'Nano Banana Pro', value: 'gemini-3-pro-image-preview' },
-            { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
-          ],
-          imageSizes: [
-            { key: '정사각 (1:1)', value: '1:1' },
-            { key: '가로 와이드 (16:9)', value: '16:9' },
-            { key: '세로 와이드 (9:16)', value: '9:16' },
-            { key: '가로 (4:3)', value: '4:3' },
-            { key: '세로 (3:4)', value: '3:4' },
-            { key: '영화 (21:9)', value: '21:9' }
-          ],
-          referenceImageMethods: []
-        } : isGptImageApi ? {
-          aiModel: [
-            { key: 'GPT Image 2 (조직 인증 필요)', value: 'gpt-image-2' },
-            { key: 'GPT Image 1.5', value: 'gpt-image-1.5' },
-            { key: 'GPT Image 1', value: 'gpt-image-1' },
-            { key: 'GPT Image 1 Mini', value: 'gpt-image-1-mini' }
-          ],
-          imageSizes: [
-            { key: '자동 (auto)', value: 'auto' },
-            { key: '1024x1024', value: '1024x1024' },
-            { key: '1024x1536', value: '1024x1536' },
-            { key: '1536x1024', value: '1536x1024' }
-          ],
-          referenceImageMethods: []
-        } : {
-          aiModel: [
-            { key: 'Default Model', value: 'default.safetensors' }
-          ],
-          imageSizes: [
-            { key: '1024x1024', value: '1024x1024' },
-            { key: '896x1152', value: '896x1152' },
-            { key: '1152x896', value: '1152x896' },
-            { key: '832x1216', value: '832x1216' },
-            { key: '1216x832', value: '1216x832' },
-            { key: '768x1344', value: '768x1344' },
-            { key: '1344x768', value: '1344x768' }
-          ],
-          referenceImageMethods: [
-            { key: 'Image to Image', value: 'img2img' },
-            { key: 'ControlNet Canny', value: 'controlnet_canny' }
-          ]
-        },
-        additionalInputFields: isGptImageApi ? [
-          {
-            name: 'quality',
-            label: '품질',
-            type: 'select',
-            required: true,
-            defaultValue: 'auto',
-            options: [
-              { key: 'Auto', value: 'auto' },
-              { key: 'Low', value: 'low' },
-              { key: 'Medium', value: 'medium' },
-              { key: 'High', value: 'high' }
-            ],
-            description: 'GPT Image 생성 품질을 선택합니다.'
-          },
-          {
-            name: 'background',
-            label: '배경',
-            type: 'select',
-            required: false,
-            defaultValue: 'opaque',
-            options: [
-              { key: '불투명 (opaque)', value: 'opaque' },
-              { key: '투명 (transparent)', value: 'transparent' }
-            ],
-            description: 'gpt-image-2 전용. 투명 배경으로 출력하려면 transparent. 다른 모델에서는 무시됨.'
-          },
-          {
-            name: 'output_compression',
-            label: '출력 압축률',
-            type: 'number',
-            required: false,
-            defaultValue: 100,
-            description: 'gpt-image-2 의 JPEG/WebP 출력 시 압축률 (1-100). PNG 에는 영향 없음. 다른 모델에서는 무시됨.'
-          }
-        ] : isGeminiApi ? [
-          {
-            name: 'resolution',
-            label: '해상도',
-            type: 'select',
-            required: true,
-            defaultValue: '2K',
-            options: [
-              { key: '1K (기본)', value: '1K' },
-              { key: '2K', value: '2K' },
-              { key: '4K', value: '4K' }
-            ],
-            description: 'Gemini 이미지 출력 해상도를 선택합니다.'
-          }
-        ] : [],
-        workflowData: (isOpenAI || isGeminiApi || isGptImageApi) ? '' : JSON.stringify({
-          "prompt": "{{##prompt##}}",
-          "negative_prompt": "{{##negative_prompt##}}",
-          "model": "{{##model##}}",
-          "width": "{{##width##}}",
-          "height": "{{##height##}}"
-        }, null, 2)
+        ...rest,
+        apiFormat,
+        outputFormat,
+        ...template,
       };
       createMutation.mutate(workboardData);
     }
@@ -2334,10 +2218,9 @@ function WorkboardManagement() {
         </Grid>
       )}
 
-      <WorkboardDialog
+      <WorkboardCreateDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
-        workboard={selectedWorkboard}
         onSave={handleSave}
       />
 

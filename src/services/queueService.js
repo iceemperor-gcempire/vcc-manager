@@ -117,124 +117,161 @@ const initializeQueues = async () => {
   }
 };
 
+// (serverType, outputFormat) → 핸들러 매핑.
+// 신규 provider/capability 추가 시 이 테이블에만 추가하면 됨.
+// 핸들러 시그니처: ({ workboardData, inputData, jobId, job }) => Promise<{ images?, videos?, seed? }>
+const SERVICE_MAP = {
+  'Gemini:image': handleGeminiImage,
+  'OpenAI:image': handleOpenAIImage,
+  'OpenAI Compatible:image': handleOpenAIImage,
+  'ComfyUI:image': handleComfyUIWorkflow,
+  'ComfyUI:video': handleComfyUIWorkflow,
+};
+
+// Deprecated apiFormat 만 가진 잡 (Phase 4 이전 데이터) 을 위한 fallback 매핑.
+const APIFORMAT_TO_SERVERTYPE = {
+  'ComfyUI': 'ComfyUI',
+  'OpenAI Compatible': 'OpenAI Compatible',
+  'Gemini': 'Gemini',
+  'GPT Image': 'OpenAI', // Phase 2 마이그레이션 후 server 는 OpenAI 로 저장됨
+};
+
+const resolveServiceKey = (workboardData) => {
+  const serverType = workboardData.serverType
+    || APIFORMAT_TO_SERVERTYPE[workboardData.apiFormat];
+  const outputFormat = workboardData.outputFormat || 'image';
+  return { key: `${serverType}:${outputFormat}`, serverType, outputFormat };
+};
+
+async function handleGeminiImage({ workboardData, inputData, job }) {
+  const geminiImages = await loadImageInputs(
+    workboardData.additionalInputFields || [],
+    inputData
+  );
+  job.progress(20);
+
+  const result = await geminiService.generateImage(
+    workboardData.serverUrl,
+    workboardData.apiKey || process.env.GEMINI_API_KEY,
+    buildGeminiPrompt(inputData),
+    {
+      model: inputData.aiModel,
+      aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
+      resolution: extractOptionValue(inputData.additionalParams?.resolution),
+      images: geminiImages,
+      timeout: workboardData.timeout,
+    }
+  );
+  job.progress(90);
+  return result;
+}
+
+async function handleOpenAIImage({ workboardData, inputData, job }) {
+  const result = await gptImageService.generateImage(
+    workboardData.serverUrl,
+    workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
+    buildGeminiPrompt(inputData),
+    {
+      model: inputData.aiModel,
+      size: extractOptionValue(inputData.imageSize),
+      quality: extractOptionValue(
+        inputData.additionalParams?.quality || inputData.quality
+      ),
+      n: extractOptionValue(
+        inputData.additionalParams?.n || inputData.n
+      ) || 1,
+      outputFormat: extractOptionValue(
+        inputData.additionalParams?.outputFormat || inputData.outputFormat
+      ) || 'png',
+      background: extractOptionValue(inputData.additionalParams?.background),
+      outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
+      timeout: workboardData.timeout,
+    }
+  );
+  job.progress(90);
+  return result;
+}
+
+async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
+  const uploadedImageMap = await uploadImageFieldsToComfyUI(
+    workboardData.serverUrl,
+    workboardData.additionalInputFields || [],
+    inputData
+  );
+  job.progress(15);
+
+  let workflowJson;
+  let actualSeed;
+  try {
+    ({ workflowJson, actualSeed } = await injectInputsIntoWorkflow(
+      workboardData.workflowData,
+      inputData,
+      workboardData,
+      uploadedImageMap
+    ));
+  } catch (injectError) {
+    const resolvedString = injectError.resolvedWorkflowString || workboardData.workflowData;
+    try {
+      await ImageGenerationJob.findByIdAndUpdate(jobId, {
+        resolvedWorkflowData: resolvedString,
+      });
+    } catch (saveError) {
+      console.error(`⚠️ Failed to save workflow data for job ${jobId}:`, saveError.message);
+    }
+    throw injectError;
+  }
+  job.progress(20);
+
+  try {
+    await ImageGenerationJob.findByIdAndUpdate(jobId, {
+      resolvedWorkflowData: JSON.stringify(workflowJson),
+    });
+  } catch (saveError) {
+    console.error(`⚠️ Failed to save resolved workflow data for job ${jobId}:`, saveError.message);
+  }
+
+  console.log(`🚀 Submitting workflow to ComfyUI for job ${jobId} with seed: ${actualSeed}`);
+  console.log(`🔗 ComfyUI Server URL: ${workboardData.serverUrl}`);
+  console.log(`📝 Workflow JSON preview:`, JSON.stringify(workflowJson).substring(0, 200) + '...');
+
+  const result = await comfyUIService.submitWorkflow(
+    workboardData.serverUrl,
+    workflowJson,
+    (progress) => job.progress(20 + (progress * 0.7))
+  );
+  job.progress(90);
+
+  console.log(`✅ ComfyUI workflow completed for job ${jobId}`);
+  console.log(`📊 ComfyUI result:`, {
+    hasImages: !!result.images,
+    imageCount: result.images?.length || 0,
+    hasVideos: !!result.videos,
+    videoCount: result.videos?.length || 0,
+    resultKeys: Object.keys(result),
+  });
+
+  return { ...result, seed: actualSeed };
+}
+
 const processImageGeneration = async (job) => {
   const { jobId, workboardData, inputData } = job.data;
-  
+
   try {
     job.progress(5);
-    
-    let generationResult;
-    let enhancedInputData = { ...inputData };
 
-    if (workboardData.apiFormat === 'Gemini') {
-      const geminiImages = await loadImageInputs(
-        workboardData.additionalInputFields || [],
-        inputData
+    const { key, serverType, outputFormat } = resolveServiceKey(workboardData);
+    const handler = SERVICE_MAP[key];
+    if (!handler) {
+      throw new Error(
+        `지원하지 않는 서비스 조합입니다: serverType=${serverType ?? '(unknown)'}, outputFormat=${outputFormat}`
       );
-      job.progress(20);
-
-      generationResult = await geminiService.generateImage(
-        workboardData.serverUrl,
-        workboardData.apiKey || process.env.GEMINI_API_KEY,
-        buildGeminiPrompt(inputData),
-        {
-          model: inputData.aiModel,
-          aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
-          resolution: extractOptionValue(inputData.additionalParams?.resolution),
-          images: geminiImages,
-          timeout: workboardData.timeout
-        }
-      );
-      job.progress(90);
-    } else if (workboardData.apiFormat === 'GPT Image') {
-      generationResult = await gptImageService.generateImage(
-        workboardData.serverUrl,
-        workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
-        buildGeminiPrompt(inputData),
-        {
-          model: inputData.aiModel,
-          size: extractOptionValue(inputData.imageSize),
-          quality: extractOptionValue(
-            inputData.additionalParams?.quality || inputData.quality
-          ),
-          n: extractOptionValue(
-            inputData.additionalParams?.n || inputData.n
-          ) || 1,
-          outputFormat: extractOptionValue(
-            inputData.additionalParams?.outputFormat || inputData.outputFormat
-          ) || 'png',
-          background: extractOptionValue(inputData.additionalParams?.background),
-          outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
-          timeout: workboardData.timeout
-        }
-      );
-      job.progress(90);
-    } else {
-      // 이미지 타입 필드들을 ComfyUI에 업로드
-      const uploadedImageMap = await uploadImageFieldsToComfyUI(
-        workboardData.serverUrl,
-        workboardData.additionalInputFields || [],
-        inputData
-      );
-      job.progress(15);
-
-      let workflowJson, actualSeed;
-      try {
-        ({ workflowJson, actualSeed } = await injectInputsIntoWorkflow(
-          workboardData.workflowData,
-          inputData,
-          workboardData,
-          uploadedImageMap
-        ));
-      } catch (injectError) {
-        // 워크플로우 주입 실패 시 치환된 워크플로우 문자열을 저장하여 디버깅 가능하게 함
-        const resolvedString = injectError.resolvedWorkflowString || workboardData.workflowData;
-        try {
-          await ImageGenerationJob.findByIdAndUpdate(jobId, {
-            resolvedWorkflowData: resolvedString
-          });
-        } catch (saveError) {
-          console.error(`⚠️ Failed to save workflow data for job ${jobId}:`, saveError.message);
-        }
-        throw injectError;
-      }
-      job.progress(20);
-
-      // resolved 워크플로우 JSON 저장 (전송 전 저장하여 실패한 작업도 확인 가능)
-      try {
-        await ImageGenerationJob.findByIdAndUpdate(jobId, {
-          resolvedWorkflowData: JSON.stringify(workflowJson)
-        });
-      } catch (saveError) {
-        console.error(`⚠️ Failed to save resolved workflow data for job ${jobId}:`, saveError.message);
-      }
-
-      enhancedInputData = {
-        ...inputData,
-        seed: actualSeed
-      };
-
-      console.log(`🚀 Submitting workflow to ComfyUI for job ${jobId} with seed: ${actualSeed}`);
-      console.log(`🔗 ComfyUI Server URL: ${workboardData.serverUrl}`);
-      console.log(`📝 Workflow JSON preview:`, JSON.stringify(workflowJson).substring(0, 200) + '...');
-
-      generationResult = await comfyUIService.submitWorkflow(
-        workboardData.serverUrl,
-        workflowJson,
-        (progress) => job.progress(20 + (progress * 0.7))
-      );
-      job.progress(90);
-
-      console.log(`✅ ComfyUI workflow completed for job ${jobId}`);
-      console.log(`📊 ComfyUI result:`, {
-        hasImages: !!generationResult.images,
-        imageCount: generationResult.images?.length || 0,
-        hasVideos: !!generationResult.videos,
-        videoCount: generationResult.videos?.length || 0,
-        resultKeys: Object.keys(generationResult),
-        fullResult: generationResult
-      });
     }
+    console.log(`[dispatch] job ${jobId} → ${key}`);
+
+    const generationResult = await handler({ workboardData, inputData, job, jobId });
+    const enhancedInputData = generationResult.seed != null
+      ? { ...inputData, seed: generationResult.seed }
+      : inputData;
     
     const hasImages = generationResult.images && generationResult.images.length > 0;
     const hasVideos = generationResult.videos && generationResult.videos.length > 0;
@@ -878,6 +915,9 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
     const queueJob = await imageGenerationQueue.add('generateImage', {
       jobId: job._id.toString(),
       workboardData: {
+        // Phase 3: 라우팅은 (serverType, outputFormat) 우선, apiFormat 은 fallback
+        serverType: workboard.serverId?.serverType,
+        outputFormat: workboard.outputFormat,
         apiFormat: workboard.apiFormat,
         serverUrl: workboard.serverUrl,
         apiKey: workboard.serverId?.configuration?.apiKey,
