@@ -1,0 +1,22 @@
+{
+  "baseInputFields": {
+    "aiModel": [
+      { "key": "Default Model", "value": "default.safetensors" }
+    ],
+    "imageSizes": [
+      { "key": "1024x1024", "value": "1024x1024" },
+      { "key": "896x1152", "value": "896x1152" },
+      { "key": "1152x896", "value": "1152x896" },
+      { "key": "832x1216", "value": "832x1216" },
+      { "key": "1216x832", "value": "1216x832" },
+      { "key": "768x1344", "value": "768x1344" },
+      { "key": "1344x768", "value": "1344x768" }
+    ],
+    "referenceImageMethods": [
+      { "key": "Image to Image", "value": "img2img" },
+      { "key": "ControlNet Canny", "value": "controlnet_canny" }
+    ]
+  },
+  "additionalInputFields": [],
+  "workflowData": "{\n  \"prompt\": \"{{##prompt##}}\",\n  \"negative_prompt\": \"{{##negative_prompt##}}\",\n  \"model\": \"{{##model##}}\",\n  \"width\": \"{{##width##}}\",\n  \"height\": \"{{##height##}}\"\n}"
+}

@@ -54,6 +54,16 @@ import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
+import { getWorkboardTemplate } from '../../templates';
+
+// Deprecated apiFormat → 신규 serverType 매핑. 'GPT Image' workboard 의 server 는
+// Phase 2 에서 'OpenAI' 로 마이그레이션됐으므로 템플릿 키도 OpenAI 로 매핑.
+const APIFORMAT_TO_SERVERTYPE = {
+  ComfyUI: 'ComfyUI',
+  Gemini: 'Gemini',
+  'GPT Image': 'OpenAI',
+  'OpenAI Compatible': 'OpenAI Compatible',
+};
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
@@ -2105,123 +2115,14 @@ function WorkboardManagement() {
     if (selectedWorkboard) {
       updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      const isOpenAI = normalizedApiFormat === 'OpenAI Compatible';
-      const isGeminiApi = normalizedApiFormat === 'Gemini';
-      const isGptImageApi = normalizedApiFormat === 'GPT Image';
+      // Phase 4: 템플릿은 frontend/src/templates/<serverType>-<outputFormat>.json 에서 로드.
+      // 'GPT Image' apiFormat 은 Phase 2 에서 server 가 'OpenAI' 로 마이그레이션됐으므로 매핑.
+      const serverType = APIFORMAT_TO_SERVERTYPE[normalizedApiFormat] || normalizedApiFormat;
+      const template = getWorkboardTemplate(serverType, normalizedData.outputFormat);
 
       const workboardData = {
         ...normalizedData,
-        baseInputFields: isOpenAI ? {
-          aiModel: [
-            { key: 'GPT-4', value: 'gpt-4' },
-            { key: 'GPT-3.5 Turbo', value: 'gpt-3.5-turbo' }
-          ],
-          systemPrompt: '',
-          referenceImages: []
-        } : isGeminiApi ? {
-          aiModel: [
-            { key: 'Nano Banana', value: 'gemini-2.5-flash-image' },
-            { key: 'Nano Banana Pro', value: 'gemini-3-pro-image-preview' },
-            { key: 'Nano Banana 2', value: 'gemini-3.1-flash-image-preview' }
-          ],
-          imageSizes: [
-            { key: '정사각 (1:1)', value: '1:1' },
-            { key: '가로 와이드 (16:9)', value: '16:9' },
-            { key: '세로 와이드 (9:16)', value: '9:16' },
-            { key: '가로 (4:3)', value: '4:3' },
-            { key: '세로 (3:4)', value: '3:4' },
-            { key: '영화 (21:9)', value: '21:9' }
-          ],
-          referenceImageMethods: []
-        } : isGptImageApi ? {
-          aiModel: [
-            { key: 'GPT Image 2 (조직 인증 필요)', value: 'gpt-image-2' },
-            { key: 'GPT Image 1.5', value: 'gpt-image-1.5' },
-            { key: 'GPT Image 1', value: 'gpt-image-1' },
-            { key: 'GPT Image 1 Mini', value: 'gpt-image-1-mini' }
-          ],
-          imageSizes: [
-            { key: '자동 (auto)', value: 'auto' },
-            { key: '1024x1024', value: '1024x1024' },
-            { key: '1024x1536', value: '1024x1536' },
-            { key: '1536x1024', value: '1536x1024' }
-          ],
-          referenceImageMethods: []
-        } : {
-          aiModel: [
-            { key: 'Default Model', value: 'default.safetensors' }
-          ],
-          imageSizes: [
-            { key: '1024x1024', value: '1024x1024' },
-            { key: '896x1152', value: '896x1152' },
-            { key: '1152x896', value: '1152x896' },
-            { key: '832x1216', value: '832x1216' },
-            { key: '1216x832', value: '1216x832' },
-            { key: '768x1344', value: '768x1344' },
-            { key: '1344x768', value: '1344x768' }
-          ],
-          referenceImageMethods: [
-            { key: 'Image to Image', value: 'img2img' },
-            { key: 'ControlNet Canny', value: 'controlnet_canny' }
-          ]
-        },
-        additionalInputFields: isGptImageApi ? [
-          {
-            name: 'quality',
-            label: '품질',
-            type: 'select',
-            required: true,
-            defaultValue: 'auto',
-            options: [
-              { key: 'Auto', value: 'auto' },
-              { key: 'Low', value: 'low' },
-              { key: 'Medium', value: 'medium' },
-              { key: 'High', value: 'high' }
-            ],
-            description: 'GPT Image 생성 품질을 선택합니다.'
-          },
-          {
-            name: 'background',
-            label: '배경',
-            type: 'select',
-            required: false,
-            defaultValue: 'opaque',
-            options: [
-              { key: '불투명 (opaque)', value: 'opaque' },
-              { key: '투명 (transparent)', value: 'transparent' }
-            ],
-            description: 'gpt-image-2 전용. 투명 배경으로 출력하려면 transparent. 다른 모델에서는 무시됨.'
-          },
-          {
-            name: 'output_compression',
-            label: '출력 압축률',
-            type: 'number',
-            required: false,
-            defaultValue: 100,
-            description: 'gpt-image-2 의 JPEG/WebP 출력 시 압축률 (1-100). PNG 에는 영향 없음. 다른 모델에서는 무시됨.'
-          }
-        ] : isGeminiApi ? [
-          {
-            name: 'resolution',
-            label: '해상도',
-            type: 'select',
-            required: true,
-            defaultValue: '2K',
-            options: [
-              { key: '1K (기본)', value: '1K' },
-              { key: '2K', value: '2K' },
-              { key: '4K', value: '4K' }
-            ],
-            description: 'Gemini 이미지 출력 해상도를 선택합니다.'
-          }
-        ] : [],
-        workflowData: (isOpenAI || isGeminiApi || isGptImageApi) ? '' : JSON.stringify({
-          "prompt": "{{##prompt##}}",
-          "negative_prompt": "{{##negative_prompt##}}",
-          "model": "{{##model##}}",
-          "width": "{{##width##}}",
-          "height": "{{##height##}}"
-        }, null, 2)
+        ...template,
       };
       createMutation.mutate(workboardData);
     }
