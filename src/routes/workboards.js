@@ -11,6 +11,12 @@ const router = express.Router();
 const EXPORT_VERSION = 1;
 const APP_VERSION = { major: 1, minor: 3 };
 
+// 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
+// Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
+const SERVER_TYPE_LEGACY_FALLBACK = {
+  'GPT Image': 'OpenAI',
+};
+
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
@@ -106,10 +112,17 @@ router.post('/import', requireAdmin, async (req, res) => {
       serverMatchInfo = { name: server.name, matched: true, manual: true };
     } else if (data.server) {
       // 자동 매칭 시도
-      const server = await Server.findOne({
+      let server = await Server.findOne({
         name: data.server.name,
         serverType: data.server.serverType
       });
+      // Phase 2 마이그레이션으로 deprecated 된 serverType 의 자동 폴백 (옛 환경 export 호환)
+      if (!server && SERVER_TYPE_LEGACY_FALLBACK[data.server.serverType]) {
+        server = await Server.findOne({
+          name: data.server.name,
+          serverType: SERVER_TYPE_LEGACY_FALLBACK[data.server.serverType]
+        });
+      }
       if (server) {
         matchedServerId = server._id;
         serverMatchInfo = { name: server.name, matched: true, manual: false };
