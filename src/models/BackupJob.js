@@ -48,10 +48,6 @@ const backupJobSchema = new mongoose.Schema({
   },
   completedAt: {
     type: Date
-  },
-  expiresAt: {
-    type: Date,
-    default: () => new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7일 후
   }
 }, {
   timestamps: true
@@ -61,7 +57,6 @@ const backupJobSchema = new mongoose.Schema({
 backupJobSchema.index({ status: 1 });
 backupJobSchema.index({ createdBy: 1 });
 backupJobSchema.index({ createdAt: -1 });
-backupJobSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // 진행 상태 업데이트 메서드
 backupJobSchema.methods.updateProgress = function(current, total, stage) {
