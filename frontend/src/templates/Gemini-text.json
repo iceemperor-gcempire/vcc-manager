@@ -1,0 +1,15 @@
+{
+  "baseInputFields": {
+    "aiModel": [
+      { "key": "Gemini 2.5 Pro", "value": "gemini-2.5-pro" },
+      { "key": "Gemini 2.5 Flash", "value": "gemini-2.5-flash" },
+      { "key": "Gemini 2.0 Flash", "value": "gemini-2.0-flash" }
+    ],
+    "systemPrompt": "",
+    "referenceImages": [],
+    "temperature": 0.7,
+    "maxTokens": 2000
+  },
+  "additionalInputFields": [],
+  "workflowData": ""
+}
