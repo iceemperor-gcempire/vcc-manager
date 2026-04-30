@@ -42,6 +42,12 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 
+// 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
+const KNOWN_SERVER_URLS = {
+  OpenAI: 'https://api.openai.com',
+  Gemini: 'https://generativelanguage.googleapis.com',
+};
+
 function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraSyncStatus }) {
   const [healthChecking, setHealthChecking] = useState(false);
   const isComfyUI = server.serverType === 'ComfyUI';
@@ -342,7 +348,15 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                 <InputLabel>AI API 형식</InputLabel>
                 <Select
                   value={formData.serverType}
-                  onChange={(e) => setFormData(prev => ({ ...prev, serverType: e.target.value }))}
+                  onChange={(e) => {
+                    const newType = e.target.value;
+                    setFormData(prev => ({
+                      ...prev,
+                      serverType: newType,
+                      // 알려진 provider 면 URL 비어있을 때만 자동 입력
+                      serverUrl: prev.serverUrl || KNOWN_SERVER_URLS[newType] || '',
+                    }));
+                  }}
                   label="AI API 형식"
                 >
                   <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
