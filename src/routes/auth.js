@@ -115,6 +115,7 @@ router.post('/signup', signupRateLimit, validate(signupSchema), async (req, res)
         email: newUser.email,
         nickname: newUser.nickname,
         isAdmin: newUser.isAdmin,
+        approvalStatus: newUser.approvalStatus,
         authProvider: newUser.authProvider,
         preferences: newUser.preferences
       },
