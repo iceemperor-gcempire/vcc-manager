@@ -55,36 +55,33 @@ import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import { getWorkboardTemplate } from '../../templates';
-import { deriveLegacyApiFormat } from '../../templates/capabilities';
+import {
+  deriveLegacyApiFormat,
+  getServerTypeLabel,
+  getOutputFormatLabel,
+} from '../../templates/capabilities';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
   const isInactive = !workboard.isActive;
-  const getApiFormatLabel = (format) => {
-    switch (format) {
-      case 'ComfyUI':
-        return 'ComfyUI API';
-      case 'OpenAI Compatible':
-        return 'OpenAI Compatible API';
-      case 'Gemini':
-        return 'Gemini Image API';
-      case 'GPT Image':
-        return 'GPT Image API';
-      default:
-        return format;
-    }
+  const getWorkboardChipLabel = (wb) => {
+    const serverType = getServerTypeLabel(wb.serverId?.serverType || '');
+    const outputLabel = getOutputFormatLabel(wb.outputFormat || 'image');
+    if (!serverType) return outputLabel;
+    return `${serverType} · ${outputLabel}`;
   };
-  const getApiFormatColor = (format) => {
-    switch (format) {
+  const getServerTypeColor = (serverType) => {
+    switch (serverType) {
+      case 'OpenAI':
       case 'OpenAI Compatible':
         return 'secondary';
       case 'Gemini':
         return 'info';
-      case 'GPT Image':
-        return 'success';
-      default:
+      case 'ComfyUI':
         return 'primary';
+      default:
+        return 'default';
     }
   };
 
@@ -170,15 +167,9 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
-            label={getApiFormatLabel(workboard.apiFormat)}
-            color={getApiFormatColor(workboard.apiFormat)}
+            label={getWorkboardChipLabel(workboard)}
+            color={getServerTypeColor(workboard.serverId?.serverType)}
             size="small"
-          />
-          <Chip
-            label={workboard.outputFormat === 'text' ? '텍스트' : workboard.outputFormat === 'video' ? '비디오' : '이미지'}
-            color={workboard.outputFormat === 'text' ? 'info' : workboard.outputFormat === 'video' ? 'warning' : 'default'}
-            size="small"
-            variant="outlined"
           />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
