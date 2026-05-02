@@ -31,11 +31,13 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 1. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
 2. `dev` → `main` PR 생성 및 머지
 3. `main` 브랜치에서 버전 태그 생성
+4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 **기타 개발과 관련 없는 작업 시:**
 1. 작업 진행
 2. `dev` → `main` PR 생성 및 머지
 3. `main` 브랜치에서 버전 태그 생성
+4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 ### 주의사항
 1. feature 및 fix 브랜치는 절대 직접 main 으로 PR 하지 말 것. 반드시 dev 에 PR 진행.
