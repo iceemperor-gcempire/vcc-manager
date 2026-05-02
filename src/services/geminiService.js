@@ -126,15 +126,11 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
     throw new Error('Gemini Chat: messages is empty');
   }
 
+  // Gemini 3+ 는 temperature 를 기본(1.0) 으로 두는 것을 공식 권장 (looping/성능 저하 방지).
+  // maxOutputTokens 도 모델 기본값을 사용 — 두 옵션 모두 전송하지 않음.
   const generationConfig = {
     responseModalities: ['TEXT'],
   };
-  if (options.temperature !== undefined) {
-    generationConfig.temperature = options.temperature;
-  }
-  if (options.maxTokens !== undefined) {
-    generationConfig.maxOutputTokens = options.maxTokens;
-  }
 
   const response = await axios.post(
     `${resolvedServerUrl}/v1beta/models/${model}:generateContent`,

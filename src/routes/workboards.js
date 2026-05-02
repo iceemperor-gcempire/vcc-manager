@@ -257,12 +257,10 @@ router.post('/', requireAdmin, async (req, res) => {
       workflowData
     } = req.body;
 
-    // apiFormat 기반으로 workboardType 자동 설정 (하위호환)
+    // outputFormat 이 진실 소스. apiFormat / workboardType 은 deprecated 호환성으로 유지.
     const resolvedApiFormat = apiFormat || (workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI');
-    const resolvedOutputFormat = ['Gemini', 'GPT Image'].includes(resolvedApiFormat)
-      ? 'image'
-      : outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
-    const resolvedWorkboardType = workboardType || (resolvedApiFormat === 'OpenAI Compatible' ? 'prompt' : 'image');
+    const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
+    const resolvedWorkboardType = workboardType || (resolvedOutputFormat === 'text' ? 'prompt' : 'image');
     
     // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
     let finalServerId = serverId;
@@ -375,16 +373,15 @@ router.put('/:id', requireAdmin, async (req, res) => {
     }
     if (apiFormat) {
       workboard.apiFormat = apiFormat;
-      // workboardType도 동기화 (하위호환)
-      workboard.workboardType = apiFormat === 'OpenAI Compatible' ? 'prompt' : 'image';
-      if (['Gemini', 'GPT Image'].includes(apiFormat)) {
-        workboard.outputFormat = 'image';
-      }
-    } else if (workboardType) {
-      workboard.workboardType = workboardType;
     }
     if (outputFormat) {
-      workboard.outputFormat = ['Gemini', 'GPT Image'].includes(workboard.apiFormat) ? 'image' : outputFormat;
+      workboard.outputFormat = outputFormat;
+    }
+    // workboardType 동기화: outputFormat=text → 'prompt', 그 외 → 'image' (deprecated 호환)
+    if (workboardType) {
+      workboard.workboardType = workboardType;
+    } else if (outputFormat) {
+      workboard.workboardType = outputFormat === 'text' ? 'prompt' : 'image';
     }
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;

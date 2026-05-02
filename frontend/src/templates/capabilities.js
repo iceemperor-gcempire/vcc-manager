@@ -4,9 +4,9 @@
 
 export const CAPABILITIES = {
   ComfyUI: ['image', 'video'],
-  OpenAI: ['image'],
+  OpenAI: ['image', 'text'],
   'OpenAI Compatible': ['text'],
-  Gemini: ['image'],
+  Gemini: ['image', 'text'],
 };
 
 const OUTPUT_FORMAT_LABELS = {

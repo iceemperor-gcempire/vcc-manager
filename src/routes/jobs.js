@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth } = require('../middleware/auth');
 const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
+const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
@@ -380,7 +381,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Workboard not found' });
     }
     
-    if (workboard.workboardType !== 'prompt') {
+    if (workboard.outputFormat !== 'text' && workboard.workboardType !== 'prompt') {
       return res.status(400).json({ message: 'This workboard is not a prompt workboard' });
     }
     
@@ -409,7 +410,12 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     }
     messages.push({ role: 'user', content: inputData.userPrompt });
 
-    const { content: result, usage } = await openAIChatService.complete(
+    // server.serverType 기반 chat 서비스 분기. Gemini 는 generateContent (텍스트 모드),
+    // 그 외 (OpenAI / OpenAI Compatible) 는 /v1/chat/completions.
+    const chatService = server.serverType === 'Gemini'
+      ? geminiService
+      : openAIChatService;
+    const { content: result, usage } = await chatService.complete(
       server.serverUrl,
       server.configuration?.apiKey,
       messages,

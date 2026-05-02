@@ -24,6 +24,30 @@ api.interceptors.request.use(
   }
 );
 
+function deriveErrorMessage(error) {
+  // 1. 백엔드가 보낸 message 우선
+  const apiMessage = error.response?.data?.message || error.response?.data?.error?.message;
+  if (apiMessage) return apiMessage;
+
+  // 2. axios timeout
+  if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+    return '서버 응답이 시간 초과되었습니다. 잠시 후 다시 시도해주세요.';
+  }
+
+  // 3. 응답 자체가 없는 경우 (네트워크 / CORS / DNS 등)
+  if (!error.response) {
+    return '서버에 연결할 수 없습니다. 네트워크 상태를 확인해주세요.';
+  }
+
+  // 4. status 별 일반 메시지
+  const status = error.response.status;
+  if (status >= 500) return `서버 오류가 발생했습니다 (HTTP ${status}). 잠시 후 다시 시도해주세요.`;
+  if (status === 429) return '요청 횟수가 너무 많습니다. 잠시 후 다시 시도해주세요.';
+  if (status === 403) return '권한이 없습니다.';
+  if (status === 404) return '요청한 리소스를 찾을 수 없습니다.';
+  return `요청 실패 (HTTP ${status})`;
+}
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -31,10 +55,9 @@ api.interceptors.response.use(
       Cookies.remove('token');
       window.location.href = '/login';
     }
-    
-    const message = error.response?.data?.message || 'An error occurred';
-    toast.error(message);
-    
+
+    toast.error(deriveErrorMessage(error));
+
     return Promise.reject(error);
   }
 );
