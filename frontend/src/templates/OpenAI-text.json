@@ -1,15 +1,18 @@
 {
   "baseInputFields": {
     "aiModel": [
-      { "key": "GPT-4o", "value": "gpt-4o" },
-      { "key": "GPT-4o Mini", "value": "gpt-4o-mini" },
-      { "key": "GPT-4 Turbo", "value": "gpt-4-turbo" },
-      { "key": "GPT-3.5 Turbo", "value": "gpt-3.5-turbo" }
+      { "key": "GPT-5.5 (latest)", "value": "gpt-5.5" },
+      { "key": "GPT-5.5 Pro", "value": "gpt-5.5-pro" },
+      { "key": "GPT-5.4", "value": "gpt-5.4" },
+      { "key": "GPT-5.4 Pro", "value": "gpt-5.4-pro" },
+      { "key": "GPT-5.1", "value": "gpt-5.1" },
+      { "key": "GPT-5", "value": "gpt-5" },
+      { "key": "GPT-5 Pro", "value": "gpt-5-pro" },
+      { "key": "GPT-4o", "value": "gpt-4o" }
     ],
     "systemPrompt": "",
     "referenceImages": [],
-    "temperature": 0.7,
-    "maxTokens": 2000
+    "temperature": 0.7
   },
   "additionalInputFields": [],
   "workflowData": ""
