@@ -42,8 +42,9 @@ function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const apiFormat = workboard.apiFormat || 'ComfyUI';
-  const isImageWorkboard = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
+  const outputFormat = workboard.outputFormat || 'image';
+  const isPromptWorkboard = outputFormat === 'text';
+  const isImageWorkboard = !isPromptWorkboard;
   const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
@@ -99,13 +100,14 @@ function WorkboardCard({ workboard, projectId }) {
     }
   };
 
-  const getApiFormatLabel = (format) => {
-    switch (format) {
-      case 'ComfyUI': return 'ComfyUI API';
-      case 'OpenAI Compatible': return 'OpenAI Compatible API';
-      case 'Gemini': return 'Gemini Image API';
-      case 'GPT Image': return 'GPT Image API';
-      default: return format;
+  const getServerTypeLabel = (serverType) => {
+    switch (serverType) {
+      case 'ComfyUI': return 'ComfyUI';
+      case 'OpenAI': return 'OpenAI';
+      case 'OpenAI Compatible': return 'OpenAI Compatible';
+      case 'Gemini': return 'Gemini';
+      case 'GPT Image': return 'GPT Image (deprecated)';
+      default: return serverType || '서버 미설정';
     }
   };
 
@@ -153,7 +155,7 @@ function WorkboardCard({ workboard, projectId }) {
               color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
             />
             <Chip
-              label={getApiFormatLabel(workboard.apiFormat || 'ComfyUI')}
+              label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
               variant="outlined"
             />
@@ -224,7 +226,7 @@ function WorkboardCard({ workboard, projectId }) {
               color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
             />
             <Chip
-              label={getApiFormatLabel(workboard.apiFormat || 'ComfyUI')}
+              label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
               variant="outlined"
             />
@@ -476,10 +478,10 @@ function Workboards() {
             label="AI API 형식"
           >
             <MenuItem value="">전체</MenuItem>
-            <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
-            <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
-            <MenuItem value="Gemini">Gemini Image API</MenuItem>
-            <MenuItem value="GPT Image">GPT Image API</MenuItem>
+            <MenuItem value="ComfyUI">ComfyUI</MenuItem>
+            <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
+            <MenuItem value="Gemini">Gemini</MenuItem>
+            <MenuItem value="GPT Image">GPT Image (deprecated)</MenuItem>
           </Select>
         </FormControl>
       </Box>

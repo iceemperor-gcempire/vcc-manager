@@ -5,14 +5,18 @@
 import comfyImage from './ComfyUI-image.json';
 import comfyVideo from './ComfyUI-video.json';
 import openAIImage from './OpenAI-image.json';
+import openAIText from './OpenAI-text.json';
 import geminiImage from './Gemini-image.json';
+import geminiText from './Gemini-text.json';
 import openAICompatibleText from './OpenAI Compatible-text.json';
 
 const TEMPLATES = {
   'ComfyUI:image': comfyImage,
   'ComfyUI:video': comfyVideo,
   'OpenAI:image': openAIImage,
+  'OpenAI:text': openAIText,
   'Gemini:image': geminiImage,
+  'Gemini:text': geminiText,
   'OpenAI Compatible:text': openAICompatibleText,
 };
 

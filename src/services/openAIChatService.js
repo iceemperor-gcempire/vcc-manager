@@ -7,6 +7,7 @@ const extractValue = (input) => {
   return input;
 };
 
+
 // OpenAI 호환 `/v1/chat/completions` 호출 — OpenAI 공식 / Local LLM (Ollama, LiteLLM, vLLM 등) 공통.
 // 응답에서 첫 번째 choice 의 메시지 본문 + usage 를 추출해 반환.
 const complete = async (serverUrl, apiKey, messages, options = {}) => {
@@ -20,11 +21,12 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
     throw new Error('OpenAI Chat: model is required');
   }
 
+  // max_tokens / max_completion_tokens / temperature 모두 모델 기본값 사용.
+  // gpt-5+ 등 reasoning 모델은 비기본 temperature 를 거부하고, 그 외 모델도
+  // 텍스트 워크보드에서는 사용자 미세조정 수요가 낮아 단순화함.
   const requestBody = {
     model,
     messages,
-    temperature: options.temperature ?? 0.7,
-    max_tokens: options.maxTokens ?? 2000,
   };
 
   const headers = { 'Content-Type': 'application/json' };
