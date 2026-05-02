@@ -1,46 +1,35 @@
 # VCC Manager Documentation Index
 
-이 디렉토리는 VCC Manager 프로젝트의 모든 문서를 체계적으로 관리합니다.
+이 디렉토리는 VCC Manager 프로젝트의 운영·개발 문서를 모아둔 곳입니다. Claude Code 작업 지침은 root [CLAUDE.md](../CLAUDE.md) 가 진실 소스이며, 본 문서는 외부 사용자·관리자·개발자용 가이드입니다.
 
-## 📚 문서 구성
+## 시작하기
+- [프로젝트 README](../README.md) — 프로젝트 소개 및 빠른 시작
+- [INSTALLATION.md](./INSTALLATION.md) — 설치 및 초기 설정
+- [CONFIGURATION.md](./CONFIGURATION.md) — 환경변수 및 설정 옵션
+- [USER_GUIDE.md](./USER_GUIDE.md) — 사용자 가이드
 
-### 🚀 시작하기
-- **[프로젝트 개요](../README.md)** - 프로젝트 소개 및 빠른 시작 가이드
-- **[설치 가이드](./INSTALLATION.md)** - 상세한 설치 및 설정 방법
-- **[환경 설정](./CONFIGURATION.md)** - 환경변수 및 설정 옵션
+## 개발
+- [DEVELOPMENT.md](./DEVELOPMENT.md) — 개발 환경, 아키텍처, 기능 설명
+- [API.md](./API.md) — REST API 엔드포인트 및 스키마
+- [COMFYUI_WORKFLOW.md](./COMFYUI_WORKFLOW.md) — ComfyUI 워크플로우 처리 로직
+- [LORA_METADATA.md](./LORA_METADATA.md) — LoRA 메타데이터 / Civitai 연동
+- [TEST_CHECKLIST.md](./TEST_CHECKLIST.md) — 테스트 체크리스트
 
-### 🛠️ 개발
-- **[개발 가이드](./DEVELOPMENT.md)** - 개발 환경 설정 및 기술 문서
-- **[API 문서](./API.md)** - REST API 엔드포인트 및 스키마
-- **[ComfyUI 워크플로우](./COMFYUI_WORKFLOW.md)** - 워크플로우 처리 로직
-- **[Claude Code 가이드](./CLAUDE_CODE.md)** - Claude Code 전용 개발 지침
+## MCP Server
+- [MCP_SERVER.md](./MCP_SERVER.md) — MCP 서버 세팅 / 클라이언트 연결 가이드
+- [MCP_SERVER_API.md](./MCP_SERVER_API.md) — MCP 도구 호출 명세
 
-### 🚀 배포 & 운영
-- **[배포 가이드](./DEPLOYMENT.md)** - 환경별 배포 방법
-- **[유지보수 가이드](./MAINTENANCE.md)** - 시스템 운영 및 관리
-- **[보안 가이드](./SECURITY.md)** - 보안 설정 및 모범사례
+## 배포 및 운영
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — 환경별 배포 방법
+- [BACKUP_RESTORE.md](./BACKUP_RESTORE.md) — 시스템 백업 / 복원
+- [MAINTENANCE.md](./MAINTENANCE.md) — 운영 및 관리
+- [SECURITY.md](./SECURITY.md) — 보안 설정 / 모범사례
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) — 일반적인 문제 해결
 
-### 📋 참고자료
-- **[변경 로그](../CHANGELOG.md)** - 버전별 변경사항
-- **[문제 해결](./TROUBLESHOOTING.md)** - 일반적인 문제 해결방법
-- **[아키텍처](./ARCHITECTURE.md)** - 시스템 아키텍처 상세 설명
-
----
-
-## 📖 문서 읽는 순서
-
-### 새로운 사용자
-1. [프로젝트 개요](../README.md) → [설치 가이드](./INSTALLATION.md) → [환경 설정](./CONFIGURATION.md)
-
-### 개발자
-1. [개발 가이드](./DEVELOPMENT.md) → [API 문서](./API.md) → [ComfyUI 워크플로우](./COMFYUI_WORKFLOW.md)
-
-### Claude Code 사용자  
-1. [Claude Code 가이드](./CLAUDE_CODE.md) → [개발 가이드](./DEVELOPMENT.md)
-
-### 시스템 관리자
-1. [배포 가이드](./DEPLOYMENT.md) → [보안 가이드](./SECURITY.md) → [유지보수 가이드](./MAINTENANCE.md)
+## 변경 이력
+- [updatelogs/](./updatelogs/) — 버전별 변경 로그 (대시보드 업데이트 로그 뷰어가 노출하는 데이터)
+- [../CHANGELOG.md](../CHANGELOG.md) — 자동 생성 변경 로그 (있는 경우)
 
 ---
 
-**마지막 업데이트**: 2026년 1월 24일
+**마지막 업데이트**: 2026-05-02
