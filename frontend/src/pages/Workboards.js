@@ -42,8 +42,9 @@ function WorkboardCard({ workboard, projectId }) {
   const navigate = useNavigate();
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const apiFormat = workboard.apiFormat || 'ComfyUI';
-  const isImageWorkboard = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
+  const outputFormat = workboard.outputFormat || 'image';
+  const isPromptWorkboard = outputFormat === 'text';
+  const isImageWorkboard = !isPromptWorkboard;
   const projectQuery = projectId ? `?projectId=${projectId}` : '';
 
   const handleSelect = () => {
