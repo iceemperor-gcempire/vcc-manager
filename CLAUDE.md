@@ -291,7 +291,6 @@ docker-compose logs -f backend
 ## 문서 참조
 
 - `docs/DEVELOPMENT.md` - 전체 개발 문서
-- `docs/CLAUDE_CODE.md` - Docker 테스트 가이드
 - `docs/TEST_CHECKLIST.md` - 테스트 체크리스트
 - `docs/COMFYUI_WORKFLOW.md` - ComfyUI 워크플로우 가이드
 - `docs/API.md` - API 문서
