@@ -176,10 +176,11 @@ const replacements = {
 - 컨테이너 간 통신 실패
 
 #### 해결 방법
-1. `.env` 파일에서 포트 설정 확인:
+1. `.env` 파일에서 포트 설정 확인 (기본값):
    ```bash
-   BACKEND_PORT=3131
-   FRONTEND_PORT=80
+   BACKEND_PORT=3136
+   FRONTEND_PORT=8136
+   MCP_PORT=4136
    ```
 
 2. docker-compose.prod.yml에서 포트 매핑 확인:
@@ -264,11 +265,11 @@ docker-compose -f docker-compose.prod.yml up -d
 
 #### 헬스체크 확인
 ```bash
-# 백엔드 헬스체크
-curl -f http://localhost:3131/health
+# 백엔드 헬스체크 (BACKEND_PORT 기본 3136)
+curl -f http://localhost:3136/health
 
-# 프론트엔드 접근 테스트
-curl -f http://localhost/
+# 프론트엔드 접근 테스트 (FRONTEND_PORT 기본 8136)
+curl -f http://localhost:8136/
 ```
 
 ---
@@ -335,3 +336,6 @@ docker system df
 ---
 
 *이 문서는 실제 문제 해결 경험을 바탕으로 작성되었으며, 새로운 이슈 발견 시 지속적으로 업데이트됩니다.*
+
+---
+**마지막 업데이트**: 2026-05-02
