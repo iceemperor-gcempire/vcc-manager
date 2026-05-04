@@ -393,75 +393,93 @@ const loadImageInputs = async (additionalInputFields, inputData) => {
   return loadedImages;
 };
 
+// 미첨부 이미지 필드용 1024x1024 흰색 PNG 를 메모리 상에서 생성하여 ComfyUI 에 업로드.
+// ComfyUI 의 LoadImage 노드는 입력이 없으면 워크플로우 실행 자체가 실패하므로 placeholder 주입 필요 (#230).
+// 동일 잡 내 여러 빈 이미지 필드가 있을 경우 1회 업로드 후 재사용 (cache 인자로 전달).
+const uploadBlankWhitePngToComfyUI = async (serverUrl, cache) => {
+  if (cache.blankFilename) return cache.blankFilename;
+  const buffer = await sharp({
+    create: {
+      width: 1024,
+      height: 1024,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  }).png().toBuffer();
+  const filename = `vcc_blank_white_${Date.now()}.png`;
+  const uploadResult = await comfyUIService.uploadImage(serverUrl, buffer, filename);
+  cache.blankFilename = uploadResult.name;
+  return uploadResult.name;
+};
+
 // 이미지 타입 필드들을 ComfyUI에 업로드하고 파일명 맵 반환
 const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData) => {
   const uploadedImageMap = {};
-  
+  const blankCache = {};
+
   if (!additionalInputFields || additionalInputFields.length === 0) {
     return uploadedImageMap;
   }
-  
+
   // 이미지 타입 필드 찾기
   const imageFields = additionalInputFields.filter(field => field.type === 'image');
-  
+
   for (const field of imageFields) {
     const fieldName = field.name;
     let fieldValue = inputData.additionalParams?.[fieldName] || inputData[fieldName];
-    
-    if (!fieldValue) {
-      console.log(`⏭️ Image field "${fieldName}" is empty, skipping`);
-      continue;
-    }
-    
+
     // 배열인 경우 첫 번째 이미지만 사용 (단일 이미지 필드)
     if (Array.isArray(fieldValue)) {
-      if (fieldValue.length === 0) {
-        console.log(`⏭️ Image field "${fieldName}" is empty array, skipping`);
-        continue;
-      }
-      fieldValue = fieldValue[0];
+      fieldValue = fieldValue.length > 0 ? fieldValue[0] : null;
     }
 
-    const imageId = fieldValue.imageId || fieldValue;
-    
+    const imageId = fieldValue ? (fieldValue.imageId || fieldValue) : null;
+
+    // 미첨부 / imageId 부재 시 흰색 1024x1024 PNG 자동 주입 (#230)
     if (!imageId) {
-      console.log(`⏭️ Image field "${fieldName}" has no imageId, skipping`);
+      try {
+        const blankName = await uploadBlankWhitePngToComfyUI(serverUrl, blankCache);
+        uploadedImageMap[fieldName] = blankName;
+        console.log(`🔳 Image field "${fieldName}" empty, injected blank white PNG: ${blankName}`);
+      } catch (error) {
+        console.error(`❌ Failed to inject blank PNG for field "${fieldName}":`, error.message);
+      }
       continue;
     }
-    
+
     try {
       console.log(`🔍 Looking up image for field "${fieldName}": ${imageId}`);
-      
+
       // 이미지 정보 조회 (GeneratedImage 또는 UploadedImage)
       const imageDoc = await findImageDocumentById(imageId);
-      
+
       if (!imageDoc) {
         console.warn(`⚠️ Image not found for field "${fieldName}": ${imageId}`);
         continue;
       }
-      
+
       // 이미지 파일 읽기
       const imagePath = imageDoc.path;
       if (!fs.existsSync(imagePath)) {
         console.warn(`⚠️ Image file not found: ${imagePath}`);
         continue;
       }
-      
+
       const imageBuffer = await fs.promises.readFile(imagePath);
       const filename = `vcc_${fieldName}_${Date.now()}_${path.basename(imagePath)}`;
-      
+
       // ComfyUI에 업로드
       const uploadResult = await comfyUIService.uploadImage(serverUrl, imageBuffer, filename);
-      
+
       // 업로드된 파일명 저장
       uploadedImageMap[fieldName] = uploadResult.name;
       console.log(`✅ Uploaded image for field "${fieldName}": ${uploadResult.name}`);
-      
+
     } catch (error) {
       console.error(`❌ Failed to upload image for field "${fieldName}":`, error.message);
     }
   }
-  
+
   return uploadedImageMap;
 };
 
