@@ -1793,7 +1793,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
 
 function WorkboardManagement() {
   const [search, setSearch] = useState('');
-  const [apiFormatFilter, setApiFormatFilter] = useState('');
+  const [serverTypeFilter, setServerTypeFilter] = useState('');
   const [outputFormatFilter, setOutputFormatFilter] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -1803,8 +1803,8 @@ function WorkboardManagement() {
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery(
-    ['adminWorkboards', { search, apiFormatFilter, outputFormatFilter }],
-    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, apiFormat: apiFormatFilter || undefined, outputFormat: outputFormatFilter || undefined }),
+    ['adminWorkboards', { search, serverTypeFilter, outputFormatFilter }],
+    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, serverType: serverTypeFilter || undefined, outputFormat: outputFormatFilter || undefined }),
     { keepPreviousData: true }
   );
 
@@ -2109,17 +2109,17 @@ function WorkboardManagement() {
           sx={{ minWidth: 300, flex: 1 }}
         />
         <FormControl sx={{ minWidth: 180 }}>
-          <InputLabel>AI API 타입</InputLabel>
+          <InputLabel>서버 타입</InputLabel>
           <Select
-            value={apiFormatFilter}
-            label="AI API 타입"
-            onChange={(e) => setApiFormatFilter(e.target.value)}
+            value={serverTypeFilter}
+            label="서버 타입"
+            onChange={(e) => setServerTypeFilter(e.target.value)}
           >
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI</MenuItem>
+            <MenuItem value="OpenAI">OpenAI</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
             <MenuItem value="Gemini">Gemini</MenuItem>
-            <MenuItem value="GPT Image">GPT Image</MenuItem>
           </Select>
         </FormControl>
         <FormControl sx={{ minWidth: 150 }}>
@@ -2143,7 +2143,7 @@ function WorkboardManagement() {
         </Box>
       ) : workboards.length === 0 ? (
         <Alert severity="info">
-          {(search || apiFormatFilter || outputFormatFilter) ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
+          {(search || serverTypeFilter || outputFormatFilter) ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
         </Alert>
       ) : (
         <Grid container spacing={3}>
