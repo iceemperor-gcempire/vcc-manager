@@ -36,6 +36,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { workboardAPI, userAPI, projectAPI } from '../services/api';
 import toast from 'react-hot-toast';
+import {
+  getServerTypeLabel as getServerTypeLabelShared,
+  getServerTypeColor,
+  getOutputFormatLabel as getOutputFormatLabelShared,
+} from '../templates/capabilities';
 
 
 function WorkboardCard({ workboard, projectId }) {
@@ -91,25 +96,8 @@ function WorkboardCard({ workboard, projectId }) {
     }
   };
 
-  const getOutputFormatLabel = (format) => {
-    switch (format) {
-      case 'image': return '이미지';
-      case 'video': return '비디오';
-      case 'text': return '텍스트';
-      default: return format;
-    }
-  };
-
-  const getServerTypeLabel = (serverType) => {
-    switch (serverType) {
-      case 'ComfyUI': return 'ComfyUI';
-      case 'OpenAI': return 'OpenAI';
-      case 'OpenAI Compatible': return 'OpenAI Compatible';
-      case 'Gemini': return 'Gemini';
-      case 'GPT Image': return 'GPT Image (deprecated)';
-      default: return serverType || '서버 미설정';
-    }
-  };
+  const getOutputFormatLabel = (format) => getOutputFormatLabelShared(format);
+  const getServerTypeLabel = (serverType) => getServerTypeLabelShared(serverType) || '서버 미설정';
 
   return (
     <>
@@ -157,7 +145,7 @@ function WorkboardCard({ workboard, projectId }) {
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
-              variant="outlined"
+              color={getServerTypeColor(workboard.serverId?.serverType)}
             />
           </Box>
 
@@ -228,7 +216,7 @@ function WorkboardCard({ workboard, projectId }) {
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
-              variant="outlined"
+              color={getServerTypeColor(workboard.serverId?.serverType)}
             />
           </Box>
 
@@ -341,8 +329,8 @@ function Workboards() {
   const [outputFormat, setOutputFormat] = useState(
     () => localStorage.getItem('workboardFilter_outputFormat') || ''
   );
-  const [apiFormat, setApiFormat] = useState(
-    () => localStorage.getItem('workboardFilter_apiFormat') || ''
+  const [serverType, setServerType] = useState(
+    () => localStorage.getItem('workboardFilter_serverType') || ''
   );
 
   // 프로젝트 컨텍스트
@@ -368,14 +356,16 @@ function Workboards() {
       localStorage.removeItem('workboardFilter_outputFormat');
     }
     if (prefs.resetWorkboardApiFormat) {
-      setApiFormat('');
+      setServerType('');
+      localStorage.removeItem('workboardFilter_serverType');
+      // legacy 키 정리
       localStorage.removeItem('workboardFilter_apiFormat');
     }
   }, [profileData]);
 
   const queryParams = { search, page, limit: 12 };
   if (outputFormat) queryParams.outputFormat = outputFormat;
-  if (apiFormat) queryParams.apiFormat = apiFormat;
+  if (serverType) queryParams.serverType = serverType;
 
   const { data, isLoading, error } = useQuery(
     ['workboards', queryParams],
@@ -402,14 +392,14 @@ function Workboards() {
     }
   };
 
-  const handleApiFormatChange = (event) => {
+  const handleServerTypeChange = (event) => {
     const value = event.target.value;
-    setApiFormat(value);
+    setServerType(value);
     setPage(1);
     if (value) {
-      localStorage.setItem('workboardFilter_apiFormat', value);
+      localStorage.setItem('workboardFilter_serverType', value);
     } else {
-      localStorage.removeItem('workboardFilter_apiFormat');
+      localStorage.removeItem('workboardFilter_serverType');
     }
   };
 
@@ -470,18 +460,18 @@ function Workboards() {
             <MenuItem value="text">텍스트</MenuItem>
           </Select>
         </FormControl>
-        <FormControl sx={{ minWidth: 200 }} size="small">
-          <InputLabel>AI API 형식</InputLabel>
+        <FormControl sx={{ minWidth: 180 }} size="small">
+          <InputLabel>서버 타입</InputLabel>
           <Select
-            value={apiFormat}
-            onChange={handleApiFormatChange}
-            label="AI API 형식"
+            value={serverType}
+            onChange={handleServerTypeChange}
+            label="서버 타입"
           >
             <MenuItem value="">전체</MenuItem>
             <MenuItem value="ComfyUI">ComfyUI</MenuItem>
+            <MenuItem value="OpenAI">OpenAI</MenuItem>
             <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
             <MenuItem value="Gemini">Gemini</MenuItem>
-            <MenuItem value="GPT Image">GPT Image (deprecated)</MenuItem>
           </Select>
         </FormControl>
       </Box>
@@ -493,7 +483,7 @@ function Workboards() {
         </Box>
       ) : workboards.length === 0 ? (
         <Alert severity="info">
-          {search || outputFormat || apiFormat ? '검색 결과가 없습니다.' : '사용 가능한 작업판이 없습니다.'}
+          {search || outputFormat || serverType ? '검색 결과가 없습니다.' : '사용 가능한 작업판이 없습니다.'}
         </Alert>
       ) : (
         <>

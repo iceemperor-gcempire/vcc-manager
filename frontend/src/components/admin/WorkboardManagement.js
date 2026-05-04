@@ -59,6 +59,7 @@ import {
   deriveLegacyApiFormat,
   getServerTypeLabel,
   getOutputFormatLabel,
+  getServerTypeColor,
 } from '../../templates/capabilities';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
@@ -71,20 +72,6 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
     if (!serverType) return outputLabel;
     return `${serverType} · ${outputLabel}`;
   };
-  const getServerTypeColor = (serverType) => {
-    switch (serverType) {
-      case 'OpenAI':
-      case 'OpenAI Compatible':
-        return 'secondary';
-      case 'Gemini':
-        return 'info';
-      case 'ComfyUI':
-        return 'primary';
-      default:
-        return 'default';
-    }
-  };
-
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };

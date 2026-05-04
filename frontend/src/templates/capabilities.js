@@ -35,6 +35,19 @@ export function getServerTypeLabel(serverType) {
   return SERVER_TYPE_LABELS[serverType] || serverType;
 }
 
+// MUI Chip color 매핑. 4개 serverType 이 distinct 한 색을 갖도록.
+const SERVER_TYPE_COLORS = {
+  ComfyUI: 'primary',
+  OpenAI: 'error',
+  'OpenAI Compatible': 'success',
+  Gemini: 'warning',
+  'GPT Image': 'default',
+};
+
+export function getServerTypeColor(serverType) {
+  return SERVER_TYPE_COLORS[serverType] || 'default';
+}
+
 // (server, outputFormat) → workboard schema 의 apiFormat 으로 매핑.
 // Phase 6 에서 apiFormat 필드가 제거되면 이 매핑도 함께 사라짐.
 const SERVER_OUTPUT_TO_LEGACY_APIFORMAT = {
