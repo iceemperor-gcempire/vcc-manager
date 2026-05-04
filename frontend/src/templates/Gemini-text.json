@@ -2,9 +2,9 @@
   "baseInputFields": {
     "aiModel": [
       { "key": "Gemini 3.1 Pro Preview (latest)", "value": "gemini-3.1-pro-preview" },
-      { "key": "Gemini 3 Pro Preview", "value": "gemini-3-pro-preview" },
       { "key": "Gemini 3 Flash Preview", "value": "gemini-3-flash-preview" },
-      { "key": "Gemini 3.1 Flash Lite Preview", "value": "gemini-3.1-flash-lite-preview" }
+      { "key": "Gemini 3.1 Flash Lite Preview", "value": "gemini-3.1-flash-lite-preview" },
+      { "key": "Gemini 3.1 Flash Live Preview", "value": "gemini-3.1-flash-live-preview" }
     ],
     "systemPrompt": "",
     "referenceImages": []

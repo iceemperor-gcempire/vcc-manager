@@ -2,12 +2,15 @@
   "baseInputFields": {
     "aiModel": [
       { "key": "GPT-5.5 (latest)", "value": "gpt-5.5" },
-      { "key": "GPT-5.5 Pro", "value": "gpt-5.5-pro" },
       { "key": "GPT-5.4", "value": "gpt-5.4" },
-      { "key": "GPT-5.4 Pro", "value": "gpt-5.4-pro" },
+      { "key": "GPT-5.4 mini", "value": "gpt-5.4-mini" },
+      { "key": "GPT-5.4 nano", "value": "gpt-5.4-nano" },
+      { "key": "GPT-5.2", "value": "gpt-5.2" },
+      { "key": "GPT-5.2 Pro", "value": "gpt-5.2-pro" },
       { "key": "GPT-5.1", "value": "gpt-5.1" },
       { "key": "GPT-5", "value": "gpt-5" },
-      { "key": "GPT-5 Pro", "value": "gpt-5-pro" }
+      { "key": "GPT-5 mini", "value": "gpt-5-mini" },
+      { "key": "GPT-5 nano", "value": "gpt-5-nano" }
     ],
     "systemPrompt": "",
     "referenceImages": []
