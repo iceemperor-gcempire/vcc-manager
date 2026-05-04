@@ -1,5 +1,7 @@
 # ComfyUI Workflow 처리 로직 문서
 
+> **⚠️ 적용 범위**: 본 문서는 `serverType: ComfyUI` 작업판에 한정된다. v1.7.0 부터 도입된 `OpenAI` / `OpenAI Compatible` / `Gemini` 서버는 워크플로우 JSON 대신 각 provider 의 REST API 를 직접 호출하므로 본 문서의 플레이스홀더 / WebSocket 처리 로직과 무관하다. 백엔드 dispatch 구조는 root [CLAUDE.md](../CLAUDE.md) 의 "Server / Workboard capability 모델" 과 [DEVELOPMENT.md](./DEVELOPMENT.md) 참고.
+
 ## 📋 개요
 
 VCC Manager에서 ComfyUI 워크플로우를 처리하는 전체적인 로직과 데이터 흐름을 설명합니다.
@@ -394,6 +396,6 @@ replacements["{{##customParam##}}"] = { value: 10, type: "number" };
 
 ---
 
-**작성일**: 2026년 1월 24일  
+**작성일**: 2026-01-24 / **마지막 검토**: 2026-05-02 (v1.8.x 기준 적용 범위 명시)  
 **버전**: 1.0  
 **작성자**: Claude Code Assistant

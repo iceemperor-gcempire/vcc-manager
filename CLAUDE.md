@@ -31,17 +31,19 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 1. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
 2. `dev` → `main` PR 생성 및 머지
 3. `main` 브랜치에서 버전 태그 생성
+4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 **기타 개발과 관련 없는 작업 시:**
 1. 작업 진행
 2. `dev` → `main` PR 생성 및 머지
 3. `main` 브랜치에서 버전 태그 생성
+4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 ### 주의사항
 1. feature 및 fix 브랜치는 절대 직접 main 으로 PR 하지 말 것. 반드시 dev 에 PR 진행.
 2. 신규 버전 작성 시에는, 반드시 dev -> main 으로 PR 진행해야 함.
 3. 신규 버전 작성 시 반영되지 않은 feature 및 fix 브랜치 바로 삭제하지 말 것. 새 버전에 다른 기능들 개발이 완료되지 않았을 수 있기 때문.
-2. 현재 작업과 관련이 없는 신규 작업이 요청되었을 때, 기존에 반영되지 않은 변경사항이 있었다면, 기존 작업과 신규 작업이 다른 지 판단하고, commit이 이루어지지 않았다면 commit 을 우선 진행할 것.
+4. 현재 작업과 관련이 없는 신규 작업이 요청되었을 때, 기존에 반영되지 않은 변경사항이 있었다면, 기존 작업과 신규 작업이 다른 지 판단하고, commit이 이루어지지 않았다면 commit 을 우선 진행할 것.
 
 
 ## Git 작업 체계
@@ -66,7 +68,7 @@ main                    # 프로덕션 브랜치 (버전 태그 생성)
 
 <body>
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 ```
 
 **Type 종류:**
@@ -146,19 +148,30 @@ docker-compose logs -f backend
 ```
 /
 ├── src/                    # 백엔드 소스
+│   ├── server.js           # Express 엔트리포인트
+│   ├── config/             # DB / passport 등 부트스트랩 설정
 │   ├── models/             # MongoDB 모델
 │   ├── routes/             # API 라우트
-│   ├── services/           # 비즈니스 로직
+│   ├── services/           # 비즈니스 로직 (provider 별 service 포함)
 │   ├── middleware/         # Express 미들웨어
+│   ├── migrations/         # MongoDB 일회성 마이그레이션 스크립트
+│   ├── tests/              # Jest 단위 테스트
 │   └── utils/              # 유틸리티 (signedUrl 등)
 ├── frontend/src/           # 프론트엔드 소스
 │   ├── components/         # React 컴포넌트
 │   │   ├── common/         # 공통 컴포넌트
 │   │   └── admin/          # 관리자 컴포넌트
 │   ├── pages/              # 페이지 컴포넌트
-│   └── services/           # API 서비스
+│   │   └── admin/          # 관리자 전용 페이지
+│   ├── contexts/           # React Context (AuthContext 등)
+│   ├── templates/          # 작업판 템플릿 JSON + capability matrix
+│   ├── services/           # API 서비스
+│   ├── config/             # 프론트엔드 설정 (버전 등)
+│   └── utils/              # 유틸리티
 ├── mcp-server/             # MCP 서버
 │   └── src/
+│       ├── server.js       # McpServer 팩토리
+│       ├── httpTransport.js # Streamable HTTP 진입점
 │       ├── tools/          # MCP 도구 정의 (workboards, jobs, media)
 │       └── utils/          # API 클라이언트
 ├── claude/
@@ -183,12 +196,20 @@ docker-compose logs -f backend
 - Material-UI 컴포넌트 사용
 - `useForm` (react-hook-form)으로 폼 관리
 
-### 공통 컴포넌트 활용
+### 공통 컴포넌트 활용 (`frontend/src/components/common/`)
 - `ImageSelectDialog`: 이미지 선택 다이얼로그
 - `ImageViewerDialog`: 이미지 뷰어
 - `VideoViewerDialog`: 비디오 뷰어
 - `Pagination`: 페이지네이션
 - `TagInput`: 태그 입력
+- `WorkboardSelectDialog`: 작업판 선택 다이얼로그 (히스토리 → 다른 작업판 이어가기)
+- `JobHistoryPanel`: 작업 히스토리 공용 패널
+- `MediaGrid`: 이미지/비디오 그리드 뷰
+- `ProjectEditDialog`: 프로젝트 편집 다이얼로그
+- `ProjectTagChip`: 프로젝트 전용 태그 칩
+- `PromptDataFormDialog`: 프롬프트 데이터 입력 폼
+- `PromptDataPanel`: 프롬프트 데이터 표시 패널
+- `UpdateLogDialog`: 업데이트 로그 뷰어 (대시보드)
 
 ---
 
@@ -211,6 +232,28 @@ docker-compose logs -f backend
 ### 4. 워크플로우 변수 형식
 - ComfyUI 플레이스홀더: `{{##변수명##}}`
 - 매핑: `workflowMapping` 객체에서 변수명 → 워크플로우 노드 경로 매핑
+
+### 5. Server / Workboard capability 모델 (v1.8.0+)
+- Server 는 provider 단위 (`OpenAI` / `OpenAI Compatible` / `Gemini` / `ComfyUI`)
+- Workboard 는 (server, outputFormat) 조합으로 capability 결정. `apiFormat` 은 deprecated 되어 outputFormat 에서 derived
+- 신규 작업판 템플릿은 `frontend/src/templates/<serverType>-<outputFormat>.json` 5종 + `index.js` 로더 + `capabilities.js` (capability matrix · 라벨 헬퍼) 로 정의
+- 백엔드 라우팅은 `services/queueService.js` 의 `SERVICE_MAP[(serverType, outputFormat)]` dispatcher 가 단일 진입점. 신규 provider 추가 시 한 곳만 수정
+- `routes/jobs.js` prompt-generate 는 `server.serverType` 기반으로 `geminiService.complete` / `openAIChatService.complete` 분기
+
+### 6. 인증 정책 (JWT + API Key)
+- 백엔드 인증은 JWT 전용. 세션 미들웨어 (`express-session`, `passport.session`) 는 v1.4.10 에서 제거
+- 외부 프로그램 / MCP 서버는 `X-API-Key` 헤더 또는 `Authorization: Bearer <api_key>` 로 인증 (사용자 프로필 > 보안 설정에서 발급, 사용자당 최대 10개)
+- OAuth 콜백은 토큰을 URL fragment (`#token=`) 로 전달. 서버 로그 / Referer 노출 차단 목적
+
+### 7. Signed URL 정책
+- `/uploads/*` 직접 접근 차단. 미디어는 `/api/files/*` 라우트의 HMAC-SHA256 서명 + 만료시간 검증 후 서빙
+- API 응답 시 모든 `/uploads/...` URL 은 자동으로 signed URL 로 변환되며 DB 에는 원본 경로 유지
+- 서브디렉토리 allowlist (`/generated/`, `/reference/`, `/videos/`) 적용. null byte / `..` 차단
+- 만료 라운딩 간격: `SIGNED_URL_ROUND_SECONDS` (기본 1440초) — 동일 구간 내 동일 URL 보장으로 video 깜박임 방지
+
+### 8. MCP 서버 인증 / 멀티유저
+- MCP 서버는 stdio + Streamable HTTP 양 모드 지원. HTTP 모드에서는 클라이언트가 자신의 VCC API Key 를 Bearer 토큰으로 전달 (멀티유저 독립 세션)
+- HTTP 모드의 signed URL 반환 시 `VCC_BASE_URL_FOR_MCP` 환경변수가 기준 URL. 미설정 시 base64 fallback (`mcp-remote` 의 1MB 응답 제한 회피용)
 
 ---
 
@@ -248,7 +291,6 @@ docker-compose logs -f backend
 ## 문서 참조
 
 - `docs/DEVELOPMENT.md` - 전체 개발 문서
-- `docs/CLAUDE_CODE.md` - Docker 테스트 가이드
 - `docs/TEST_CHECKLIST.md` - 테스트 체크리스트
 - `docs/COMFYUI_WORKFLOW.md` - ComfyUI 워크플로우 가이드
 - `docs/API.md` - API 문서
@@ -260,5 +302,5 @@ docker-compose logs -f backend
 ## 현재 버전 정보
 
 - **현재 개발 브랜치**: `dev`
-- **마지막 릴리스**: v1.6.1
-- **마지막 업데이트**: 2026-03-08
+- **마지막 릴리스**: v1.8.3
+- **마지막 업데이트**: 2026-05-04

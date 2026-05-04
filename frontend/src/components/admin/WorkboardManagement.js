@@ -265,8 +265,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       referenceImageMethods: [],
       systemPrompt: '',
       referenceImages: [],
-      temperature: 0.7,
-      maxTokens: 2000,
       negativePromptField: { enabled: false, required: false },
       upscaleMethodField: { enabled: false, required: false, options: [] },
       baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
@@ -275,11 +273,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   });
 
   const apiFormat = watch('apiFormat');
+  const outputFormat = watch('outputFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
   const isGemini = apiFormat === 'Gemini';
   const isGptImage = apiFormat === 'GPT Image';
-  const isPromptFormat = apiFormat === 'OpenAI Compatible';
-  const isImageFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
+  // v1.8.0+ : 분기 기준은 outputFormat. apiFormat 은 legacy.
+  const isPromptFormat = outputFormat === 'text';
+  const isImageFormat = outputFormat === 'image';
 
   React.useEffect(() => {
     return () => {
@@ -350,8 +350,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             referenceImageMethods: fullData.baseInputFields?.referenceImageMethods?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
             systemPrompt: fullData.baseInputFields?.systemPrompt || '',
             referenceImages: fullData.baseInputFields?.referenceImages?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
-            temperature: fullData.baseInputFields?.temperature ?? 0.7,
-            maxTokens: fullData.baseInputFields?.maxTokens ?? 2000,
             // 커스텀 필드
             negativePromptField: {
               enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
@@ -472,25 +470,26 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
     const normalizedApiFormat = data.apiFormat || 'ComfyUI';
     const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
-    const isPromptApiFormat = normalizedApiFormat === 'OpenAI Compatible';
-    const isImageApiFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(normalizedApiFormat);
-    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    // v1.8.0+ : baseInputFields 분기는 outputFormat 기준. apiFormat 은 legacy.
+    const normalizedOutputFormat = data.outputFormat || 'image';
+    const isPromptOutputFormat = normalizedOutputFormat === 'text';
+    const isImageOutputFormat = normalizedOutputFormat === 'image';
+    // GPT Image 는 deprecated 이미지 전용 — 강제 image 유지. 그 외 capability 는 사용자 선택 존중.
+    const isFixedImageApiFormat = normalizedApiFormat === 'GPT Image';
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
       apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image'),
+      outputFormat: isFixedImageApiFormat ? 'image' : normalizedOutputFormat,
       workflowData: !isComfyUIFormat ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: isImageApiFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        imageSizes: isImageOutputFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
         referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: isPromptApiFormat ? (data.systemPrompt || '') : '',
-        referenceImages: isPromptApiFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
-        temperature: isPromptApiFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
-        maxTokens: isPromptApiFormat ? (parseInt(data.maxTokens) || 2000) : undefined
+        systemPrompt: isPromptOutputFormat ? (data.systemPrompt || '') : '',
+        referenceImages: isPromptOutputFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : []
       },
       additionalInputFields
     };
@@ -668,51 +667,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           />
                         )}
                       />
-                    </AccordionDetails>
-                  </Accordion>
-
-                  <Accordion>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography variant="h6">생성 설정</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Typography variant="body2" color="textSecondary" mb={2}>
-                        프롬프트 생성 시 사용할 파라미터를 설정합니다.
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid item xs={12} sm={6}>
-                          <Controller
-                            name="temperature"
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                type="number"
-                                label="Temperature"
-                                inputProps={{ step: 0.1, min: 0, max: 2 }}
-                                helperText="창의성 수준 (0~2, 높을수록 다양한 결과)"
-                              />
-                            )}
-                          />
-                        </Grid>
-                        <Grid item xs={12} sm={6}>
-                          <Controller
-                            name="maxTokens"
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                type="number"
-                                label="Max Tokens"
-                                inputProps={{ min: 100, max: 16000 }}
-                                helperText="최대 출력 토큰 수"
-                              />
-                            )}
-                          />
-                        </Grid>
-                      </Grid>
                     </AccordionDetails>
                   </Accordion>
 

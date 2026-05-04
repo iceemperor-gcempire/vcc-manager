@@ -32,10 +32,10 @@ docker-compose logs --since="2026-01-22T10:00:00" --until="2026-01-22T12:00:00"
 #### 3. 데이터베이스 상태
 ```bash
 # MongoDB 연결 확인
-docker-compose exec mongodb mongosh "mongodb://admin:password@localhost:27017/vcc-manager?authSource=admin" --eval "db.runCommand('ping')"
+docker-compose exec mongodb mongosh "mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/${MONGO_DB}?authSource=admin" --eval "db.runCommand('ping')"
 
 # 컬렉션 상태 확인
-docker-compose exec mongodb mongosh "mongodb://admin:password@localhost:27017/vcc-manager?authSource=admin" --eval "
+docker-compose exec mongodb mongosh "mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/${MONGO_DB}?authSource=admin" --eval "
   db.users.countDocuments();
   db.workboards.countDocuments();
   db.imagegenerationjobs.countDocuments();
@@ -45,11 +45,11 @@ docker-compose exec mongodb mongosh "mongodb://admin:password@localhost:27017/vc
 #### 4. Redis 큐 상태
 ```bash
 # Redis 연결 확인
-docker-compose exec redis redis-cli -a redispassword ping
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" ping
 
 # 큐 상태 확인
-docker-compose exec redis redis-cli -a redispassword info memory
-docker-compose exec redis redis-cli -a redispassword keys "*"
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" info memory
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" keys "*"
 ```
 
 ### 정기 정리 작업
@@ -89,10 +89,12 @@ db.generatedimages.reIndex();
 
 ### 백업 절차
 
+> **권장 경로**: 관리자 UI 의 백업 기능 (`/api/admin/backup`, v1.2.4+) 또는 `docs/BACKUP_RESTORE.md` 절차를 사용한다. 이 기능은 MongoDB / 업로드 파일 / API Key 암호화 항목을 한번에 ZIP 으로 묶고 `BACKUP_ENCRYPTION_KEY` 로 민감정보를 암호화한다. 아래 수동 절차는 긴급 / 호환성 목적의 보조 수단이다.
+
 #### 1. 데이터베이스 백업
 ```bash
 # MongoDB 전체 백업
-docker-compose exec mongodb mongodump --uri="mongodb://admin:password@localhost:27017/vcc-manager?authSource=admin" --out="/backup/$(date +%Y%m%d)"
+docker-compose exec mongodb mongodump --uri="mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/${MONGO_DB}?authSource=admin" --out="/backup/$(date +%Y%m%d)"
 
 # 백업 파일 압축
 tar -czf "backup_$(date +%Y%m%d_%H%M%S).tar.gz" /backup/$(date +%Y%m%d)
@@ -115,7 +117,7 @@ cp .env /backup/config/
 #### 3. 백업 복원
 ```bash
 # 데이터베이스 복원
-docker-compose exec mongodb mongorestore --uri="mongodb://admin:password@localhost:27017/vcc-manager?authSource=admin" /backup/20260122/vcc-manager/
+docker-compose exec mongodb mongorestore --uri="mongodb://${MONGO_ROOT_USER}:${MONGO_ROOT_PASSWORD}@localhost:27017/${MONGO_DB}?authSource=admin" /backup/20260122/vcc-manager/
 
 # 파일 복원
 rsync -av /backup/uploads_20260122/ uploads/
@@ -139,10 +141,10 @@ db.imagegenerationjobs.createIndex({ "createdAt": -1, "status": 1 });
 #### 2. Redis 최적화
 ```bash
 # 메모리 사용량 확인
-docker-compose exec redis redis-cli -a redispassword info memory
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" info memory
 
 # 만료된 키 정리
-docker-compose exec redis redis-cli -a redispassword eval "return redis.call('del', unpack(redis.call('keys', ARGV[1])))" 0 "bull:*:completed*"
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" eval "return redis.call('del', unpack(redis.call('keys', ARGV[1])))" 0 "bull:*:completed*"
 
 # Redis 설정 최적화 (필요시 redis.conf 수정)
 # maxmemory 2gb
@@ -235,10 +237,10 @@ client.connect().then(() => console.log('Connected')).catch(console.error);
 #### 4. 큐 작업 문제
 ```bash
 # 대기 중인 작업 확인
-docker-compose exec redis redis-cli -a redispassword keys "*waiting*"
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" keys "*waiting*"
 
 # 실패한 작업 정리
-docker-compose exec redis redis-cli -a redispassword keys "*failed*" | xargs docker-compose exec redis redis-cli -a redispassword del
+docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" keys "*failed*" | xargs docker-compose exec redis redis-cli -a "$REDIS_PASSWORD" del
 
 # 큐 재시작
 docker-compose restart backend
@@ -340,6 +342,4 @@ fetch('/api/health')
 - [ ] 용량 계획 검토
 
 ---
-**마지막 업데이트**: 2026-01-22  
-**담당자**: 시스템 관리자  
-**비상 연락처**: [연락처 정보 추가 필요]
+**마지막 업데이트**: 2026-05-02
