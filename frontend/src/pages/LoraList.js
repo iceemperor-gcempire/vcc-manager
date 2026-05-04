@@ -498,7 +498,7 @@ function LoraList() {
 
   // ComfyUI 서버 목록 조회
   const { data: serversData, isLoading: serversLoading } = useQuery(
-    ['servers'],
+    ['servers', { includeInactive: false }],
     () => serverAPI.getServers({ includeInactive: false }),
     {
       onSuccess: (data) => {

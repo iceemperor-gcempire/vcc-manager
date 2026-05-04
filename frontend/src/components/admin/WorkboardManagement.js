@@ -59,6 +59,7 @@ import {
   deriveLegacyApiFormat,
   getServerTypeLabel,
   getOutputFormatLabel,
+  getServerTypeColor,
 } from '../../templates/capabilities';
 
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
@@ -71,20 +72,6 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
     if (!serverType) return outputLabel;
     return `${serverType} · ${outputLabel}`;
   };
-  const getServerTypeColor = (serverType) => {
-    switch (serverType) {
-      case 'OpenAI':
-      case 'OpenAI Compatible':
-        return 'secondary';
-      case 'Gemini':
-        return 'info';
-      case 'ComfyUI':
-        return 'primary';
-      default:
-        return 'default';
-    }
-  };
-
   const handleMenuOpen = (event) => {
     setAnchorEl(event.currentTarget);
   };
@@ -168,8 +155,8 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
             label={getWorkboardChipLabel(workboard)}
-            color={getServerTypeColor(workboard.serverId?.serverType)}
             size="small"
+            sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
           />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
