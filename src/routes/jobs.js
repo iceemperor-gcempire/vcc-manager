@@ -419,7 +419,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       server.serverUrl,
       server.configuration?.apiKey,
       messages,
-      { model, temperature, maxTokens, timeout: 60000 }
+      { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
     );
 
     await workboard.incrementUsage();
