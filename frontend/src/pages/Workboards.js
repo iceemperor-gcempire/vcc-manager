@@ -145,7 +145,7 @@ function WorkboardCard({ workboard, projectId }) {
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
-              color={getServerTypeColor(workboard.serverId?.serverType)}
+              sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
             />
           </Box>
 
@@ -216,7 +216,7 @@ function WorkboardCard({ workboard, projectId }) {
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
               size="small"
-              color={getServerTypeColor(workboard.serverId?.serverType)}
+              sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
             />
           </Box>
 

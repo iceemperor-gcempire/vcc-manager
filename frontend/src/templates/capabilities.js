@@ -35,17 +35,18 @@ export function getServerTypeLabel(serverType) {
   return SERVER_TYPE_LABELS[serverType] || serverType;
 }
 
-// MUI Chip color 매핑. 4개 serverType 이 distinct 한 색을 갖도록.
+// 4 serverType 별 distinct hex. brand-친화적 색상 사용 (시맨틱 컬러와 분리).
+// chip 은 클릭/disabled 처리 없는 표시용이라 hover state 미고려.
 const SERVER_TYPE_COLORS = {
-  ComfyUI: 'primary',
-  OpenAI: 'error',
-  'OpenAI Compatible': 'success',
-  Gemini: 'warning',
-  'GPT Image': 'default',
+  ComfyUI: '#7e57c2',          // 보라 — 서드파티/오픈소스 느낌
+  OpenAI: '#10a37f',           // OpenAI brand teal
+  'OpenAI Compatible': '#607d8b', // 회색-파랑 — 호환 레이어
+  Gemini: '#4285f4',           // Google blue
+  'GPT Image': '#9e9e9e',      // deprecated — 회색
 };
 
 export function getServerTypeColor(serverType) {
-  return SERVER_TYPE_COLORS[serverType] || 'default';
+  return SERVER_TYPE_COLORS[serverType] || '#9e9e9e';
 }
 
 // (server, outputFormat) → workboard schema 의 apiFormat 으로 매핑.
