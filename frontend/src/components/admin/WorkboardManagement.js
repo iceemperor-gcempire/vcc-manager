@@ -275,11 +275,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   });
 
   const apiFormat = watch('apiFormat');
+  const outputFormat = watch('outputFormat');
   const isComfyUI = apiFormat === 'ComfyUI';
   const isGemini = apiFormat === 'Gemini';
   const isGptImage = apiFormat === 'GPT Image';
-  const isPromptFormat = apiFormat === 'OpenAI Compatible';
-  const isImageFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(apiFormat);
+  // v1.8.0+ : 분기 기준은 outputFormat. apiFormat 은 legacy.
+  const isPromptFormat = outputFormat === 'text';
+  const isImageFormat = outputFormat === 'image';
 
   React.useEffect(() => {
     return () => {
@@ -472,25 +474,28 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
     const normalizedApiFormat = data.apiFormat || 'ComfyUI';
     const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
-    const isPromptApiFormat = normalizedApiFormat === 'OpenAI Compatible';
-    const isImageApiFormat = ['ComfyUI', 'Gemini', 'GPT Image'].includes(normalizedApiFormat);
-    const isFixedImageApiFormat = ['Gemini', 'GPT Image'].includes(normalizedApiFormat);
+    // v1.8.0+ : baseInputFields 분기는 outputFormat 기준. apiFormat 은 legacy.
+    const normalizedOutputFormat = data.outputFormat || 'image';
+    const isPromptOutputFormat = normalizedOutputFormat === 'text';
+    const isImageOutputFormat = normalizedOutputFormat === 'image';
+    // GPT Image 는 deprecated 이미지 전용 — 강제 image 유지. 그 외 capability 는 사용자 선택 존중.
+    const isFixedImageApiFormat = normalizedApiFormat === 'GPT Image';
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
       apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : (data.outputFormat || 'image'),
+      outputFormat: isFixedImageApiFormat ? 'image' : normalizedOutputFormat,
       workflowData: !isComfyUIFormat ? '' : data.workflowData,
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: isImageApiFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
+        imageSizes: isImageOutputFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
         referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: isPromptApiFormat ? (data.systemPrompt || '') : '',
-        referenceImages: isPromptApiFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
-        temperature: isPromptApiFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
-        maxTokens: isPromptApiFormat ? (parseInt(data.maxTokens) || 2000) : undefined
+        systemPrompt: isPromptOutputFormat ? (data.systemPrompt || '') : '',
+        referenceImages: isPromptOutputFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : [],
+        temperature: isPromptOutputFormat ? (parseFloat(data.temperature) || 0.7) : undefined,
+        maxTokens: isPromptOutputFormat ? (parseInt(data.maxTokens) || 2000) : undefined
       },
       additionalInputFields
     };
