@@ -393,19 +393,30 @@ const loadImageInputs = async (additionalInputFields, inputData) => {
   return loadedImages;
 };
 
-// 미첨부 이미지 필드용 1024x1024 흰색 PNG 를 메모리 상에서 생성하여 ComfyUI 에 업로드.
-// ComfyUI 의 LoadImage 노드는 입력이 없으면 워크플로우 실행 자체가 실패하므로 placeholder 주입 필요 (#230).
-// 동일 잡 내 여러 빈 이미지 필드가 있을 경우 1회 업로드 후 재사용 (cache 인자로 전달).
+// 1024x1024 흰색 PNG 의 메모리 캐시. 첫 호출에서만 sharp 가 raw 픽셀 buffer (~3MB) 를 일시
+// 할당하고, 이후엔 캐시된 PNG 버퍼 (5.3KB) 만 재사용. 동시성 N 잡일 때 raw buffer peak 가
+// N 배로 증폭되는 위험을 차단.
+let blankWhitePngBuffer = null;
+const getBlankWhitePngBuffer = async () => {
+  if (!blankWhitePngBuffer) {
+    blankWhitePngBuffer = await sharp({
+      create: {
+        width: 1024,
+        height: 1024,
+        channels: 3,
+        background: { r: 255, g: 255, b: 255 },
+      },
+    }).png().toBuffer();
+  }
+  return blankWhitePngBuffer;
+};
+
+// 미첨부 이미지 필드용 1024x1024 흰색 PNG 를 ComfyUI 에 업로드 (#230).
+// ComfyUI 의 LoadImage 노드는 입력이 없으면 워크플로우 실행 자체가 실패하므로 placeholder 주입 필요.
+// 동일 잡 내 여러 빈 이미지 필드는 1회 업로드 후 재사용 (cache 인자로 전달).
 const uploadBlankWhitePngToComfyUI = async (serverUrl, cache) => {
   if (cache.blankFilename) return cache.blankFilename;
-  const buffer = await sharp({
-    create: {
-      width: 1024,
-      height: 1024,
-      channels: 3,
-      background: { r: 255, g: 255, b: 255 },
-    },
-  }).png().toBuffer();
+  const buffer = await getBlankWhitePngBuffer();
   const filename = `vcc_blank_white_${Date.now()}.png`;
   const uploadResult = await comfyUIService.uploadImage(serverUrl, buffer, filename);
   cache.blankFilename = uploadResult.name;
