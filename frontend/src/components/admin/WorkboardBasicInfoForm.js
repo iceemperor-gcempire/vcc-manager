@@ -25,8 +25,8 @@ function WorkboardBasicInfoForm({ control, setValue, errors, showActiveSwitch = 
   const outputFormat = useWatch({ control, name: 'outputFormat' }) || 'image';
 
   const { data: serversData } = useQuery(
-    'servers-all-active',
-    () => serverAPI.getServers({}),
+    ['servers', { includeInactive: false }],
+    () => serverAPI.getServers({ includeInactive: false }),
     { enabled: isDialogOpen }
   );
 
