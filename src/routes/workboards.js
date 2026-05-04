@@ -19,7 +19,7 @@ const SERVER_TYPE_LEGACY_FALLBACK = {
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { search = '', workboardType, apiFormat, outputFormat, includeAll, includeInactive } = req.query;
+    const { search = '', workboardType, apiFormat, serverType, outputFormat, includeAll, includeInactive } = req.query;
 
     const parsedPage = Number.parseInt(req.query.page, 10);
     const parsedLimit = Number.parseInt(req.query.limit, 10);
@@ -37,7 +37,13 @@ router.get('/', requireAuth, async (req, res) => {
     if (apiFormat) filter.apiFormat = apiFormat;
     if (outputFormat) filter.outputFormat = outputFormat;
 
-    if (!apiFormat && !outputFormat) {
+    // serverType 필터: 매칭 서버 ID 들 사전 조회 후 serverId $in 으로 필터링
+    if (serverType) {
+      const matchingServers = await Server.find({ serverType }).select('_id');
+      filter.serverId = { $in: matchingServers.map((s) => s._id) };
+    }
+
+    if (!apiFormat && !serverType && !outputFormat) {
       if (includeAll === 'true') {
         // 관리자용: 모든 타입 조회
       } else if (workboardType) {

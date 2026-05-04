@@ -175,7 +175,7 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
 }
 
 // 사용자 정의 이미지 입력 필드 컴포넌트
-function CustomImageField({ field, value, onChange, maxImages = 1 }) {
+function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false }) {
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -290,6 +290,11 @@ function CustomImageField({ field, value, onChange, maxImages = 1 }) {
           <Typography variant="caption" color="textSecondary">
             최대 {maxImages}장
           </Typography>
+          {isComfyUI && (
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+              미첨부 시 1024×1024 흰색 이미지가 자동으로 사용됩니다
+            </Typography>
+          )}
         </Box>
       ) : (
         <Grid container spacing={1}>
@@ -1267,6 +1272,7 @@ function ImageGeneration() {
                               value={formField.value || []}
                               onChange={formField.onChange}
                               maxImages={field.imageConfig?.maxImages || 1}
+                              isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
                             />
                           ) : (
                             <TextField
