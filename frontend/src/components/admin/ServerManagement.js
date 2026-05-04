@@ -458,9 +458,9 @@ function ServerManagement() {
 
   const queryClient = useQueryClient();
 
-  // 서버 목록 조회
+  // 서버 목록 조회 (admin: 비활성 포함)
   const { data: serversData, isLoading } = useQuery(
-    ['servers'],
+    ['servers', { includeInactive: true }],
     () => serverAPI.getServers({ includeInactive: true }),
     { refetchInterval: 30000 } // 30초마다 갱신
   );
