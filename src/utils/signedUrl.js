@@ -134,7 +134,8 @@ function generateBackupSignedUrl(backupId, expirySeconds = DEFAULT_EXPIRY) {
   const now = Math.floor(Date.now() / 1000);
   const expires = now + expirySeconds;
   const sig = createBackupSignature(backupId, expires);
-  return `/api/admin/backup/${backupId}/download-signed?expires=${expires}&sig=${sig}`;
+  // /api/files/* 는 글로벌 JWT 미들웨어 우회 — 서명이 곧 인증
+  return `/api/files/backup/${backupId}?expires=${expires}&sig=${sig}`;
 }
 
 function verifyBackupSignature(backupId, expires, signature) {
