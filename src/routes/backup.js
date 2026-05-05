@@ -6,6 +6,7 @@ const { requireAdmin } = require('../middleware/auth');
 const backupService = require('../services/backupService');
 const restoreService = require('../services/restoreService');
 const { startBackupLock, endBackupLock, isBackupInProgress, getCurrentBackupJobId } = require('../middleware/backupLock');
+const { generateBackupSignedUrl, verifyBackupSignature } = require('../utils/signedUrl');
 
 const router = express.Router();
 
@@ -160,8 +161,55 @@ router.get('/status/:id', requireAdmin, async (req, res) => {
 });
 
 /**
+ * POST /api/admin/backup/:id/signed-url
+ * 백업 다운로드용 signed URL 발급. 발급 시점에 admin 인증 / 파일 존재 확인.
+ * 큰 백업의 브라우저 메모리 버퍼링 회피 — 클라이언트는 발급된 URL 로 직접 navigate (#241).
+ */
+router.post('/:id/signed-url', requireAdmin, async (req, res) => {
+  try {
+    const { fileName } = await backupService.getBackupFilePath(req.params.id);
+    const url = generateBackupSignedUrl(req.params.id);
+    const expiresMatch = url.match(/expires=(\d+)/);
+    const expiresAt = expiresMatch ? Number(expiresMatch[1]) * 1000 : null;
+    res.json({ success: true, data: { url, fileName, expiresAt } });
+  } catch (error) {
+    res.status(404).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * GET /api/admin/backup/:id/download-signed
+ * Signed URL 기반 백업 다운로드. 인증 미들웨어 미적용 — 서명 자체가 인증.
+ * 클라이언트는 anchor / window.location 으로 navigate 하여 브라우저가 스트리밍 수신 (#241).
+ */
+router.get('/:id/download-signed', async (req, res) => {
+  const { id } = req.params;
+  const { expires, sig } = req.query;
+
+  if (!expires || !sig) {
+    return res.status(403).json({ success: false, message: 'Missing signature parameters' });
+  }
+
+  const { valid, expired } = verifyBackupSignature(id, expires, sig);
+  if (expired) return res.status(403).json({ success: false, message: 'URL has expired' });
+  if (!valid) return res.status(403).json({ success: false, message: 'Invalid signature' });
+
+  try {
+    const { filePath, fileName } = await backupService.getBackupFilePath(id);
+    res.download(filePath, fileName, (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).json({ success: false, message: '파일 다운로드 중 오류가 발생했습니다.' });
+      }
+    });
+  } catch (error) {
+    res.status(404).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * GET /api/admin/backup/download/:id
- * 백업 파일 다운로드
+ * 백업 파일 다운로드 (deprecated — signed URL 경로 사용 권장. #241).
+ * 큰 백업에서 브라우저 메모리 폭증 문제로 신규 호출자는 사용 금지.
  */
 router.get('/download/:id', requireAdmin, async (req, res) => {
   try {

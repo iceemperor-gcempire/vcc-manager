@@ -224,26 +224,18 @@ function BackupRestorePage() {
 
   const handleDownload = async (backupId) => {
     try {
-      const response = await backupAPI.download(backupId);
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      // signed URL 발급 후 브라우저 네이티브 다운로드 — 큰 백업의 메모리 버퍼링 회피 (#241).
+      const response = await backupAPI.getSignedDownloadUrl(backupId);
+      const { url, fileName } = response.data?.data || {};
+      if (!url) {
+        throw new Error('signed URL not returned');
+      }
       const link = document.createElement('a');
       link.href = url;
-
-      // Content-Disposition 헤더에서 파일명 추출
-      const contentDisposition = response.headers['content-disposition'];
-      let filename = `backup-${backupId}.zip`;
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-        if (match && match[1]) {
-          filename = match[1].replace(/['"]/g, '');
-        }
-      }
-
-      link.setAttribute('download', filename);
+      link.setAttribute('download', fileName || `backup-${backupId}.zip`);
       document.body.appendChild(link);
       link.click();
       link.remove();
-      window.URL.revokeObjectURL(url);
     } catch (error) {
       toast.error('다운로드에 실패했습니다.');
     }
