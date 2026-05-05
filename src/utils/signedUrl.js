@@ -119,9 +119,46 @@ function reverseSignedUrl(url) {
   return url;
 }
 
+// 백업 ZIP 다운로드용 signed URL — uploads 의 path-based 서명과 분리.
+// 백업은 /uploads 외부 (BACKUP_PATH) 에 저장되므로 별도 namespace 사용.
+// 키 입력은 backup ID (Mongo ObjectId 문자열) + expires.
+
+function createBackupSignature(backupId, expires) {
+  return crypto
+    .createHmac('sha256', SECRET)
+    .update(`backup:${backupId}:${expires}`)
+    .digest('hex');
+}
+
+function generateBackupSignedUrl(backupId, expirySeconds = DEFAULT_EXPIRY) {
+  const now = Math.floor(Date.now() / 1000);
+  const expires = now + expirySeconds;
+  const sig = createBackupSignature(backupId, expires);
+  // /api/files/* 는 글로벌 JWT 미들웨어 우회 — 서명이 곧 인증
+  return `/api/files/backup/${backupId}?expires=${expires}&sig=${sig}`;
+}
+
+function verifyBackupSignature(backupId, expires, signature) {
+  const now = Math.floor(Date.now() / 1000);
+  if (now > Number(expires)) {
+    return { valid: false, expired: true };
+  }
+  const expected = createBackupSignature(backupId, expires);
+  if (expected.length !== signature.length) {
+    return { valid: false, expired: false };
+  }
+  const valid = crypto.timingSafeEqual(
+    Buffer.from(expected, 'hex'),
+    Buffer.from(signature, 'hex')
+  );
+  return { valid, expired: false };
+}
+
 module.exports = {
   generateSignedUrl,
   verifySignature,
   transformUploadUrls,
   reverseSignedUrl,
+  generateBackupSignedUrl,
+  verifyBackupSignature,
 };

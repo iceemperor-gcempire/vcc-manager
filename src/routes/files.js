@@ -1,10 +1,41 @@
 const express = require('express');
 const path = require('path');
-const { verifySignature } = require('../utils/signedUrl');
+const { verifySignature, verifyBackupSignature } = require('../utils/signedUrl');
+const backupService = require('../services/backupService');
 
 const router = express.Router();
 const UPLOAD_ROOT = process.env.UPLOAD_PATH || './uploads';
 const ALLOWED_SUBDIRS = ['/generated/', '/reference/', '/videos/'];
+
+/**
+ * GET /api/files/backup/:id
+ *
+ * 백업 ZIP 다운로드. 서명이 곧 인증 — admin 토큰 없이 navigate 가능 (#241).
+ * 글로벌 /api JWT 미들웨어가 /files 를 우회시키므로 본 라우트로 도달.
+ */
+router.get('/backup/:id', async (req, res) => {
+  const { id } = req.params;
+  const { expires, sig } = req.query;
+
+  if (!expires || !sig) {
+    return res.status(403).json({ success: false, message: 'Missing signature parameters' });
+  }
+
+  const { valid, expired } = verifyBackupSignature(id, expires, sig);
+  if (expired) return res.status(403).json({ success: false, message: 'URL has expired' });
+  if (!valid) return res.status(403).json({ success: false, message: 'Invalid signature' });
+
+  try {
+    const { filePath, fileName } = await backupService.getBackupFilePath(id);
+    res.download(filePath, fileName, (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).json({ success: false, message: '파일 다운로드 중 오류가 발생했습니다.' });
+      }
+    });
+  } catch (error) {
+    res.status(404).json({ success: false, message: error.message });
+  }
+});
 
 /**
  * GET /api/files/*

@@ -162,6 +162,8 @@ export const backupAPI = {
   getStatus: (id) => api.get(`/admin/backup/status/${id}`),
   getLockStatus: () => api.get('/admin/backup/lock-status'),
   download: (id) => api.get(`/admin/backup/download/${id}`, { responseType: 'blob' }),
+  // signed URL 발급. 클라이언트는 받은 url 로 직접 navigate 해 브라우저 네이티브 스트림 다운로드 (#241).
+  getSignedDownloadUrl: (id) => api.post(`/admin/backup/${id}/signed-url`),
   list: (params) => api.get('/admin/backup/list', { params }),
   delete: (id) => api.delete(`/admin/backup/${id}`),
   validate: (file) => {
