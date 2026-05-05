@@ -19,7 +19,7 @@ const SERVER_TYPE_LEGACY_FALLBACK = {
 
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { search = '', workboardType, apiFormat, serverType, outputFormat, includeAll, includeInactive } = req.query;
+    const { search = '', workboardType, serverType, outputFormat, includeAll, includeInactive } = req.query;
 
     const parsedPage = Number.parseInt(req.query.page, 10);
     const parsedLimit = Number.parseInt(req.query.limit, 10);
@@ -34,7 +34,6 @@ router.get('/', requireAuth, async (req, res) => {
       filter.isActive = true;
     }
 
-    if (apiFormat) filter.apiFormat = apiFormat;
     if (outputFormat) filter.outputFormat = outputFormat;
 
     // serverType 필터: 매칭 서버 ID 들 사전 조회 후 serverId $in 으로 필터링
@@ -43,7 +42,7 @@ router.get('/', requireAuth, async (req, res) => {
       filter.serverId = { $in: matchingServers.map((s) => s._id) };
     }
 
-    if (!apiFormat && !serverType && !outputFormat) {
+    if (!serverType && !outputFormat) {
       if (includeAll === 'true') {
         // 관리자용: 모든 타입 조회
       } else if (workboardType) {
@@ -140,7 +139,6 @@ router.post('/import', requireAdmin, async (req, res) => {
           preview: {
             name: data.workboard?.name,
             description: data.workboard?.description,
-            apiFormat: data.workboard?.apiFormat,
             outputFormat: data.workboard?.outputFormat,
             server: data.server
           },
@@ -156,7 +154,6 @@ router.post('/import', requireAdmin, async (req, res) => {
         preview: {
           name: data.workboard?.name,
           description: data.workboard?.description,
-          apiFormat: data.workboard?.apiFormat,
           outputFormat: data.workboard?.outputFormat,
           server: null
         },
@@ -173,7 +170,6 @@ router.post('/import', requireAdmin, async (req, res) => {
       name: wb.name,
       description: wb.description,
       workboardType: wb.workboardType,
-      apiFormat: wb.apiFormat || 'ComfyUI',
       outputFormat: wb.outputFormat || 'image',
       serverId: matchedServerId,
       serverUrl: server.serverUrl,
@@ -256,61 +252,58 @@ router.post('/', requireAdmin, async (req, res) => {
       serverId,
       serverUrl,
       workboardType,
-      apiFormat,
       outputFormat,
       baseInputFields,
       additionalInputFields,
       workflowData
     } = req.body;
 
-    // outputFormat 이 진실 소스. apiFormat / workboardType 은 deprecated 호환성으로 유지.
-    const resolvedApiFormat = apiFormat || (workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI');
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
     const resolvedWorkboardType = workboardType || (resolvedOutputFormat === 'text' ? 'prompt' : 'image');
-    
+
     // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
     let finalServerId = serverId;
     if (!serverId && serverUrl) {
       // 기존 serverUrl 방식 지원 (deprecated)
       console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
     }
-    
+
     // serverId 필수 검증
     if (!finalServerId) {
-      return res.status(400).json({ 
-        message: 'serverId is required. Please select a server.' 
+      return res.status(400).json({
+        message: 'serverId is required. Please select a server.'
       });
     }
-    
+
     // 서버 존재 확인
     const server = await Server.findById(finalServerId);
     if (!server) {
-      return res.status(400).json({ 
-        message: 'Selected server not found.' 
+      return res.status(400).json({
+        message: 'Selected server not found.'
       });
     }
-    
+
     if (!server.isActive) {
-      return res.status(400).json({ 
-        message: 'Selected server is not active.' 
+      return res.status(400).json({
+        message: 'Selected server is not active.'
       });
     }
-    
+
+    const isComfyUI = server.serverType === 'ComfyUI';
     const workboard = new Workboard({
       name: name.trim(),
       description: description?.trim(),
       serverId: finalServerId,
       serverUrl: server.serverUrl,
       workboardType: resolvedWorkboardType,
-      apiFormat: resolvedApiFormat,
       outputFormat: resolvedOutputFormat,
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
-      workflowData: ['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(resolvedApiFormat) ? '' : workflowData,
+      workflowData: isComfyUI ? workflowData : '',
       createdBy: req.user._id
     });
-    
-    if (!workboard.validateWorkflowData()) {
+
+    if (isComfyUI && !workboard.validateWorkflowData()) {
       return res.status(400).json({ message: 'Invalid workflow data format' });
     }
     
@@ -335,7 +328,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
       serverId,
       serverUrl,
       workboardType,
-      apiFormat,
       outputFormat,
       baseInputFields,
       additionalInputFields,
@@ -377,9 +369,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
       console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
       workboard.serverUrl = serverUrl.trim();
     }
-    if (apiFormat) {
-      workboard.apiFormat = apiFormat;
-    }
     if (outputFormat) {
       workboard.outputFormat = outputFormat;
     }
@@ -392,8 +381,10 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
-      workboard.workflowData = ['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(workboard.apiFormat) ? '' : workflowData;
-      if (workboard.apiFormat === 'ComfyUI' && workflowData && !workboard.validateWorkflowData()) {
+      const wbServer = await Server.findById(workboard.serverId);
+      const isComfyUI = wbServer?.serverType === 'ComfyUI';
+      workboard.workflowData = isComfyUI ? workflowData : '';
+      if (isComfyUI && workflowData && !workboard.validateWorkflowData()) {
         return res.status(400).json({ message: 'Invalid workflow data format' });
       }
       workboard.version += 1;
@@ -500,7 +491,6 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       serverId: originalWorkboard.serverId,
       serverUrl: originalWorkboard.serverUrl,
       workboardType: originalWorkboard.workboardType,
-      apiFormat: originalWorkboard.apiFormat,
       outputFormat: originalWorkboard.outputFormat,
       baseInputFields: originalWorkboard.baseInputFields,
       additionalInputFields: originalWorkboard.additionalInputFields,
@@ -548,7 +538,6 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
         name: workboard.name,
         description: workboard.description,
         workboardType: workboard.workboardType,
-        apiFormat: workboard.apiFormat,
         outputFormat: workboard.outputFormat,
         baseInputFields: workboard.baseInputFields,
         additionalInputFields: workboard.additionalInputFields,

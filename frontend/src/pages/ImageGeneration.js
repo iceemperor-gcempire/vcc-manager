@@ -507,7 +507,7 @@ function ImageGeneration() {
 
   const workboardData = workboard?.data?.workboard;
   const userSelectedOption = workboardData?.baseInputFields?.aiModel?.find((model) => model.key === 'UserSelected');
-  const isComfyUIWorkboard = workboardData?.apiFormat === 'ComfyUI';
+  const isComfyUIWorkboard = workboardData?.serverId?.serverType === 'ComfyUI';
   const currentAiModel = watch('aiModel');
   const isUserSelectedAiModel = !!userSelectedOption && currentAiModel === userSelectedOption.value;
 

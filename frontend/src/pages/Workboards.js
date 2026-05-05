@@ -254,7 +254,7 @@ function WorkboardCard({ workboard, projectId }) {
             </>
           )}
 
-          {workboard.apiFormat === 'ComfyUI' && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
+          {workboard.serverId?.serverType === 'ComfyUI' && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 참고 이미지 사용 방식
@@ -273,7 +273,7 @@ function WorkboardCard({ workboard, projectId }) {
             </>
           )}
 
-          {workboard.apiFormat !== 'ComfyUI' && workboard.baseInputFields?.systemPrompt && (
+          {workboard.serverId?.serverType !== 'ComfyUI' && workboard.baseInputFields?.systemPrompt && (
             <>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 시스템 프롬프트

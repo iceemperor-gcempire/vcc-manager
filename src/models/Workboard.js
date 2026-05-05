@@ -72,11 +72,6 @@ const workboardSchema = new mongoose.Schema({
     default: 'image',
     required: false
   },
-  apiFormat: {
-    type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
-    default: 'ComfyUI'
-  },
   outputFormat: {
     type: String,
     enum: ['image', 'video', 'text'],
@@ -125,9 +120,7 @@ const workboardSchema = new mongoose.Schema({
   additionalInputFields: [inputFieldSchema],
   workflowData: {
     type: String,
-    required: function() {
-      return this.apiFormat === 'ComfyUI';
-    }
+    default: ''
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -176,21 +169,7 @@ workboardSchema.statics.findByType = function(workboardType, filter = {}) {
     .populate('createdBy', 'email nickname');
 };
 
-// API 형식 + 출력 형식별 조회
-workboardSchema.statics.findByFormat = function(apiFormat, outputFormat, filter = {}) {
-  const query = { ...filter, isActive: true };
-  if (apiFormat) query.apiFormat = apiFormat;
-  if (outputFormat) query.outputFormat = outputFormat;
-  return this.find(query)
-    .populate('serverId', 'name serverType serverUrl outputType isActive')
-    .populate('createdBy', 'email nickname');
-};
-
 workboardSchema.methods.validateWorkflowData = function() {
-  if (['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(this.apiFormat)) {
-    return true;
-  }
-  
   try {
     if (!this.workflowData || this.workflowData.trim().length === 0) {
       return false;

@@ -9,7 +9,6 @@
     "name": "SDXL Simple T2I",
     "description": "Upscale 없는 생성으로 빠르게.",
     "workboardType": "image",
-    "apiFormat": "ComfyUI",
     "outputFormat": "image",
     "baseInputFields": {
       "temperature": 0.7,

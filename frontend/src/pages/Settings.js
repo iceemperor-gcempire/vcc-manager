@@ -253,10 +253,10 @@ function Settings() {
             label={
               <Box>
                 <Typography variant="body1">
-                  작업판 AI API 형식 검색 조건 보존하지 않음
+                  작업판 서버 타입 검색 조건 보존하지 않음
                 </Typography>
                 <Typography variant="caption" color="textSecondary">
-                  이 옵션이 켜져 있으면 작업판 목록에 진입할 때 AI API 형식 필터가 '전체'로 초기화됩니다.
+                  이 옵션이 켜져 있으면 작업판 목록에 진입할 때 서버 타입 필터가 '전체'로 초기화됩니다.
                 </Typography>
               </Box>
             }

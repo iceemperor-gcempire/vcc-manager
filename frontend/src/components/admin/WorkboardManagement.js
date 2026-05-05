@@ -56,7 +56,6 @@ import { workboardAPI, serverAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import { getWorkboardTemplate } from '../../templates';
 import {
-  deriveLegacyApiFormat,
   getServerTypeLabel,
   getOutputFormatLabel,
   getServerTypeColor,
@@ -243,7 +242,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       description: '',
       serverId: '',
       serverType: '',
-      apiFormat: 'ComfyUI',
       outputFormat: 'image',
       workflowData: '',
       isActive: true,
@@ -259,12 +257,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     }
   });
 
-  const apiFormat = watch('apiFormat');
+  const serverType = watch('serverType');
   const outputFormat = watch('outputFormat');
-  const isComfyUI = apiFormat === 'ComfyUI';
-  const isGemini = apiFormat === 'Gemini';
-  const isGptImage = apiFormat === 'GPT Image';
-  // v1.8.0+ : 분기 기준은 outputFormat. apiFormat 은 legacy.
+  const isComfyUI = serverType === 'ComfyUI';
+  const isGemini = serverType === 'Gemini';
+  const isOpenAIImage = (serverType === 'OpenAI' || serverType === 'OpenAI Compatible') && outputFormat === 'image';
   const isPromptFormat = outputFormat === 'text';
   const isImageFormat = outputFormat === 'image';
 
@@ -328,7 +325,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
             serverType: fullData.serverId?.serverType || '',
-            apiFormat: fullData.apiFormat || (fullData.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
             isActive: fullData.isActive ?? true,
@@ -455,26 +451,21 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       });
     }
 
-    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
-    const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
-    // v1.8.0+ : baseInputFields 분기는 outputFormat 기준. apiFormat 은 legacy.
+    const isComfyUIServer = data.serverType === 'ComfyUI';
     const normalizedOutputFormat = data.outputFormat || 'image';
     const isPromptOutputFormat = normalizedOutputFormat === 'text';
     const isImageOutputFormat = normalizedOutputFormat === 'image';
-    // GPT Image 는 deprecated 이미지 전용 — 강제 image 유지. 그 외 capability 는 사용자 선택 존중.
-    const isFixedImageApiFormat = normalizedApiFormat === 'GPT Image';
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : normalizedOutputFormat,
-      workflowData: !isComfyUIFormat ? '' : data.workflowData,
+      outputFormat: normalizedOutputFormat,
+      workflowData: isComfyUIServer ? data.workflowData : '',
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
         imageSizes: isImageOutputFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
-        referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
+        referenceImageMethods: isComfyUIServer ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
         systemPrompt: isPromptOutputFormat ? (data.systemPrompt || '') : '',
         referenceImages: isPromptOutputFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : []
       },
@@ -594,11 +585,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                       <TextField
                                         {...field}
                                         label={
-                                          apiFormat === 'OpenAI Compatible'
+                                          serverType === 'OpenAI Compatible'
                                             ? '모델 ID (예: gpt-4)'
-                                            : apiFormat === 'Gemini'
+                                            : serverType === 'Gemini'
                                               ? '모델 ID (예: gemini-2.5-flash-image)'
-                                              : apiFormat === 'GPT Image'
+                                              : serverType === 'OpenAI'
                                                 ? '모델 ID (예: gpt-image-1.5)'
                                               : '모델 파일 경로'
                                         }
@@ -1471,10 +1462,10 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   Gemini 작업판은 워크플로우 JSON 없이 REST API로 이미지를 생성합니다.
                 </Alert>
               )}
-              {isGptImage && (
+              {isOpenAIImage && (
                 <>
                   <Alert severity="info">
-                    GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
+                    OpenAI 이미지 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
                   </Alert>
                   <Alert severity="warning" sx={{ mt: 1 }}>
                     <strong>gpt-image-2</strong> 모델은 OpenAI 조직 인증(Verify Organization) 완료 후 약 15분 뒤부터 사용 가능합니다. 인증 페이지: <a href="https://platform.openai.com/settings/organization/general" target="_blank" rel="noopener noreferrer">platform.openai.com/settings/organization/general</a>
@@ -1696,7 +1687,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="subtitle2">작업판 정보</Typography>
               <Typography variant="body2">
-                API: {parsedData.workboard.apiFormat || 'ComfyUI'} / 출력: {parsedData.workboard.outputFormat || 'image'}
+                서버: {parsedData.server?.serverType || '?'} / 출력: {parsedData.workboard.outputFormat || 'image'}
               </Typography>
               {parsedData.server && (
                 <Typography variant="body2">
@@ -2033,25 +2024,17 @@ function WorkboardManagement() {
 
   const handleSave = (data) => {
     if (selectedWorkboard) {
-      // 편집: 기존 apiFormat 유지. data 는 form 에서 온 새 값으로 덮어씀.
-      const normalizedData = { ...data };
-      // 폼이 더 이상 apiFormat 을 노출하지 않으므로 기존 값 보존
-      if (selectedWorkboard.apiFormat && !normalizedData.apiFormat) {
-        normalizedData.apiFormat = selectedWorkboard.apiFormat;
-      }
-      delete normalizedData.serverType; // 폼 내부 헬퍼 필드
+      const { serverType: _omit, ...normalizedData } = data;
       updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      // 생성: serverType + outputFormat → 템플릿 + legacy apiFormat 파생
+      // 생성: serverType + outputFormat → 템플릿 적용
       const serverType = data.serverType || 'ComfyUI';
       const outputFormat = data.outputFormat || 'image';
       const template = getWorkboardTemplate(serverType, outputFormat);
-      const apiFormat = deriveLegacyApiFormat(serverType, outputFormat);
 
       const { serverType: _omit, ...rest } = data;
       const workboardData = {
         ...rest,
-        apiFormat,
         outputFormat,
         ...template,
       };

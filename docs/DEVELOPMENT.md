@@ -68,7 +68,7 @@ VCC Manager 의 백엔드 / 프론트엔드 / MCP 서버 구조와 핵심 모듈
 
 - **User** — 이메일 / 비밀번호 / 닉네임 / `isAdmin` / `apiKeys[]` (최대 10개) / `passwordResetToken` / 사용자 설정 (`preferences.deleteContentWithHistory` 등)
 - **Server** — `serverType` (`OpenAI` / `OpenAI Compatible` / `Gemini` / `ComfyUI`), `baseUrl`, `apiKey`, healthcheck 결과
-- **Workboard** — `serverId`, `outputFormat` (`image` / `video` / `text`), `apiFormat` (deprecated), `baseInputFields`, `additionalInputFields`, `workflowData` (ComfyUI 만 사용, `default: ''`)
+- **Workboard** — `serverId`, `outputFormat` (`image` / `video` / `text`), `baseInputFields`, `additionalInputFields`, `workflowData` (ComfyUI 만 사용, `default: ''`)
 - **ImageGenerationJob** — `userId`, `workboardId`, `serverId`, `inputData` (prompt / aiModel / additionalParams), `resultImages[]` / `resultVideos[]`, `progress`, `error`, `resolvedWorkflow` (ComfyUI 디버깅용)
 - **GeneratedImage** / **GeneratedVideo** — `jobId` (선택), `userId`, `path`, `metadata`, `tags[]`
 - **ApiKey** — 해시된 키 + 라벨 + `lastUsedAt`
