@@ -14,21 +14,21 @@ export function registerWorkboardTools(server, apiRequest) {
     'List available workboards (image/video generation templates). Use this first to discover what generators are available.',
     {
       search: z.string().optional().describe('Search by name or description'),
-      apiFormat: z.enum(['ComfyUI', 'OpenAI Compatible']).optional().describe('Filter by API format'),
+      serverType: z.enum(['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini']).optional().describe('Filter by server type'),
       outputFormat: z.enum(['image', 'video', 'text']).optional().describe('Filter by output format'),
       page: z.coerce.number().int().positive().optional().describe('Page number (default 1)'),
       limit: z.coerce.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
     },
-    async ({ search, apiFormat, outputFormat, page, limit }) => {
+    async ({ search, serverType, outputFormat, page, limit }) => {
       const data = await apiRequest('/workboards', {
-        params: { search, apiFormat, outputFormat, page, limit },
+        params: { search, serverType, outputFormat, page, limit },
       });
 
       const workboards = data.workboards.map((wb) => ({
         id: wb._id,
         name: wb.name,
         description: wb.description || '',
-        apiFormat: wb.apiFormat,
+        serverType: wb.serverId?.serverType,
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
         models: (wb.baseInputFields?.aiModel || []).map((m) => m.key).join(', '),
@@ -63,7 +63,7 @@ export function registerWorkboardTools(server, apiRequest) {
         id: wb._id,
         name: wb.name,
         description: wb.description || '',
-        apiFormat: wb.apiFormat,
+        serverType: wb.serverId?.serverType,
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
 

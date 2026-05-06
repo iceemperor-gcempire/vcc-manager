@@ -26,10 +26,10 @@ const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { transformUploadUrls } = require('./utils/signedUrl');
 const { initializeQueues } = require('./services/queueService');
-const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
 const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 const migrateServerTypeToOpenAI = require('./migrations/migrateServerTypeToOpenAI');
 const dropBackupJobTTL = require('./migrations/dropBackupJobTTL');
+const dropWorkboardApiFormat = require('./migrations/dropWorkboardApiFormat');
 
 dotenv.config();
 
@@ -171,10 +171,10 @@ const startServer = async () => {
     
     // Run migrations
     console.log('Running migrations...');
-    await migrateWorkboardApiFormat();
     await migrateMediaOrderIndex();
     await migrateServerTypeToOpenAI();
     await dropBackupJobTTL();
+    await dropWorkboardApiFormat();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');

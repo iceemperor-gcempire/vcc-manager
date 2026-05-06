@@ -235,7 +235,7 @@ docker-compose logs -f backend
 
 ### 5. Server / Workboard capability 모델 (v1.8.0+)
 - Server 는 provider 단위 (`OpenAI` / `OpenAI Compatible` / `Gemini` / `ComfyUI`)
-- Workboard 는 (server, outputFormat) 조합으로 capability 결정. `apiFormat` 은 deprecated 되어 outputFormat 에서 derived
+- Workboard 는 (server, outputFormat) 조합으로 capability 결정. legacy `apiFormat` 필드는 v2.0 (Phase 6) 에서 완전 제거
 - 신규 작업판 템플릿은 `frontend/src/templates/<serverType>-<outputFormat>.json` 5종 + `index.js` 로더 + `capabilities.js` (capability matrix · 라벨 헬퍼) 로 정의
 - 백엔드 라우팅은 `services/queueService.js` 의 `SERVICE_MAP[(serverType, outputFormat)]` dispatcher 가 단일 진입점. 신규 provider 추가 시 한 곳만 수정
 - `routes/jobs.js` prompt-generate 는 `server.serverType` 기반으로 `geminiService.complete` / `openAIChatService.complete` 분기

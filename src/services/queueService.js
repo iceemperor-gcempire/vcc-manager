@@ -128,17 +128,8 @@ const SERVICE_MAP = {
   'ComfyUI:video': handleComfyUIWorkflow,
 };
 
-// Deprecated apiFormat 만 가진 잡 (Phase 4 이전 데이터) 을 위한 fallback 매핑.
-const APIFORMAT_TO_SERVERTYPE = {
-  'ComfyUI': 'ComfyUI',
-  'OpenAI Compatible': 'OpenAI Compatible',
-  'Gemini': 'Gemini',
-  'GPT Image': 'OpenAI', // Phase 2 마이그레이션 후 server 는 OpenAI 로 저장됨
-};
-
 const resolveServiceKey = (workboardData) => {
-  const serverType = workboardData.serverType
-    || APIFORMAT_TO_SERVERTYPE[workboardData.apiFormat];
+  const serverType = workboardData.serverType;
   const outputFormat = workboardData.outputFormat || 'image';
   return { key: `${serverType}:${outputFormat}`, serverType, outputFormat };
 };
@@ -944,10 +935,8 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
     const queueJob = await imageGenerationQueue.add('generateImage', {
       jobId: job._id.toString(),
       workboardData: {
-        // Phase 3: 라우팅은 (serverType, outputFormat) 우선, apiFormat 은 fallback
         serverType: workboard.serverId?.serverType,
         outputFormat: workboard.outputFormat,
-        apiFormat: workboard.apiFormat,
         serverUrl: workboard.serverUrl,
         apiKey: workboard.serverId?.configuration?.apiKey,
         timeout: workboard.serverId?.configuration?.timeout,

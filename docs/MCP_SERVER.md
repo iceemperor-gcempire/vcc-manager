@@ -429,7 +429,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `search` | string | No | 이름/설명 검색 |
-| `apiFormat` | string | No | `ComfyUI` 또는 `OpenAI Compatible` |
+| `serverType` | string | No | `ComfyUI`, `OpenAI`, `OpenAI Compatible`, `Gemini` |
 | `outputFormat` | string | No | `image`, `video`, `text` |
 | `page` | number | No | 페이지 번호 (기본 1) |
 | `limit` | number | No | 페이지당 항목 수 (기본 10, 최대 50) |
