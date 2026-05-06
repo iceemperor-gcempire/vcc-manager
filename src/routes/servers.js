@@ -5,6 +5,7 @@ const ServerLoraCache = require('../models/ServerLoraCache');
 const ModelCache = require('../models/ModelCache');
 const { verifyJWT, requireAdmin } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
+const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
@@ -406,6 +407,77 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'LoRA 목록을 불러오는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// Model (Checkpoint) 동기화 (메타데이터 포함) - 관리자만 — Phase B (#200)
+// 신규 ServerModelCache 기반. 기존 GET /:id/models 는 구 ModelCache 사용 중 (Phase D 에서 마이그레이션 예정).
+router.post('/:id/models/sync', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    const { forceRefresh = false } = req.body;
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    if (server.serverType !== 'ComfyUI') {
+      return res.status(400).json({
+        success: false,
+        message: '모델 동기화는 ComfyUI 서버에서만 사용할 수 있습니다.'
+      });
+    }
+
+    modelMetadataService.syncServerCheckpoints(server._id, server.serverUrl, { forceRefresh })
+      .then(() => {
+        console.log(`Checkpoint sync completed for server ${server.name}`);
+      })
+      .catch((err) => {
+        console.error(`Checkpoint sync failed for server ${server.name}:`, err);
+      });
+
+    res.json({
+      success: true,
+      message: '모델 동기화가 시작되었습니다. 상태는 /models/status 에서 확인하세요.'
+    });
+  } catch (error) {
+    console.error('모델 동기화 시작 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '모델 동기화를 시작하는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// Model 동기화 상태 조회
+router.get('/:id/models/status', verifyJWT, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    const status = await modelMetadataService.getSyncStatus(server._id);
+
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('모델 동기화 상태 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '동기화 상태를 조회하는데 실패했습니다.',
       error: error.message
     });
   }
