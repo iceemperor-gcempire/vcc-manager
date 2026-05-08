@@ -47,7 +47,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import LoraListModal from '../components/LoraListModal';
-import ModelListModal from '../components/ModelListModal';
+import ModelPickerGrid from '../components/ModelPickerGrid';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
@@ -1354,7 +1354,7 @@ function ImageGeneration() {
       )}
 
       {isComfyUIWorkboard && (
-        <ModelListModal
+        <ModelPickerGrid
           open={modelModalOpen}
           onClose={handleModelModalClose}
           serverId={workboardData?.serverId?._id || workboardData?.serverId}
