@@ -54,29 +54,48 @@ const getLoraFilenames = async (serverUrl) => {
 };
 
 /**
- * VCC LoRA Hash 커스텀 노드 설치 여부 확인
+ * VCC File Hash 커스텀 노드 설치 여부 확인.
+ * v2.0 의 신규 일반화 엔드포인트 우선, 구 LoRA 전용 엔드포인트 fallback.
  */
 const checkVccLoraHashNodeAvailable = async (serverUrl) => {
   try {
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/ping`, {
-      timeout: 5000
-    });
-    return response.data?.success === true;
-  } catch (error) {
+    const r = await axios.get(`${serverUrl}/api/vcc/file-hash/ping`, { timeout: 5000 });
+    if (r.data?.success === true) return true;
+  } catch (_e) {
+    // fallthrough
+  }
+  try {
+    const r = await axios.get(`${serverUrl}/api/vcc/lora-hash/ping`, { timeout: 5000 });
+    return r.data?.success === true;
+  } catch (_e) {
     return false;
   }
 };
 
 /**
- * 단일 LoRA 파일의 해시 조회
+ * 단일 LoRA 파일의 해시 조회.
+ * 신규 `/file-hash/loras/{filename}` 우선, 구 `/lora-hash/{filename}` fallback.
  */
 const getLoraHash = async (serverUrl, filename) => {
-  try {
-    const encodedFilename = encodeURIComponent(filename);
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/${encodedFilename}`, {
-      timeout: HASH_REQUEST_TIMEOUT
-    });
+  const encodedFilename = encodeURIComponent(filename);
 
+  try {
+    const response = await axios.get(
+      `${serverUrl}/api/vcc/file-hash/loras/${encodedFilename}`,
+      { timeout: HASH_REQUEST_TIMEOUT }
+    );
+    if (response.data?.success && response.data?.sha256) {
+      return response.data.sha256;
+    }
+  } catch (_e) {
+    // 신규 엔드포인트 미지원 (구 노드 또는 미설치) — 구 엔드포인트 시도
+  }
+
+  try {
+    const response = await axios.get(
+      `${serverUrl}/api/vcc/lora-hash/${encodedFilename}`,
+      { timeout: HASH_REQUEST_TIMEOUT }
+    );
     if (response.data?.success && response.data?.sha256) {
       return response.data.sha256;
     }
