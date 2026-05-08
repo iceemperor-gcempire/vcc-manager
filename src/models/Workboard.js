@@ -118,6 +118,13 @@ const workboardSchema = new mongoose.Schema({
     }
   },
   additionalInputFields: [inputFieldSchema],
+  // ComfyUI 작업판이 허용하는 base 모델 타입 (#252).
+  // civitai.baseModel 과 매칭. 빈 배열이면 제약 없음 (모든 모델 허용).
+  // baseModel 미상 (Civitai 미등록 / hash 없음) 모델은 노출 (custom merge 등 일상적 케이스).
+  allowedModelTypes: {
+    type: [String],
+    default: []
+  },
   workflowData: {
     type: String,
     default: ''
