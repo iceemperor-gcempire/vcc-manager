@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
-const ModelCache = require('../models/ModelCache');
+const ServerModelCache = require('../models/ServerModelCache');
 const { verifyJWT, requireAdmin } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
@@ -296,6 +296,11 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 // ===== LoRA 메타데이터 API =====
 
 // Checkpoint 모델 목록 조회
+// ComfyUI checkpoint 목록 조회 — frontend 의 ModelListModal 이 사용.
+// Phase D 부터 신규 ServerModelCache (#200) 를 storage 로 사용.
+// 응답 shape 은 backward-compat (`checkpointModels: string[]`) 으로 유지 —
+// rich 메타데이터 (hash, civitai 등) 는 Phase E 의 ModelPickerGrid 가 별도
+// 엔드포인트 또는 detailed 파라미터로 노출.
 router.get('/:id/models', verifyJWT, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
@@ -315,47 +320,41 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
     }
 
     const forceRefresh = req.query.refresh === 'true';
-    const cacheTtlMs = 10 * 60 * 1000;
+    let cache = await ServerModelCache.findOne({ serverId: server._id });
 
-    if (!forceRefresh) {
-      const cached = await ModelCache.findOne({ serverId: server._id });
-      const isFresh = cached?.lastFetched && (Date.now() - new Date(cached.lastFetched).getTime() < cacheTtlMs);
-
-      if (cached && isFresh) {
-        return res.json({
-          success: true,
-          data: {
-            checkpointModels: cached.checkpointModels || [],
-            lastFetched: cached.lastFetched,
-            fromCache: true
-          }
-        });
+    // 캐시가 없거나 forceRefresh 면 ComfyUI 에서 lightweight (filename only) 재조회.
+    // 메타데이터 (hash / Civitai) 는 별도 POST /models/sync 로만 채워짐.
+    if (!cache || forceRefresh) {
+      const filenames = await modelMetadataService.getCheckpointFilenames(server.serverUrl);
+      const existingByFilename = {};
+      if (cache) {
+        for (const m of cache.models) existingByFilename[m.filename] = m;
       }
+      const updatedModels = filenames.map(filename => existingByFilename[filename] || {
+        filename,
+        hash: null,
+        hashError: null,
+        civitai: { found: false }
+      });
+
+      cache = await ServerModelCache.findOneAndUpdate(
+        { serverId: server._id },
+        {
+          serverId: server._id,
+          serverUrl: server.serverUrl,
+          models: updatedModels,
+          lastFetched: new Date()
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
     }
-
-    const checkpointModels = await comfyUIService.getCheckpointModels(server.serverUrl);
-
-    const saved = await ModelCache.findOneAndUpdate(
-      { serverId: server._id },
-      {
-        serverId: server._id,
-        serverUrl: server.serverUrl,
-        checkpointModels,
-        lastFetched: new Date()
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
-    );
 
     res.json({
       success: true,
       data: {
-        checkpointModels: saved.checkpointModels || [],
-        lastFetched: saved.lastFetched,
-        fromCache: false
+        checkpointModels: cache.models.map(m => m.filename),
+        lastFetched: cache.lastFetched,
+        fromCache: !forceRefresh
       }
     });
   } catch (error) {
@@ -580,9 +579,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       });
     }
 
-    // LoRA 캐시 삭제
+    // 캐시 정리
     await ServerLoraCache.deleteOne({ serverId: server._id });
-    await ModelCache.deleteOne({ serverId: server._id });
+    await ServerModelCache.deleteOne({ serverId: server._id });
 
     await Server.findByIdAndDelete(req.params.id);
 

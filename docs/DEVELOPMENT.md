@@ -76,7 +76,7 @@ VCC Manager 의 백엔드 / 프론트엔드 / MCP 서버 구조와 핵심 모듈
 - **Project** — 프로젝트 분류 + 커버 이미지 (v1.3.0)
 - **PromptData** — 프롬프트 라이브러리 (v1.2.4)
 - **Tag** — 사용자 기반 태그 (v1.2.4)
-- **LoraCache** / **ServerLoraCache** / **ModelCache** — 외부 모델 카탈로그 캐시
+- **LoraCache** / **ServerLoraCache** / **ServerModelCache** — 외부 모델 카탈로그 캐시 (ServerModelCache 는 v2.0 신규: ComfyUI checkpoint + SaaS provider 모델 통합 관리)
 
 ## 트러블슈팅 / 운영
 

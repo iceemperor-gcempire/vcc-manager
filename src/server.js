@@ -30,6 +30,7 @@ const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 const migrateServerTypeToOpenAI = require('./migrations/migrateServerTypeToOpenAI');
 const dropBackupJobTTL = require('./migrations/dropBackupJobTTL');
 const dropWorkboardApiFormat = require('./migrations/dropWorkboardApiFormat');
+const dropLegacyModelCacheCollection = require('./migrations/dropLegacyModelCacheCollection');
 
 dotenv.config();
 
@@ -175,6 +176,7 @@ const startServer = async () => {
     await migrateServerTypeToOpenAI();
     await dropBackupJobTTL();
     await dropWorkboardApiFormat();
+    await dropLegacyModelCacheCollection();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
