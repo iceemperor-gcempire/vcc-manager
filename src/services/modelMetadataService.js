@@ -154,8 +154,136 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
 };
 
 /**
+ * OpenAI / OpenAI Compatible 서버의 모델 목록 조회 (`GET /v1/models`).
+ * 응답 스펙: { data: [{ id, object, created, owned_by, ... }] }
+ */
+const getOpenAIProviderModels = async (serverUrl, apiKey) => {
+  const headers = {};
+  if (apiKey) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+  try {
+    const response = await axios.get(`${serverUrl}/v1/models`, {
+      timeout: 30000,
+      headers
+    });
+    const list = response.data?.data || [];
+    return list.map(m => ({
+      id: m.id,
+      name: m.id,
+      description: m.description || '',
+      capabilities: [],
+      contextWindow: m.context_window || null,
+      ownedBy: m.owned_by || null
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch OpenAI models: ${error.message}`);
+  }
+};
+
+/**
+ * Gemini 서버의 모델 목록 조회 (`GET /v1beta/models`).
+ * 응답 스펙: { models: [{ name, displayName, description, supportedGenerationMethods, inputTokenLimit, outputTokenLimit, ... }] }
+ */
+const getGeminiProviderModels = async (serverUrl, apiKey) => {
+  try {
+    const response = await axios.get(`${serverUrl}/v1beta/models`, {
+      timeout: 30000,
+      params: apiKey ? { key: apiKey } : undefined
+    });
+    const list = response.data?.models || [];
+    return list.map(m => ({
+      // name 형식이 'models/gemini-...' 라 prefix 제거
+      id: typeof m.name === 'string' ? m.name.replace(/^models\//, '') : m.name,
+      name: m.displayName || m.name,
+      description: m.description || '',
+      capabilities: m.supportedGenerationMethods || [],
+      contextWindow: m.inputTokenLimit || null
+    }));
+  } catch (error) {
+    throw new Error(`Failed to fetch Gemini models: ${error.message}`);
+  }
+};
+
+/**
+ * SaaS provider (OpenAI / OpenAI Compatible / Gemini) 모델 목록 동기화.
+ * Civitai / hash 무관 — provider 의 `/models` 응답을 그대로 캐시.
+ * @param {Object} server — Server document (serverType / serverUrl / configuration.apiKey 사용)
+ */
+const syncServerProviderModels = async (server, { progressCallback = null } = {}) => {
+  const cache = await ServerModelCache.findOrCreateByServerId(server._id, server.serverUrl);
+
+  if (cache.status === 'fetching') {
+    throw new Error('Sync already in progress');
+  }
+
+  const apiKey = server.configuration?.apiKey;
+
+  try {
+    await cache.startSync();
+
+    if (progressCallback) progressCallback('fetching_list', 0, 0);
+    await cache.updateProgress(0, 0, 'fetching_list');
+
+    let providerModels = [];
+    if (server.serverType === 'OpenAI' || server.serverType === 'OpenAI Compatible') {
+      providerModels = await getOpenAIProviderModels(server.serverUrl, apiKey);
+    } else if (server.serverType === 'Gemini') {
+      providerModels = await getGeminiProviderModels(server.serverUrl, apiKey);
+    } else {
+      throw new Error(`Unsupported serverType for provider sync: ${server.serverType}`);
+    }
+
+    console.log(`[ModelSync] ${server.serverType}: ${providerModels.length} models from /models endpoint`);
+
+    const totalSteps = providerModels.length;
+    if (progressCallback) progressCallback('fetching_metadata', totalSteps, totalSteps);
+    await cache.updateProgress(totalSteps, totalSteps, 'fetching_metadata');
+
+    cache.hashNodeAvailable = false; // SaaS provider 는 hash 무관
+    cache.models = providerModels.map(pm => ({
+      filename: pm.id, // SaaS 의 식별자는 모델 ID
+      hash: null,
+      hashError: null,
+      civitai: { found: false },
+      provider: {
+        found: true,
+        id: pm.id,
+        name: pm.name,
+        description: pm.description,
+        capabilities: pm.capabilities,
+        contextWindow: pm.contextWindow,
+        fetchedAt: new Date()
+      }
+    }));
+    cache.lastMetadataSync = new Date();
+    await cache.completeSync();
+
+    return cache;
+  } catch (error) {
+    console.error('[ModelSync] Provider sync error:', error);
+    await cache.failSync(error.message);
+    throw error;
+  }
+};
+
+/**
+ * server.serverType 에 따라 적절한 sync 함수로 분기.
+ * 호출자는 이 단일 진입점만 알면 됨.
+ */
+const syncServerModels = async (server, opts = {}) => {
+  if (server.serverType === 'ComfyUI') {
+    return syncServerCheckpoints(server._id, server.serverUrl, opts);
+  }
+  if (server.serverType === 'OpenAI' || server.serverType === 'OpenAI Compatible' || server.serverType === 'Gemini') {
+    return syncServerProviderModels(server, opts);
+  }
+  throw new Error(`Unsupported serverType for model sync: ${server.serverType}`);
+};
+
+/**
  * 서버의 checkpoint 목록 + 메타데이터 동기화.
- * ComfyUI 서버에 한해 동작. 다른 serverType 은 별도 흐름 (Phase C).
+ * ComfyUI 전용. SaaS provider 는 syncServerProviderModels 사용.
  */
 const syncServerCheckpoints = async (serverId, serverUrl, { progressCallback = null, forceRefresh = false } = {}) => {
   const cache = await ServerModelCache.findOrCreateByServerId(serverId, serverUrl);
@@ -391,6 +519,10 @@ module.exports = {
   fetchCivitaiMetadataByHash,
   getCivitaiApiKey,
   syncServerCheckpoints,
+  getOpenAIProviderModels,
+  getGeminiProviderModels,
+  syncServerProviderModels,
+  syncServerModels,
   getServerCheckpoints,
   getSyncStatus,
   searchServerCheckpoints
