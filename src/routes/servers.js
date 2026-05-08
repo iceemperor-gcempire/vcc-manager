@@ -412,7 +412,8 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
   }
 });
 
-// Model (Checkpoint) 동기화 (메타데이터 포함) - 관리자만 — Phase B (#200)
+// Model 동기화 (메타데이터 포함) - 관리자만.
+// Phase B: ComfyUI checkpoint. Phase C: OpenAI / OpenAI Compatible / Gemini provider 모델.
 // 신규 ServerModelCache 기반. 기존 GET /:id/models 는 구 ModelCache 사용 중 (Phase D 에서 마이그레이션 예정).
 router.post('/:id/models/sync', requireAdmin, async (req, res) => {
   try {
@@ -426,19 +427,20 @@ router.post('/:id/models/sync', requireAdmin, async (req, res) => {
       });
     }
 
-    if (server.serverType !== 'ComfyUI') {
+    const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
+    if (!SUPPORTED.includes(server.serverType)) {
       return res.status(400).json({
         success: false,
-        message: '모델 동기화는 ComfyUI 서버에서만 사용할 수 있습니다.'
+        message: `모델 동기화는 ${SUPPORTED.join(' / ')} 서버에서만 사용할 수 있습니다.`
       });
     }
 
-    modelMetadataService.syncServerCheckpoints(server._id, server.serverUrl, { forceRefresh })
+    modelMetadataService.syncServerModels(server, { forceRefresh })
       .then(() => {
-        console.log(`Checkpoint sync completed for server ${server.name}`);
+        console.log(`Model sync completed for server ${server.name} (${server.serverType})`);
       })
       .catch((err) => {
-        console.error(`Checkpoint sync failed for server ${server.name}:`, err);
+        console.error(`Model sync failed for server ${server.name}:`, err);
       });
 
     res.json({
