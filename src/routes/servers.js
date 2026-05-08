@@ -296,11 +296,11 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 // ===== LoRA 메타데이터 API =====
 
 // Checkpoint 모델 목록 조회
-// ComfyUI checkpoint 목록 조회 — frontend 의 ModelListModal 이 사용.
+// ComfyUI checkpoint 목록 조회 — frontend 의 ModelListModal / ModelPickerGrid 가 사용.
 // Phase D 부터 신규 ServerModelCache (#200) 를 storage 로 사용.
-// 응답 shape 은 backward-compat (`checkpointModels: string[]`) 으로 유지 —
-// rich 메타데이터 (hash, civitai 등) 는 Phase E 의 ModelPickerGrid 가 별도
-// 엔드포인트 또는 detailed 파라미터로 노출.
+// - 기본 응답 shape (`checkpointModels: string[]`) 은 backward-compat 유지 — frontend ModelListModal 호환
+// - `?detailed=true` 파라미터: LoRA 와 동일 패턴의 rich 데이터 (search/pagination/baseModel 필터) 반환 — Phase E 의 ModelPickerGrid 가 사용
+// - SaaS provider (OpenAI / Gemini) 의 모델 목록도 detailed 모드에서 동일 응답 구조로 노출 (hash 무관, provider subdoc 사용)
 router.get('/:id/models', verifyJWT, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
@@ -312,6 +312,34 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
       });
     }
 
+    const detailed = req.query.detailed === 'true';
+
+    // detailed 모드: 4종 serverType 모두 동일 응답 구조로 처리 (LoRA `/loras` 와 동일 패턴)
+    if (detailed) {
+      const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
+      if (!SUPPORTED.includes(server.serverType)) {
+        return res.status(400).json({
+          success: false,
+          message: `상세 모델 목록은 ${SUPPORTED.join(' / ')} 서버에서만 조회할 수 있습니다.`
+        });
+      }
+
+      const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+      const result = await modelMetadataService.searchServerModels(server._id, {
+        search,
+        hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
+        baseModel,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+
+      return res.json({
+        success: true,
+        data: result
+      });
+    }
+
+    // 기본 모드 (backward-compat): ComfyUI 만, filename 배열만 반환
     if (server.serverType !== 'ComfyUI') {
       return res.status(400).json({
         success: false,

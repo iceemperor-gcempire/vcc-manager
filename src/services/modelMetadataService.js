@@ -450,7 +450,18 @@ const getSyncStatus = async (serverId) => {
   };
 };
 
-const searchServerCheckpoints = async (serverId, { search, hasMetadata, baseModel, page = 1, limit = 50 } = {}) => {
+/**
+ * 검색 / 페이지네이션 / baseModel 필터를 적용한 모델 목록 조회.
+ * ComfyUI checkpoint (civitai 메타데이터) + SaaS provider 모델 (provider 메타데이터)
+ * 양쪽을 통합 검색.
+ *
+ * @param {ObjectId} serverId
+ * @param {Object} opts
+ * @param {string} opts.search — filename / civitai 메타 / provider 메타 통합 검색
+ * @param {boolean} opts.hasMetadata — civitai 또는 provider 메타데이터 보유 여부
+ * @param {string} opts.baseModel — civitai.baseModel 매칭 (ComfyUI 만 의미 있음)
+ */
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -472,22 +483,27 @@ const searchServerCheckpoints = async (serverId, { search, hasMetadata, baseMode
   if (search) {
     const s = search.toLowerCase();
     filtered = filtered.filter(m => {
-      const filename = m.filename.toLowerCase();
-      const name = (m.civitai?.name || '').toLowerCase();
-      const description = (m.civitai?.description || '').toLowerCase();
-      const trainedWords = (m.civitai?.trainedWords || []).join(' ').toLowerCase();
+      const filename = (m.filename || '').toLowerCase();
+      const civName = (m.civitai?.name || '').toLowerCase();
+      const civDesc = (m.civitai?.description || '').toLowerCase();
+      const civTrained = (m.civitai?.trainedWords || []).join(' ').toLowerCase();
+      const provName = (m.provider?.name || '').toLowerCase();
+      const provDesc = (m.provider?.description || '').toLowerCase();
 
       return filename.includes(s) ||
-             name.includes(s) ||
-             description.includes(s) ||
-             trainedWords.includes(s);
+             civName.includes(s) ||
+             civDesc.includes(s) ||
+             civTrained.includes(s) ||
+             provName.includes(s) ||
+             provDesc.includes(s);
     });
   }
 
   if (hasMetadata !== undefined) {
-    filtered = filtered.filter(m =>
-      hasMetadata ? m.civitai?.found : !m.civitai?.found
-    );
+    filtered = filtered.filter(m => {
+      const has = (m.civitai?.found === true) || (m.provider?.found === true);
+      return hasMetadata ? has : !has;
+    });
   }
 
   if (baseModel) {
@@ -525,5 +541,5 @@ module.exports = {
   syncServerModels,
   getServerCheckpoints,
   getSyncStatus,
-  searchServerCheckpoints
+  searchServerModels
 };
