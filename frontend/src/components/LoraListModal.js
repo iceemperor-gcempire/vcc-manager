@@ -12,9 +12,6 @@ import {
   Chip,
   TextField,
   InputAdornment,
-  Card,
-  CardContent,
-  CardActions,
   Grid,
   IconButton,
   LinearProgress,
@@ -28,14 +25,9 @@ import {
   FormControlLabel
 } from '@mui/material';
 import {
-  Add as AddIcon,
   Refresh as RefreshIcon,
   Search as SearchIcon,
   Close as CloseIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  OpenInNew as OpenInNewIcon,
-  Info as InfoIcon,
   Warning as WarningIcon,
   VisibilityOff as VisibilityOffIcon,
   Block as BlockIcon
@@ -49,11 +41,8 @@ import {
   insertLoraTag,
   insertTriggerWordWithLora
 } from '../utils/promptUtils';
-import { sanitizeHtml } from '../utils/sanitizeHtml';
-import MetadataMediaThumbnail from './common/MetadataMediaThumbnail';
-
-// LoraThumbnail 의 alias — 기존 호출부 호환성 유지. 신규 코드는 MetadataMediaThumbnail 직접 사용.
-const LoraThumbnail = MetadataMediaThumbnail;
+import MetadataItemCard from './common/MetadataItemCard';
+import { normalizeLora } from '../utils/metadataItem';
 
 function LoraListModal({
   open,
@@ -322,15 +311,6 @@ function LoraListModal({
     return new Date(dateString).toLocaleString('ko-KR');
   };
 
-  const getBaseModelColor = (baseModel) => {
-    if (!baseModel) return 'default';
-    if (baseModel.includes('SDXL')) return 'primary';
-    if (baseModel.includes('SD 1.5') || baseModel.includes('SD1')) return 'secondary';
-    if (baseModel.includes('Pony')) return 'warning';
-    if (baseModel.includes('Flux')) return 'info';
-    return 'default';
-  };
-
   // NSFW 필터링 적용 (클라이언트 사이드)
   const filteredLoraModels = nsfwLoraFilter
     ? loraModels.filter(lora => !lora.civitai?.nsfw)
@@ -513,22 +493,25 @@ function LoraListModal({
         ) : (
           <>
             <Grid container spacing={2}>
-              {filteredLoraModels.map((lora, index) => (
-                <Grid item xs={12} sm={6} md={4} key={lora.filename || index}>
-                  <LoraCard
-                    lora={lora}
-                    expanded={expandedLora === lora.filename}
-                    onToggleExpand={() => setExpandedLora(
-                      expandedLora === lora.filename ? null : lora.filename
-                    )}
-                    onAddLora={handleAddLora}
-                    onCopyTriggerWord={(word) => handleCopyTriggerWord(word, lora)}
-                    getBaseModelColor={getBaseModelColor}
-                    nsfwImageFilter={nsfwImageFilter}
-                    isPromptInsertMode={isPromptInsertMode}
-                  />
-                </Grid>
-              ))}
+              {filteredLoraModels.map((lora, index) => {
+                const item = normalizeLora(lora);
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={item.id || index}>
+                    <MetadataItemCard
+                      item={item}
+                      expanded={expandedLora === item.filename}
+                      onToggleExpand={() => setExpandedLora(
+                        expandedLora === item.filename ? null : item.filename
+                      )}
+                      onPrimary={() => handleAddLora(lora)}
+                      primaryVariant={isPromptInsertMode ? 'insert' : 'add'}
+                      onTrainedWordClick={(word) => handleCopyTriggerWord(word, lora)}
+                      trainedWordInsertMode={isPromptInsertMode}
+                      nsfwImageFilter={nsfwImageFilter}
+                    />
+                  </Grid>
+                );
+              })}
             </Grid>
 
             {/* 페이지네이션 */}
@@ -557,201 +540,5 @@ function LoraListModal({
     </Dialog>
   );
 }
-
-// LoRA 카드 컴포넌트 (React.memo — 카드가 많을 때 (예: 수백 개) re-render 비용 절감)
-const LoraCard = React.memo(function LoraCard({
-  lora,
-  expanded,
-  onToggleExpand,
-  onAddLora,
-  onCopyTriggerWord,
-  getBaseModelColor,
-  nsfwImageFilter,
-  isPromptInsertMode
-}) {
-  const hasCivitai = lora.civitai?.found;
-
-  // NSFW 이미지 필터링
-  const filteredImages = nsfwImageFilter
-    ? (lora.civitai?.images || []).filter(img => !img.nsfw)
-    : (lora.civitai?.images || []);
-  const previewImage = filteredImages[0];
-  const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
-  const trainedWords = lora.civitai?.trainedWords || [];
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        transition: 'border-color 0.2s',
-        '&:hover': { borderColor: 'primary.main' }
-      }}
-    >
-      {/* 미리보기 이미지 */}
-      {previewImage?.url ? (
-        <LoraThumbnail image={previewImage} alt={name} height={140} />
-      ) : (
-        <Box
-          sx={{
-            height: 140,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'action.hover'
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            미리보기 없음
-          </Typography>
-        </Box>
-      )}
-
-      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-        {/* 이름 */}
-        <Typography variant="subtitle2" noWrap title={name}>
-          {name}
-        </Typography>
-
-        {/* 파일명 (Civitai 정보가 있을 경우) */}
-        {hasCivitai && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {lora.filename}
-          </Typography>
-        )}
-
-        {/* 기본 모델 배지 */}
-        <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {lora.civitai?.baseModel && (
-            <Chip
-              label={lora.civitai.baseModel}
-              size="small"
-              color={getBaseModelColor(lora.civitai.baseModel)}
-              variant="outlined"
-            />
-          )}
-          {!hasCivitai && !lora.hash && (
-            <Tooltip title={lora.hashError || '해시 정보 없음'}>
-              <Chip
-                icon={<InfoIcon />}
-                label="메타데이터 없음"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
-          {lora.hash && !hasCivitai && (
-            <Tooltip title="Civitai에서 찾을 수 없음">
-              <Chip
-                label="미등록"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
-        </Box>
-
-        {/* 트리거 워드 */}
-        {trainedWords.length > 0 && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              트리거 워드{isPromptInsertMode ? ' (클릭시 프롬프트에 삽입)' : ' (클릭시 복사)'}:
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-              {trainedWords.slice(0, expanded ? undefined : 3).map((word, i) => (
-                <Chip
-                  key={i}
-                  label={word}
-                  size="small"
-                  onClick={() => onCopyTriggerWord(word)}
-                  sx={{ cursor: 'pointer' }}
-                  color={isPromptInsertMode ? 'primary' : 'default'}
-                  variant={isPromptInsertMode ? 'outlined' : 'filled'}
-                />
-              ))}
-              {!expanded && trainedWords.length > 3 && (
-                <Chip
-                  label={`+${trainedWords.length - 3}`}
-                  size="small"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          </Box>
-        )}
-      </CardContent>
-
-      {/* 확장 영역 - 펼쳐진 경우에만 렌더링 */}
-      {expanded && (
-        <CardContent sx={{ pt: 0 }}>
-          {lora.civitai?.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                maxHeight: 100,
-                overflow: 'auto',
-                mb: 1,
-                '& p': { margin: 0 }
-              }}
-              dangerouslySetInnerHTML={{
-                __html: sanitizeHtml(lora.civitai.description.substring(0, 500))
-              }}
-            />
-          )}
-
-          {/* 추가 미리보기 이미지 */}
-          {filteredImages.length > 1 && (
-            <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
-              {filteredImages.slice(1).map((img, i) => (
-                <LoraThumbnail
-                  key={i}
-                  image={img}
-                  alt={`Preview ${i + 2}`}
-                  width={60}
-                  height={60}
-                  sx={{ borderRadius: 1, flexShrink: 0 }}
-                />
-              ))}
-            </Box>
-          )}
-        </CardContent>
-      )}
-
-      <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
-        <Stack direction="row" spacing={0.5}>
-          {hasCivitai && (
-            <IconButton
-              size="small"
-              onClick={onToggleExpand}
-            >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          )}
-          {lora.civitai?.modelUrl && (
-            <Tooltip title="Civitai에서 보기">
-              <IconButton
-                size="small"
-                onClick={() => window.open(lora.civitai.modelUrl, '_blank')}
-              >
-                <OpenInNewIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Stack>
-        <Button
-          size="small"
-          startIcon={<AddIcon />}
-          onClick={() => onAddLora(lora)}
-          variant={isPromptInsertMode ? 'contained' : 'text'}
-        >
-          {isPromptInsertMode ? '프롬프트에 추가' : '추가'}
-        </Button>
-      </CardActions>
-    </Card>
-  );
-});
 
 export default LoraListModal;

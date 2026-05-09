@@ -12,9 +12,6 @@ import {
   Chip,
   TextField,
   InputAdornment,
-  Card,
-  CardContent,
-  CardActions,
   Grid,
   IconButton,
   LinearProgress,
@@ -30,151 +27,14 @@ import {
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  Close as CloseIcon,
-  OpenInNew as OpenInNewIcon,
-  CheckCircle as CheckCircleIcon
+  Close as CloseIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, userAPI } from '../services/api';
 import Pagination from './common/Pagination';
-import MetadataMediaThumbnail from './common/MetadataMediaThumbnail';
-
-// ─── ModelCard ───────────────────────────────────────────────────
-// ComfyUI checkpoint 와 SaaS provider 모델을 동일 카드로 렌더.
-// ComfyUI: civitai.{name, baseModel, images, modelUrl}
-// SaaS:    provider.{name, capabilities, contextWindow, description}
-const ModelCard = React.memo(function ModelCard({ model, selected, onSelect, nsfwImageFilter }) {
-  const civ = model.civitai || {};
-  const prov = model.provider || {};
-
-  const hasCivitai = civ.found === true;
-  const hasProvider = prov.found === true;
-
-  const filteredImages = nsfwImageFilter
-    ? (civ.images || []).filter((img) => !img.nsfw)
-    : (civ.images || []);
-  const previewImage = filteredImages[0];
-
-  // 표시 이름: civitai → provider → filename (확장자 제거)
-  const displayName =
-    civ.name ||
-    prov.name ||
-    model.filename.replace(/\.[^/.]+$/, '');
-
-  const baseModel = civ.baseModel;
-  const capabilities = prov.capabilities || [];
-  const description = civ.description || prov.description;
-
-  return (
-    <Card
-      variant={selected ? 'elevation' : 'outlined'}
-      elevation={selected ? 8 : 0}
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        cursor: 'pointer',
-        transition: 'border-color 0.2s, box-shadow 0.2s',
-        borderColor: selected ? 'primary.main' : undefined,
-        borderWidth: selected ? 2 : 1,
-        '&:hover': { borderColor: 'primary.main' }
-      }}
-      onClick={() => onSelect(model)}
-    >
-      {previewImage?.url ? (
-        <MetadataMediaThumbnail image={previewImage} alt={displayName} />
-      ) : (
-        <Box
-          sx={{
-            height: 140,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'action.hover'
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            미리보기 없음
-          </Typography>
-        </Box>
-      )}
-
-      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-        <Stack direction="row" alignItems="center" spacing={0.5}>
-          {selected && <CheckCircleIcon color="primary" fontSize="small" />}
-          <Typography variant="subtitle2" noWrap title={displayName} sx={{ flexGrow: 1 }}>
-            {displayName}
-          </Typography>
-        </Stack>
-
-        {(hasCivitai || hasProvider) && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {model.filename}
-          </Typography>
-        )}
-
-        <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {baseModel && (
-            <Chip label={baseModel} size="small" color="primary" variant="outlined" />
-          )}
-          {capabilities.slice(0, 3).map((c) => (
-            <Chip key={c} label={c} size="small" variant="outlined" />
-          ))}
-          {!hasCivitai && !hasProvider && !model.hash && (
-            <Tooltip title={model.hashError || '메타데이터 없음 — sync 가 아직 안 됐거나 Civitai/provider 미등록'}>
-              <Chip label="메타데이터 없음" size="small" variant="outlined" />
-            </Tooltip>
-          )}
-          {model.hash && !hasCivitai && (
-            <Tooltip title="Civitai 미등록 (custom merge / private 모델)">
-              <Chip label="미등록" size="small" variant="outlined" />
-            </Tooltip>
-          )}
-        </Box>
-
-        {prov.contextWindow && (
-          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-            context: {prov.contextWindow.toLocaleString()} tokens
-          </Typography>
-        )}
-
-        {description && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            display="block"
-            sx={{
-              mt: 1,
-              overflow: 'hidden',
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical'
-            }}
-          >
-            {description}
-          </Typography>
-        )}
-      </CardContent>
-
-      {civ.modelUrl && (
-        <CardActions sx={{ pt: 0 }}>
-          <Tooltip title="Civitai 에서 보기">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                window.open(civ.modelUrl, '_blank');
-              }}
-            >
-              <OpenInNewIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </CardActions>
-      )}
-    </Card>
-  );
-});
+import MetadataItemCard from './common/MetadataItemCard';
+import { normalizeModel } from '../utils/metadataItem';
 
 // ─── ModelPickerGrid ─────────────────────────────────────────────
 // ComfyUI checkpoint + SaaS provider 모델 통합 picker.
@@ -481,16 +341,20 @@ function ModelPickerGrid({
               </Box>
             )}
             <Grid container spacing={2}>
-              {models.map((model) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={model.filename}>
-                  <ModelCard
-                    model={model}
-                    selected={selectedModel === model.filename}
-                    onSelect={handleSelect}
-                    nsfwImageFilter={nsfwImageFilter}
-                  />
-                </Grid>
-              ))}
+              {models.map((model) => {
+                const item = normalizeModel(model);
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.id}>
+                    <MetadataItemCard
+                      item={item}
+                      selected={selectedModel === item.filename}
+                      onPrimary={() => handleSelect(model)}
+                      cardClickable
+                      nsfwImageFilter={nsfwImageFilter}
+                    />
+                  </Grid>
+                );
+              })}
             </Grid>
             {pagination.pages > 1 && (
               <Box mt={2} display="flex" justifyContent="center">
