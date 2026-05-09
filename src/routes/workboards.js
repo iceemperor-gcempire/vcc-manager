@@ -176,6 +176,7 @@ router.post('/import', requireAdmin, async (req, res) => {
       baseInputFields: wb.baseInputFields,
       additionalInputFields: wb.additionalInputFields || [],
       workflowData: wb.workflowData || '',
+      allowedModelTypes: wb.allowedModelTypes || [],
       createdBy: req.user._id,
       version: 1,
       usageCount: 0,
@@ -255,7 +256,8 @@ router.post('/', requireAdmin, async (req, res) => {
       outputFormat,
       baseInputFields,
       additionalInputFields,
-      workflowData
+      workflowData,
+      allowedModelTypes
     } = req.body;
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
@@ -300,6 +302,7 @@ router.post('/', requireAdmin, async (req, res) => {
       baseInputFields,
       additionalInputFields: additionalInputFields || [],
       workflowData: isComfyUI ? workflowData : '',
+      allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
       createdBy: req.user._id
     });
 
@@ -332,6 +335,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       baseInputFields,
       additionalInputFields,
       workflowData,
+      allowedModelTypes,
       isActive
     } = req.body;
 
@@ -388,6 +392,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
         return res.status(400).json({ message: 'Invalid workflow data format' });
       }
       workboard.version += 1;
+    }
+    if (allowedModelTypes !== undefined) {
+      // ComfyUI 작업판만 의미 있음 — 다른 serverType 은 빈 배열 강제
+      const wbServer = await Server.findById(workboard.serverId);
+      workboard.allowedModelTypes = wbServer?.serverType === 'ComfyUI' ? (allowedModelTypes || []) : [];
     }
     if (isActive !== undefined) workboard.isActive = isActive;
     
@@ -495,6 +504,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       baseInputFields: originalWorkboard.baseInputFields,
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,
+      allowedModelTypes: originalWorkboard.allowedModelTypes || [],
       createdBy: req.user._id
     });
     
@@ -542,6 +552,7 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
         baseInputFields: workboard.baseInputFields,
         additionalInputFields: workboard.additionalInputFields,
         workflowData: workboard.workflowData,
+        allowedModelTypes: workboard.allowedModelTypes || [],
         version: workboard.version
       },
       server: serverInfo
