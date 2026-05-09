@@ -38,31 +38,13 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, userAPI } from '../services/api';
 import Pagination from './common/Pagination';
-
-// ─── ModelThumbnail ──────────────────────────────────────────────
-function ModelThumbnail({ image, alt, height = 140, width = '100%', sx = {} }) {
-  if (!image?.url) return null;
-  return (
-    <Box
-      component="img"
-      src={image.url}
-      alt={alt}
-      sx={{
-        width,
-        height,
-        objectFit: 'cover',
-        display: 'block',
-        ...sx
-      }}
-    />
-  );
-}
+import MetadataMediaThumbnail from './common/MetadataMediaThumbnail';
 
 // ─── ModelCard ───────────────────────────────────────────────────
 // ComfyUI checkpoint 와 SaaS provider 모델을 동일 카드로 렌더.
 // ComfyUI: civitai.{name, baseModel, images, modelUrl}
 // SaaS:    provider.{name, capabilities, contextWindow, description}
-function ModelCard({ model, selected, onSelect, nsfwImageFilter }) {
+const ModelCard = React.memo(function ModelCard({ model, selected, onSelect, nsfwImageFilter }) {
   const civ = model.civitai || {};
   const prov = model.provider || {};
 
@@ -101,7 +83,7 @@ function ModelCard({ model, selected, onSelect, nsfwImageFilter }) {
       onClick={() => onSelect(model)}
     >
       {previewImage?.url ? (
-        <ModelThumbnail image={previewImage} alt={displayName} />
+        <MetadataMediaThumbnail image={previewImage} alt={displayName} />
       ) : (
         <Box
           sx={{
@@ -192,7 +174,7 @@ function ModelCard({ model, selected, onSelect, nsfwImageFilter }) {
       )}
     </Card>
   );
-}
+});
 
 // ─── ModelPickerGrid ─────────────────────────────────────────────
 // ComfyUI checkpoint + SaaS provider 모델 통합 picker.

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -50,60 +50,10 @@ import {
   insertTriggerWordWithLora
 } from '../utils/promptUtils';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
+import MetadataMediaThumbnail from './common/MetadataMediaThumbnail';
 
-// 비디오 URL 감지 (type 필드 우선, URL 확장자 폴백)
-function isVideoMedia(img) {
-  if (img?.type === 'video') return true;
-  if (!img?.url) return false;
-  return /\.(mp4|webm|mov)(\?|$)/i.test(img.url);
-}
-
-// 미디어 썸네일 - 비디오는 hover 시에만 재생
-function LoraThumbnail({ image, alt, height, width, sx }) {
-  const videoRef = useRef(null);
-
-  if (!image?.url) return null;
-
-  if (isVideoMedia(image)) {
-    return (
-      <Box
-        component="video"
-        ref={videoRef}
-        src={image.url}
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onMouseEnter={(e) => e.target.play().catch(() => {})}
-        onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
-        sx={{
-          width: width || '100%',
-          height: height || 140,
-          objectFit: 'cover',
-          display: 'block',
-          cursor: 'pointer',
-          ...sx
-        }}
-      />
-    );
-  }
-
-  return (
-    <Box
-      component="img"
-      src={image.url}
-      alt={alt}
-      loading="lazy"
-      sx={{
-        width: width || '100%',
-        height: height || 140,
-        objectFit: 'cover',
-        display: 'block',
-        ...sx
-      }}
-    />
-  );
-}
+// LoraThumbnail 의 alias — 기존 호출부 호환성 유지. 신규 코드는 MetadataMediaThumbnail 직접 사용.
+const LoraThumbnail = MetadataMediaThumbnail;
 
 function LoraListModal({
   open,
@@ -608,8 +558,8 @@ function LoraListModal({
   );
 }
 
-// LoRA 카드 컴포넌트
-function LoraCard({
+// LoRA 카드 컴포넌트 (React.memo — 카드가 많을 때 (예: 수백 개) re-render 비용 절감)
+const LoraCard = React.memo(function LoraCard({
   lora,
   expanded,
   onToggleExpand,
@@ -802,6 +752,6 @@ function LoraCard({
       </CardActions>
     </Card>
   );
-}
+});
 
 export default LoraListModal;
