@@ -123,6 +123,12 @@ const adminMenuItems = [
     roles: ['admin']
   },
   {
+    text: '모델 관리',
+    path: '/admin/models',
+    icon: <Image />,
+    roles: ['admin']
+  },
+  {
     text: '시스템 통계',
     path: '/admin/stats',
     icon: <BarChart />,
