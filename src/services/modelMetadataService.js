@@ -488,9 +488,11 @@ const resetSyncStatus = async (serverId) => {
  * @param {Object} opts
  * @param {string} opts.search — filename / civitai 메타 / provider 메타 통합 검색
  * @param {boolean} opts.hasMetadata — civitai 또는 provider 메타데이터 보유 여부
- * @param {string} opts.baseModel — civitai.baseModel 매칭 (ComfyUI 만 의미 있음)
+ * @param {string} opts.baseModel — civitai.baseModel 단일 매칭 (사용자 dropdown 필터용)
+ * @param {string[]} opts.allowedBaseModels — civitai.baseModel 다중 매칭 + baseModel 미상 fallback
+ *   (작업판의 allowedModelTypes 와 매핑 — Civitai 미등록 모델은 항상 통과)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -537,6 +539,15 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, pa
 
   if (baseModel) {
     filtered = filtered.filter(m => m.civitai?.baseModel === baseModel);
+  }
+
+  // allowedBaseModels: 작업판의 allowedModelTypes 적용. 빈 배열/미설정은 제약 없음.
+  // baseModel 미상 모델 (Civitai 미등록 / hash 없음) 은 항상 통과 (custom merge 대응).
+  if (Array.isArray(allowedBaseModels) && allowedBaseModels.length > 0) {
+    filtered = filtered.filter(m => {
+      if (!m.civitai?.baseModel) return true;
+      return allowedBaseModels.includes(m.civitai.baseModel);
+    });
   }
 
   const total = filtered.length;
