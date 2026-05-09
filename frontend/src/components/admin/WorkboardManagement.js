@@ -26,7 +26,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   FormControlLabel,
-  Switch
+  Switch,
+  Autocomplete
 } from '@mui/material';
 import {
   Add,
@@ -235,6 +236,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copiedVariable, setCopiedVariable] = useState('');
+  const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const copyResetTimerRef = React.useRef(null);
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -244,6 +246,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       serverType: '',
       outputFormat: 'image',
       workflowData: '',
+      allowedModelTypes: [],
       isActive: true,
       aiModels: [],
       imageSizes: [],
@@ -259,11 +262,26 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   const serverType = watch('serverType');
   const outputFormat = watch('outputFormat');
+  const watchedServerId = watch('serverId');
   const isComfyUI = serverType === 'ComfyUI';
   const isGemini = serverType === 'Gemini';
   const isOpenAIImage = (serverType === 'OpenAI' || serverType === 'OpenAI Compatible') && outputFormat === 'image';
   const isPromptFormat = outputFormat === 'text';
   const isImageFormat = outputFormat === 'image';
+
+  // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀.
+  // ServerModelCache 의 detailed endpoint 에서 derived (limit 1 로 가벼운 호출).
+  React.useEffect(() => {
+    if (!open || !isComfyUI || !watchedServerId) {
+      setAvailableBaseModels([]);
+      return;
+    }
+    serverAPI.getDetailedModels(watchedServerId, { limit: 1 })
+      .then((res) => {
+        setAvailableBaseModels(res.data?.data?.availableBaseModels || []);
+      })
+      .catch(() => setAvailableBaseModels([]));
+  }, [open, isComfyUI, watchedServerId]);
 
   React.useEffect(() => {
     return () => {
@@ -327,6 +345,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             serverType: fullData.serverId?.serverType || '',
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
+            allowedModelTypes: fullData.allowedModelTypes || [],
             isActive: fullData.isActive ?? true,
             aiModels: fullData.baseInputFields?.aiModel?.map(m => ({ key: m.key || '', value: m.value || '' })) || [],
             imageSizes: fullData.baseInputFields?.imageSizes?.map(s => ({ key: s.key || '', value: s.value || '' })) || [],
@@ -461,6 +480,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       serverId: data.serverId,
       outputFormat: normalizedOutputFormat,
       workflowData: isComfyUIServer ? data.workflowData : '',
+      allowedModelTypes: isComfyUIServer ? (data.allowedModelTypes || []) : [],
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
@@ -1439,23 +1459,66 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               </Accordion>
 
               {isComfyUI && (
-                <Controller
-                  name="workflowData"
-                  control={control}
-                  rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={20}
-                      label="ComfyUI Workflow JSON"
-                      error={!!errors.workflowData}
-                      helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                      sx={{ fontFamily: 'monospace' }}
+                <>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      허용 모델 타입 (선택)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      이 작업판에서 사용 가능한 base 모델 타입을 다중 지정. 비워두면 모든 모델이 표시됩니다. Civitai 미등록 모델 (메타데이터 없음) 은 제약과 무관하게 항상 노출됩니다.
+                    </Typography>
+                    <Controller
+                      name="allowedModelTypes"
+                      control={control}
+                      render={({ field }) => (
+                        <Autocomplete
+                          {...field}
+                          multiple
+                          freeSolo
+                          options={availableBaseModels}
+                          value={field.value || []}
+                          onChange={(_, newValue) => field.onChange(newValue)}
+                          renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                              <Chip
+                                {...getTagProps({ index })}
+                                key={option}
+                                label={option}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ))
+                          }
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              size="small"
+                              placeholder={availableBaseModels.length === 0 ? '서버 모델 sync 후 baseModel 자동 채움' : '예: SDXL, Illustrious, Pony'}
+                            />
+                          )}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </Box>
+                  <Controller
+                    name="workflowData"
+                    control={control}
+                    rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        multiline
+                        rows={20}
+                        label="ComfyUI Workflow JSON"
+                        error={!!errors.workflowData}
+                        helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
+                        sx={{ fontFamily: 'monospace' }}
+                      />
+                    )}
+                  />
+                </>
               )}
               {isGemini && (
                 <Alert severity="info">
