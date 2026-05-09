@@ -119,11 +119,10 @@ function MetadataPickerModal({
   allowedModelTypes = [],
   title
 }) {
-  const adapter = KIND_ADAPTERS[kind];
-  if (!adapter) {
-    console.error(`MetadataPickerModal: invalid kind "${kind}"`);
-    return null;
-  }
+  // 잘못된 kind 는 internal API 위반 — KIND_ADAPTERS 에 없으면 빈 객체로 fallback,
+  // hook order 보장 위해 early return 사용 안 함. 호출자가 잘못된 kind 를 넘기면
+  // adapter.fetch 등 호출이 실패하면서 사용자에게 에러로 표시됨.
+  const adapter = KIND_ADAPTERS[kind] || {};
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
