@@ -350,11 +350,15 @@ const getServerLoras = async (serverId, serverUrl) => {
   return cache;
 };
 
+// #256: stale 감지 임계 — fetching 중 progress 갱신이 없으면 죽었다고 판단.
+// Civitai rate limit 1초 + hash 계산 + 네트워크 오버헤드 = 항목당 ~5초 평균 → 5분 무진척이면 stuck.
+const STALE_FETCHING_MS = 5 * 60 * 1000;
+
 /**
- * 동기화 상태 조회
+ * 동기화 상태 조회 — stale 감지 자동 cleanup 포함
  */
 const getSyncStatus = async (serverId) => {
-  const cache = await ServerLoraCache.findOne({ serverId });
+  let cache = await ServerLoraCache.findOne({ serverId });
 
   if (!cache) {
     return {
@@ -362,6 +366,21 @@ const getSyncStatus = async (serverId) => {
       progress: { current: 0, total: 0, stage: 'idle' },
       lastFetched: null
     };
+  }
+
+  // Stale 감지: status='fetching' 인데 updatedAt 이 오래 전이면 sync 가 죽은 것.
+  // 자동으로 failed 로 전환해 admin 이 다시 sync 가능하게 함.
+  if (cache.status === 'fetching' && cache.updatedAt) {
+    const staleMs = Date.now() - new Date(cache.updatedAt).getTime();
+    if (staleMs > STALE_FETCHING_MS) {
+      cache.status = 'failed';
+      cache.errorMessage = `Sync stalled (no progress for ${Math.round(staleMs / 1000)}s)`;
+      try {
+        await cache.save();
+      } catch (e) {
+        console.error('[LoRA stale cleanup] save error:', e.message);
+      }
+    }
   }
 
   return {
@@ -375,6 +394,20 @@ const getSyncStatus = async (serverId) => {
     lorasWithHash: cache.loraModels.filter(l => l.hash).length,
     errorMessage: cache.errorMessage
   };
+};
+
+/**
+ * 동기화 상태를 idle 로 강제 reset.
+ * stuck 또는 failed 상태에서 다시 sync 가능하게 하려는 admin manual action.
+ */
+const resetSyncStatus = async (serverId) => {
+  const cache = await ServerLoraCache.findOne({ serverId });
+  if (!cache) return null;
+  cache.status = 'idle';
+  cache.progress = { current: 0, total: 0, stage: 'idle' };
+  cache.errorMessage = null;
+  await cache.save();
+  return cache;
 };
 
 /**
@@ -462,5 +495,6 @@ module.exports = {
   syncServerLoras,
   getServerLoras,
   getSyncStatus,
+  resetSyncStatus,
   searchServerLoras
 };

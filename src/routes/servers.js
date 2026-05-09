@@ -584,6 +584,44 @@ router.get('/:id/loras/status', verifyJWT, async (req, res) => {
   }
 });
 
+// LoRA 동기화 상태 강제 reset (#256) — stuck/failed 상태에서 다시 sync 가능하게 만들기
+router.post('/:id/loras/sync/reset', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+    const cache = await loraMetadataService.resetSyncStatus(server._id);
+    res.json({
+      success: true,
+      data: cache ? { status: cache.status } : { status: 'idle' },
+      message: 'LoRA 동기화 상태가 초기화되었습니다.'
+    });
+  } catch (error) {
+    console.error('LoRA 동기화 reset 오류:', error);
+    res.status(500).json({ success: false, message: 'reset 실패', error: error.message });
+  }
+});
+
+// 모델 동기화 상태 강제 reset (#256)
+router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+    const cache = await modelMetadataService.resetSyncStatus(server._id);
+    res.json({
+      success: true,
+      data: cache ? { status: cache.status } : { status: 'idle' },
+      message: '모델 동기화 상태가 초기화되었습니다.'
+    });
+  } catch (error) {
+    console.error('모델 동기화 reset 오류:', error);
+    res.status(500).json({ success: false, message: 'reset 실패', error: error.message });
+  }
+});
+
 // 서버 삭제 시 LoRA 캐시도 함께 삭제
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
