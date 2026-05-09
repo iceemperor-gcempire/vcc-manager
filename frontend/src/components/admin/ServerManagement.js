@@ -37,7 +37,8 @@ import {
   TextFields,
   Computer,
   Sync as SyncIcon,
-  CloudSync as CloudSyncIcon
+  CloudSync as CloudSyncIcon,
+  RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -56,13 +57,17 @@ function ServerCard({
   onHealthCheck,
   onLoraSync,
   loraSyncStatus,
+  onLoraResetSync,
   onModelSync,
   modelSyncStatus,
+  onModelResetSync,
 }) {
   const [healthChecking, setHealthChecking] = useState(false);
   const isComfyUI = server.serverType === 'ComfyUI';
   const isLoraSyncing = loraSyncStatus?.status === 'fetching';
   const isModelSyncing = modelSyncStatus?.status === 'fetching';
+  const loraFailed = loraSyncStatus?.status === 'failed';
+  const modelFailed = modelSyncStatus?.status === 'failed';
   const supportsModelSync = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(server.serverType);
 
   const getStatusIcon = (status) => {
@@ -256,6 +261,15 @@ function ServerCard({
             </span>
           </Tooltip>
         )}
+        {isComfyUI && loraFailed && onLoraResetSync && (
+          <Tooltip title={`LoRA 동기화 강제 리셋 (실패 상태 해제)\n오류: ${loraSyncStatus?.errorMessage || '알 수 없음'}`}>
+            <span>
+              <IconButton size="small" onClick={() => onLoraResetSync(server._id)} color="warning">
+                <RestartAltIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
         {supportsModelSync && (
           <Tooltip title={isModelSyncing ? `모델 동기화 중... (${modelSyncStatus?.progress?.current || 0}/${modelSyncStatus?.progress?.total || 0})` : '모델 동기화'}>
             <span>
@@ -266,6 +280,15 @@ function ServerCard({
                 color={modelSyncStatus?.totalModels > 0 ? 'primary' : 'default'}
               >
                 {isModelSyncing ? <CircularProgress size={20} /> : <CloudSyncIcon />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {supportsModelSync && modelFailed && onModelResetSync && (
+          <Tooltip title={`모델 동기화 강제 리셋 (실패 상태 해제)\n오류: ${modelSyncStatus?.errorMessage || '알 수 없음'}`}>
+            <span>
+              <IconButton size="small" onClick={() => onModelResetSync(server._id)} color="warning">
+                <RestartAltIcon />
               </IconButton>
             </span>
           </Tooltip>
@@ -670,6 +693,32 @@ function ServerManagement() {
     }
   );
 
+  // LoRA / 모델 sync 상태 강제 리셋 mutation (#256)
+  const loraResetMutation = useMutation(
+    (serverId) => serverAPI.resetLorasSync(serverId),
+    {
+      onSuccess: () => {
+        toast.success('LoRA 동기화 상태가 초기화되었습니다.');
+        queryClient.invalidateQueries(['loraSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '리셋 실패');
+      }
+    }
+  );
+  const modelResetMutation = useMutation(
+    (serverId) => serverAPI.resetModelsSync(serverId),
+    {
+      onSuccess: () => {
+        toast.success('모델 동기화 상태가 초기화되었습니다.');
+        queryClient.invalidateQueries(['modelSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '리셋 실패');
+      }
+    }
+  );
+
   const handleAddServer = () => {
     setSelectedServer(null);
     setDialogOpen(true);
@@ -699,6 +748,14 @@ function ServerManagement() {
 
   const handleModelSync = (serverId) => {
     modelSyncMutation.mutate(serverId);
+  };
+
+  const handleLoraResetSync = (serverId) => {
+    loraResetMutation.mutate(serverId);
+  };
+
+  const handleModelResetSync = (serverId) => {
+    modelResetMutation.mutate(serverId);
   };
 
   if (isLoading) {
@@ -747,8 +804,10 @@ function ServerManagement() {
                 onHealthCheck={handleHealthCheck}
                 onLoraSync={handleLoraSync}
                 loraSyncStatus={loraSyncStatuses[server._id]}
+                onLoraResetSync={handleLoraResetSync}
                 onModelSync={handleModelSync}
                 modelSyncStatus={modelSyncStatuses[server._id]}
+                onModelResetSync={handleModelResetSync}
               />
             </Grid>
           ))}

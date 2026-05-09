@@ -426,8 +426,11 @@ const getServerCheckpoints = async (serverId, serverUrl) => {
   return cache;
 };
 
+// #256: stale 감지 임계 — LoRA service 와 동일 정책.
+const STALE_FETCHING_MS = 5 * 60 * 1000;
+
 const getSyncStatus = async (serverId) => {
-  const cache = await ServerModelCache.findOne({ serverId });
+  let cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
     return {
@@ -437,6 +440,19 @@ const getSyncStatus = async (serverId) => {
     };
   }
 
+  if (cache.status === 'fetching' && cache.updatedAt) {
+    const staleMs = Date.now() - new Date(cache.updatedAt).getTime();
+    if (staleMs > STALE_FETCHING_MS) {
+      cache.status = 'failed';
+      cache.errorMessage = `Sync stalled (no progress for ${Math.round(staleMs / 1000)}s)`;
+      try {
+        await cache.save();
+      } catch (e) {
+        console.error('[Model stale cleanup] save error:', e.message);
+      }
+    }
+  }
+
   return {
     status: cache.status,
     progress: cache.progress,
@@ -444,10 +460,23 @@ const getSyncStatus = async (serverId) => {
     lastMetadataSync: cache.lastMetadataSync,
     hashNodeAvailable: cache.hashNodeAvailable,
     totalModels: cache.models.length,
-    modelsWithMetadata: cache.models.filter(m => m.civitai?.found).length,
+    modelsWithMetadata: cache.models.filter(m => m.civitai?.found || m.provider?.found).length,
     modelsWithHash: cache.models.filter(m => m.hash).length,
     errorMessage: cache.errorMessage
   };
+};
+
+/**
+ * 동기화 상태를 idle 로 강제 reset.
+ */
+const resetSyncStatus = async (serverId) => {
+  const cache = await ServerModelCache.findOne({ serverId });
+  if (!cache) return null;
+  cache.status = 'idle';
+  cache.progress = { current: 0, total: 0, stage: 'idle' };
+  cache.errorMessage = null;
+  await cache.save();
+  return cache;
 };
 
 /**
@@ -541,5 +570,6 @@ module.exports = {
   syncServerModels,
   getServerCheckpoints,
   getSyncStatus,
+  resetSyncStatus,
   searchServerModels
 };
