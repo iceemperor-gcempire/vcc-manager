@@ -46,8 +46,8 @@ import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
-import LoraListModal from '../components/LoraListModal';
-import ModelPickerGrid from '../components/ModelPickerGrid';
+import MetadataPickerModal from '../components/common/MetadataPickerModal';
+import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
@@ -443,6 +443,56 @@ function ImageGeneration() {
   const handlePromptChangeFromLora = (newPrompt) => {
     setPromptValue(newPrompt);
     setValue('prompt', newPrompt);
+  };
+
+  // MetadataPickerModal (LoRA, prompt-insert 모드) 의 onPrimary — LoRA 태그를 프롬프트 커서 위치에 삽입.
+  const handleAddLoraToPrompt = (lora) => {
+    const filename = lora.filename || lora;
+    const cursorPosition = promptInputRef?.current?.selectionStart ?? (promptValue?.length || 0);
+    const result = insertLoraTag(promptValue || '', filename, cursorPosition);
+
+    if (!result.added) {
+      const displayName = lora.civitai?.name || extractLoraName(filename);
+      toast(`"${displayName}" LoRA가 이미 프롬프트에 있습니다.`);
+      return;
+    }
+
+    handlePromptChangeFromLora(result.newPrompt);
+
+    setTimeout(() => {
+      if (promptInputRef?.current) {
+        promptInputRef.current.focus();
+        promptInputRef.current.setSelectionRange(result.newCursorPosition, result.newCursorPosition);
+      }
+    }, 0);
+
+    const displayName = lora.civitai?.name || extractLoraName(filename);
+    toast.success(`${displayName} LoRA가 프롬프트에 추가되었습니다.`);
+  };
+
+  // 트리거 워드 chip 클릭 — 프롬프트에 삽입 (LoRA 태그도 자동 추가)
+  const handleInsertTriggerWord = (word, lora) => {
+    const cursorPosition = promptInputRef?.current?.selectionStart;
+    const result = insertTriggerWordWithLora(promptValue || '', word, lora.filename, cursorPosition);
+
+    if (!result.addedTrigger && !result.addedLora) {
+      toast(`"${word}"가 이미 프롬프트에 있습니다.`);
+      return;
+    }
+
+    handlePromptChangeFromLora(result.newPrompt);
+
+    setTimeout(() => {
+      if (promptInputRef?.current) promptInputRef.current.focus();
+    }, 0);
+
+    if (result.addedLora && result.addedTrigger) {
+      toast.success(`"${word}" + LoRA 태그가 프롬프트에 추가되었습니다.`);
+    } else if (result.addedTrigger) {
+      toast.success(`"${word}"가 프롬프트에 추가되었습니다.`);
+    } else if (result.addedLora) {
+      toast.success('LoRA 태그가 프롬프트에 추가되었습니다.');
+    }
   };
 
   const handlePromptDataSelect = (promptData) => {
@@ -1342,24 +1392,27 @@ function ImageGeneration() {
 
       {/* LoRA 목록 모달 */}
       {isComfyUIWorkboard && (
-        <LoraListModal
+        <MetadataPickerModal
+          kind="lora"
           open={loraModalOpen}
           onClose={handleLoraModalClose}
           workboardId={id}
           serverId={workboardData?.serverId?._id || workboardData?.serverId}
-          promptRef={promptInputRef}
-          currentPrompt={promptValue}
-          onPromptChange={handlePromptChangeFromLora}
+          mode="prompt-insert"
+          onPrimary={handleAddLoraToPrompt}
+          onTrainedWordClick={handleInsertTriggerWord}
         />
       )}
 
       {isComfyUIWorkboard && (
-        <ModelPickerGrid
+        <MetadataPickerModal
+          kind="model"
           open={modelModalOpen}
           onClose={handleModelModalClose}
           serverId={workboardData?.serverId?._id || workboardData?.serverId}
-          selectedModel={selectedCheckpointModel}
-          onSelectModel={handleCheckpointModelSelect}
+          mode="select-single"
+          selectedItem={selectedCheckpointModel}
+          onPrimary={(rawModel) => handleCheckpointModelSelect(rawModel.filename)}
           allowedModelTypes={workboardData?.allowedModelTypes || []}
         />
       )}
