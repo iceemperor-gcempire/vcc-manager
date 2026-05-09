@@ -204,7 +204,10 @@ function ModelPickerGrid({
   serverId,
   selectedModel,
   onSelectModel,
-  isAdmin = false
+  isAdmin = false,
+  // 작업판이 허용하는 base 모델 타입 (#252).
+  // 빈 배열 또는 미설정 = 제약 없음. 설정 시 해당 타입 매칭 모델 + baseModel 미상 모델만 노출.
+  allowedModelTypes = []
 }) {
   const [models, setModels] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -473,17 +476,37 @@ function ModelPickerGrid({
           </Box>
         ) : (
           <>
+            {allowedModelTypes.length > 0 && (
+              <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  작업판 허용 타입:
+                </Typography>
+                {allowedModelTypes.map((t) => (
+                  <Chip key={t} label={t} size="small" color="primary" variant="outlined" />
+                ))}
+                <Typography variant="caption" color="text.secondary">
+                  + 메타데이터 없는 모델
+                </Typography>
+              </Box>
+            )}
             <Grid container spacing={2}>
-              {models.map((model) => (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={model.filename}>
-                  <ModelCard
-                    model={model}
-                    selected={selectedModel === model.filename}
-                    onSelect={handleSelect}
-                    nsfwImageFilter={nsfwImageFilter}
-                  />
-                </Grid>
-              ))}
+              {models
+                .filter((m) => {
+                  if (allowedModelTypes.length === 0) return true;
+                  // baseModel 미상 (Civitai 미등록 / hash 없음) 은 항상 노출 (Phase 1 결정 b)
+                  if (!m.civitai?.baseModel) return true;
+                  return allowedModelTypes.includes(m.civitai.baseModel);
+                })
+                .map((model) => (
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={model.filename}>
+                    <ModelCard
+                      model={model}
+                      selected={selectedModel === model.filename}
+                      onSelect={handleSelect}
+                      nsfwImageFilter={nsfwImageFilter}
+                    />
+                  </Grid>
+                ))}
             </Grid>
             {pagination.pages > 1 && (
               <Box mt={2} display="flex" justifyContent="center">

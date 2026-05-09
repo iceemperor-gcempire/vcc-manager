@@ -1360,6 +1360,7 @@ function ImageGeneration() {
           serverId={workboardData?.serverId?._id || workboardData?.serverId}
           selectedModel={selectedCheckpointModel}
           onSelectModel={handleCheckpointModelSelect}
+          allowedModelTypes={workboardData?.allowedModelTypes || []}
         />
       )}
 
