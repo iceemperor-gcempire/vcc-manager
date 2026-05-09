@@ -246,12 +246,18 @@ function ModelPickerGrid({
       setLoading(true);
       setError(null);
       try {
-        const response = await serverAPI.getDetailedModels(serverId, {
+        const params = {
           search: searchQuery,
           baseModel: baseModelFilter,
           page,
           limit: 20
-        });
+        };
+        // 작업판 제약을 backend 로 전달 (server-side 필터 + 페이지네이션 정합).
+        // baseModel 미상 모델은 backend 에서 항상 통과 처리됨.
+        if (allowedModelTypes.length > 0) {
+          params.allowedBaseModels = allowedModelTypes;
+        }
+        const response = await serverAPI.getDetailedModels(serverId, params);
         const data = response.data.data;
         setModels(data.models || []);
         setPagination(data.pagination || { current: 1, pages: 0, total: 0 });
@@ -266,7 +272,7 @@ function ModelPickerGrid({
         setLoading(false);
       }
     },
-    [serverId, searchQuery, baseModelFilter]
+    [serverId, searchQuery, baseModelFilter, allowedModelTypes]
   );
 
   // 동기화 상태 폴링
@@ -371,7 +377,10 @@ function ModelPickerGrid({
                 onChange={(e) => setBaseModelFilter(e.target.value)}
               >
                 <MenuItem value="">전체</MenuItem>
-                {availableBaseModels.map((bm) => (
+                {(allowedModelTypes.length > 0
+                  ? availableBaseModels.filter((bm) => allowedModelTypes.includes(bm))
+                  : availableBaseModels
+                ).map((bm) => (
                   <MenuItem key={bm} value={bm}>
                     {bm}
                   </MenuItem>
@@ -490,23 +499,16 @@ function ModelPickerGrid({
               </Box>
             )}
             <Grid container spacing={2}>
-              {models
-                .filter((m) => {
-                  if (allowedModelTypes.length === 0) return true;
-                  // baseModel 미상 (Civitai 미등록 / hash 없음) 은 항상 노출 (Phase 1 결정 b)
-                  if (!m.civitai?.baseModel) return true;
-                  return allowedModelTypes.includes(m.civitai.baseModel);
-                })
-                .map((model) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={model.filename}>
-                    <ModelCard
-                      model={model}
-                      selected={selectedModel === model.filename}
-                      onSelect={handleSelect}
-                      nsfwImageFilter={nsfwImageFilter}
-                    />
-                  </Grid>
-                ))}
+              {models.map((model) => (
+                <Grid item xs={12} sm={6} md={4} lg={3} key={model.filename}>
+                  <ModelCard
+                    model={model}
+                    selected={selectedModel === model.filename}
+                    onSelect={handleSelect}
+                    nsfwImageFilter={nsfwImageFilter}
+                  />
+                </Grid>
+              ))}
             </Grid>
             {pagination.pages > 1 && (
               <Box mt={2} display="flex" justifyContent="center">

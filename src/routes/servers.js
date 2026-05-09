@@ -325,10 +325,20 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
       }
 
       const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+      // allowedBaseModels: query string 으로 array 또는 single 둘 다 받기.
+      // express 가 ?allowedBaseModels=A&allowedBaseModels=B 를 array 로 파싱.
+      let allowedBaseModels = req.query.allowedBaseModels;
+      if (typeof allowedBaseModels === 'string') {
+        allowedBaseModels = [allowedBaseModels];
+      } else if (!Array.isArray(allowedBaseModels)) {
+        allowedBaseModels = undefined;
+      }
+
       const result = await modelMetadataService.searchServerModels(server._id, {
         search,
         hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
         baseModel,
+        allowedBaseModels,
         page: parseInt(page),
         limit: parseInt(limit)
       });
