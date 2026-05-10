@@ -45,11 +45,13 @@ const EMPTY_ALLOWED_MODEL_TYPES = Object.freeze([]);
 
 const KIND_ADAPTERS = {
   lora: {
-    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
+    fetch: ({ serverId, workboardId, search, baseModel, page, limit }) => {
       if (serverId) {
-        return serverAPI.getLoras(serverId, { search, baseModel, page, limit });
+        // workboardId 전달 시 backend 가 작업판의 loraExposurePolicy / loraWhitelist 적용 (#198 Phase D)
+        const params = { search, baseModel, page, limit };
+        if (workboardId) params.workboardId = workboardId;
+        return serverAPI.getLoras(serverId, params);
       }
-      // workboardId fallback (admin 외 일반 사용자용)
       return workboardAPI.getLoraModels(workboardId);
     },
     extractList: (responseData) => responseData?.loraModels || [],
@@ -73,11 +75,13 @@ const KIND_ADAPTERS = {
     nsfwItemPreference: 'nsfwLoraFilter',  // 사용자 preferences key — NSFW LoRA item 자체 숨김
   },
   model: {
-    fetch: ({ serverId, search, baseModel, allowedBaseModels, page, limit }) => {
+    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
       const params = { search, baseModel, page, limit };
       if (allowedBaseModels && allowedBaseModels.length > 0) {
         params.allowedBaseModels = allowedBaseModels;
       }
+      // workboardId 전달 시 backend 가 작업판의 modelExposurePolicy / modelWhitelist 적용 (#198 Phase D)
+      if (workboardId) params.workboardId = workboardId;
       return serverAPI.getDetailedModels(serverId, params);
     },
     extractList: (responseData) => responseData?.models || [],

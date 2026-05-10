@@ -492,7 +492,7 @@ const resetSyncStatus = async (serverId) => {
  * @param {string[]} opts.allowedBaseModels — civitai.baseModel 다중 매칭 + baseModel 미상 fallback
  *   (작업판의 allowedModelTypes 와 매핑 — Civitai 미등록 모델은 항상 통과)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -548,6 +548,13 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
       if (!m.civitai?.baseModel) return true;
       return allowedBaseModels.includes(m.civitai.baseModel);
     });
+  }
+
+  // whitelist: 작업판의 modelExposurePolicy='whitelist' + modelWhitelist 적용 (#198 Phase D).
+  // filename 정확 매칭. 빈 배열/미설정은 제약 없음.
+  if (Array.isArray(whitelist) && whitelist.length > 0) {
+    const wlSet = new Set(whitelist);
+    filtered = filtered.filter(m => wlSet.has(m.filename));
   }
 
   const total = filtered.length;

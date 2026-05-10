@@ -413,7 +413,7 @@ const resetSyncStatus = async (serverId) => {
 /**
  * 검색 필터를 적용한 LoRA 목록 조회
  */
-const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, page = 1, limit = 50 } = {}) => {
+const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, whitelist, page = 1, limit = 50 } = {}) => {
   const cache = await ServerLoraCache.findOne({ serverId });
 
   if (!cache) {
@@ -461,6 +461,12 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, pag
     filtered = filtered.filter(lora =>
       lora.civitai?.baseModel === baseModel
     );
+  }
+
+  // whitelist (#198 Phase D): 작업판의 loraExposurePolicy='whitelist' + loraWhitelist 적용
+  if (Array.isArray(whitelist) && whitelist.length > 0) {
+    const wlSet = new Set(whitelist);
+    filtered = filtered.filter(lora => wlSet.has(lora.filename));
   }
 
   // 페이지네이션

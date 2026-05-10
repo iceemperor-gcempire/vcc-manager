@@ -3,7 +3,8 @@ const router = express.Router();
 const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
-const { verifyJWT, requireAdmin } = require('../middleware/auth');
+const Workboard = require('../models/Workboard');
+const { verifyJWT, requireAdmin, userHasWorkboardAccess } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -324,9 +325,8 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         });
       }
 
-      const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+      const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
       // allowedBaseModels: query string 으로 array 또는 single 둘 다 받기.
-      // express 가 ?allowedBaseModels=A&allowedBaseModels=B 를 array 로 파싱.
       let allowedBaseModels = req.query.allowedBaseModels;
       if (typeof allowedBaseModels === 'string') {
         allowedBaseModels = [allowedBaseModels];
@@ -334,11 +334,29 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         allowedBaseModels = undefined;
       }
 
+      // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D)
+      let whitelist = undefined;
+      if (workboardId) {
+        const wb = await Workboard.findById(workboardId);
+        if (!wb) {
+          return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다.' });
+        }
+        if (!userHasWorkboardAccess(req.user, wb)) {
+          return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
+        }
+        if (wb.modelExposurePolicy === 'whitelist') {
+          whitelist = wb.modelWhitelist || [];
+          // 빈 whitelist 면 정책상 0개 노출 — sentinel 로 빈 배열 대신 '__none__' 매칭 안 됨
+          if (whitelist.length === 0) whitelist = ['__no_models_in_whitelist__'];
+        }
+      }
+
       const result = await modelMetadataService.searchServerModels(server._id, {
         search,
         hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
         baseModel,
         allowedBaseModels,
+        whitelist,
         page: parseInt(page),
         limit: parseInt(limit)
       });
@@ -425,12 +443,29 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
       });
     }
 
-    const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+    const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
+
+    // 작업판 컨텍스트의 LoRA 노출 정책 적용 (#198 Phase D)
+    let whitelist = undefined;
+    if (workboardId) {
+      const wb = await Workboard.findById(workboardId);
+      if (!wb) {
+        return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다.' });
+      }
+      if (!userHasWorkboardAccess(req.user, wb)) {
+        return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
+      }
+      if (wb.loraExposurePolicy === 'whitelist') {
+        whitelist = wb.loraWhitelist || [];
+        if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
+      }
+    }
 
     const result = await loraMetadataService.searchServerLoras(server._id, {
       search,
       hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
       baseModel,
+      whitelist,
       page: parseInt(page),
       limit: parseInt(limit)
     });
