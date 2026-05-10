@@ -5,6 +5,7 @@ const rateLimit = require('express-rate-limit');
 const { generateJWT, requireAuth, verifyJWT, authRateLimit, signupRateLimit } = require('../middleware/auth');
 const { validate, signupSchema, signinSchema } = require('../utils/validation');
 const User = require('../models/User');
+const Group = require('../models/Group');
 const { sendPasswordResetEmail } = require('../services/emailService');
 const router = express.Router();
 
@@ -93,16 +94,25 @@ router.post('/signup', signupRateLimit, validate(signupSchema), async (req, res)
       });
     }
     
+    // 기본 그룹 자동 가입 (#198) — 비-admin 사용자만 적용. admin 은 implicit all-access.
+    const defaultGroup = await Group.findDefault();
+    const initialGroupIds = defaultGroup ? [defaultGroup._id] : [];
+
     // Create new user
     const newUser = new User({
       email: email.toLowerCase(),
       password,
       nickname: nickname.trim(),
       authProvider: 'local',
-      isEmailVerified: false // Email verification can be implemented later
+      isEmailVerified: false, // Email verification can be implemented later
+      groupIds: initialGroupIds
     });
-    
+
     await newUser.updateAdminStatus();
+    // admin 으로 승격된 경우 그룹 클리어 (admin 은 그룹 무관)
+    if (newUser.isAdmin) {
+      newUser.groupIds = [];
+    }
     await newUser.save();
     
     // Generate JWT token

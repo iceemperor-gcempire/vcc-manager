@@ -105,6 +105,12 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project'
   }],
+  // 사용자 그룹 (#198) — 작업판 단위 접근 권한 매핑.
+  // admin 은 implicit all-access (이 필드 무관). 일반 사용자는 신규 가입 시 isDefault 그룹 자동 추가.
+  groupIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
   passwordResetToken: {
     type: String
   },
