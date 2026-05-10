@@ -35,7 +35,8 @@ import {
   ServerManagementPage,
   SystemStatsPage,
   BackupRestorePage,
-  MetadataManagementPage
+  MetadataManagementPage,
+  GroupManagementPage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
@@ -177,6 +178,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <MetadataManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/groups"
+              element={
+                <AdminRoute>
+                  <GroupManagementPage />
                 </AdminRoute>
               }
             />

@@ -27,7 +27,8 @@ import {
   Settings,
   Backup,
   AutoFixHigh,
-  FolderSpecial
+  FolderSpecial,
+  Group
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -120,6 +121,12 @@ const adminMenuItems = [
     text: '모델 관리',
     path: '/admin/models',
     icon: <AutoFixHigh />,
+    roles: ['admin']
+  },
+  {
+    text: '그룹 관리',
+    path: '/admin/groups',
+    icon: <Group />,
     roles: ['admin']
   },
   {
