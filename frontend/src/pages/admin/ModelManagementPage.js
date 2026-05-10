@@ -30,6 +30,7 @@ import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
+import MetadataItemGrid from '../../components/common/MetadataItemGrid';
 import { normalizeModel } from '../../utils/metadataItem';
 
 // 모델 동기화를 지원하는 serverType 목록 (#200 의 모든 4종)
@@ -327,22 +328,22 @@ function ModelManagementPage() {
         </Box>
       ) : (
         <>
-          <Grid container spacing={2}>
-            {models.map((rawModel, index) => {
+          <MetadataItemGrid
+            items={models}
+            getKey={(rawModel, index) => rawModel.filename || index}
+            renderItem={(rawModel) => {
               const item = normalizeModel(rawModel, { serverType: selectedServer?.serverType });
               if (!item) return null;
               return (
-                <Grid item xs={12} sm={6} md={4} lg={3} key={item.id || index}>
-                  <MetadataItemCard
-                    item={item}
-                    expanded={expandedId === item.id}
-                    onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                    nsfwImageFilter={false}  // admin 페이지 — NSFW 필터 비활성
-                  />
-                </Grid>
+                <MetadataItemCard
+                  item={item}
+                  expanded={expandedId === item.id}
+                  onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  nsfwImageFilter={false}
+                />
               );
-            })}
-          </Grid>
+            }}
+          />
           {pagination.pages > 1 && (
             <Box mt={3} display="flex" justifyContent="center">
               <Pagination
