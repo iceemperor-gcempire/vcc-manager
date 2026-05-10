@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
@@ -34,6 +34,9 @@ router.get('/', requireAuth, async (req, res) => {
     if (includeInactive !== 'true') {
       filter.isActive = true;
     }
+
+    // 접근 권한 필터 (#198) — admin 은 모든 작업판, 일반 사용자는 자기 그룹 작업판만
+    Object.assign(filter, buildWorkboardAccessFilter(req.user));
 
     if (outputFormat) filter.outputFormat = outputFormat;
 
@@ -218,11 +221,16 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
     }
-    
+
     if (!workboard.isActive) {
       return res.status(403).json({ message: 'Workboard is not active' });
     }
-    
+
+    // 권한 검사 (#198) — admin 은 implicit all-access
+    if (!userHasWorkboardAccess(req.user, workboard)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+
     res.json({ workboard });
   } catch (error) {
     res.status(500).json({ message: error.message });
