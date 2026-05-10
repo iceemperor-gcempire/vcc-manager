@@ -54,6 +54,7 @@ import { serverAPI, adminAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
+import MetadataItemGrid from '../../components/common/MetadataItemGrid';
 import { normalizeLora } from '../../utils/metadataItem';
 
 // LoRA 리스트 아이템 컴포넌트
@@ -773,38 +774,26 @@ function LoraManagementPage() {
             return (
               <>
                 {viewMode === 'grid' ? (
-                  // 그리드 뷰 — 공통 MetadataItemCard (#260) 사용
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: {
-                        xs: 'repeat(auto-fill, minmax(150px, 1fr))',
-                        sm: 'repeat(auto-fill, minmax(200px, 1fr))'
-                      },
-                      gap: 2,
-                      '& > *': {
-                        maxWidth: { xs: 'none', sm: 280 }
-                      }
-                    }}
-                  >
-                    {filteredLoraModels.map((lora, index) => {
+                  // 그리드 뷰 — 공통 MetadataItemGrid + MetadataItemCard (#260)
+                  <MetadataItemGrid
+                    items={filteredLoraModels}
+                    getKey={(lora, index) => lora.filename || index}
+                    renderItem={(lora) => {
                       const item = normalizeLora(lora);
                       if (!item) return null;
                       return (
-                        <Box key={item.id || index}>
-                          <MetadataItemCard
-                            item={item}
-                            expanded={expandedLora === item.filename}
-                            onToggleExpand={() => setExpandedLora(
-                              expandedLora === item.filename ? null : item.filename
-                            )}
-                            onTrainedWordClick={(word) => handleCopyTriggerWord(word)}
-                            nsfwImageFilter={nsfwFilter}
-                          />
-                        </Box>
+                        <MetadataItemCard
+                          item={item}
+                          expanded={expandedLora === item.filename}
+                          onToggleExpand={() => setExpandedLora(
+                            expandedLora === item.filename ? null : item.filename
+                          )}
+                          onTrainedWordClick={(word) => handleCopyTriggerWord(word)}
+                          nsfwImageFilter={nsfwFilter}
+                        />
                       );
-                    })}
-                  </Box>
+                    }}
+                  />
                 ) : (
                   // 리스트 뷰 — 기존 LoraListItem 유지 (LoRA admin 전용 컴팩트 뷰)
                   <Box sx={{ width: '100%', overflow: 'hidden' }}>

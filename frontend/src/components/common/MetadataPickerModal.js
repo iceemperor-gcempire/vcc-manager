@@ -34,6 +34,7 @@ import toast from 'react-hot-toast';
 import { serverAPI, workboardAPI, userAPI } from '../../services/api';
 import Pagination from './Pagination';
 import MetadataItemCard from './MetadataItemCard';
+import MetadataItemGrid from './MetadataItemGrid';
 import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
 
 // ─── Per-kind API adapters ────────────────────────────────────────
@@ -451,28 +452,28 @@ function MetadataPickerModal({
           </Box>
         ) : (
           <>
-            <Grid container spacing={2}>
-              {filteredItems.map((rawItem, index) => {
+            <MetadataItemGrid
+              items={filteredItems}
+              getKey={(rawItem, index) => rawItem.filename || index}
+              renderItem={(rawItem) => {
                 const item = adapter.normalize(rawItem);
                 if (!item) return null;
                 return (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={item.id || index}>
-                    <MetadataItemCard
-                      item={item}
-                      selected={selectedItem === item.filename}
-                      expanded={expandedId === item.id}
-                      onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                      onPrimary={() => handlePrimary(rawItem)}
-                      primaryVariant={cardPrimaryVariant}
-                      cardClickable={cardClickable}
-                      onTrainedWordClick={onTrainedWordClick ? (word) => onTrainedWordClick(word, rawItem) : undefined}
-                      trainedWordInsertMode={mode === 'prompt-insert'}
-                      nsfwImageFilter={nsfwImageFilter}
-                    />
-                  </Grid>
+                  <MetadataItemCard
+                    item={item}
+                    selected={selectedItem === item.filename}
+                    expanded={expandedId === item.id}
+                    onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                    onPrimary={() => handlePrimary(rawItem)}
+                    primaryVariant={cardPrimaryVariant}
+                    cardClickable={cardClickable}
+                    onTrainedWordClick={onTrainedWordClick ? (word) => onTrainedWordClick(word, rawItem) : undefined}
+                    trainedWordInsertMode={mode === 'prompt-insert'}
+                    nsfwImageFilter={nsfwImageFilter}
+                  />
                 );
-              })}
-            </Grid>
+              }}
+            />
             {pagination.pages > 1 && (
               <Box mt={2} display="flex" justifyContent="center">
                 <Pagination
