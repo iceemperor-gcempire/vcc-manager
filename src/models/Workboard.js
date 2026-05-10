@@ -125,6 +125,33 @@ const workboardSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 이 작업판에 접근 가능한 사용자 그룹 (#198). 빈 배열이면 admin 외 접근 불가.
+  // admin 은 implicit all-access (이 필드 무관). 마이그레이션 시 기본 그룹 1개 자동 할당.
+  allowedGroupIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
+  // 모델 노출 정책 (#198) — 작업판이 사용하는 서버의 모델 중 사용자에게 노출할 범위.
+  // 'full': 모든 모델 노출 (기본). 'whitelist': modelWhitelist 에 명시된 모델만 노출.
+  modelExposurePolicy: {
+    type: String,
+    enum: ['full', 'whitelist'],
+    default: 'full'
+  },
+  modelWhitelist: {
+    type: [String],
+    default: []
+  },
+  // LoRA 노출 정책 (#198) — 동일 패턴.
+  loraExposurePolicy: {
+    type: String,
+    enum: ['full', 'whitelist'],
+    default: 'full'
+  },
+  loraWhitelist: {
+    type: [String],
+    default: []
+  },
   workflowData: {
     type: String,
     default: ''

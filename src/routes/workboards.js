@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
+const Group = require('../models/Group');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
 const { escapeRegex } = require('../utils/escapeRegex');
@@ -166,6 +167,9 @@ router.post('/import', requireAdmin, async (req, res) => {
     const wb = data.workboard;
     const server = await Server.findById(matchedServerId);
 
+    // import 시 allowedGroupIds 는 기본 그룹으로 자동 할당 (export 에는 미포함, ObjectId 매칭 불가)
+    const defaultGroupForImport = await Group.findDefault();
+
     const newWorkboard = new Workboard({
       name: wb.name,
       description: wb.description,
@@ -177,6 +181,11 @@ router.post('/import', requireAdmin, async (req, res) => {
       additionalInputFields: wb.additionalInputFields || [],
       workflowData: wb.workflowData || '',
       allowedModelTypes: wb.allowedModelTypes || [],
+      allowedGroupIds: defaultGroupForImport ? [defaultGroupForImport._id] : [],
+      modelExposurePolicy: wb.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],
+      loraExposurePolicy: wb.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
       createdBy: req.user._id,
       version: 1,
       usageCount: 0,
@@ -257,7 +266,12 @@ router.post('/', requireAdmin, async (req, res) => {
       baseInputFields,
       additionalInputFields,
       workflowData,
-      allowedModelTypes
+      allowedModelTypes,
+      allowedGroupIds,
+      modelExposurePolicy,
+      modelWhitelist,
+      loraExposurePolicy,
+      loraWhitelist
     } = req.body;
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
@@ -292,6 +306,14 @@ router.post('/', requireAdmin, async (req, res) => {
     }
 
     const isComfyUI = server.serverType === 'ComfyUI';
+
+    // 작업판 생성 시 allowedGroupIds 가 명시되지 않으면 기본 그룹 자동 할당 (#198)
+    let resolvedAllowedGroupIds = Array.isArray(allowedGroupIds) ? allowedGroupIds : null;
+    if (!resolvedAllowedGroupIds) {
+      const defaultGroup = await Group.findDefault();
+      resolvedAllowedGroupIds = defaultGroup ? [defaultGroup._id] : [];
+    }
+
     const workboard = new Workboard({
       name: name.trim(),
       description: description?.trim(),
@@ -303,6 +325,11 @@ router.post('/', requireAdmin, async (req, res) => {
       additionalInputFields: additionalInputFields || [],
       workflowData: isComfyUI ? workflowData : '',
       allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
+      allowedGroupIds: resolvedAllowedGroupIds,
+      modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
+      loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      loraWhitelist: isComfyUI && Array.isArray(loraWhitelist) ? loraWhitelist : [],
       createdBy: req.user._id
     });
 
@@ -336,6 +363,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
       additionalInputFields,
       workflowData,
       allowedModelTypes,
+      allowedGroupIds,
+      modelExposurePolicy,
+      modelWhitelist,
+      loraExposurePolicy,
+      loraWhitelist,
       isActive
     } = req.body;
 
@@ -397,6 +429,25 @@ router.put('/:id', requireAdmin, async (req, res) => {
       // ComfyUI 작업판만 의미 있음 — 다른 serverType 은 빈 배열 강제
       const wbServer = await Server.findById(workboard.serverId);
       workboard.allowedModelTypes = wbServer?.serverType === 'ComfyUI' ? (allowedModelTypes || []) : [];
+    }
+    // 권한 / 노출 정책 (#198)
+    if (Array.isArray(allowedGroupIds)) {
+      workboard.allowedGroupIds = allowedGroupIds;
+    }
+    if (modelExposurePolicy === 'full' || modelExposurePolicy === 'whitelist') {
+      workboard.modelExposurePolicy = modelExposurePolicy;
+    }
+    if (Array.isArray(modelWhitelist)) {
+      workboard.modelWhitelist = modelWhitelist;
+    }
+    if (loraExposurePolicy === 'full' || loraExposurePolicy === 'whitelist') {
+      // LoRA 정책은 ComfyUI 만 의미 있음
+      const wbServer = await Server.findById(workboard.serverId);
+      workboard.loraExposurePolicy = wbServer?.serverType === 'ComfyUI' ? loraExposurePolicy : 'full';
+    }
+    if (Array.isArray(loraWhitelist)) {
+      const wbServer = await Server.findById(workboard.serverId);
+      workboard.loraWhitelist = wbServer?.serverType === 'ComfyUI' ? loraWhitelist : [];
     }
     if (isActive !== undefined) workboard.isActive = isActive;
     
@@ -505,6 +556,11 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,
       allowedModelTypes: originalWorkboard.allowedModelTypes || [],
+      allowedGroupIds: originalWorkboard.allowedGroupIds || [],
+      modelExposurePolicy: originalWorkboard.modelExposurePolicy || 'full',
+      modelWhitelist: originalWorkboard.modelWhitelist || [],
+      loraExposurePolicy: originalWorkboard.loraExposurePolicy || 'full',
+      loraWhitelist: originalWorkboard.loraWhitelist || [],
       createdBy: req.user._id
     });
     
@@ -553,6 +609,12 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
         additionalInputFields: workboard.additionalInputFields,
         workflowData: workboard.workflowData,
         allowedModelTypes: workboard.allowedModelTypes || [],
+        // allowedGroupIds 는 export 에서 제외 — ObjectId 가 instance 간 매칭 안 됨.
+        // import 시 기본 그룹 자동 할당으로 안전한 default 적용.
+        modelExposurePolicy: workboard.modelExposurePolicy || 'full',
+        modelWhitelist: workboard.modelWhitelist || [],
+        loraExposurePolicy: workboard.loraExposurePolicy || 'full',
+        loraWhitelist: workboard.loraWhitelist || [],
         version: workboard.version
       },
       server: serverInfo
