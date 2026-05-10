@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
 const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
@@ -50,7 +50,16 @@ router.post('/generate', requireAuth, async (req, res) => {
         message: 'Missing required fields: workboardId, prompt, aiModel'
       });
     }
-    
+
+    // 작업판 접근 권한 검사 (#198)
+    const wb = await Workboard.findById(workboardId);
+    if (!wb) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+    if (!userHasWorkboardAccess(req.user, wb)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+
     if (referenceImages && referenceImages.length > 0) {
       for (const refImg of referenceImages) {
         const image = await UploadedImage.findById(refImg.imageId);
@@ -380,7 +389,12 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
     }
-    
+
+    // 작업판 접근 권한 검사 (#198)
+    if (!userHasWorkboardAccess(req.user, workboard)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+
     if (workboard.outputFormat !== 'text' && workboard.workboardType !== 'prompt') {
       return res.status(400).json({ message: 'This workboard is not a prompt workboard' });
     }

@@ -47,6 +47,67 @@ const optionalAuth = (req, res, next) => {
   next();
 };
 
+// #198: 작업판 단위 접근 권한 평가.
+//
+// 정책:
+// - admin (isAdmin: true) → 모든 작업판 implicit all-access. bypass.
+// - 일반 사용자 → workboard.allowedGroupIds ∩ user.groupIds ≠ ∅ 이어야 통과 (UNION 규칙).
+// - 작업판 미발견 시 404.
+
+/**
+ * 사용자가 특정 작업판에 접근 가능한지 검사.
+ * @param {Object} user — req.user (User document)
+ * @param {Object} workboard — Workboard document
+ * @returns {boolean}
+ */
+function userHasWorkboardAccess(user, workboard) {
+  if (!user || !workboard) return false;
+  if (user.isAdmin) return true;
+  const allowed = (workboard.allowedGroupIds || []).map(String);
+  const mine = (user.groupIds || []).map(String);
+  return mine.some((g) => allowed.includes(g));
+}
+
+/**
+ * 사용자가 접근 가능한 작업판들을 추리는 Mongoose 쿼리 조건.
+ * admin 은 빈 객체 (모든 작업판) 반환. 일반 사용자는 allowedGroupIds 가
+ * user.groupIds 와 교집합이 있는 것만.
+ * @param {Object} user — req.user
+ * @returns {Object} mongo filter
+ */
+function buildWorkboardAccessFilter(user) {
+  if (!user) return { _id: null };  // 차단
+  if (user.isAdmin) return {};
+  const groupIds = (user.groupIds || []).map((g) => g);
+  if (groupIds.length === 0) return { _id: null };  // 어느 그룹에도 안 속함 → 차단
+  return { allowedGroupIds: { $in: groupIds } };
+}
+
+/**
+ * Express 미들웨어 — req.params.id 로 식별된 작업판에 대해 사용자 권한 검사.
+ * 통과 시 req.workboard 에 작업판을 attach.
+ * (라우트 내부에서 다시 findById 호출할 필요 없도록 캐시)
+ */
+const requireWorkboardAccess = async (req, res, next) => {
+  try {
+    const Workboard = require('../models/Workboard');
+    const workboard = await Workboard.findById(req.params.id)
+      .populate('createdBy', 'nickname email')
+      .populate('serverId', 'name serverType serverUrl isActive');
+    if (!workboard) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+    if (!userHasWorkboardAccess(req.user, workboard)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+    req.workboard = workboard;
+    return next();
+  } catch (error) {
+    console.error('requireWorkboardAccess error:', error);
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5, // limit each IP to 5 requests per windowMs
@@ -195,5 +256,8 @@ module.exports = {
   verifyApiKey,
   requireNonApiKeyAuth,
   authRateLimit,
-  signupRateLimit
+  signupRateLimit,
+  requireWorkboardAccess,
+  userHasWorkboardAccess,
+  buildWorkboardAccessFilter
 };
