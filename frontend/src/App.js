@@ -35,8 +35,7 @@ import {
   ServerManagementPage,
   SystemStatsPage,
   BackupRestorePage,
-  LoraManagementPage,
-  ModelManagementPage
+  MetadataManagementPage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
@@ -174,20 +173,16 @@ function MainLayout() {
               }
             />
             <Route
-              path="/admin/loras"
+              path="/admin/models"
               element={
                 <AdminRoute>
-                  <LoraManagementPage />
+                  <MetadataManagementPage />
                 </AdminRoute>
               }
             />
             <Route
-              path="/admin/models"
-              element={
-                <AdminRoute>
-                  <ModelManagementPage />
-                </AdminRoute>
-              }
+              path="/admin/loras"
+              element={<Navigate to="/admin/models" replace />}
             />
             <Route
               path="/admin/stats"

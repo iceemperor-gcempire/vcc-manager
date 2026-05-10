@@ -87,8 +87,8 @@ const KIND_ADAPTERS = {
     sync: (serverId) => serverAPI.syncModels(serverId),
     getStatus: (serverId) => serverAPI.getModelsSyncStatus(serverId),
     normalize: normalizeModel,
-    label: '모델',
-    listLabel: '모델',
+    label: '베이스 모델',
+    listLabel: '베이스 모델',
     nsfwItemPreference: null  // model 은 현재 NSFW item 필터 없음
   }
 };

@@ -6,3 +6,4 @@ export { default as SystemStatsPage } from './SystemStatsPage';
 export { default as BackupRestorePage } from './BackupRestorePage';
 export { default as LoraManagementPage } from './LoraManagementPage';
 export { default as ModelManagementPage } from './ModelManagementPage';
+export { default as MetadataManagementPage } from './MetadataManagementPage';

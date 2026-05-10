@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   FormControl,
@@ -455,11 +454,7 @@ function LoraManagementPage() {
   const selectedServer = comfyUIServers.find(s => s._id === selectedServerId);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
-      <Typography variant="h5" gutterBottom>
-        LoRA 관리
-      </Typography>
-
+    <Box sx={{ overflow: 'hidden' }}>
       {/* 전역 설정 패널 */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -829,7 +824,7 @@ function LoraManagementPage() {
           })()}
         </>
       )}
-    </Container>
+    </Box>
   );
 }
 
