@@ -38,6 +38,10 @@ import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
 
 // ─── Per-kind API adapters ────────────────────────────────────────
 // kind 별 fetch / sync / status / normalize / 응답 필드명을 한 곳에서 관리.
+// 안정적인 빈 배열 reference — `allowedModelTypes = []` default 가 매 render 마다 새 array 를
+// 만들어 useCallback / useEffect 의존성을 깨면서 무한 fetch loop 를 일으키던 버그 수정.
+const EMPTY_ALLOWED_MODEL_TYPES = Object.freeze([]);
+
 const KIND_ADAPTERS = {
   lora: {
     fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
@@ -116,7 +120,7 @@ function MetadataPickerModal({
   selectedItem,
   onPrimary,
   onTrainedWordClick,
-  allowedModelTypes = [],
+  allowedModelTypes = EMPTY_ALLOWED_MODEL_TYPES,
   title
 }) {
   // 잘못된 kind 는 internal API 위반 — KIND_ADAPTERS 에 없으면 빈 객체로 fallback,
