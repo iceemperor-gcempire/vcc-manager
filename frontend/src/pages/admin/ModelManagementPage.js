@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   FormControl,
@@ -169,12 +168,11 @@ function ModelManagementPage() {
   };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Box>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} mb={3}>
         <Box>
-          <Typography variant="h5">모델 관리</Typography>
           <Typography variant="body2" color="text.secondary">
-            ComfyUI / OpenAI / Gemini 서버의 모델 메타데이터 (Civitai / provider) 를 동기화하고 검색합니다.
+            ComfyUI / OpenAI / Gemini 서버의 베이스 모델 메타데이터 (Civitai / provider) 를 동기화하고 검색합니다.
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
@@ -356,7 +354,7 @@ function ModelManagementPage() {
           )}
         </>
       )}
-    </Container>
+    </Box>
   );
 }
 

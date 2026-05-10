@@ -117,15 +117,9 @@ const adminMenuItems = [
     roles: ['admin']
   },
   {
-    text: 'LoRA 관리',
-    path: '/admin/loras',
-    icon: <AutoFixHigh />,
-    roles: ['admin']
-  },
-  {
     text: '모델 관리',
     path: '/admin/models',
-    icon: <Image />,
+    icon: <AutoFixHigh />,
     roles: ['admin']
   },
   {

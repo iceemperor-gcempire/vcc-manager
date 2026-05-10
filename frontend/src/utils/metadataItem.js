@@ -142,7 +142,7 @@ export function normalizeModelList(rawList, options) {
 export function getKindLabel(kind) {
   switch (kind) {
     case 'lora': return 'LoRA';
-    case 'checkpoint': return 'Checkpoint';
+    case 'checkpoint': return '베이스 모델';
     case 'provider-model': return 'API Model';
     default: return kind || '';
   }
