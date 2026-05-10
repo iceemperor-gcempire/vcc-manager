@@ -1409,6 +1409,7 @@ function ImageGeneration() {
           kind="model"
           open={modelModalOpen}
           onClose={handleModelModalClose}
+          workboardId={id}
           serverId={workboardData?.serverId?._id || workboardData?.serverId}
           mode="select-single"
           selectedItem={selectedCheckpointModel}
