@@ -53,7 +53,7 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { workboardAPI, serverAPI } from '../../services/api';
+import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import { getWorkboardTemplate } from '../../templates';
 import {
@@ -230,6 +230,185 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
   );
 }
 
+// 권한 / 노출 정책 panel (#198) — 작업판 admin 폼의 한 탭으로 사용.
+function PermissionsAndExposurePanel({ control, isComfyUI, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
+  return (
+    <Box>
+      {/* 접근 그룹 */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography variant="h6">접근 그룹</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            이 작업판에 접근 가능한 사용자 그룹을 지정합니다. 비워두면 admin 외 접근 불가. admin 은 그룹과 무관하게 모든 작업판 접근 가능.
+          </Typography>
+          <Controller
+            name="allowedGroupIds"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                multiple
+                options={groups.map((g) => g._id)}
+                value={field.value || []}
+                onChange={(_, newValue) => field.onChange(newValue)}
+                getOptionLabel={(option) => {
+                  const g = groups.find((x) => x._id === option);
+                  return g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option;
+                }}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const g = groups.find((x) => x._id === option);
+                    return (
+                      <Chip
+                        {...getTagProps({ index })}
+                        key={option}
+                        label={g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    );
+                  })
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    placeholder={groups.length === 0 ? '그룹 없음 — 관리 메뉴에서 먼저 그룹 생성' : '그룹 선택'}
+                  />
+                )}
+              />
+            )}
+          />
+        </AccordionDetails>
+      </Accordion>
+
+      {/* 모델 노출 정책 */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography variant="h6">모델 노출 정책</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            이 작업판에서 사용자에게 노출되는 base 모델 범위.
+          </Typography>
+          <Controller
+            name="modelExposurePolicy"
+            control={control}
+            render={({ field }) => (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>정책</InputLabel>
+                <Select {...field} label="정책">
+                  <MenuItem value="full">전체 노출 (서버의 모든 모델)</MenuItem>
+                  <MenuItem value="whitelist">화이트리스트 (지정 모델만)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          />
+          {modelExposurePolicyValue === 'whitelist' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                노출할 모델 식별자 (ComfyUI=파일 경로, OpenAI/Gemini=모델 ID)
+              </Typography>
+              <Controller
+                name="modelWhitelist"
+                control={control}
+                render={({ field }) => (
+                  <Autocomplete
+                    {...field}
+                    multiple
+                    freeSolo
+                    options={[]}
+                    value={field.value || []}
+                    onChange={(_, newValue) => field.onChange(newValue)}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          {...getTagProps({ index })}
+                          key={option}
+                          label={option}
+                          size="small"
+                          variant="outlined"
+                        />
+                      ))
+                    }
+                    renderInput={(params) => (
+                      <TextField {...params} size="small" placeholder="예: SDXL/illustrious_v6.safetensors" />
+                    )}
+                  />
+                )}
+              />
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
+
+      {/* LoRA 노출 정책 (ComfyUI 만) */}
+      {isComfyUI && (
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography variant="h6">LoRA 노출 정책</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              ComfyUI 작업판에서 사용자에게 노출되는 LoRA 범위.
+            </Typography>
+            <Controller
+              name="loraExposurePolicy"
+              control={control}
+              render={({ field }) => (
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>정책</InputLabel>
+                  <Select {...field} label="정책">
+                    <MenuItem value="full">전체 노출</MenuItem>
+                    <MenuItem value="whitelist">화이트리스트</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
+            {loraExposurePolicyValue === 'whitelist' && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  노출할 LoRA 식별자 (파일 경로 또는 hash)
+                </Typography>
+                <Controller
+                  name="loraWhitelist"
+                  control={control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      {...field}
+                      multiple
+                      freeSolo
+                      options={[]}
+                      value={field.value || []}
+                      onChange={(_, newValue) => field.onChange(newValue)}
+                      renderTags={(value, getTagProps) =>
+                        value.map((option, index) => (
+                          <Chip
+                            {...getTagProps({ index })}
+                            key={option}
+                            label={option}
+                            size="small"
+                            variant="outlined"
+                          />
+                        ))
+                      }
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" placeholder="예: character/style_v2.safetensors" />
+                      )}
+                    />
+                  )}
+                />
+              </Box>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      )}
+    </Box>
+  );
+}
+
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
 function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
@@ -237,6 +416,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [loading, setLoading] = useState(false);
   const [copiedVariable, setCopiedVariable] = useState('');
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
+  // 그룹 목록 (#198) — allowedGroupIds Autocomplete 의 옵션 풀
+  const [availableGroups, setAvailableGroups] = useState([]);
   const copyResetTimerRef = React.useRef(null);
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -247,6 +428,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       outputFormat: 'image',
       workflowData: '',
       allowedModelTypes: [],
+      // 권한 / 노출 정책 (#198)
+      allowedGroupIds: [],
+      modelExposurePolicy: 'full',
+      modelWhitelist: [],
+      loraExposurePolicy: 'full',
+      loraWhitelist: [],
       isActive: true,
       aiModels: [],
       imageSizes: [],
@@ -282,6 +469,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       })
       .catch(() => setAvailableBaseModels([]));
   }, [open, isComfyUI, watchedServerId]);
+
+  // 그룹 목록 fetch (#198) — 모달 open 시 1회
+  React.useEffect(() => {
+    if (!open) return;
+    groupAPI.getAll()
+      .then((res) => setAvailableGroups(res.data?.data?.groups || []))
+      .catch(() => setAvailableGroups([]));
+  }, [open]);
 
   React.useEffect(() => {
     return () => {
@@ -346,6 +541,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
             allowedModelTypes: fullData.allowedModelTypes || [],
+            // 권한 / 노출 정책 (#198) hydration
+            allowedGroupIds: (fullData.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
+            modelExposurePolicy: fullData.modelExposurePolicy || 'full',
+            modelWhitelist: fullData.modelWhitelist || [],
+            loraExposurePolicy: fullData.loraExposurePolicy || 'full',
+            loraWhitelist: fullData.loraWhitelist || [],
             isActive: fullData.isActive ?? true,
             aiModels: fullData.baseInputFields?.aiModel?.map(m => ({ key: m.key || '', value: m.value || '' })) || [],
             imageSizes: fullData.baseInputFields?.imageSizes?.map(s => ({ key: s.key || '', value: s.value || '' })) || [],
@@ -481,6 +682,12 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       outputFormat: normalizedOutputFormat,
       workflowData: isComfyUIServer ? data.workflowData : '',
       allowedModelTypes: isComfyUIServer ? (data.allowedModelTypes || []) : [],
+      // 권한 / 노출 정책 (#198)
+      allowedGroupIds: data.allowedGroupIds || [],
+      modelExposurePolicy: data.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
+      loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
       isActive: Boolean(data.isActive),
       baseInputFields: {
         aiModel: (data.aiModels || []).filter(m => m.key && m.value),
@@ -531,6 +738,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             <Tab label="기본 정보" />
             <Tab label="기초 입력값" />
             <Tab label="커스텀 필드" />
+            <Tab label="권한 / 노출" />
             {isComfyUI && <Tab label="워크플로우" />}
           </Tabs>
 
@@ -1380,8 +1588,19 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </Box>
           )}
 
+          {/* 권한 / 노출 탭 (#198) */}
+          {tabValue === 3 && (
+            <PermissionsAndExposurePanel
+              control={control}
+              isComfyUI={isComfyUI}
+              groups={availableGroups}
+              modelExposurePolicyValue={watch('modelExposurePolicy')}
+              loraExposurePolicyValue={watch('loraExposurePolicy')}
+            />
+          )}
+
           {/* 워크플로우 탭 - 이미지 타입만 */}
-          {isComfyUI && tabValue === 3 && (
+          {isComfyUI && tabValue === 4 && (
             <Box>
               {/* 사용 가능한 변수 목록 */}
               <Accordion defaultExpanded={false} sx={{ mb: 2 }}>

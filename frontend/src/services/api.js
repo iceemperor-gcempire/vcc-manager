@@ -199,6 +199,17 @@ export const serverAPI = {
   resetLorasSync: (id) => api.post(`/servers/${id}/loras/sync/reset`),
 };
 
+// 사용자 그룹 (#198)
+export const groupAPI = {
+  getMyGroups: () => api.get('/groups/me'),
+  getAll: () => api.get('/groups'),
+  getById: (id) => api.get(`/groups/${id}`),
+  create: (data) => api.post('/groups', data),
+  update: (id, data) => api.put(`/groups/${id}`, data),
+  delete: (id) => api.delete(`/groups/${id}`),
+  setMember: (id, userId, action = 'add') => api.post(`/groups/${id}/members`, { userId, action }),
+};
+
 export const promptDataAPI = {
   getAll: (params) => api.get('/prompt-data', { params }),
   getById: (id) => api.get(`/prompt-data/${id}`),
