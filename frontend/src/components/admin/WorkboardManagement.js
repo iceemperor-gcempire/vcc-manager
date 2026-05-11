@@ -470,9 +470,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       loraExposurePolicy: 'full',
       loraWhitelist: [],
       isActive: true,
-      negativePromptField: { enabled: false, required: false },
-      upscaleMethodField: { enabled: false, required: false, options: [] },
-      baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
       additionalCustomFields: []
     }
   });
@@ -576,28 +573,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             loraExposurePolicy: fullData.loraExposurePolicy || 'full',
             loraWhitelist: fullData.loraWhitelist || [],
             isActive: fullData.isActive ?? true,
-            // F3: baseInputFields → form fields 매핑 제거 — customField 만 편집
-            // 커스텀 필드
-            negativePromptField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'negativePrompt')?.required || false
-            },
-            upscaleMethodField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'upscaleMethod') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'upscaleMethod')?.required || false,
-              options: fullData.additionalInputFields?.find(f => f.name === 'upscaleMethod')?.options || []
-            },
-            baseStyleField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'baseStyle') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.required || false,
-              options: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.options || [],
-              formatString: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.formatString || '{{##base_style##}}'
-            },
-            // 추가 커스톰 필드들
-            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)).map(f => ({
+            // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출
+            additionalCustomFields: (fullData.additionalInputFields || []).map(f => ({
               ...f,
               imageConfig: f.imageConfig || { maxImages: 1 }
-            })) || []
+            }))
           };
           
           console.log('Form data to reset with:', formData);
@@ -634,41 +614,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   };
 
   const onSubmit = (data) => {
-    // 추가 입력 필드들을 올바른 형식으로 변환
+    // 커스텀 필드들을 단일 generic 편집기에서 가져와서 구성
     const additionalInputFields = [];
 
-    if (data.negativePromptField?.enabled) {
-      additionalInputFields.push({
-        name: 'negativePrompt',
-        label: '부정 프롬프트',
-        type: 'string',
-        required: Boolean(data.negativePromptField.required),
-        placeholder: '부정 프롬프트를 입력하세요...'
-      });
-    }
-
-    if (data.upscaleMethodField?.enabled) {
-      additionalInputFields.push({
-        name: 'upscaleMethod',
-        label: '업스케일 방법',
-        type: 'select',
-        required: Boolean(data.upscaleMethodField.required),
-        options: (data.upscaleMethodField.options || []).filter(opt => opt.key && opt.value)
-      });
-    }
-
-    if (data.baseStyleField?.enabled) {
-      additionalInputFields.push({
-        name: 'baseStyle',
-        label: '기초 스타일',
-        type: 'select',
-        required: Boolean(data.baseStyleField.required),
-        options: (data.baseStyleField.options || []).filter(opt => opt.key && opt.value),
-        formatString: data.baseStyleField.formatString || '{{##base_style##}}'
-      });
-    }
-
-    // 추가 커스톰 필드들 추가
     if (data.additionalCustomFields) {
       data.additionalCustomFields.forEach(field => {
         if (field.name && field.label) {
@@ -782,293 +730,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           {/* 커스텀 필드 탭 */}
           {tabValue === 1 && (
             <Box>
-              <Alert severity="info" sx={{ mb: 3 }}>
-                커스텀 필드는 관리자가 선택적으로 활성화할 수 있는 입력 필드들입니다.
-              </Alert>
-
-              {/* 부정 프롬프트 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">부정 프롬프트</Typography>
-                    <Controller
-                      name="negativePromptField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="negativePromptField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 입력"
-                      />
-                    )}
-                  />
-                  <Typography variant="body2" color="textSecondary" mt={1}>
-                    사용자가 부정 프롬프트를 입력할 수 있는 텍스트 필드입니다.
-                  </Typography>
-                  <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                    📝 Workflow JSON 형식: <code>{'{{##negative_prompt##}}'}</code>
-                  </Typography>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 업스케일 방법 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">업스케일 방법</Typography>
-                    <Controller
-                      name="upscaleMethodField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="upscaleMethodField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 선택"
-                      />
-                    )}
-                  />
-                  <Box mt={2}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Box>
-                        <Typography variant="body2">업스케일 방법 옵션</Typography>
-                        <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                          📝 Workflow JSON 형식: <code>{'{{##upscale_method##}}'}</code>
-                        </Typography>
-                      </Box>
-                      <Button
-                        startIcon={<Add />}
-                        onClick={() => {
-                          const current = watch('upscaleMethodField.options') || [];
-                          setValue('upscaleMethodField.options', [...current, { key: '', value: '' }]);
-                        }}
-                        size="small"
-                      >
-                        옵션 추가
-                      </Button>
-                    </Box>
-                    <DragDropContext onDragEnd={onDragEnd}>
-                      <Droppable droppableId="upscaleMethodOptions" type="upscaleMethodField.options">
-                        {(provided) => (
-                          <Box ref={provided.innerRef} {...provided.droppableProps}>
-                            {watch('upscaleMethodField.options')?.map((option, index) => (
-                              <Draggable key={index} draggableId={`upscaleOption-${index}`} index={index}>
-                                {(provided) => (
-                                  <Box
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    display="flex" gap={2} mb={2} alignItems="center"
-                                  >
-                                    <Controller
-                                      name={`upscaleMethodField.options.${index}.key`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="표시명"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <Controller
-                                      name={`upscaleMethodField.options.${index}.value`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="실제 값"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <IconButton
-                                      onClick={() => {
-                                        const current = watch('upscaleMethodField.options') || [];
-                                        setValue('upscaleMethodField.options', current.filter((_, i) => i !== index));
-                                      }}
-                                      color="error"
-                                      size="small"
-                                    >
-                                      <Delete />
-                                    </IconButton>
-                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
-                                      <DragIndicator />
-                                    </Box>
-                                  </Box>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </Box>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 기초 스타일 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">기초 스타일</Typography>
-                    <Controller
-                      name="baseStyleField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="baseStyleField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 선택"
-                      />
-                    )}
-                  />
-                  {/* 형식 문자열 설정 */}
-                  <Box mb={2}>
-                    <Controller
-                      name="baseStyleField.formatString"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Workflow JSON 형식 문자열"
-                          placeholder="예: {{##base_style##}}"
-                          size="small"
-                          sx={{ fontFamily: 'monospace' }}
-                        />
-                      )}
-                    />
-                    <Typography variant="caption" color="textSecondary">
-                      Workflow JSON에서 이 필드를 대체할 문자열을 설정하세요.
-                    </Typography>
-                  </Box>
-                  <Box mt={2}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Typography variant="body2">스타일 옵션 (LoRA 설정)</Typography>
-                      <Button
-                        startIcon={<Add />}
-                        onClick={() => {
-                          const current = watch('baseStyleField.options') || [];
-                          setValue('baseStyleField.options', [...current, { key: '', value: '' }]);
-                        }}
-                        size="small"
-                      >
-                        스타일 추가
-                      </Button>
-                    </Box>
-                    <DragDropContext onDragEnd={onDragEnd}>
-                      <Droppable droppableId="baseStyleOptions" type="baseStyleField.options">
-                        {(provided) => (
-                          <Box ref={provided.innerRef} {...provided.droppableProps}>
-                            {watch('baseStyleField.options')?.map((style, index) => (
-                              <Draggable key={index} draggableId={`baseStyleOption-${index}`} index={index}>
-                                {(provided) => (
-                                  <Box
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    display="flex" gap={2} mb={2} alignItems="center"
-                                  >
-                                    <Controller
-                                      name={`baseStyleField.options.${index}.key`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="스타일명"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <Controller
-                                      name={`baseStyleField.options.${index}.value`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="LoRA 경로/설정"
-                                          size="small"
-                                          sx={{ flex: 2 }}
-                                        />
-                                      )}
-                                    />
-                                    <IconButton
-                                      onClick={() => {
-                                        const current = watch('baseStyleField.options') || [];
-                                        setValue('baseStyleField.options', current.filter((_, i) => i !== index));
-                                      }}
-                                      color="error"
-                                      size="small"
-                                    >
-                                      <Delete />
-                                    </IconButton>
-                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
-                                      <DragIndicator />
-                                    </Box>
-                                  </Box>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </Box>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 추가 커스톰 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6">추가 커스톰 필드</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="body2" color="textSecondary">
-                      사용자 정의 입력 필드를 추가할 수 있습니다.
-                    </Typography>
-                    <Button
-                      startIcon={<Add />}
-                      onClick={() => {
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="body2" color="textSecondary">
+                  작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
+                </Typography>
+                <Button
+                  startIcon={<Add />}
+                  onClick={() => {
                         const current = watch('additionalCustomFields') || [];
                         setValue('additionalCustomFields', [...current, {
                           name: '',
@@ -1307,8 +975,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       </AccordionDetails>
                     </Accordion>
                   ))}
-                </AccordionDetails>
-              </Accordion>
             </Box>
           )}
 
