@@ -35,6 +35,7 @@ const dropLegacyModelCacheCollection = require('./migrations/dropLegacyModelCach
 const cleanupStuckSyncs = require('./migrations/cleanupStuckSyncs');
 const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
+const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
 
 dotenv.config();
 
@@ -185,6 +186,7 @@ const startServer = async () => {
     await cleanupStuckSyncs();
     await initializeDefaultGroup();
     await assignDefaultGroupToWorkboards();
+    await backfillCustomFieldRoles();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
