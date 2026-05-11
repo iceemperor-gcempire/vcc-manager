@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const { FIELD_ROLE_VALUES } = require('../constants/fieldRoles');
 
 const selectOptionSchema = new mongoose.Schema({
   key: {
@@ -28,13 +27,7 @@ const inputFieldSchema = new mongoose.Schema({
     enum: ['string', 'select', 'file', 'number', 'boolean', 'image', 'baseModel', 'lora'],
     required: true
   },
-  // 필드 role (#199) — 서비스 코드가 필드 이름 대신 role 로 의미를 찾는다.
-  // null/undefined 이면 단순 사용자 입력으로 처리. 한 작업판 안에서 같은 role 은 1회만 권장.
-  role: {
-    type: String,
-    enum: [...FIELD_ROLE_VALUES, null],
-    default: null
-  },
+  // F4: role 필드 제거 — 의미는 type=baseModel/lora 또는 well-known name 으로 추론
   required: {
     type: Boolean,
     default: false
@@ -101,32 +94,7 @@ const workboardSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  baseInputFields: {
-    aiModel: {
-      type: [selectOptionSchema],
-      required: true
-    },
-    imageSizes: [selectOptionSchema],
-    referenceImageMethods: [selectOptionSchema],
-    stylePresets: [selectOptionSchema],
-    upscaleMethods: [selectOptionSchema],
-    systemPrompt: {
-      type: String,
-      default: ''
-    },
-    referenceImages: {
-      type: [selectOptionSchema],
-      default: []
-    },
-    temperature: {
-      type: Number,
-      default: 0.7
-    },
-    maxTokens: {
-      type: Number,
-      default: 2000
-    }
-  },
+  // F4: baseInputFields 스키마 제거 — additionalInputFields 의 customField 가 모든 입력 정의 담당
   additionalInputFields: [inputFieldSchema],
   // ComfyUI 작업판이 허용하는 base 모델 타입 (#252).
   // civitai.baseModel 과 매칭. 빈 배열이면 제약 없음 (모든 모델 허용).
