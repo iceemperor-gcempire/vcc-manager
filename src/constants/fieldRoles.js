@@ -63,6 +63,8 @@ const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
   prompt: FIELD_ROLES.PROMPT,
   negativePrompt: FIELD_ROLES.NEGATIVE_PROMPT,
   seed: FIELD_ROLES.SEED,
+  // 신규 템플릿 (Phase F1) 는 단수형 이름 사용 — legacy plural 과 동등.
+  imageSize: FIELD_ROLES.IMAGE_SIZE,
   referenceImageMethod: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
   stylePreset: FIELD_ROLES.STYLE_PRESET,
   upscaleMethod: FIELD_ROLES.UPSCALE_METHOD,

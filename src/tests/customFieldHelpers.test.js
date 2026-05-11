@@ -72,6 +72,18 @@ describe('customFieldHelpers (#199 Phase A)', () => {
       expect(getFieldValueByRole(wb, inputData, FIELD_ROLES.MODEL)).toBe('sdxl-from-dynamic');
     });
 
+    test('well-known fallback 도 additionalParams 네임스페이스 확인', () => {
+      const wbEmpty = { additionalInputFields: [] };
+      const inputData = { additionalParams: { imageSize: '768x768', prompt: 'cat' } };
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.IMAGE_SIZE)).toBe('768x768');
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.PROMPT)).toBe('cat');
+    });
+
+    test('imageSize 단수형도 인식 (신규 템플릿 호환)', () => {
+      const wb = { additionalInputFields: [{ name: 'imageSize', type: 'select' }] };
+      expect(getFieldValueByRole(wb, { additionalParams: { imageSize: '1024x1024' } }, FIELD_ROLES.IMAGE_SIZE)).toBe('1024x1024');
+    });
+
     test('top-level 값이 additionalParams 보다 우선', () => {
       const wb = { additionalInputFields: [{ name: 'aiModel', type: 'baseModel' }] };
       const inputData = { aiModel: 'top', additionalParams: { aiModel: 'nested' } };
