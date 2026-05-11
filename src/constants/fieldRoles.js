@@ -55,9 +55,24 @@ const LEGACY_BASE_FIELD_TO_ROLE = Object.freeze({
   maxTokens: FIELD_ROLES.MAX_TOKENS
 });
 
+// well-known 필드 이름 → role 매핑 (superset).
+// LEGACY_BASE_FIELD_TO_ROLE 의 baseInputFields 키 + additionalInputFields 에서 자주 쓰이는 이름.
+// 서비스 코드 fallback 및 Phase C 의 additionalInputFields role 자동 부여 마이그레이션에서 사용.
+const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
+  ...LEGACY_BASE_FIELD_TO_ROLE,
+  prompt: FIELD_ROLES.PROMPT,
+  negativePrompt: FIELD_ROLES.NEGATIVE_PROMPT,
+  seed: FIELD_ROLES.SEED,
+  referenceImageMethod: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
+  stylePreset: FIELD_ROLES.STYLE_PRESET,
+  upscaleMethod: FIELD_ROLES.UPSCALE_METHOD,
+  referenceImage: FIELD_ROLES.REFERENCE_IMAGE
+});
+
 module.exports = {
   FIELD_ROLES,
   FIELD_ROLE_VALUES,
   FIELD_ROLE_LABELS,
-  LEGACY_BASE_FIELD_TO_ROLE
+  LEGACY_BASE_FIELD_TO_ROLE,
+  WELL_KNOWN_FIELD_NAME_TO_ROLE
 };

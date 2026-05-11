@@ -4,7 +4,7 @@
 // role 기반으로 필드를 찾을 수 있게 해주는 read-only 헬퍼들.
 // Phase C 에서 서비스 코드가 이 헬퍼로 마이그레이션됨.
 
-const { LEGACY_BASE_FIELD_TO_ROLE } = require('../constants/fieldRoles');
+const { WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 
 /**
  * 작업판에서 특정 role 을 가진 첫 번째 필드 메타데이터를 반환.
@@ -41,10 +41,11 @@ function getFieldValueByRole(workboard, inputData, role) {
     return inputData[field.name];
   }
 
-  // Legacy fallback — baseInputFields well-known key
-  for (const [legacyKey, mappedRole] of Object.entries(LEGACY_BASE_FIELD_TO_ROLE)) {
-    if (mappedRole === role && Object.prototype.hasOwnProperty.call(inputData, legacyKey)) {
-      return inputData[legacyKey];
+  // Well-known name fallback — additionalInputFields entry 에 role 이 없거나 부분 마이그레이션 상태 대비.
+  // 또한 prompt / negativePrompt / seed 처럼 v1.x 에서 additionalInputFields 가 있지만 role 이 부여되지 않은 케이스.
+  for (const [knownName, mappedRole] of Object.entries(WELL_KNOWN_FIELD_NAME_TO_ROLE)) {
+    if (mappedRole === role && Object.prototype.hasOwnProperty.call(inputData, knownName)) {
+      return inputData[knownName];
     }
   }
   return undefined;
