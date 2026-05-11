@@ -48,7 +48,6 @@ import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import MetadataPickerModal from '../components/common/MetadataPickerModal';
 import MetadataFieldInput from '../components/common/MetadataFieldInput';
-import { filterVisibleCustomFields } from '../utils/customFieldVisibility';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -387,11 +386,9 @@ function ImageGeneration() {
   const [randomSeed, setRandomSeed] = useState(true);
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   const [loraModalOpen, setLoraModalOpen] = useState(false);
-  const [modelModalOpen, setModelModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const [promptValue, setPromptValue] = useState('');
-  const [selectedCheckpointModel, setSelectedCheckpointModel] = useState('');
   const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
   const promptInputRef = useRef(null);
@@ -423,23 +420,7 @@ function ImageGeneration() {
     setLoraModalOpen(false);
   };
 
-  const handleModelModalOpen = () => {
-    setModelModalOpen(true);
-  };
-
-  const handleModelModalClose = () => {
-    setModelModalOpen(false);
-  };
-
-  const handleCheckpointModelSelect = (modelPath) => {
-    setSelectedCheckpointModel(modelPath);
-
-    if (userSelectedOption?.value) {
-      setValue('aiModel', userSelectedOption.value);
-    }
-    // UserSelected 옵션이 없어도 모델 선택은 유지 — 제출 시 오버라이드됨
-    toast.success(`모델 선택: ${modelPath.split(/[/\\]/).pop()}`);
-  };
+  // F2: handleModelModalOpen / handleCheckpointModelSelect 제거 — customField (type=baseModel) 가 picker 통합
 
   // LoRA 모달에서 프롬프트 변경 핸들러
   const handlePromptChangeFromLora = (newPrompt) => {
@@ -558,10 +539,7 @@ function ImageGeneration() {
   );
 
   const workboardData = workboard?.data?.workboard;
-  const userSelectedOption = workboardData?.baseInputFields?.aiModel?.find((model) => model.key === 'UserSelected');
   const isComfyUIWorkboard = workboardData?.serverId?.serverType === 'ComfyUI';
-  const currentAiModel = watch('aiModel');
-  const isUserSelectedAiModel = !!userSelectedOption && currentAiModel === userSelectedOption.value;
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
@@ -615,102 +593,29 @@ function ImageGeneration() {
           }
         };
 
-        // 기본 필드 매칭
-        const basicFields = {
-          prompt: jobInputData.prompt,
-          negativePrompt: jobInputData.negativePrompt,
-          aiModel: jobInputData.aiModel,
-          imageSize: jobInputData.imageSize
-        };
-
-        Object.keys(basicFields).forEach(key => {
-          const inputValue = basicFields[key];
-          if (!inputValue) return;
-
-          if (key === 'aiModel' && workboardData.baseInputFields?.aiModel) {
-            // UserSelected 모델 (모델 브라우저에서 선택한 체크포인트) 복원
-            if (typeof inputValue === 'object' && inputValue.key === 'UserSelected' && inputValue.value) {
-              setSelectedCheckpointModel(inputValue.value);
-              // 드롭다운은 첫 번째 기본값으로 설정 (표시는 selectedCheckpointModel이 담당)
-              safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
-              console.log('🤖 AI Model restored (UserSelected):', inputValue.value);
-            } else {
-              // AI 모델 매칭: 우선 값으로, 없으면 키로 매칭
-              let matchedValue = null;
-
-              if (typeof inputValue === 'object' && inputValue.value) {
-                // 키-값 객체인 경우, 먼저 값으로 매칭
-                matchedValue = workboardData.baseInputFields.aiModel.find(
-                  model => model.value === inputValue.value
-                )?.value;
-
-                // 값 매칭 실패 시 키로 매칭
-                if (!matchedValue) {
-                  matchedValue = workboardData.baseInputFields.aiModel.find(
-                    model => model.key === inputValue.key
-                  )?.value;
-                }
-              } else if (typeof inputValue === 'string') {
-                // 문자열인 경우, 먼저 값으로 매칭
-                matchedValue = workboardData.baseInputFields.aiModel.find(
-                  model => model.value === inputValue
-                )?.value;
-
-                // 값 매칭 실패 시 키로 매칭
-                if (!matchedValue) {
-                  matchedValue = workboardData.baseInputFields.aiModel.find(
-                    model => model.key === inputValue
-                  )?.value;
-                }
-              }
-
-              if (matchedValue) {
-                safeSetValue(key, matchedValue);
-              } else {
-                console.warn(`AI model ${JSON.stringify(inputValue)} not found in workboard, using default`);
-                safeSetValue(key, workboardData.baseInputFields.aiModel[0]?.value);
-              }
-            }
-
-          } else if (key === 'imageSize' && workboardData.baseInputFields?.imageSizes) {
-            // 이미지 크기 매칭: 우선 값으로, 없으면 키로 매칭
-            let matchedValue = null;
-
-            if (typeof inputValue === 'object' && inputValue.value) {
-              matchedValue = workboardData.baseInputFields.imageSizes.find(
-                size => size.value === inputValue.value
-              )?.value;
-
-              if (!matchedValue) {
-                matchedValue = workboardData.baseInputFields.imageSizes.find(
-                  size => size.key === inputValue.key
-                )?.value;
-              }
-            } else if (typeof inputValue === 'string') {
-              matchedValue = workboardData.baseInputFields.imageSizes.find(
-                size => size.value === inputValue
-              )?.value;
-
-              if (!matchedValue) {
-                matchedValue = workboardData.baseInputFields.imageSizes.find(
-                  size => size.key === inputValue
-                )?.value;
-              }
-            }
-
-            if (matchedValue) {
-              safeSetValue(key, matchedValue);
-            } else {
-              console.warn(`Image size ${JSON.stringify(inputValue)} not found in workboard, using default`);
-              safeSetValue(key, workboardData.baseInputFields.imageSizes[0]?.value);
-            }
-          } else {
-            safeSetValue(key, inputValue);
-            // 프롬프트 값이면 로컬 상태도 동기화
-            if (key === 'prompt') {
-              setPromptValue(inputValue);
-            }
-          }
+        // F2: 기본 필드 (prompt, negativePrompt) 만 직접 매핑 — aiModel/imageSize 등은 customField 가 처리.
+        // legacy job 의 {key,value} 객체 값도 그대로 set 됨 (Controller 가 value 만 추출). 이전 매칭 로직은
+        // baseInputFields 의 옵션 풀에 의존했는데, F2 에서 풀이 제거되어 단순화.
+        if (jobInputData.prompt) {
+          safeSetValue('prompt', jobInputData.prompt);
+          setPromptValue(jobInputData.prompt);
+        }
+        if (jobInputData.negativePrompt) {
+          safeSetValue('negativePrompt', jobInputData.negativePrompt);
+        }
+        // customField 들은 additionalParams 네임스페이스에서 복원 (jobInputData 도 동일 구조)
+        if (jobInputData.additionalParams) {
+          Object.entries(jobInputData.additionalParams).forEach(([k, v]) => {
+            safeSetValue(`additionalParams.${k}`, typeof v === 'object' && v?.value !== undefined ? v.value : v);
+          });
+        }
+        // 기존 jobInputData 의 top-level aiModel / imageSize 등 — additionalParams 네임스페이스로 매핑 (legacy job 호환)
+        const legacyTopLevelKeys = ['aiModel', 'imageSize', 'imageSizes', 'stylePreset', 'upscaleMethod', 'referenceImageMethod'];
+        legacyTopLevelKeys.forEach((k) => {
+          const v = jobInputData[k];
+          if (v === undefined || v === null) return;
+          const unwrapped = typeof v === 'object' && v?.value !== undefined ? v.value : v;
+          safeSetValue(`additionalParams.${k}`, unwrapped);
         });
 
         // 추가 파라미터 매칭
@@ -796,42 +701,12 @@ function ImageGeneration() {
           }
         }
 
-        toast.success(`이전 작업 설정을 불러왔습니다 (${Object.keys(basicFields).filter(k => basicFields[k]).length}개 필드 적용)`);
+        toast.success('이전 작업 설정을 불러왔습니다');
       } else {
         console.log('🎯 Setting default values...');
 
-        // 기본값 객체 구성
+        // F2: baseInputFields 기반 hardcoded 기본값 제거 — customField 의 defaultValue 만 사용
         const defaultValues = {};
-
-        // AI 모델 기본값 설정
-        if (workboardData.baseInputFields?.aiModel?.length > 0) {
-          const defaultAiModel = workboardData.baseInputFields.aiModel[0].value;
-          defaultValues.aiModel = defaultAiModel;
-        }
-
-        // 이미지 크기 기본값 설정
-        if (workboardData.baseInputFields?.imageSizes?.length > 0) {
-          const defaultImageSize = workboardData.baseInputFields.imageSizes[0].value;
-          defaultValues.imageSize = defaultImageSize;
-        }
-
-        // 스타일 프리셋 기본값 설정
-        if (workboardData.baseInputFields?.stylePresets?.length > 0) {
-          const defaultStylePreset = workboardData.baseInputFields.stylePresets[0].value;
-          defaultValues.stylePreset = defaultStylePreset;
-        }
-
-        // 참조 이미지 방법 기본값 설정
-        if (workboardData.baseInputFields?.referenceImageMethods?.length > 0) {
-          const defaultRefMethod = workboardData.baseInputFields.referenceImageMethods[0].value;
-          defaultValues.referenceImageMethod = defaultRefMethod;
-        }
-
-        // 업스케일 방법 기본값 설정
-        if (workboardData.baseInputFields?.upscaleMethods?.length > 0) {
-          const defaultUpscale = workboardData.baseInputFields.upscaleMethods[0].value;
-          defaultValues.upscaleMethod = defaultUpscale;
-        }
 
         // 추가 입력 필드들의 기본값 설정
         if (workboardData.additionalInputFields?.length > 0) {
@@ -882,104 +757,9 @@ function ImageGeneration() {
       const finalSeedValue = randomSeed ? generateRandomSeed() : seedValue;
       console.log('✅ Final seed value:', finalSeedValue);
 
-      // 선택 필드들의 키-값 매핑 처리
+      // F2: baseInputFields hardcoded 매핑 제거 — customField 값이 raw string 으로 그대로 전달됨.
+      // 서비스 코드의 extractValue() 가 string / {key,value} 양쪽 모두 처리하므로 backward compat.
       const processedFormData = { ...formData };
-
-      // AI 모델 키-값 매핑
-      if (formData.aiModel && workboardData?.baseInputFields?.aiModel) {
-        // 모델 브라우저에서 선택한 체크포인트가 있으면 우선 사용
-        if (selectedCheckpointModel) {
-          processedFormData.aiModel = {
-            key: 'UserSelected',
-            value: selectedCheckpointModel
-          };
-          console.log('🤖 AI Model (user selected checkpoint):', processedFormData.aiModel);
-        } else {
-          const selectedModel = workboardData.baseInputFields.aiModel.find(model => model.value === formData.aiModel);
-          if (selectedModel) {
-            processedFormData.aiModel = {
-              key: selectedModel.key,
-              value: selectedModel.value
-            };
-            console.log('🤖 AI Model mapped:', processedFormData.aiModel);
-          } else {
-            console.warn('⚠️ AI model not found:', formData.aiModel);
-          }
-        }
-      }
-
-      // 이미지 크기 키-값 매핑
-      if (formData.imageSize && workboardData?.baseInputFields?.imageSizes) {
-        const selectedSize = workboardData.baseInputFields.imageSizes.find(size => size.value === formData.imageSize);
-        if (selectedSize) {
-          processedFormData.imageSize = {
-            key: selectedSize.key,
-            value: selectedSize.value
-          };
-          console.log('📐 Image size mapped:', processedFormData.imageSize);
-        } else {
-          console.warn('⚠️ Image size not found:', formData.imageSize);
-        }
-      }
-
-      // 스타일 프리셋 키-값 매핑
-      if (formData.stylePreset && workboardData?.baseInputFields?.stylePresets) {
-        const selectedPreset = workboardData.baseInputFields.stylePresets.find(preset => preset.value === formData.stylePreset);
-        if (selectedPreset) {
-          processedFormData.stylePreset = {
-            key: selectedPreset.key,
-            value: selectedPreset.value
-          };
-          console.log('🎨 Style preset mapped:', processedFormData.stylePreset);
-        }
-      }
-
-      // 참조 이미지 방법 키-값 매핑
-      if (formData.referenceImageMethod && workboardData?.baseInputFields?.referenceImageMethods) {
-        const selectedMethod = workboardData.baseInputFields.referenceImageMethods.find(method => method.value === formData.referenceImageMethod);
-        if (selectedMethod) {
-          processedFormData.referenceImageMethod = {
-            key: selectedMethod.key,
-            value: selectedMethod.value
-          };
-          console.log('🖼️ Reference method mapped:', processedFormData.referenceImageMethod);
-        }
-      }
-
-      // 업스케일 방법 키-값 매핑
-      if (formData.upscaleMethod && workboardData?.baseInputFields?.upscaleMethods) {
-        const selectedUpscale = workboardData.baseInputFields.upscaleMethods.find(method => method.value === formData.upscaleMethod);
-        if (selectedUpscale) {
-          processedFormData.upscaleMethod = {
-            key: selectedUpscale.key,
-            value: selectedUpscale.value
-          };
-          console.log('📈 Upscale method mapped:', processedFormData.upscaleMethod);
-        }
-      }
-
-      // 추가 입력 필드들의 키-값 매핑
-      if (formData.additionalParams && workboardData?.additionalInputFields) {
-        const processedAdditionalParams = { ...formData.additionalParams };
-
-        workboardData.additionalInputFields.forEach(field => {
-          const paramValue = formData.additionalParams[field.name];
-          if (paramValue !== undefined && field.type === 'select' && field.options) {
-            const selectedOption = field.options.find(option => option.value === paramValue);
-            if (selectedOption) {
-              processedAdditionalParams[field.name] = {
-                key: selectedOption.key,
-                value: selectedOption.value
-              };
-              console.log(`⚙️ ${field.name} mapped:`, processedAdditionalParams[field.name]);
-            } else {
-              console.warn(`⚠️ Option not found for ${field.name}:`, paramValue);
-            }
-          }
-        });
-
-        processedFormData.additionalParams = processedAdditionalParams;
-      }
 
       // 태그 병합: 프로젝트 태그 + 계속하기에서 이어받은 태그 (중복 제거)
       const projectTags = projectContext?.tagId?._id ? [projectContext.tagId._id] : [];
@@ -1120,17 +900,9 @@ function ImageGeneration() {
                 )}
               />
 
-              {/* LoRA/모델 목록 버튼 */}
+              {/* LoRA 목록 버튼 — 모델 선택은 customField (type=baseModel) 가 picker 통합. LoRA 는 prompt-insert 모드라 별도 유지 */}
               {isComfyUIWorkboard && (
                 <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    onClick={handleModelModalOpen}
-                    startIcon={<StorageIcon />}
-                  >
-                    모델 목록
-                  </Button>
                   <Button
                     variant="outlined"
                     size="small"
@@ -1140,78 +912,6 @@ function ImageGeneration() {
                     LoRA 목록
                   </Button>
                 </Box>
-              )}
-
-              {/* AI 모델 선택 */}
-              {workboardData?.baseInputFields?.aiModel && (
-                <Controller
-                  name="aiModel"
-                  control={control}
-                  defaultValue={workboardData.baseInputFields.aiModel[0]?.value || ''}
-                  rules={{ required: 'AI 모델을 선택해주세요' }}
-                  render={({ field }) => (
-                    <FormControl fullWidth sx={{ mb: selectedCheckpointModel ? 1 : 3 }} error={!!errors.aiModel}>
-                      <InputLabel>AI 모델</InputLabel>
-                      <Select
-                        {...field}
-                        value={field.value || workboardData.baseInputFields.aiModel[0]?.value || ''}
-                        label="AI 모델"
-                      >
-                        {workboardData.baseInputFields.aiModel.map((model) => (
-                          <MenuItem key={model.value} value={model.value}>
-                            {model.key}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                      {errors.aiModel && (
-                        <Typography variant="caption" color="error">
-                          {errors.aiModel.message}
-                        </Typography>
-                      )}
-                    </FormControl>
-                  )}
-                />
-              )}
-
-              {/* 모델 브라우저에서 선택한 체크포인트 표시 */}
-              {selectedCheckpointModel && (
-                <Alert
-                  severity="info"
-                  sx={{ mb: 3 }}
-                  onClose={() => setSelectedCheckpointModel('')}
-                >
-                  <Typography variant="body2">
-                    <strong>선택된 모델:</strong> {selectedCheckpointModel.split(/[/\\]/).pop()}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {selectedCheckpointModel}
-                  </Typography>
-                </Alert>
-              )}
-
-              {/* 이미지 크기 */}
-              {workboardData?.baseInputFields?.imageSizes && (
-                <Controller
-                  name="imageSize"
-                  control={control}
-                  defaultValue={workboardData.baseInputFields.imageSizes[0]?.value || ''}
-                  render={({ field }) => (
-                    <FormControl fullWidth sx={{ mb: 3 }}>
-                      <InputLabel>이미지 크기</InputLabel>
-                      <Select
-                        {...field}
-                        value={field.value || workboardData.baseInputFields.imageSizes[0]?.value || ''}
-                        label="이미지 크기"
-                      >
-                        {workboardData.baseInputFields.imageSizes.map((size) => (
-                          <MenuItem key={size.value} value={size.value}>
-                            {size.key}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  )}
-                />
               )}
 
               {/* 부정 프롬프트 */}
@@ -1276,14 +976,14 @@ function ImageGeneration() {
               </Paper>
             </Paper>
 
-            {/* 추가 설정 — Phase F1: baseInputFields 에 데이터 남아있는 legacy 키 중복 hide */}
-            {filterVisibleCustomFields(workboardData).length > 0 && (
+            {/* 추가 설정 — customField 단일 경로 (F2 이후) */}
+            {workboardData?.additionalInputFields?.length > 0 && (
               <Paper sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   고급 설정
                 </Typography>
                 <Grid container spacing={2}>
-                  {filterVisibleCustomFields(workboardData).map((field) => (
+                  {workboardData.additionalInputFields.map((field) => (
                     <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
                       <Controller
                         name={`additionalParams.${field.name}`}
@@ -1412,20 +1112,6 @@ function ImageGeneration() {
           mode="prompt-insert"
           onPrimary={handleAddLoraToPrompt}
           onTrainedWordClick={handleInsertTriggerWord}
-        />
-      )}
-
-      {isComfyUIWorkboard && (
-        <MetadataPickerModal
-          kind="model"
-          open={modelModalOpen}
-          onClose={handleModelModalClose}
-          workboardId={id}
-          serverId={workboardData?.serverId?._id || workboardData?.serverId}
-          mode="select-single"
-          selectedItem={selectedCheckpointModel}
-          onPrimary={(rawModel) => handleCheckpointModelSelect(rawModel.filename)}
-          allowedModelTypes={workboardData?.allowedModelTypes || []}
         />
       )}
 
