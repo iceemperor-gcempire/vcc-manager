@@ -24,10 +24,7 @@ const FIELD_TYPE_TO_ROLE = Object.freeze({
 function getFieldByRole(workboard, role) {
   if (!workboard || !role) return null;
   const fields = workboard.additionalInputFields || [];
-  // 1) 명시적 role
-  const byRole = fields.find((f) => f && f.role === role);
-  if (byRole) return byRole;
-  // 2) 특수 type 이 같은 role 을 의미하는 경우 (예: type=baseModel → role=model)
+  // F4: role 스키마 필드 제거 — 특수 type 매핑 또는 well-known name fallback 으로 추론
   return fields.find((f) => f && FIELD_TYPE_TO_ROLE[f.type] === role) || null;
 }
 
@@ -84,8 +81,9 @@ function indexFieldsByRole(workboard) {
   const fields = (workboard && workboard.additionalInputFields) || [];
   const map = {};
   for (const f of fields) {
-    if (f && f.role && !map[f.role]) {
-      map[f.role] = f;
+    const role = f && FIELD_TYPE_TO_ROLE[f.type];
+    if (role && !map[role]) {
+      map[role] = f;
     }
   }
   return map;

@@ -36,7 +36,7 @@ const cleanupStuckSyncs = require('./migrations/cleanupStuckSyncs');
 const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
-const assignRoleToAdditionalFields = require('./migrations/assignRoleToAdditionalFields');
+const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
 
 dotenv.config();
 
@@ -188,7 +188,7 @@ const startServer = async () => {
     await initializeDefaultGroup();
     await assignDefaultGroupToWorkboards();
     await backfillCustomFieldRoles();
-    await assignRoleToAdditionalFields();
+    await dropBaseInputFieldsSchema();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
