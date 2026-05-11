@@ -1464,6 +1464,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   <MenuItem value="select">선택</MenuItem>
                                   <MenuItem value="boolean">체크박스</MenuItem>
                                   <MenuItem value="image">이미지</MenuItem>
+                                  <MenuItem value="baseModel">베이스 모델</MenuItem>
+                                  <MenuItem value="lora">LoRA</MenuItem>
                                 </TextField>
                               )}
                             />
@@ -1496,6 +1498,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
+                          {(field.type === 'baseModel' || field.type === 'lora') && (
+                            <Grid item xs={12}>
+                              <Alert severity="info" sx={{ mb: 0 }}>
+                                {field.type === 'baseModel'
+                                  ? '베이스 모델 타입 — 사용자는 서버의 모델 목록에서 선택합니다. 작업판의 모델 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'
+                                  : 'LoRA 타입 — 사용자는 서버의 LoRA 목록에서 선택합니다. 작업판의 LoRA 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'}
+                              </Alert>
+                            </Grid>
+                          )}
                           {field.type === 'image' && (
                             <Grid item xs={12}>
                               <Typography variant="body2" gutterBottom>

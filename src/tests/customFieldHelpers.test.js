@@ -87,6 +87,46 @@ describe('customFieldHelpers (#199 Phase A)', () => {
     });
   });
 
+  describe('FIELD_TYPE_TO_ROLE mapping (#199 Phase D)', () => {
+    test('type=baseModel 필드가 role=model 으로 조회됨', () => {
+      const wb = {
+        additionalInputFields: [
+          { name: 'aiModel', type: 'baseModel' }
+        ]
+      };
+      const f = getFieldByRole(wb, FIELD_ROLES.MODEL);
+      expect(f).toBeTruthy();
+      expect(f.name).toBe('aiModel');
+    });
+
+    test('type=lora 필드가 role=lora 으로 조회됨', () => {
+      const wb = {
+        additionalInputFields: [
+          { name: 'myLora', type: 'lora' }
+        ]
+      };
+      const f = getFieldByRole(wb, FIELD_ROLES.LORA);
+      expect(f).toBeTruthy();
+      expect(f.name).toBe('myLora');
+    });
+
+    test('명시적 role 이 type 기반 매핑보다 우선', () => {
+      const wb = {
+        additionalInputFields: [
+          { name: 'foo', type: 'baseModel' },               // type 매핑 후보
+          { name: 'bar', type: 'string', role: 'model' }    // 명시적 role 우선
+        ]
+      };
+      expect(getFieldByRole(wb, FIELD_ROLES.MODEL).name).toBe('bar');
+    });
+
+    test('getFieldValueByRole 가 type=baseModel 도 인식', () => {
+      const wb = { additionalInputFields: [{ name: 'aiModel', type: 'baseModel' }] };
+      const inputData = { aiModel: 'sdxl-v1' };
+      expect(getFieldValueByRole(wb, inputData, FIELD_ROLES.MODEL)).toBe('sdxl-v1');
+    });
+  });
+
   describe('indexFieldsByRole', () => {
     test('role 별 필드 인덱싱', () => {
       const map = indexFieldsByRole(workboard);

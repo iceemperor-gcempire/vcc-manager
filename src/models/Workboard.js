@@ -23,7 +23,9 @@ const inputFieldSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['string', 'select', 'file', 'number', 'boolean', 'image'],
+    // baseModel / lora 는 서버의 모델·LoRA 목록과 연동되는 특수 타입 (#199 Phase D).
+    // 일반 select 와 달리 admin 이 옵션을 직접 정의하지 않고, 작업판의 노출 정책(#198)으로 제어.
+    enum: ['string', 'select', 'file', 'number', 'boolean', 'image', 'baseModel', 'lora'],
     required: true
   },
   // 필드 role (#199) — 서비스 코드가 필드 이름 대신 role 로 의미를 찾는다.
