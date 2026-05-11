@@ -757,7 +757,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     <Accordion key={index} sx={{ mb: 2 }}>
                       <AccordionSummary expandIcon={<ExpandMore />}>
                         <Typography>
-                          {field.label || `커스톰 필드 ${index + 1}`}
+                          {field.label || `커스텀 필드 ${index + 1}`}
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails>
@@ -787,7 +787,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   {...fieldProps}
                                   fullWidth
                                   label="표시명"
-                                  placeholder="예: 커스톰 옵션"
+                                  placeholder="예: 커스텀 옵션"
                                   size="small"
                                 />
                               )}
