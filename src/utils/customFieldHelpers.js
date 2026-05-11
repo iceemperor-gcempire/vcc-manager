@@ -4,7 +4,14 @@
 // role 기반으로 필드를 찾을 수 있게 해주는 read-only 헬퍼들.
 // Phase C 에서 서비스 코드가 이 헬퍼로 마이그레이션됨.
 
-const { WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
+const { WELL_KNOWN_FIELD_NAME_TO_ROLE, FIELD_ROLES } = require('../constants/fieldRoles');
+
+// 특수 type → 의미적 role 매핑 (#199 Phase D).
+// admin 이 type 으로 baseModel / lora 를 선택하면 별도 role 지정 없이도 service 코드가 해당 의미로 인식.
+const FIELD_TYPE_TO_ROLE = Object.freeze({
+  baseModel: FIELD_ROLES.MODEL,
+  lora: FIELD_ROLES.LORA
+});
 
 /**
  * 작업판에서 특정 role 을 가진 첫 번째 필드 메타데이터를 반환.
@@ -17,7 +24,11 @@ const { WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 function getFieldByRole(workboard, role) {
   if (!workboard || !role) return null;
   const fields = workboard.additionalInputFields || [];
-  return fields.find((f) => f && f.role === role) || null;
+  // 1) 명시적 role
+  const byRole = fields.find((f) => f && f.role === role);
+  if (byRole) return byRole;
+  // 2) 특수 type 이 같은 role 을 의미하는 경우 (예: type=baseModel → role=model)
+  return fields.find((f) => f && FIELD_TYPE_TO_ROLE[f.type] === role) || null;
 }
 
 /**

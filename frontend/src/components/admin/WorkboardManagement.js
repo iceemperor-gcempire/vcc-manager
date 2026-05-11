@@ -57,7 +57,6 @@ import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import MetadataPickerModal from '../common/MetadataPickerModal';
-import { FIELD_ROLE_LABELS } from '../../constants/fieldRoles';
 import { getWorkboardTemplate } from '../../templates';
 import {
   getServerTypeLabel,
@@ -688,7 +687,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             name: field.name,
             label: field.label,
             type: field.type || 'string',
-            role: field.role || null,
             required: Boolean(field.required),
             formatString: field.formatString || `{{##${field.name}##}}`
           };
@@ -1398,7 +1396,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           name: '',
                           label: '',
                           type: 'string',
-                          role: '',
                           required: false,
                           formatString: '',
                           options: [],
@@ -1413,19 +1410,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                   {watch('additionalCustomFields')?.map((field, index) => (
                     <Accordion key={index} sx={{ mb: 2 }}>
                       <AccordionSummary expandIcon={<ExpandMore />}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <Typography>
-                            {field.label || `커스톰 필드 ${index + 1}`}
-                          </Typography>
-                          {field.role && (
-                            <Chip
-                              label={FIELD_ROLE_LABELS[field.role] || field.role}
-                              size="small"
-                              color="primary"
-                              variant="outlined"
-                            />
-                          )}
-                        </Box>
+                        <Typography>
+                          {field.label || `커스톰 필드 ${index + 1}`}
+                        </Typography>
                       </AccordionSummary>
                       <AccordionDetails>
                         <Grid container spacing={2}>
@@ -1477,6 +1464,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   <MenuItem value="select">선택</MenuItem>
                                   <MenuItem value="boolean">체크박스</MenuItem>
                                   <MenuItem value="image">이미지</MenuItem>
+                                  <MenuItem value="baseModel">베이스 모델</MenuItem>
+                                  <MenuItem value="lora">LoRA</MenuItem>
                                 </TextField>
                               )}
                             />
@@ -1497,30 +1486,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
-                          <Grid item xs={6}>
-                            <Controller
-                              name={`additionalCustomFields.${index}.role`}
-                              control={control}
-                              render={({ field: fieldProps }) => (
-                                <TextField
-                                  {...fieldProps}
-                                  fullWidth
-                                  select
-                                  label="역할 (Role)"
-                                  size="small"
-                                  value={fieldProps.value || ''}
-                                  helperText="서비스 코드가 이 필드를 어떤 의미로 해석할지 지정"
-                                >
-                                  <MenuItem value="">(없음)</MenuItem>
-                                  {Object.entries(FIELD_ROLE_LABELS).map(([roleKey, roleLabel]) => (
-                                    <MenuItem key={roleKey} value={roleKey}>
-                                      {roleLabel} ({roleKey})
-                                    </MenuItem>
-                                  ))}
-                                </TextField>
-                              )}
-                            />
-                          </Grid>
                           <Grid item xs={12}>
                             <Controller
                               name={`additionalCustomFields.${index}.required`}
@@ -1533,6 +1498,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
+                          {(field.type === 'baseModel' || field.type === 'lora') && (
+                            <Grid item xs={12}>
+                              <Alert severity="info" sx={{ mb: 0 }}>
+                                {field.type === 'baseModel'
+                                  ? '베이스 모델 타입 — 사용자는 서버의 모델 목록에서 선택합니다. 작업판의 모델 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'
+                                  : 'LoRA 타입 — 사용자는 서버의 LoRA 목록에서 선택합니다. 작업판의 LoRA 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'}
+                              </Alert>
+                            </Grid>
+                          )}
                           {field.type === 'image' && (
                             <Grid item xs={12}>
                               <Typography variant="body2" gutterBottom>
