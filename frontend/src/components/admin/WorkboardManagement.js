@@ -47,7 +47,8 @@ import {
   FileUpload,
   Check,
   CheckCircle,
-  Warning
+  Warning,
+  PlaylistAdd
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -55,6 +56,7 @@ import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
+import MetadataPickerModal from '../common/MetadataPickerModal';
 import { getWorkboardTemplate } from '../../templates';
 import {
   getServerTypeLabel,
@@ -230,8 +232,80 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
   );
 }
 
+// 화이트리스트 필드 — Autocomplete (수동 입력) + picker 모달 (서버 모델/LoRA 선택).
+// ComfyUI 서버에서만 picker 표시. picker 는 multi-add 모드 — 카드 클릭마다 한 건씩 추가됨.
+function WhitelistField({ name, control, kind, serverId, placeholder, showPicker }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => {
+        const value = field.value || [];
+        const handleAdd = (rawItem) => {
+          const id = rawItem?.filename;
+          if (!id) return;
+          if (value.includes(id)) return;
+          field.onChange([...value, id]);
+        };
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
+                value={value}
+                onChange={(_, newValue) => field.onChange(newValue)}
+                sx={{ flex: 1 }}
+                renderTags={(values, getTagProps) =>
+                  values.map((option, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={option}
+                      label={option}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))
+                }
+                renderInput={(params) => (
+                  <TextField {...params} size="small" placeholder={placeholder} />
+                )}
+              />
+              {showPicker && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PlaylistAdd />}
+                  onClick={() => setPickerOpen(true)}
+                  disabled={!serverId}
+                  sx={{ mt: 0.25, whiteSpace: 'nowrap' }}
+                >
+                  선택
+                </Button>
+              )}
+            </Box>
+            {showPicker && (
+              <MetadataPickerModal
+                kind={kind}
+                open={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                serverId={serverId}
+                isAdmin
+                mode="multi-add"
+                onPrimary={handleAdd}
+              />
+            )}
+          </Box>
+        );
+      }}
+    />
+  );
+}
+
 // 권한 / 노출 정책 panel (#198) — 작업판 admin 폼의 한 탭으로 사용.
-function PermissionsAndExposurePanel({ control, isComfyUI, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
+function PermissionsAndExposurePanel({ control, isComfyUI, serverId, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
   return (
     <Box>
       {/* 접근 그룹 */}
@@ -310,34 +384,15 @@ function PermissionsAndExposurePanel({ control, isComfyUI, groups, modelExposure
             <Box sx={{ mt: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
                 노출할 모델 식별자 (ComfyUI=파일 경로, OpenAI/Gemini=모델 ID)
+                {isComfyUI && ' · "선택" 으로 서버에서 직접 추가'}
               </Typography>
-              <Controller
+              <WhitelistField
                 name="modelWhitelist"
                 control={control}
-                render={({ field }) => (
-                  <Autocomplete
-                    {...field}
-                    multiple
-                    freeSolo
-                    options={[]}
-                    value={field.value || []}
-                    onChange={(_, newValue) => field.onChange(newValue)}
-                    renderTags={(value, getTagProps) =>
-                      value.map((option, index) => (
-                        <Chip
-                          {...getTagProps({ index })}
-                          key={option}
-                          label={option}
-                          size="small"
-                          variant="outlined"
-                        />
-                      ))
-                    }
-                    renderInput={(params) => (
-                      <TextField {...params} size="small" placeholder="예: SDXL/illustrious_v6.safetensors" />
-                    )}
-                  />
-                )}
+                kind="model"
+                serverId={serverId}
+                placeholder="예: SDXL/illustrious_v6.safetensors"
+                showPicker={isComfyUI}
               />
             </Box>
           )}
@@ -370,35 +425,15 @@ function PermissionsAndExposurePanel({ control, isComfyUI, groups, modelExposure
             {loraExposurePolicyValue === 'whitelist' && (
               <Box sx={{ mt: 2 }}>
                 <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                  노출할 LoRA 식별자 (파일 경로 또는 hash)
+                  노출할 LoRA 식별자 (파일 경로 또는 hash) · "선택" 으로 서버에서 직접 추가
                 </Typography>
-                <Controller
+                <WhitelistField
                   name="loraWhitelist"
                   control={control}
-                  render={({ field }) => (
-                    <Autocomplete
-                      {...field}
-                      multiple
-                      freeSolo
-                      options={[]}
-                      value={field.value || []}
-                      onChange={(_, newValue) => field.onChange(newValue)}
-                      renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
-                          <Chip
-                            {...getTagProps({ index })}
-                            key={option}
-                            label={option}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))
-                      }
-                      renderInput={(params) => (
-                        <TextField {...params} size="small" placeholder="예: character/style_v2.safetensors" />
-                      )}
-                    />
-                  )}
+                  kind="lora"
+                  serverId={serverId}
+                  placeholder="예: character/style_v2.safetensors"
+                  showPicker
                 />
               </Box>
             )}
@@ -1593,6 +1628,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             <PermissionsAndExposurePanel
               control={control}
               isComfyUI={isComfyUI}
+              serverId={watchedServerId}
               groups={availableGroups}
               modelExposurePolicyValue={watch('modelExposurePolicy')}
               loraExposurePolicyValue={watch('loraExposurePolicy')}
