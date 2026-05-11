@@ -48,6 +48,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import MetadataPickerModal from '../components/common/MetadataPickerModal';
 import MetadataFieldInput from '../components/common/MetadataFieldInput';
+import { filterVisibleCustomFields } from '../utils/customFieldVisibility';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -1275,14 +1276,14 @@ function ImageGeneration() {
               </Paper>
             </Paper>
 
-            {/* 추가 설정 */}
-            {workboardData?.additionalInputFields?.length > 0 && (
+            {/* 추가 설정 — Phase F1: baseInputFields 에 데이터 남아있는 legacy 키 중복 hide */}
+            {filterVisibleCustomFields(workboardData).length > 0 && (
               <Paper sx={{ p: 3, mb: 3 }}>
                 <Typography variant="h6" gutterBottom>
                   고급 설정
                 </Typography>
                 <Grid container spacing={2}>
-                  {workboardData.additionalInputFields.map((field) => (
+                  {filterVisibleCustomFields(workboardData).map((field) => (
                     <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
                       <Controller
                         name={`additionalParams.${field.name}`}

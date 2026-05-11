@@ -1,22 +1,40 @@
 {
-  "baseInputFields": {
-    "aiModel": [
-      { "key": "Default Model", "value": "default.safetensors" }
-    ],
-    "imageSizes": [
-      { "key": "1024x1024", "value": "1024x1024" },
-      { "key": "896x1152", "value": "896x1152" },
-      { "key": "1152x896", "value": "1152x896" },
-      { "key": "832x1216", "value": "832x1216" },
-      { "key": "1216x832", "value": "1216x832" },
-      { "key": "768x1344", "value": "768x1344" },
-      { "key": "1344x768", "value": "1344x768" }
-    ],
-    "referenceImageMethods": [
-      { "key": "Image to Image", "value": "img2img" },
-      { "key": "ControlNet Canny", "value": "controlnet_canny" }
-    ]
-  },
-  "additionalInputFields": [],
+  "baseInputFields": {},
+  "additionalInputFields": [
+    {
+      "name": "aiModel",
+      "label": "베이스 모델",
+      "type": "baseModel",
+      "required": true,
+      "formatString": "{{##model##}}",
+      "description": "서버의 모델 목록에서 선택. 작업판의 모델 노출 정책이 적용됩니다."
+    },
+    {
+      "name": "imageSize",
+      "label": "이미지 크기",
+      "type": "select",
+      "required": true,
+      "defaultValue": "1024x1024",
+      "options": [
+        { "key": "1024x1024", "value": "1024x1024" },
+        { "key": "896x1152", "value": "896x1152" },
+        { "key": "1152x896", "value": "1152x896" },
+        { "key": "832x1216", "value": "832x1216" },
+        { "key": "1216x832", "value": "1216x832" },
+        { "key": "768x1344", "value": "768x1344" },
+        { "key": "1344x768", "value": "1344x768" }
+      ]
+    },
+    {
+      "name": "referenceImageMethod",
+      "label": "참조 이미지 처리",
+      "type": "select",
+      "required": false,
+      "options": [
+        { "key": "Image to Image", "value": "img2img" },
+        { "key": "ControlNet Canny", "value": "controlnet_canny" }
+      ]
+    }
+  ],
   "workflowData": "{\n  \"prompt\": \"{{##prompt##}}\",\n  \"negative_prompt\": \"{{##negative_prompt##}}\",\n  \"model\": \"{{##model##}}\",\n  \"width\": \"{{##width##}}\",\n  \"height\": \"{{##height##}}\"\n}"
 }

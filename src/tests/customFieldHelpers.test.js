@@ -66,6 +66,18 @@ describe('customFieldHelpers (#199 Phase A)', () => {
       expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.SEED)).toBe(42);
     });
 
+    test('additionalParams 네임스페이스 fallback — 사용자 페이지 동적 필드 loop 값 인식', () => {
+      const wb = { additionalInputFields: [{ name: 'aiModel', type: 'baseModel' }] };
+      const inputData = { additionalParams: { aiModel: 'sdxl-from-dynamic' } };
+      expect(getFieldValueByRole(wb, inputData, FIELD_ROLES.MODEL)).toBe('sdxl-from-dynamic');
+    });
+
+    test('top-level 값이 additionalParams 보다 우선', () => {
+      const wb = { additionalInputFields: [{ name: 'aiModel', type: 'baseModel' }] };
+      const inputData = { aiModel: 'top', additionalParams: { aiModel: 'nested' } };
+      expect(getFieldValueByRole(wb, inputData, FIELD_ROLES.MODEL)).toBe('top');
+    });
+
     test('legacy systemPrompt 와 referenceImageMethod 매핑', () => {
       const inputData = {
         systemPrompt: 'You are helpful',
