@@ -58,6 +58,14 @@ describe('customFieldHelpers (#199 Phase A)', () => {
       expect(getFieldValueByRole(workboard, {}, FIELD_ROLES.MODEL)).toBeUndefined();
     });
 
+    test('well-known additionalInputFields 이름 (prompt/negativePrompt/seed) 도 fallback', () => {
+      const wbEmpty = { additionalInputFields: [] };
+      const inputData = { prompt: 'cat', negativePrompt: 'blur', seed: 42 };
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.PROMPT)).toBe('cat');
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.NEGATIVE_PROMPT)).toBe('blur');
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.SEED)).toBe(42);
+    });
+
     test('legacy systemPrompt 와 referenceImageMethod 매핑', () => {
       const inputData = {
         systemPrompt: 'You are helpful',
