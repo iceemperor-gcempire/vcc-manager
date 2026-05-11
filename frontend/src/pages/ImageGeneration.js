@@ -47,6 +47,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import MetadataPickerModal from '../components/common/MetadataPickerModal';
+import MetadataFieldInput from '../components/common/MetadataFieldInput';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -1323,6 +1324,15 @@ function ImageGeneration() {
                               onChange={formField.onChange}
                               maxImages={field.imageConfig?.maxImages || 1}
                               isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
+                            />
+                          ) : field.type === 'baseModel' || field.type === 'lora' ? (
+                            <MetadataFieldInput
+                              kind={field.type === 'baseModel' ? 'model' : 'lora'}
+                              field={field}
+                              value={formField.value || ''}
+                              onChange={formField.onChange}
+                              workboardId={id}
+                              serverId={workboardData?.serverId?._id || workboardData?.serverId}
                             />
                           ) : (
                             <TextField
