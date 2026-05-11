@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { FIELD_ROLE_VALUES } = require('../constants/fieldRoles');
 
 const selectOptionSchema = new mongoose.Schema({
   key: {
@@ -24,6 +25,13 @@ const inputFieldSchema = new mongoose.Schema({
     type: String,
     enum: ['string', 'select', 'file', 'number', 'boolean', 'image'],
     required: true
+  },
+  // 필드 role (#199) — 서비스 코드가 필드 이름 대신 role 로 의미를 찾는다.
+  // null/undefined 이면 단순 사용자 입력으로 처리. 한 작업판 안에서 같은 role 은 1회만 권장.
+  role: {
+    type: String,
+    enum: [...FIELD_ROLE_VALUES, null],
+    default: null
   },
   required: {
     type: Boolean,
