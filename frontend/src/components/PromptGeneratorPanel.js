@@ -29,6 +29,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI } from '../services/api';
+import MetadataFieldInput from './common/MetadataFieldInput';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -346,6 +347,23 @@ function PromptGeneratorPanel({
                             ))}
                           </Select>
                         </FormControl>
+                      )}
+                    />
+                  )}
+                  {(field.type === 'baseModel' || field.type === 'lora') && (
+                    <Controller
+                      name={field.name}
+                      control={control}
+                      rules={{ required: field.required ? `${field.label}을(를) 선택해주세요` : false }}
+                      render={({ field: formField }) => (
+                        <MetadataFieldInput
+                          kind={field.type === 'baseModel' ? 'model' : 'lora'}
+                          field={field}
+                          value={formField.value || ''}
+                          onChange={formField.onChange}
+                          workboardId={workboard._id}
+                          serverId={workboard?.serverId?._id || workboard?.serverId}
+                        />
                       )}
                     />
                   )}
