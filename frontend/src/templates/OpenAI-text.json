@@ -1,20 +1,35 @@
 {
-  "baseInputFields": {
-    "aiModel": [
-      { "key": "GPT-5.5 (latest)", "value": "gpt-5.5" },
-      { "key": "GPT-5.4", "value": "gpt-5.4" },
-      { "key": "GPT-5.4 mini", "value": "gpt-5.4-mini" },
-      { "key": "GPT-5.4 nano", "value": "gpt-5.4-nano" },
-      { "key": "GPT-5.2", "value": "gpt-5.2" },
-      { "key": "GPT-5.2 Pro", "value": "gpt-5.2-pro" },
-      { "key": "GPT-5.1", "value": "gpt-5.1" },
-      { "key": "GPT-5", "value": "gpt-5" },
-      { "key": "GPT-5 mini", "value": "gpt-5-mini" },
-      { "key": "GPT-5 nano", "value": "gpt-5-nano" }
-    ],
-    "systemPrompt": "",
-    "referenceImages": []
-  },
-  "additionalInputFields": [],
+  "baseInputFields": {},
+  "additionalInputFields": [
+    {
+      "name": "aiModel",
+      "label": "베이스 모델",
+      "type": "baseModel",
+      "required": true,
+      "description": "서버의 모델 목록에서 선택. 작업판의 모델 노출 정책이 적용됩니다."
+    },
+    {
+      "name": "systemPrompt",
+      "label": "시스템 프롬프트",
+      "type": "string",
+      "required": false,
+      "placeholder": "AI 의 역할 / 컨텍스트를 정의..."
+    },
+    {
+      "name": "temperature",
+      "label": "Temperature",
+      "type": "number",
+      "required": false,
+      "defaultValue": 0.7,
+      "description": "0.0 ~ 1.0. 높을수록 창의적, 낮을수록 일관적."
+    },
+    {
+      "name": "maxTokens",
+      "label": "Max Tokens",
+      "type": "number",
+      "required": false,
+      "defaultValue": 2000
+    }
+  ],
   "workflowData": ""
 }

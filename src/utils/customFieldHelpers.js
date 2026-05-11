@@ -48,15 +48,26 @@ function getFieldValueByRole(workboard, inputData, role) {
   if (!workboard || !inputData || !role) return undefined;
 
   const field = getFieldByRole(workboard, role);
-  if (field && field.name && Object.prototype.hasOwnProperty.call(inputData, field.name)) {
-    return inputData[field.name];
+  if (field && field.name) {
+    // Top-level path (legacy hardcoded UI: inputData.aiModel 등)
+    if (Object.prototype.hasOwnProperty.call(inputData, field.name)) {
+      return inputData[field.name];
+    }
+    // additionalParams 네임스페이스 (사용자 페이지 동적 필드 loop 의 저장 위치)
+    if (inputData.additionalParams && Object.prototype.hasOwnProperty.call(inputData.additionalParams, field.name)) {
+      return inputData.additionalParams[field.name];
+    }
   }
 
   // Well-known name fallback — additionalInputFields entry 에 role 이 없거나 부분 마이그레이션 상태 대비.
   // 또한 prompt / negativePrompt / seed 처럼 v1.x 에서 additionalInputFields 가 있지만 role 이 부여되지 않은 케이스.
   for (const [knownName, mappedRole] of Object.entries(WELL_KNOWN_FIELD_NAME_TO_ROLE)) {
-    if (mappedRole === role && Object.prototype.hasOwnProperty.call(inputData, knownName)) {
+    if (mappedRole !== role) continue;
+    if (Object.prototype.hasOwnProperty.call(inputData, knownName)) {
       return inputData[knownName];
+    }
+    if (inputData.additionalParams && Object.prototype.hasOwnProperty.call(inputData.additionalParams, knownName)) {
+      return inputData.additionalParams[knownName];
     }
   }
   return undefined;

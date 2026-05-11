@@ -30,6 +30,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI } from '../services/api';
 import MetadataFieldInput from './common/MetadataFieldInput';
+import { filterVisibleCustomFields } from '../utils/customFieldVisibility';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -309,7 +310,7 @@ function PromptGeneratorPanel({
                 </Box>
               ))}
 
-              {workboard.additionalInputFields?.map((field) => (
+              {filterVisibleCustomFields(workboard).map((field) => (
                 <Box key={field.name} sx={{ mb: 2 }}>
                   {field.type === 'string' && (
                     <Controller
