@@ -709,7 +709,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           </Box>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
             <Tab label="기본 정보" />
-            <Tab label="커스텀 필드" />
+            <Tab label="입력 양식" />
             <Tab label="권한 / 노출" />
             {isComfyUI && <Tab label="워크플로우" />}
           </Tabs>
@@ -727,7 +727,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           )}
 
 
-          {/* 커스텀 필드 탭 */}
+          {/* 입력 양식 탭 */}
           {tabValue === 1 && (
             <Box>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
@@ -1055,7 +1055,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     </Box>
                   ) : (
                     <Typography variant="body2" color="textSecondary">
-                      "커스텀 필드" 탭에서 필드를 정의하면 여기에 표시됩니다.
+                      "입력 양식" 탭에서 항목을 정의하면 여기에 표시됩니다.
                     </Typography>
                   )}
 
