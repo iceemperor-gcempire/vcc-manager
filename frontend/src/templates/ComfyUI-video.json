@@ -2,7 +2,7 @@
   "baseInputFields": {},
   "additionalInputFields": [
     {
-      "name": "aiModel",
+      "name": "base_model",
       "label": "베이스 모델",
       "type": "baseModel",
       "required": true,
@@ -10,7 +10,7 @@
       "description": "서버의 모델 목록에서 선택. 작업판의 모델 노출 정책이 적용됩니다."
     },
     {
-      "name": "imageSize",
+      "name": "image_size",
       "label": "프레임 크기",
       "type": "select",
       "required": true,
@@ -26,7 +26,7 @@
       ]
     },
     {
-      "name": "referenceImageMethod",
+      "name": "reference_image_method",
       "label": "참조 이미지 처리",
       "type": "select",
       "required": false,
