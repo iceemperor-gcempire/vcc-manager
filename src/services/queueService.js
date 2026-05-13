@@ -686,24 +686,25 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
 // JSON 객체 내에서 재귀적으로 값을 치환하는 함수
 const replaceInObject = (obj, replacements, seedValue = null) => {
   if (typeof obj === 'string') {
-    // 문자열이 완전히 플레이스홀더인 경우 (이스케이핑 없이 원본 값 반환)
+    // 문자열이 완전히 플레이스홀더인 경우 — raw value 반환.
+    // 이미 JSON.parse 된 object 의 string field 이므로 backslash 등은 literal 로 들어가야 함;
+    // 직렬화는 axios / JSON.stringify 에서 자동 escape.
     const replacement = replacements[obj];
     if (replacement) {
       return replacement.value;
     }
-    
-    // 부분 문자열 치환 (문자열 내 일부만 플레이스홀더인 경우 - 이스케이핑 적용)
+
+    // 부분 문자열 치환 — 마찬가지로 raw value 사용. escapeForJsonString 적용 시 axios 의 JSON.stringify 가
+    // 다시 escape 하여 double-escape 됨 (Windows 경로 `IXL\nova...` 가 ComfyUI 에 `IXL\\nova...` 로 전달).
     let result = obj;
     Object.keys(replacements).forEach(key => {
       if (result.includes(key)) {
         const value = replacements[key].value;
-        // 부분 치환의 경우에만 이스케이핑 적용 (JSON 문자열 안에서 안전하게 사용하기 위해)
-        const escapedValue = escapeForJsonString(value);
-        result = result.replace(new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), escapedValue);
-        
-        if (value !== escapedValue) {
-          console.log(`🔧 Auto-escaped special characters in partial replacement "${key}": "${value}" → "${escapedValue}"`);
-        }
+        // String.replace 의 $ 패턴 충돌 방지 위해 replacement 함수 형태 사용 (raw literal substitute)
+        result = result.replace(
+          new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'),
+          () => String(value)
+        );
       }
     });
     return result;
