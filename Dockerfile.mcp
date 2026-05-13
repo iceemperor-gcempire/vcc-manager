@@ -1,13 +1,18 @@
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
+
+# pnpm 활성화 (v11+ — minimumReleaseAge 1440 기본값으로 신규 release 24h cooldown)
+RUN corepack enable && corepack prepare pnpm@latest --activate
 
 # Non-root user for security
 RUN addgroup -g 1001 -S nodejs && adduser -S nodeuser -u 1001 -G nodejs
 
 # Install dependencies first for layer caching
-COPY --chown=nodeuser:nodejs mcp-server/package*.json ./
-RUN npm install --omit=dev
+COPY --chown=nodeuser:nodejs mcp-server/package.json mcp-server/pnpm-lock.yaml ./
+# --frozen-lockfile: lockfile 무결성 / --prod: dev 제외.
+# strict-dep-builds=false 로 ERR_PNPM_IGNORED_BUILDS 회피 (script 차단 자체는 유지 — 침해 방지).
+RUN pnpm config set strict-dep-builds false && pnpm install --frozen-lockfile --prod
 
 # Copy application source
 COPY --chown=nodeuser:nodejs mcp-server/src/ ./src/
@@ -19,4 +24,4 @@ EXPOSE 3100
 
 ENV MCP_TRANSPORT=http
 
-CMD ["npm", "start"]
+CMD ["node", "index.js"]

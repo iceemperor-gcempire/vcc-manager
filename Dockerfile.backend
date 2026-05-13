@@ -1,9 +1,16 @@
-FROM node:18-alpine
+FROM node:22-alpine
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install --omit=dev
+# pnpm 활성화 (v11+ — minimumReleaseAge 1440 기본값으로 신규 release 24h cooldown)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-lock.yaml ./
+# --frozen-lockfile: lockfile 무결성 / --prod: dev 제외.
+# pnpm 11 기본 strict-dep-builds 비활성화 — 침해 방지 효과 (모든 script 차단) 는 유지하되,
+# 정상 dep 의 ignore 가 빌드 실패 (ERR_PNPM_IGNORED_BUILDS) 로 처리되지 않게 함.
+# sharp v0.34 / msgpackr-extract 등은 binary 가 regular deps 로 들어와 script 없이 동작.
+RUN pnpm config set strict-dep-builds false && pnpm install --frozen-lockfile --prod
 
 COPY src/ ./src/
 COPY docs/updatelogs/ ./docs/updatelogs/
@@ -18,4 +25,4 @@ USER nodeuser
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "src/server.js"]
