@@ -11,6 +11,8 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
 const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
+const { getFieldValueByRole } = require('../utils/customFieldHelpers');
+const { FIELD_ROLES } = require('../constants/fieldRoles');
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -32,11 +34,26 @@ router.post('/generate', requireAuth, async (req, res) => {
       tags
     } = req.body;
 
-    // #199 F2 이후 사용자 페이지는 aiModel / imageSize 등을 additionalParams 네임스페이스로 전송.
-    // legacy top-level 도 backward-compat 으로 받아 hoist.
+    if (!workboardId || !prompt) {
+      return res.status(400).json({ message: 'Missing required fields: workboardId, prompt' });
+    }
+
+    // 작업판 접근 권한 검사 (#198)
+    const wb = await Workboard.findById(workboardId);
+    if (!wb) {
+      return res.status(404).json({ message: 'Workboard not found' });
+    }
+    if (!userHasWorkboardAccess(req.user, wb)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+
+    // 모델 / 이미지 크기 추출 — customField 이름이 임의일 수 있어 schema-aware lookup.
+    // 작업판의 additionalInputFields 에서 type='baseModel' 인 필드 (없으면 well-known name fallback) 의
+    // name 으로 inputData (top-level 또는 additionalParams) 에서 값 조회.
     const ap = additionalParams || {};
-    const aiModel = req.body.aiModel || ap.aiModel;
-    const imageSize = req.body.imageSize || ap.imageSize;
+    const lookupInput = { ...req.body, additionalParams: ap };
+    const aiModel = req.body.aiModel || getFieldValueByRole(wb, lookupInput, FIELD_ROLES.MODEL);
+    const imageSize = req.body.imageSize || getFieldValueByRole(wb, lookupInput, FIELD_ROLES.IMAGE_SIZE);
 
     console.log('🔍 Extracted fields:', {
       workboardId,
@@ -48,20 +65,11 @@ router.post('/generate', requireAuth, async (req, res) => {
       additionalParamsKeys: Object.keys(ap)
     });
 
-    if (!workboardId || !prompt || !aiModel) {
-      console.error('❌ Missing required fields:', { workboardId: !!workboardId, prompt: !!prompt, aiModel: !!aiModel });
+    if (!aiModel) {
+      console.error('❌ aiModel 추출 실패 — workboard customField (type=baseModel) 또는 inputData 확인 필요');
       return res.status(400).json({
-        message: 'Missing required fields: workboardId, prompt, aiModel'
+        message: '베이스 모델이 지정되지 않았습니다. 작업판 \"입력 양식\" 에 베이스 모델 타입 필드가 있는지, 사용자 페이지에서 모델을 선택했는지 확인하세요.'
       });
-    }
-
-    // 작업판 접근 권한 검사 (#198)
-    const wb = await Workboard.findById(workboardId);
-    if (!wb) {
-      return res.status(404).json({ message: 'Workboard not found' });
-    }
-    if (!userHasWorkboardAccess(req.user, wb)) {
-      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
 
     if (referenceImages && referenceImages.length > 0) {
