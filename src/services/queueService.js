@@ -11,6 +11,8 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
+const { getFieldValueByRole } = require('../utils/customFieldHelpers');
+const { FIELD_ROLES } = require('../constants/fieldRoles');
 
 let imageGenerationQueue;
 let redisClient;
@@ -128,17 +130,8 @@ const SERVICE_MAP = {
   'ComfyUI:video': handleComfyUIWorkflow,
 };
 
-// Deprecated apiFormat 만 가진 잡 (Phase 4 이전 데이터) 을 위한 fallback 매핑.
-const APIFORMAT_TO_SERVERTYPE = {
-  'ComfyUI': 'ComfyUI',
-  'OpenAI Compatible': 'OpenAI Compatible',
-  'Gemini': 'Gemini',
-  'GPT Image': 'OpenAI', // Phase 2 마이그레이션 후 server 는 OpenAI 로 저장됨
-};
-
 const resolveServiceKey = (workboardData) => {
-  const serverType = workboardData.serverType
-    || APIFORMAT_TO_SERVERTYPE[workboardData.apiFormat];
+  const serverType = workboardData.serverType;
   const outputFormat = workboardData.outputFormat || 'image';
   return { key: `${serverType}:${outputFormat}`, serverType, outputFormat };
 };
@@ -153,10 +146,10 @@ async function handleGeminiImage({ workboardData, inputData, job }) {
   const result = await geminiService.generateImage(
     workboardData.serverUrl,
     workboardData.apiKey || process.env.GEMINI_API_KEY,
-    buildGeminiPrompt(inputData),
+    buildGeminiPrompt(inputData, workboardData),
     {
-      model: inputData.aiModel,
-      aspectRatio: deriveAspectRatio(extractOptionValue(inputData.imageSize)),
+      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      aspectRatio: deriveAspectRatio(extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE))),
       resolution: extractOptionValue(inputData.additionalParams?.resolution),
       images: geminiImages,
       timeout: workboardData.timeout,
@@ -170,10 +163,10 @@ async function handleOpenAIImage({ workboardData, inputData, job }) {
   const result = await gptImageService.generateImage(
     workboardData.serverUrl,
     workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
-    buildGeminiPrompt(inputData),
+    buildGeminiPrompt(inputData, workboardData),
     {
-      model: inputData.aiModel,
-      size: extractOptionValue(inputData.imageSize),
+      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      size: extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE)),
       quality: extractOptionValue(
         inputData.additionalParams?.quality || inputData.quality
       ),
@@ -287,13 +280,13 @@ const processImageGeneration = async (job) => {
     
     if (hasImages) {
       console.log(`💾 Starting to save ${generationResult.images.length} images...`);
-      savedImages = await saveGeneratedMedia(jobId, generationResult.images, enhancedInputData, 'image');
+      savedImages = await saveGeneratedMedia(jobId, generationResult.images, enhancedInputData, 'image', workboardData);
       console.log(`✅ Saved ${savedImages.length} images successfully`);
     }
-    
+
     if (hasVideos) {
       console.log(`🎬 Starting to save ${generationResult.videos.length} videos...`);
-      savedVideos = await saveGeneratedMedia(jobId, generationResult.videos, enhancedInputData, 'video');
+      savedVideos = await saveGeneratedMedia(jobId, generationResult.videos, enhancedInputData, 'video', workboardData);
       console.log(`✅ Saved ${savedVideos.length} videos successfully`);
     }
     
@@ -330,11 +323,13 @@ const deriveAspectRatio = (imageSize) => {
   return `${width / divisor}:${height / divisor}`;
 };
 
-const buildGeminiPrompt = (inputData) => {
-  const segments = [inputData.prompt];
+const buildGeminiPrompt = (inputData, workboard) => {
+  const prompt = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT);
+  const negativePrompt = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT);
+  const segments = [prompt];
 
-  if (inputData.negativePrompt) {
-    segments.push(`Avoid: ${inputData.negativePrompt}`);
+  if (negativePrompt) {
+    segments.push(`Avoid: ${negativePrompt}`);
   }
 
   return segments.filter(Boolean).join('\n\n');
@@ -367,6 +362,8 @@ const loadImageInput = async (imageId) => {
 const loadImageInputs = async (additionalInputFields, inputData) => {
   const loadedImages = [];
 
+  // role 기반 lookup 은 workboard 전체가 필요한데 여기선 fields 만 받음 — 호환성 위해 직접 access.
+  // 모든 호출처가 inputData.referenceImages 를 사용 중이므로 fallback 만 유지.
   if (Array.isArray(inputData.referenceImages)) {
     for (const referenceImage of inputData.referenceImages) {
       const loaded = await loadImageInput(referenceImage?.imageId);
@@ -527,9 +524,10 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   
   // 시드 값 처리: 사용자 지정 또는 랜덤 생성
   let seedValue;
-  if (inputData.seed !== undefined && inputData.seed !== null && inputData.seed !== '') {
+  const seedFromRole = getFieldValueByRole(workboard, inputData, FIELD_ROLES.SEED);
+  if (seedFromRole !== undefined && seedFromRole !== null && seedFromRole !== '') {
     // extractValue를 사용하여 키-값 객체에서 값 추출
-    const extractedSeed = extractValue(inputData.seed);
+    const extractedSeed = extractValue(seedFromRole);
     const parsedSeed = parseInt(extractedSeed);
     
     // 유효한 정수인지 확인 및 UInt64 범위 보정
@@ -552,7 +550,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   console.log('🎲 Processed seed value:', seedValue);
   
   // 이미지 크기 추출 (예: "512x768" 또는 {key: "512x768", value: "512x768"})
-  const extractedImageSize = extractValue(inputData.imageSize) || '512x512';
+  const extractedImageSize = extractValue(getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE)) || '512x512';
   console.log('📐 Extracted image size:', extractedImageSize);
   
   let width = 512, height = 512;
@@ -568,10 +566,11 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   console.log('📏 Parsed dimensions:', { width, height });
   
   // 기본 고정 형식 문자열들과 타입 정보
-  // 업스케일 메서드 값 추출 (다양한 필드명과 소스에서 시도)
+  // 업스케일 메서드 값 추출 (role 기반 + additionalParams fallback)
   let upscaleMethodValue = '';
-  if (inputData.upscaleMethod) {
-    upscaleMethodValue = extractValue(inputData.upscaleMethod);
+  const upscaleFromRole = getFieldValueByRole(workboard, inputData, FIELD_ROLES.UPSCALE_METHOD);
+  if (upscaleFromRole) {
+    upscaleMethodValue = extractValue(upscaleFromRole);
   } else if (inputData.additionalParams?.upscaleMethod) {
     upscaleMethodValue = extractValue(inputData.additionalParams.upscaleMethod);
   } else if (inputData.additionalParams?.upscale) {
@@ -588,10 +587,15 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   // 유저 ID 해시 생성
   const hashedUserId = hashUserId(inputData.userId);
 
+  const promptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT) || '';
+  const negativePromptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT) || '';
+  const modelValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL);
+  const referenceMethodValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.REFERENCE_IMAGE_METHOD);
+
   const replacements = {
-    '{{##prompt##}}': { value: inputData.prompt || '', type: 'string' },
-    '{{##negative_prompt##}}': { value: inputData.negativePrompt || '', type: 'string' },
-    '{{##model##}}': { value: extractValue(inputData.aiModel), type: 'string' },
+    '{{##prompt##}}': { value: promptValue, type: 'string' },
+    '{{##negative_prompt##}}': { value: negativePromptValue, type: 'string' },
+    '{{##model##}}': { value: extractValue(modelValue), type: 'string' },
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
     '{{##seed##}}': { value: seedValue, type: 'number' },
@@ -599,7 +603,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     '{{##cfg##}}': { value: parseFloat(inputData.additionalParams?.cfg) || 7, type: 'number' },
     '{{##sampler##}}': { value: inputData.additionalParams?.sampler || 'euler', type: 'string' },
     '{{##scheduler##}}': { value: inputData.additionalParams?.scheduler || 'normal', type: 'string' },
-    '{{##reference_method##}}': { value: extractValue(inputData.referenceImageMethod), type: 'string' },
+    '{{##reference_method##}}': { value: extractValue(referenceMethodValue), type: 'string' },
     '{{##upscale_method##}}': { value: upscaleMethodValue, type: 'string' },
     '{{##upscale##}}': { value: upscaleMethodValue, type: 'string' },  // 별칭 추가
     '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' },
@@ -763,7 +767,7 @@ const getExtensionFromMimeType = (mimeType) => {
   return mimeToExt[mimeType] || 'bin';
 };
 
-const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
+const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workboard = null) => {
   const typeLabel = mediaType === 'video' ? 'videos' : 'images';
   console.log(`🖼️ Starting to save ${mediaItems?.length || 0} generated ${typeLabel} for job ${jobId}`);
   console.log('📊 Media data:', mediaItems);
@@ -850,14 +854,14 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType) => {
         metadata,
         tags: mediaTags,
         generationParams: {
-          prompt: inputData.prompt,
-          negativePrompt: inputData.negativePrompt,
-          model: inputData.aiModel,
-          seed: inputData.seed,
-          imageSize: inputData.imageSize,
-          stylePreset: inputData.stylePreset,
-          upscaleMethod: inputData.upscaleMethod,
-          referenceImageMethod: inputData.referenceImageMethod,
+          prompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT),
+          negativePrompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT),
+          model: getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL),
+          seed: getFieldValueByRole(workboard, inputData, FIELD_ROLES.SEED),
+          imageSize: getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE),
+          stylePreset: getFieldValueByRole(workboard, inputData, FIELD_ROLES.STYLE_PRESET),
+          upscaleMethod: getFieldValueByRole(workboard, inputData, FIELD_ROLES.UPSCALE_METHOD),
+          referenceImageMethod: getFieldValueByRole(workboard, inputData, FIELD_ROLES.REFERENCE_IMAGE_METHOD),
           additionalParams: inputData.additionalParams
         }
       };
@@ -944,10 +948,8 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
     const queueJob = await imageGenerationQueue.add('generateImage', {
       jobId: job._id.toString(),
       workboardData: {
-        // Phase 3: 라우팅은 (serverType, outputFormat) 우선, apiFormat 은 fallback
         serverType: workboard.serverId?.serverType,
         outputFormat: workboard.outputFormat,
-        apiFormat: workboard.apiFormat,
         serverUrl: workboard.serverUrl,
         apiKey: workboard.serverId?.configuration?.apiKey,
         timeout: workboard.serverId?.configuration?.timeout,

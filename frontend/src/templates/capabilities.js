@@ -20,7 +20,6 @@ const SERVER_TYPE_LABELS = {
   OpenAI: 'OpenAI',
   'OpenAI Compatible': 'OpenAI Compatible',
   Gemini: 'Gemini',
-  'GPT Image': 'GPT Image (deprecated)',
 };
 
 export function getCapableOutputFormats(serverType) {
@@ -42,26 +41,8 @@ const SERVER_TYPE_COLORS = {
   OpenAI: '#10a37f',           // OpenAI brand teal
   'OpenAI Compatible': '#607d8b', // 회색-파랑 — 호환 레이어
   Gemini: '#4285f4',           // Google blue
-  'GPT Image': '#9e9e9e',      // deprecated — 회색
 };
 
 export function getServerTypeColor(serverType) {
   return SERVER_TYPE_COLORS[serverType] || '#9e9e9e';
-}
-
-// (server, outputFormat) → workboard schema 의 apiFormat 으로 매핑.
-// Phase 6 에서 apiFormat 필드가 제거되면 이 매핑도 함께 사라짐.
-const SERVER_OUTPUT_TO_LEGACY_APIFORMAT = {
-  'ComfyUI:image': 'ComfyUI',
-  'ComfyUI:video': 'ComfyUI',
-  'OpenAI:image': 'GPT Image',
-  'OpenAI:text': 'OpenAI Compatible',
-  'OpenAI Compatible:image': 'GPT Image',
-  'OpenAI Compatible:text': 'OpenAI Compatible',
-  'Gemini:image': 'Gemini',
-  'Gemini:text': 'Gemini',
-};
-
-export function deriveLegacyApiFormat(serverType, outputFormat) {
-  return SERVER_OUTPUT_TO_LEGACY_APIFORMAT[`${serverType}:${outputFormat}`] || 'ComfyUI';
 }

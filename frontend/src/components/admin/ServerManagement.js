@@ -36,7 +36,9 @@ import {
   Storage,
   TextFields,
   Computer,
-  Sync as SyncIcon
+  Sync as SyncIcon,
+  CloudSync as CloudSyncIcon,
+  RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -48,10 +50,25 @@ const KNOWN_SERVER_URLS = {
   Gemini: 'https://generativelanguage.googleapis.com',
 };
 
-function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraSyncStatus }) {
+function ServerCard({
+  server,
+  onEdit,
+  onDelete,
+  onHealthCheck,
+  onLoraSync,
+  loraSyncStatus,
+  onLoraResetSync,
+  onModelSync,
+  modelSyncStatus,
+  onModelResetSync,
+}) {
   const [healthChecking, setHealthChecking] = useState(false);
   const isComfyUI = server.serverType === 'ComfyUI';
-  const isSyncing = loraSyncStatus?.status === 'fetching';
+  const isLoraSyncing = loraSyncStatus?.status === 'fetching';
+  const isModelSyncing = modelSyncStatus?.status === 'fetching';
+  const loraFailed = loraSyncStatus?.status === 'failed';
+  const modelFailed = modelSyncStatus?.status === 'failed';
+  const supportsModelSync = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(server.serverType);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -193,6 +210,28 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
               )}
             </Box>
           )}
+
+          {/* 모델 동기화 정보 (ComfyUI / OpenAI / OpenAI Compatible / Gemini) */}
+          {supportsModelSync && modelSyncStatus && (
+            <Box>
+              {modelSyncStatus.totalModels > 0 ? (
+                <>
+                  <Typography variant="caption" color="textSecondary">
+                    모델: {modelSyncStatus.modelsWithMetadata}/{modelSyncStatus.totalModels}개 (메타데이터 있음)
+                  </Typography>
+                  {modelSyncStatus.lastMetadataSync && (
+                    <Typography variant="caption" color="textSecondary" display="block">
+                      마지막 동기화: {new Date(modelSyncStatus.lastMetadataSync).toLocaleString()}
+                    </Typography>
+                  )}
+                </>
+              ) : (
+                <Typography variant="caption" color="textSecondary">
+                  모델: 동기화 필요
+                </Typography>
+              )}
+            </Box>
+          )}
         </Stack>
       </CardContent>
       
@@ -209,15 +248,47 @@ function ServerCard({ server, onEdit, onDelete, onHealthCheck, onLoraSync, loraS
           </span>
         </Tooltip>
         {isComfyUI && (
-          <Tooltip title={isSyncing ? `LoRA 동기화 중... (${loraSyncStatus?.progress?.current || 0}/${loraSyncStatus?.progress?.total || 0})` : 'LoRA 동기화'}>
+          <Tooltip title={isLoraSyncing ? `LoRA 동기화 중... (${loraSyncStatus?.progress?.current || 0}/${loraSyncStatus?.progress?.total || 0})` : 'LoRA 동기화'}>
             <span>
               <IconButton
                 size="small"
                 onClick={() => onLoraSync(server._id)}
-                disabled={isSyncing}
+                disabled={isLoraSyncing}
                 color={loraSyncStatus?.totalLoras > 0 ? 'primary' : 'default'}
               >
-                {isSyncing ? <CircularProgress size={20} /> : <SyncIcon />}
+                {isLoraSyncing ? <CircularProgress size={20} /> : <SyncIcon />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {isComfyUI && loraFailed && onLoraResetSync && (
+          <Tooltip title={`LoRA 동기화 강제 리셋 (실패 상태 해제)\n오류: ${loraSyncStatus?.errorMessage || '알 수 없음'}`}>
+            <span>
+              <IconButton size="small" onClick={() => onLoraResetSync(server._id)} color="warning">
+                <RestartAltIcon />
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {supportsModelSync && (
+          <Tooltip title={isModelSyncing ? `모델 동기화 중... (${modelSyncStatus?.progress?.current || 0}/${modelSyncStatus?.progress?.total || 0})` : '모델 동기화'}>
+            <span>
+              <IconButton
+                size="small"
+                onClick={() => onModelSync(server._id)}
+                disabled={isModelSyncing}
+                color={modelSyncStatus?.totalModels > 0 ? 'primary' : 'default'}
+              >
+                {isModelSyncing ? <CircularProgress size={20} /> : <CloudSyncIcon />}
+              </IconButton>
+            </span>
+          </Tooltip>
+        )}
+        {supportsModelSync && modelFailed && onModelResetSync && (
+          <Tooltip title={`모델 동기화 강제 리셋 (실패 상태 해제)\n오류: ${modelSyncStatus?.errorMessage || '알 수 없음'}`}>
+            <span>
+              <IconButton size="small" onClick={() => onModelResetSync(server._id)} color="warning">
+                <RestartAltIcon />
               </IconButton>
             </span>
           </Tooltip>
@@ -455,6 +526,7 @@ function ServerManagement() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [serverToDelete, setServerToDelete] = useState(null);
   const [loraSyncStatuses, setLoraSyncStatuses] = useState({});
+  const [modelSyncStatuses, setModelSyncStatuses] = useState({});
 
   const queryClient = useQueryClient();
 
@@ -468,6 +540,9 @@ function ServerManagement() {
   // ComfyUI 서버들의 LoRA 동기화 상태 조회
   const servers = serversData?.data?.data?.servers || [];
   const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
+  const modelSyncSupportedServers = servers.filter(s =>
+    ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(s.serverType)
+  );
 
   useQuery(
     ['loraSyncStatuses', comfyUIServers.map(s => s._id).join(',')],
@@ -492,6 +567,33 @@ function ServerManagement() {
       },
       onSuccess: (data) => {
         setLoraSyncStatuses(data || {});
+      }
+    }
+  );
+
+  // 모델 동기화 상태 조회 (4종 serverType)
+  useQuery(
+    ['modelSyncStatuses', modelSyncSupportedServers.map(s => s._id).join(',')],
+    async () => {
+      const statuses = {};
+      for (const server of modelSyncSupportedServers) {
+        try {
+          const response = await serverAPI.getModelsSyncStatus(server._id);
+          statuses[server._id] = response.data?.data;
+        } catch (error) {
+          statuses[server._id] = null;
+        }
+      }
+      return statuses;
+    },
+    {
+      enabled: modelSyncSupportedServers.length > 0,
+      refetchInterval: (data) => {
+        const hasSyncing = data && Object.values(data).some(s => s?.status === 'fetching');
+        return hasSyncing ? 3000 : 30000;
+      },
+      onSuccess: (data) => {
+        setModelSyncStatuses(data || {});
       }
     }
   );
@@ -577,6 +679,46 @@ function ServerManagement() {
     }
   );
 
+  // 모델 동기화 mutation (4종 serverType — 각각 dispatch 는 backend 가 처리)
+  const modelSyncMutation = useMutation(
+    (serverId) => serverAPI.syncModels(serverId),
+    {
+      onSuccess: () => {
+        toast.success('모델 동기화가 시작되었습니다.');
+        queryClient.invalidateQueries(['modelSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '모델 동기화에 실패했습니다.');
+      }
+    }
+  );
+
+  // LoRA / 모델 sync 상태 강제 리셋 mutation (#256)
+  const loraResetMutation = useMutation(
+    (serverId) => serverAPI.resetLorasSync(serverId),
+    {
+      onSuccess: () => {
+        toast.success('LoRA 동기화 상태가 초기화되었습니다.');
+        queryClient.invalidateQueries(['loraSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '리셋 실패');
+      }
+    }
+  );
+  const modelResetMutation = useMutation(
+    (serverId) => serverAPI.resetModelsSync(serverId),
+    {
+      onSuccess: () => {
+        toast.success('모델 동기화 상태가 초기화되었습니다.');
+        queryClient.invalidateQueries(['modelSyncStatuses']);
+      },
+      onError: (error) => {
+        toast.error(error.response?.data?.message || '리셋 실패');
+      }
+    }
+  );
+
   const handleAddServer = () => {
     setSelectedServer(null);
     setDialogOpen(true);
@@ -602,6 +744,18 @@ function ServerManagement() {
 
   const handleLoraSync = (serverId) => {
     loraSyncMutation.mutate(serverId);
+  };
+
+  const handleModelSync = (serverId) => {
+    modelSyncMutation.mutate(serverId);
+  };
+
+  const handleLoraResetSync = (serverId) => {
+    loraResetMutation.mutate(serverId);
+  };
+
+  const handleModelResetSync = (serverId) => {
+    modelResetMutation.mutate(serverId);
   };
 
   if (isLoading) {
@@ -650,6 +804,10 @@ function ServerManagement() {
                 onHealthCheck={handleHealthCheck}
                 onLoraSync={handleLoraSync}
                 loraSyncStatus={loraSyncStatuses[server._id]}
+                onLoraResetSync={handleLoraResetSync}
+                onModelSync={handleModelSync}
+                modelSyncStatus={modelSyncStatuses[server._id]}
+                onModelResetSync={handleModelResetSync}
               />
             </Grid>
           ))}

@@ -187,10 +187,27 @@ export const serverAPI = {
   checkServerHealth: (id) => api.post(`/servers/${id}/health-check`),
   checkAllServersHealth: () => api.post('/servers/health-check/all'),
   getCheckpointModels: (id, params) => api.get(`/servers/${id}/models`, { params }),
+  // 모델 메타데이터 API (Phase E1+ - ServerModelCache 기반 detailed 응답)
+  getDetailedModels: (id, params) => api.get(`/servers/${id}/models`, { params: { ...params, detailed: true } }),
+  syncModels: (id, options = {}) => api.post(`/servers/${id}/models/sync`, options),
+  getModelsSyncStatus: (id) => api.get(`/servers/${id}/models/status`),
+  resetModelsSync: (id) => api.post(`/servers/${id}/models/sync/reset`),
   // LoRA 메타데이터 API
   getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
   syncLoras: (id, options = {}) => api.post(`/servers/${id}/loras/sync`, options),
   getLorasSyncStatus: (id) => api.get(`/servers/${id}/loras/status`),
+  resetLorasSync: (id) => api.post(`/servers/${id}/loras/sync/reset`),
+};
+
+// 사용자 그룹 (#198)
+export const groupAPI = {
+  getMyGroups: () => api.get('/groups/me'),
+  getAll: () => api.get('/groups'),
+  getById: (id) => api.get(`/groups/${id}`),
+  create: (data) => api.post('/groups', data),
+  update: (id, data) => api.put(`/groups/${id}`, data),
+  delete: (id) => api.delete(`/groups/${id}`),
+  setMember: (id, userId, action = 'add') => api.post(`/groups/${id}/members`, { userId, action }),
 };
 
 export const promptDataAPI = {

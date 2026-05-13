@@ -2,9 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
-const ModelCache = require('../models/ModelCache');
-const { verifyJWT, requireAdmin } = require('../middleware/auth');
+const ServerModelCache = require('../models/ServerModelCache');
+const Workboard = require('../models/Workboard');
+const { verifyJWT, requireAdmin, userHasWorkboardAccess } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
+const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
@@ -295,6 +297,11 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 // ===== LoRA 메타데이터 API =====
 
 // Checkpoint 모델 목록 조회
+// ComfyUI checkpoint 목록 조회 — frontend 의 ModelListModal / ModelPickerGrid 가 사용.
+// Phase D 부터 신규 ServerModelCache (#200) 를 storage 로 사용.
+// - 기본 응답 shape (`checkpointModels: string[]`) 은 backward-compat 유지 — frontend ModelListModal 호환
+// - `?detailed=true` 파라미터: LoRA 와 동일 패턴의 rich 데이터 (search/pagination/baseModel 필터) 반환 — Phase E 의 ModelPickerGrid 가 사용
+// - SaaS provider (OpenAI / Gemini) 의 모델 목록도 detailed 모드에서 동일 응답 구조로 노출 (hash 무관, provider subdoc 사용)
 router.get('/:id/models', verifyJWT, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
@@ -306,6 +313,61 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
       });
     }
 
+    const detailed = req.query.detailed === 'true';
+
+    // detailed 모드: 4종 serverType 모두 동일 응답 구조로 처리 (LoRA `/loras` 와 동일 패턴)
+    if (detailed) {
+      const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
+      if (!SUPPORTED.includes(server.serverType)) {
+        return res.status(400).json({
+          success: false,
+          message: `상세 모델 목록은 ${SUPPORTED.join(' / ')} 서버에서만 조회할 수 있습니다.`
+        });
+      }
+
+      const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
+      // allowedBaseModels: query string 으로 array 또는 single 둘 다 받기.
+      let allowedBaseModels = req.query.allowedBaseModels;
+      if (typeof allowedBaseModels === 'string') {
+        allowedBaseModels = [allowedBaseModels];
+      } else if (!Array.isArray(allowedBaseModels)) {
+        allowedBaseModels = undefined;
+      }
+
+      // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D)
+      let whitelist = undefined;
+      if (workboardId) {
+        const wb = await Workboard.findById(workboardId);
+        if (!wb) {
+          return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다.' });
+        }
+        if (!userHasWorkboardAccess(req.user, wb)) {
+          return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
+        }
+        if (wb.modelExposurePolicy === 'whitelist') {
+          whitelist = wb.modelWhitelist || [];
+          // 빈 whitelist 면 정책상 0개 노출 — sentinel 로 빈 배열 대신 '__none__' 매칭 안 됨
+          if (whitelist.length === 0) whitelist = ['__no_models_in_whitelist__'];
+        }
+      }
+
+      const result = await modelMetadataService.searchServerModels(server._id, {
+        search,
+        hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
+        baseModel,
+        allowedBaseModels,
+        whitelist,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      });
+
+      return res.json({
+        success: true,
+        data: result
+      });
+    }
+
+    // 기본 모드 (backward-compat): ComfyUI 만, filename 배열만 반환
     if (server.serverType !== 'ComfyUI') {
       return res.status(400).json({
         success: false,
@@ -314,47 +376,41 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
     }
 
     const forceRefresh = req.query.refresh === 'true';
-    const cacheTtlMs = 10 * 60 * 1000;
+    let cache = await ServerModelCache.findOne({ serverId: server._id });
 
-    if (!forceRefresh) {
-      const cached = await ModelCache.findOne({ serverId: server._id });
-      const isFresh = cached?.lastFetched && (Date.now() - new Date(cached.lastFetched).getTime() < cacheTtlMs);
-
-      if (cached && isFresh) {
-        return res.json({
-          success: true,
-          data: {
-            checkpointModels: cached.checkpointModels || [],
-            lastFetched: cached.lastFetched,
-            fromCache: true
-          }
-        });
+    // 캐시가 없거나 forceRefresh 면 ComfyUI 에서 lightweight (filename only) 재조회.
+    // 메타데이터 (hash / Civitai) 는 별도 POST /models/sync 로만 채워짐.
+    if (!cache || forceRefresh) {
+      const filenames = await modelMetadataService.getCheckpointFilenames(server.serverUrl);
+      const existingByFilename = {};
+      if (cache) {
+        for (const m of cache.models) existingByFilename[m.filename] = m;
       }
+      const updatedModels = filenames.map(filename => existingByFilename[filename] || {
+        filename,
+        hash: null,
+        hashError: null,
+        civitai: { found: false }
+      });
+
+      cache = await ServerModelCache.findOneAndUpdate(
+        { serverId: server._id },
+        {
+          serverId: server._id,
+          serverUrl: server.serverUrl,
+          models: updatedModels,
+          lastFetched: new Date()
+        },
+        { new: true, upsert: true, setDefaultsOnInsert: true }
+      );
     }
-
-    const checkpointModels = await comfyUIService.getCheckpointModels(server.serverUrl);
-
-    const saved = await ModelCache.findOneAndUpdate(
-      { serverId: server._id },
-      {
-        serverId: server._id,
-        serverUrl: server.serverUrl,
-        checkpointModels,
-        lastFetched: new Date()
-      },
-      {
-        new: true,
-        upsert: true,
-        setDefaultsOnInsert: true
-      }
-    );
 
     res.json({
       success: true,
       data: {
-        checkpointModels: saved.checkpointModels || [],
-        lastFetched: saved.lastFetched,
-        fromCache: false
+        checkpointModels: cache.models.map(m => m.filename),
+        lastFetched: cache.lastFetched,
+        fromCache: !forceRefresh
       }
     });
   } catch (error) {
@@ -387,12 +443,29 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
       });
     }
 
-    const { search, hasMetadata, baseModel, page = 1, limit = 50 } = req.query;
+    const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
+
+    // 작업판 컨텍스트의 LoRA 노출 정책 적용 (#198 Phase D)
+    let whitelist = undefined;
+    if (workboardId) {
+      const wb = await Workboard.findById(workboardId);
+      if (!wb) {
+        return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다.' });
+      }
+      if (!userHasWorkboardAccess(req.user, wb)) {
+        return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
+      }
+      if (wb.loraExposurePolicy === 'whitelist') {
+        whitelist = wb.loraWhitelist || [];
+        if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
+      }
+    }
 
     const result = await loraMetadataService.searchServerLoras(server._id, {
       search,
       hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
       baseModel,
+      whitelist,
       page: parseInt(page),
       limit: parseInt(limit)
     });
@@ -406,6 +479,79 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'LoRA 목록을 불러오는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// Model 동기화 (메타데이터 포함) - 관리자만.
+// Phase B: ComfyUI checkpoint. Phase C: OpenAI / OpenAI Compatible / Gemini provider 모델.
+// 신규 ServerModelCache 기반. 기존 GET /:id/models 는 구 ModelCache 사용 중 (Phase D 에서 마이그레이션 예정).
+router.post('/:id/models/sync', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    const { forceRefresh = false } = req.body;
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
+    if (!SUPPORTED.includes(server.serverType)) {
+      return res.status(400).json({
+        success: false,
+        message: `모델 동기화는 ${SUPPORTED.join(' / ')} 서버에서만 사용할 수 있습니다.`
+      });
+    }
+
+    modelMetadataService.syncServerModels(server, { forceRefresh })
+      .then(() => {
+        console.log(`Model sync completed for server ${server.name} (${server.serverType})`);
+      })
+      .catch((err) => {
+        console.error(`Model sync failed for server ${server.name}:`, err);
+      });
+
+    res.json({
+      success: true,
+      message: '모델 동기화가 시작되었습니다. 상태는 /models/status 에서 확인하세요.'
+    });
+  } catch (error) {
+    console.error('모델 동기화 시작 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '모델 동기화를 시작하는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// Model 동기화 상태 조회
+router.get('/:id/models/status', verifyJWT, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+
+    if (!server) {
+      return res.status(404).json({
+        success: false,
+        message: '서버를 찾을 수 없습니다.'
+      });
+    }
+
+    const status = await modelMetadataService.getSyncStatus(server._id);
+
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error) {
+    console.error('모델 동기화 상태 조회 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '동기화 상태를 조회하는데 실패했습니다.',
       error: error.message
     });
   }
@@ -483,6 +629,44 @@ router.get('/:id/loras/status', verifyJWT, async (req, res) => {
   }
 });
 
+// LoRA 동기화 상태 강제 reset (#256) — stuck/failed 상태에서 다시 sync 가능하게 만들기
+router.post('/:id/loras/sync/reset', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+    const cache = await loraMetadataService.resetSyncStatus(server._id);
+    res.json({
+      success: true,
+      data: cache ? { status: cache.status } : { status: 'idle' },
+      message: 'LoRA 동기화 상태가 초기화되었습니다.'
+    });
+  } catch (error) {
+    console.error('LoRA 동기화 reset 오류:', error);
+    res.status(500).json({ success: false, message: 'reset 실패', error: error.message });
+  }
+});
+
+// 모델 동기화 상태 강제 reset (#256)
+router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
+  try {
+    const server = await Server.findById(req.params.id);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+    const cache = await modelMetadataService.resetSyncStatus(server._id);
+    res.json({
+      success: true,
+      data: cache ? { status: cache.status } : { status: 'idle' },
+      message: '모델 동기화 상태가 초기화되었습니다.'
+    });
+  } catch (error) {
+    console.error('모델 동기화 reset 오류:', error);
+    res.status(500).json({ success: false, message: 'reset 실패', error: error.message });
+  }
+});
+
 // 서버 삭제 시 LoRA 캐시도 함께 삭제
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
@@ -506,9 +690,9 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       });
     }
 
-    // LoRA 캐시 삭제
+    // 캐시 정리
     await ServerLoraCache.deleteOne({ serverId: server._id });
-    await ModelCache.deleteOne({ serverId: server._id });
+    await ServerModelCache.deleteOne({ serverId: server._id });
 
     await Server.findByIdAndDelete(req.params.id);
 

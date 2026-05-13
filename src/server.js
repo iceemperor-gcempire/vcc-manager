@@ -21,15 +21,22 @@ const backupRoutes = require('./routes/backup');
 const updatelogRoutes = require('./routes/updatelog');
 const apiKeyRoutes = require('./routes/apikeys');
 const filesRoutes = require('./routes/files');
+const groupRoutes = require('./routes/groups');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { transformUploadUrls } = require('./utils/signedUrl');
 const { initializeQueues } = require('./services/queueService');
-const migrateWorkboardApiFormat = require('./migrations/migrateWorkboardApiFormat');
 const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 const migrateServerTypeToOpenAI = require('./migrations/migrateServerTypeToOpenAI');
 const dropBackupJobTTL = require('./migrations/dropBackupJobTTL');
+const dropWorkboardApiFormat = require('./migrations/dropWorkboardApiFormat');
+const dropLegacyModelCacheCollection = require('./migrations/dropLegacyModelCacheCollection');
+const cleanupStuckSyncs = require('./migrations/cleanupStuckSyncs');
+const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
+const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
+const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
+const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
 
 dotenv.config();
 
@@ -123,6 +130,7 @@ app.use('/api/projects', projectRoutes);
 app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
 app.use('/api/apikeys', apiKeyRoutes);
+app.use('/api/groups', groupRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -171,10 +179,16 @@ const startServer = async () => {
     
     // Run migrations
     console.log('Running migrations...');
-    await migrateWorkboardApiFormat();
     await migrateMediaOrderIndex();
     await migrateServerTypeToOpenAI();
     await dropBackupJobTTL();
+    await dropWorkboardApiFormat();
+    await dropLegacyModelCacheCollection();
+    await cleanupStuckSyncs();
+    await initializeDefaultGroup();
+    await assignDefaultGroupToWorkboards();
+    await backfillCustomFieldRoles();
+    await dropBaseInputFieldsSchema();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');

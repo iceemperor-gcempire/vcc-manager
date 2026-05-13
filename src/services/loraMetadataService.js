@@ -54,29 +54,48 @@ const getLoraFilenames = async (serverUrl) => {
 };
 
 /**
- * VCC LoRA Hash 커스텀 노드 설치 여부 확인
+ * VCC File Hash 커스텀 노드 설치 여부 확인.
+ * v2.0 의 신규 일반화 엔드포인트 우선, 구 LoRA 전용 엔드포인트 fallback.
  */
 const checkVccLoraHashNodeAvailable = async (serverUrl) => {
   try {
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/ping`, {
-      timeout: 5000
-    });
-    return response.data?.success === true;
-  } catch (error) {
+    const r = await axios.get(`${serverUrl}/api/vcc/file-hash/ping`, { timeout: 5000 });
+    if (r.data?.success === true) return true;
+  } catch (_e) {
+    // fallthrough
+  }
+  try {
+    const r = await axios.get(`${serverUrl}/api/vcc/lora-hash/ping`, { timeout: 5000 });
+    return r.data?.success === true;
+  } catch (_e) {
     return false;
   }
 };
 
 /**
- * 단일 LoRA 파일의 해시 조회
+ * 단일 LoRA 파일의 해시 조회.
+ * 신규 `/file-hash/loras/{filename}` 우선, 구 `/lora-hash/{filename}` fallback.
  */
 const getLoraHash = async (serverUrl, filename) => {
-  try {
-    const encodedFilename = encodeURIComponent(filename);
-    const response = await axios.get(`${serverUrl}/api/vcc/lora-hash/${encodedFilename}`, {
-      timeout: HASH_REQUEST_TIMEOUT
-    });
+  const encodedFilename = encodeURIComponent(filename);
 
+  try {
+    const response = await axios.get(
+      `${serverUrl}/api/vcc/file-hash/loras/${encodedFilename}`,
+      { timeout: HASH_REQUEST_TIMEOUT }
+    );
+    if (response.data?.success && response.data?.sha256) {
+      return response.data.sha256;
+    }
+  } catch (_e) {
+    // 신규 엔드포인트 미지원 (구 노드 또는 미설치) — 구 엔드포인트 시도
+  }
+
+  try {
+    const response = await axios.get(
+      `${serverUrl}/api/vcc/lora-hash/${encodedFilename}`,
+      { timeout: HASH_REQUEST_TIMEOUT }
+    );
     if (response.data?.success && response.data?.sha256) {
       return response.data.sha256;
     }
@@ -331,11 +350,15 @@ const getServerLoras = async (serverId, serverUrl) => {
   return cache;
 };
 
+// #256: stale 감지 임계 — fetching 중 progress 갱신이 없으면 죽었다고 판단.
+// Civitai rate limit 1초 + hash 계산 + 네트워크 오버헤드 = 항목당 ~5초 평균 → 5분 무진척이면 stuck.
+const STALE_FETCHING_MS = 5 * 60 * 1000;
+
 /**
- * 동기화 상태 조회
+ * 동기화 상태 조회 — stale 감지 자동 cleanup 포함
  */
 const getSyncStatus = async (serverId) => {
-  const cache = await ServerLoraCache.findOne({ serverId });
+  let cache = await ServerLoraCache.findOne({ serverId });
 
   if (!cache) {
     return {
@@ -343,6 +366,21 @@ const getSyncStatus = async (serverId) => {
       progress: { current: 0, total: 0, stage: 'idle' },
       lastFetched: null
     };
+  }
+
+  // Stale 감지: status='fetching' 인데 updatedAt 이 오래 전이면 sync 가 죽은 것.
+  // 자동으로 failed 로 전환해 admin 이 다시 sync 가능하게 함.
+  if (cache.status === 'fetching' && cache.updatedAt) {
+    const staleMs = Date.now() - new Date(cache.updatedAt).getTime();
+    if (staleMs > STALE_FETCHING_MS) {
+      cache.status = 'failed';
+      cache.errorMessage = `Sync stalled (no progress for ${Math.round(staleMs / 1000)}s)`;
+      try {
+        await cache.save();
+      } catch (e) {
+        console.error('[LoRA stale cleanup] save error:', e.message);
+      }
+    }
   }
 
   return {
@@ -359,9 +397,23 @@ const getSyncStatus = async (serverId) => {
 };
 
 /**
+ * 동기화 상태를 idle 로 강제 reset.
+ * stuck 또는 failed 상태에서 다시 sync 가능하게 하려는 admin manual action.
+ */
+const resetSyncStatus = async (serverId) => {
+  const cache = await ServerLoraCache.findOne({ serverId });
+  if (!cache) return null;
+  cache.status = 'idle';
+  cache.progress = { current: 0, total: 0, stage: 'idle' };
+  cache.errorMessage = null;
+  await cache.save();
+  return cache;
+};
+
+/**
  * 검색 필터를 적용한 LoRA 목록 조회
  */
-const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, page = 1, limit = 50 } = {}) => {
+const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, whitelist, page = 1, limit = 50 } = {}) => {
   const cache = await ServerLoraCache.findOne({ serverId });
 
   if (!cache) {
@@ -411,6 +463,12 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, pag
     );
   }
 
+  // whitelist (#198 Phase D): 작업판의 loraExposurePolicy='whitelist' + loraWhitelist 적용
+  if (Array.isArray(whitelist) && whitelist.length > 0) {
+    const wlSet = new Set(whitelist);
+    filtered = filtered.filter(lora => wlSet.has(lora.filename));
+  }
+
   // 페이지네이션
   const total = filtered.length;
   const pages = Math.ceil(total / limit);
@@ -443,5 +501,6 @@ module.exports = {
   syncServerLoras,
   getServerLoras,
   getSyncStatus,
+  resetSyncStatus,
   searchServerLoras
 };

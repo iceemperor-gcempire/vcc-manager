@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   FormControl,
@@ -53,217 +52,9 @@ import toast from 'react-hot-toast';
 import { serverAPI, adminAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
-
-// LoRA 카드 컴포넌트
-function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
-  const hasCivitai = lora.civitai?.found;
-
-  // NSFW 필터링된 이미지 목록
-  const filteredImages = (lora.civitai?.images || []).filter(img => !nsfwFilter || !img.nsfw);
-  const previewImage = filteredImages[0]?.url;
-  const name = lora.civitai?.name || lora.filename.replace(/\.[^/.]+$/, '');
-  const trainedWords = lora.civitai?.trainedWords || [];
-
-  const handleCopyFilename = () => {
-    // 경로에서 파일명만 추출 후 확장자 제거
-    const basename = lora.filename.split(/[/\\]/).pop();
-    const nameWithoutExt = basename.replace(/\.[^/.]+$/, '');
-    const loraString = `<lora:${nameWithoutExt}:1>`;
-    navigator.clipboard.writeText(loraString);
-    toast.success(`LoRA 태그가 복사되었습니다.`);
-  };
-
-  return (
-    <Card
-      variant="outlined"
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        '&:hover': { borderColor: 'primary.main' }
-      }}
-    >
-      {/* 미리보기 이미지 */}
-      {previewImage ? (
-        <CardMedia
-          component="img"
-          height="160"
-          image={previewImage}
-          alt={name}
-          sx={{ objectFit: 'cover' }}
-        />
-      ) : (
-        <Box
-          sx={{
-            height: 160,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            bgcolor: 'action.hover'
-          }}
-        >
-          <Typography variant="body2" color="text.secondary">
-            미리보기 없음
-          </Typography>
-        </Box>
-      )}
-
-      <CardContent sx={{ flexGrow: 1, pb: 1 }}>
-        {/* 이름 */}
-        <Typography variant="subtitle1" noWrap title={name} fontWeight="medium">
-          {name}
-        </Typography>
-
-        {/* 파일명 (Civitai 정보가 있을 경우) */}
-        {hasCivitai && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {lora.filename}
-          </Typography>
-        )}
-
-        {/* 기본 모델 배지 */}
-        <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          {lora.civitai?.baseModel && (
-            <Chip
-              label={lora.civitai.baseModel}
-              size="small"
-              color={getBaseModelColor(lora.civitai.baseModel)}
-              variant="outlined"
-            />
-          )}
-          {!hasCivitai && !lora.hash && (
-            <Tooltip title={lora.hashError || '해시 정보 없음'}>
-              <Chip
-                icon={<InfoIcon />}
-                label="메타데이터 없음"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
-          {lora.hash && !hasCivitai && (
-            <Tooltip title="Civitai에서 찾을 수 없음">
-              <Chip
-                label="미등록"
-                size="small"
-                variant="outlined"
-              />
-            </Tooltip>
-          )}
-        </Box>
-
-        {/* 트리거 워드 */}
-        {trainedWords.length > 0 && (
-          <Box sx={{ mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              트리거 워드:
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-              {trainedWords.slice(0, expanded ? undefined : 3).map((word, i) => (
-                <Chip
-                  key={i}
-                  label={word}
-                  size="small"
-                  onClick={() => onCopyTriggerWord(word)}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
-              {!expanded && trainedWords.length > 3 && (
-                <Chip
-                  label={`+${trainedWords.length - 3}`}
-                  size="small"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          </Box>
-        )}
-      </CardContent>
-
-      {/* 확장 영역 */}
-      <Collapse in={expanded}>
-        <CardContent sx={{ pt: 0 }}>
-          {lora.civitai?.description && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                maxHeight: 100,
-                overflow: 'auto',
-                mb: 1,
-                '& p': { margin: 0 }
-              }}
-              dangerouslySetInnerHTML={{
-                __html: sanitizeHtml(lora.civitai.description.substring(0, 500))
-              }}
-            />
-          )}
-
-          {/* 추가 미리보기 이미지 */}
-          {filteredImages.length > 1 && (
-            <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
-              {filteredImages.slice(1).map((img, i) => (
-                <Box
-                  key={i}
-                  component="img"
-                  src={img.url}
-                  alt={`Preview ${i + 2}`}
-                  sx={{
-                    width: 60,
-                    height: 60,
-                    objectFit: 'cover',
-                    borderRadius: 1
-                  }}
-                />
-              ))}
-            </Box>
-          )}
-
-          {/* 해시 정보 */}
-          {lora.hash && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              SHA256: {lora.hash.substring(0, 16)}...
-            </Typography>
-          )}
-        </CardContent>
-      </Collapse>
-
-      <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
-        <Stack direction="row" spacing={0.5}>
-          {hasCivitai && (
-            <IconButton
-              size="small"
-              onClick={onToggleExpand}
-            >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
-          )}
-          {lora.civitai?.modelUrl && (
-            <Tooltip title="Civitai에서 보기">
-              <IconButton
-                size="small"
-                href={lora.civitai.modelUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <OpenInNewIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          )}
-        </Stack>
-        <Tooltip title="LoRA 태그 복사">
-          <IconButton
-            size="small"
-            onClick={handleCopyFilename}
-            color="primary"
-          >
-            <CopyIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </CardActions>
-    </Card>
-  );
-}
+import MetadataItemCard from '../../components/common/MetadataItemCard';
+import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import { normalizeLora } from '../../utils/metadataItem';
 
 // LoRA 리스트 아이템 컴포넌트
 function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }) {
@@ -663,11 +454,7 @@ function LoraManagementPage() {
   const selectedServer = comfyUIServers.find(s => s._id === selectedServerId);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
-      <Typography variant="h5" gutterBottom>
-        LoRA 관리
-      </Typography>
-
+    <Box sx={{ overflow: 'hidden' }}>
       {/* 전역 설정 패널 */}
       <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'hidden' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -982,37 +769,28 @@ function LoraManagementPage() {
             return (
               <>
                 {viewMode === 'grid' ? (
-                  // 그리드 뷰
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: {
-                        xs: 'repeat(auto-fill, minmax(150px, 1fr))', // 모바일: 더 작은 최소폭
-                        sm: 'repeat(auto-fill, minmax(200px, 1fr))'  // 태블릿+: 기존 유지
-                      },
-                      gap: 2,
-                      '& > *': {
-                        maxWidth: { xs: 'none', sm: 280 } // 모바일에서는 제한 없음
-                      }
-                    }}
-                  >
-                    {filteredLoraModels.map((lora, index) => (
-                      <Box key={lora.filename || index}>
-                        <LoraCard
-                          lora={lora}
-                          expanded={expandedLora === lora.filename}
+                  // 그리드 뷰 — 공통 MetadataItemGrid + MetadataItemCard (#260)
+                  <MetadataItemGrid
+                    items={filteredLoraModels}
+                    getKey={(lora, index) => lora.filename || index}
+                    renderItem={(lora) => {
+                      const item = normalizeLora(lora);
+                      if (!item) return null;
+                      return (
+                        <MetadataItemCard
+                          item={item}
+                          expanded={expandedLora === item.filename}
                           onToggleExpand={() => setExpandedLora(
-                            expandedLora === lora.filename ? null : lora.filename
+                            expandedLora === item.filename ? null : item.filename
                           )}
-                          onCopyTriggerWord={handleCopyTriggerWord}
-                          getBaseModelColor={getBaseModelColor}
-                          nsfwFilter={nsfwFilter}
+                          onTrainedWordClick={(word) => handleCopyTriggerWord(word)}
+                          nsfwImageFilter={nsfwFilter}
                         />
-                      </Box>
-                    ))}
-                  </Box>
+                      );
+                    }}
+                  />
                 ) : (
-                  // 리스트 뷰
+                  // 리스트 뷰 — 기존 LoraListItem 유지 (LoRA admin 전용 컴팩트 뷰)
                   <Box sx={{ width: '100%', overflow: 'hidden' }}>
                     {filteredLoraModels.map((lora, index) => (
                       <LoraListItem
@@ -1046,7 +824,7 @@ function LoraManagementPage() {
           })()}
         </>
       )}
-    </Container>
+    </Box>
   );
 }
 

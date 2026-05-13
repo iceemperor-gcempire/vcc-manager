@@ -1,21 +1,28 @@
 {
-  "baseInputFields": {
-    "aiModel": [
-      { "key": "Nano Banana", "value": "gemini-2.5-flash-image" },
-      { "key": "Nano Banana Pro", "value": "gemini-3-pro-image-preview" },
-      { "key": "Nano Banana 2", "value": "gemini-3.1-flash-image-preview" }
-    ],
-    "imageSizes": [
-      { "key": "정사각 (1:1)", "value": "1:1" },
-      { "key": "가로 와이드 (16:9)", "value": "16:9" },
-      { "key": "세로 와이드 (9:16)", "value": "9:16" },
-      { "key": "가로 (4:3)", "value": "4:3" },
-      { "key": "세로 (3:4)", "value": "3:4" },
-      { "key": "영화 (21:9)", "value": "21:9" }
-    ],
-    "referenceImageMethods": []
-  },
+  "baseInputFields": {},
   "additionalInputFields": [
+    {
+      "name": "aiModel",
+      "label": "베이스 모델",
+      "type": "baseModel",
+      "required": true,
+      "description": "서버의 모델 목록에서 선택. 작업판의 모델 노출 정책이 적용됩니다."
+    },
+    {
+      "name": "imageSize",
+      "label": "이미지 비율",
+      "type": "select",
+      "required": true,
+      "defaultValue": "1:1",
+      "options": [
+        { "key": "정사각 (1:1)", "value": "1:1" },
+        { "key": "가로 와이드 (16:9)", "value": "16:9" },
+        { "key": "세로 와이드 (9:16)", "value": "9:16" },
+        { "key": "가로 (4:3)", "value": "4:3" },
+        { "key": "세로 (3:4)", "value": "3:4" },
+        { "key": "영화 (21:9)", "value": "21:9" }
+      ]
+    },
     {
       "name": "resolution",
       "label": "해상도",

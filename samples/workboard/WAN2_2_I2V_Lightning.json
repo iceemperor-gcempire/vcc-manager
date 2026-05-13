@@ -9,7 +9,6 @@
     "name": "WAN2.2 I2V Lightning",
     "description": "WAN 2.2 Lightning 기본 사양.",
     "workboardType": "image",
-    "apiFormat": "ComfyUI",
     "outputFormat": "video",
     "baseInputFields": {
       "aiModel": [

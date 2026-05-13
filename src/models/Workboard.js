@@ -22,9 +22,12 @@ const inputFieldSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['string', 'select', 'file', 'number', 'boolean', 'image'],
+    // baseModel / lora 는 서버의 모델·LoRA 목록과 연동되는 특수 타입 (#199 Phase D).
+    // 일반 select 와 달리 admin 이 옵션을 직접 정의하지 않고, 작업판의 노출 정책(#198)으로 제어.
+    enum: ['string', 'select', 'file', 'number', 'boolean', 'image', 'baseModel', 'lora'],
     required: true
   },
+  // F4: role 필드 제거 — 의미는 type=baseModel/lora 또는 well-known name 으로 추론
   required: {
     type: Boolean,
     default: false
@@ -72,11 +75,6 @@ const workboardSchema = new mongoose.Schema({
     default: 'image',
     required: false
   },
-  apiFormat: {
-    type: String,
-    enum: ['ComfyUI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
-    default: 'ComfyUI'
-  },
   outputFormat: {
     type: String,
     enum: ['image', 'video', 'text'],
@@ -96,38 +94,45 @@ const workboardSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
-  baseInputFields: {
-    aiModel: {
-      type: [selectOptionSchema],
-      required: true
-    },
-    imageSizes: [selectOptionSchema],
-    referenceImageMethods: [selectOptionSchema],
-    stylePresets: [selectOptionSchema],
-    upscaleMethods: [selectOptionSchema],
-    systemPrompt: {
-      type: String,
-      default: ''
-    },
-    referenceImages: {
-      type: [selectOptionSchema],
-      default: []
-    },
-    temperature: {
-      type: Number,
-      default: 0.7
-    },
-    maxTokens: {
-      type: Number,
-      default: 2000
-    }
-  },
+  // F4: baseInputFields 스키마 제거 — additionalInputFields 의 customField 가 모든 입력 정의 담당
   additionalInputFields: [inputFieldSchema],
+  // ComfyUI 작업판이 허용하는 base 모델 타입 (#252).
+  // civitai.baseModel 과 매칭. 빈 배열이면 제약 없음 (모든 모델 허용).
+  // baseModel 미상 (Civitai 미등록 / hash 없음) 모델은 노출 (custom merge 등 일상적 케이스).
+  allowedModelTypes: {
+    type: [String],
+    default: []
+  },
+  // 이 작업판에 접근 가능한 사용자 그룹 (#198). 빈 배열이면 admin 외 접근 불가.
+  // admin 은 implicit all-access (이 필드 무관). 마이그레이션 시 기본 그룹 1개 자동 할당.
+  allowedGroupIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Group'
+  }],
+  // 모델 노출 정책 (#198) — 작업판이 사용하는 서버의 모델 중 사용자에게 노출할 범위.
+  // 'full': 모든 모델 노출 (기본). 'whitelist': modelWhitelist 에 명시된 모델만 노출.
+  modelExposurePolicy: {
+    type: String,
+    enum: ['full', 'whitelist'],
+    default: 'full'
+  },
+  modelWhitelist: {
+    type: [String],
+    default: []
+  },
+  // LoRA 노출 정책 (#198) — 동일 패턴.
+  loraExposurePolicy: {
+    type: String,
+    enum: ['full', 'whitelist'],
+    default: 'full'
+  },
+  loraWhitelist: {
+    type: [String],
+    default: []
+  },
   workflowData: {
     type: String,
-    required: function() {
-      return this.apiFormat === 'ComfyUI';
-    }
+    default: ''
   },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -176,21 +181,7 @@ workboardSchema.statics.findByType = function(workboardType, filter = {}) {
     .populate('createdBy', 'email nickname');
 };
 
-// API 형식 + 출력 형식별 조회
-workboardSchema.statics.findByFormat = function(apiFormat, outputFormat, filter = {}) {
-  const query = { ...filter, isActive: true };
-  if (apiFormat) query.apiFormat = apiFormat;
-  if (outputFormat) query.outputFormat = outputFormat;
-  return this.find(query)
-    .populate('serverId', 'name serverType serverUrl outputType isActive')
-    .populate('createdBy', 'email nickname');
-};
-
 workboardSchema.methods.validateWorkflowData = function() {
-  if (['OpenAI Compatible', 'Gemini', 'GPT Image'].includes(this.apiFormat)) {
-    return true;
-  }
-  
   try {
     if (!this.workflowData || this.workflowData.trim().length === 0) {
       return false;

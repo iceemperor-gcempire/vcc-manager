@@ -26,7 +26,8 @@ import {
   AccordionSummary,
   AccordionDetails,
   FormControlLabel,
-  Switch
+  Switch,
+  Autocomplete
 } from '@mui/material';
 import {
   Add,
@@ -46,17 +47,18 @@ import {
   FileUpload,
   Check,
   CheckCircle,
-  Warning
+  Warning,
+  PlaylistAdd
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { workboardAPI, serverAPI } from '../../services/api';
+import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
+import MetadataPickerModal from '../common/MetadataPickerModal';
 import { getWorkboardTemplate } from '../../templates';
 import {
-  deriveLegacyApiFormat,
   getServerTypeLabel,
   getOutputFormatLabel,
   getServerTypeColor,
@@ -230,12 +232,227 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
   );
 }
 
+// 화이트리스트 필드 — Autocomplete (수동 입력) + picker 모달 (서버 모델/LoRA 선택).
+// ComfyUI 서버에서만 picker 표시. picker 는 multi-add 모드 — 카드 클릭마다 한 건씩 추가됨.
+function WhitelistField({ name, control, kind, serverId, placeholder, showPicker }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  return (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => {
+        const value = field.value || [];
+        const handleAdd = (rawItem) => {
+          const id = rawItem?.filename;
+          if (!id) return;
+          if (value.includes(id)) return;
+          field.onChange([...value, id]);
+        };
+        return (
+          <Box>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Autocomplete
+                multiple
+                freeSolo
+                options={[]}
+                value={value}
+                onChange={(_, newValue) => field.onChange(newValue)}
+                sx={{ flex: 1 }}
+                renderTags={(values, getTagProps) =>
+                  values.map((option, index) => (
+                    <Chip
+                      {...getTagProps({ index })}
+                      key={option}
+                      label={option}
+                      size="small"
+                      variant="outlined"
+                    />
+                  ))
+                }
+                renderInput={(params) => (
+                  <TextField {...params} size="small" placeholder={placeholder} />
+                )}
+              />
+              {showPicker && (
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PlaylistAdd />}
+                  onClick={() => setPickerOpen(true)}
+                  disabled={!serverId}
+                  sx={{ mt: 0.25, whiteSpace: 'nowrap' }}
+                >
+                  선택
+                </Button>
+              )}
+            </Box>
+            {showPicker && (
+              <MetadataPickerModal
+                kind={kind}
+                open={pickerOpen}
+                onClose={() => setPickerOpen(false)}
+                serverId={serverId}
+                isAdmin
+                mode="multi-add"
+                onPrimary={handleAdd}
+              />
+            )}
+          </Box>
+        );
+      }}
+    />
+  );
+}
+
+// 권한 / 노출 정책 panel (#198) — 작업판 admin 폼의 한 탭으로 사용.
+function PermissionsAndExposurePanel({ control, isComfyUI, serverId, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
+  return (
+    <Box>
+      {/* 접근 그룹 */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography variant="h6">접근 그룹</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            이 작업판에 접근 가능한 사용자 그룹을 지정합니다. 비워두면 admin 외 접근 불가. admin 은 그룹과 무관하게 모든 작업판 접근 가능.
+          </Typography>
+          <Controller
+            name="allowedGroupIds"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                multiple
+                options={groups.map((g) => g._id)}
+                value={field.value || []}
+                onChange={(_, newValue) => field.onChange(newValue)}
+                getOptionLabel={(option) => {
+                  const g = groups.find((x) => x._id === option);
+                  return g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option;
+                }}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => {
+                    const g = groups.find((x) => x._id === option);
+                    return (
+                      <Chip
+                        {...getTagProps({ index })}
+                        key={option}
+                        label={g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option}
+                        size="small"
+                        color="primary"
+                        variant="outlined"
+                      />
+                    );
+                  })
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    size="small"
+                    placeholder={groups.length === 0 ? '그룹 없음 — 관리 메뉴에서 먼저 그룹 생성' : '그룹 선택'}
+                  />
+                )}
+              />
+            )}
+          />
+        </AccordionDetails>
+      </Accordion>
+
+      {/* 모델 노출 정책 */}
+      <Accordion defaultExpanded>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography variant="h6">모델 노출 정책</Typography>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            이 작업판에서 사용자에게 노출되는 base 모델 범위.
+          </Typography>
+          <Controller
+            name="modelExposurePolicy"
+            control={control}
+            render={({ field }) => (
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>정책</InputLabel>
+                <Select {...field} label="정책">
+                  <MenuItem value="full">전체 노출 (서버의 모든 모델)</MenuItem>
+                  <MenuItem value="whitelist">화이트리스트 (지정 모델만)</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+          />
+          {modelExposurePolicyValue === 'whitelist' && (
+            <Box sx={{ mt: 2 }}>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                노출할 모델 식별자 (ComfyUI=파일 경로, OpenAI/Gemini=모델 ID)
+                {isComfyUI && ' · "선택" 으로 서버에서 직접 추가'}
+              </Typography>
+              <WhitelistField
+                name="modelWhitelist"
+                control={control}
+                kind="model"
+                serverId={serverId}
+                placeholder="예: SDXL/illustrious_v6.safetensors"
+                showPicker={isComfyUI}
+              />
+            </Box>
+          )}
+        </AccordionDetails>
+      </Accordion>
+
+      {/* LoRA 노출 정책 (ComfyUI 만) */}
+      {isComfyUI && (
+        <Accordion defaultExpanded>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Typography variant="h6">LoRA 노출 정책</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              ComfyUI 작업판에서 사용자에게 노출되는 LoRA 범위.
+            </Typography>
+            <Controller
+              name="loraExposurePolicy"
+              control={control}
+              render={({ field }) => (
+                <FormControl size="small" sx={{ minWidth: 200 }}>
+                  <InputLabel>정책</InputLabel>
+                  <Select {...field} label="정책">
+                    <MenuItem value="full">전체 노출</MenuItem>
+                    <MenuItem value="whitelist">화이트리스트</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
+            />
+            {loraExposurePolicyValue === 'whitelist' && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                  노출할 LoRA 식별자 (파일 경로 또는 hash) · "선택" 으로 서버에서 직접 추가
+                </Typography>
+                <WhitelistField
+                  name="loraWhitelist"
+                  control={control}
+                  kind="lora"
+                  serverId={serverId}
+                  placeholder="예: character/style_v2.safetensors"
+                  showPicker
+                />
+              </Box>
+            )}
+          </AccordionDetails>
+        </Accordion>
+      )}
+    </Box>
+  );
+}
+
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
 function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copiedVariable, setCopiedVariable] = useState('');
+  const [availableBaseModels, setAvailableBaseModels] = useState([]);
+  // 그룹 목록 (#198) — allowedGroupIds Autocomplete 의 옵션 풀
+  const [availableGroups, setAvailableGroups] = useState([]);
   const copyResetTimerRef = React.useRef(null);
   const { control, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -243,30 +460,48 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       description: '',
       serverId: '',
       serverType: '',
-      apiFormat: 'ComfyUI',
       outputFormat: 'image',
       workflowData: '',
+      allowedModelTypes: [],
+      // 권한 / 노출 정책 (#198)
+      allowedGroupIds: [],
+      modelExposurePolicy: 'full',
+      modelWhitelist: [],
+      loraExposurePolicy: 'full',
+      loraWhitelist: [],
       isActive: true,
-      aiModels: [],
-      imageSizes: [],
-      referenceImageMethods: [],
-      systemPrompt: '',
-      referenceImages: [],
-      negativePromptField: { enabled: false, required: false },
-      upscaleMethodField: { enabled: false, required: false, options: [] },
-      baseStyleField: { enabled: false, required: false, options: [], formatString: '{{##base_style##}}' },
       additionalCustomFields: []
     }
   });
 
-  const apiFormat = watch('apiFormat');
+  const serverType = watch('serverType');
   const outputFormat = watch('outputFormat');
-  const isComfyUI = apiFormat === 'ComfyUI';
-  const isGemini = apiFormat === 'Gemini';
-  const isGptImage = apiFormat === 'GPT Image';
-  // v1.8.0+ : 분기 기준은 outputFormat. apiFormat 은 legacy.
-  const isPromptFormat = outputFormat === 'text';
-  const isImageFormat = outputFormat === 'image';
+  const watchedServerId = watch('serverId');
+  const isComfyUI = serverType === 'ComfyUI';
+  const isGemini = serverType === 'Gemini';
+  const isOpenAIImage = (serverType === 'OpenAI' || serverType === 'OpenAI Compatible') && outputFormat === 'image';
+
+  // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀.
+  // ServerModelCache 의 detailed endpoint 에서 derived (limit 1 로 가벼운 호출).
+  React.useEffect(() => {
+    if (!open || !isComfyUI || !watchedServerId) {
+      setAvailableBaseModels([]);
+      return;
+    }
+    serverAPI.getDetailedModels(watchedServerId, { limit: 1 })
+      .then((res) => {
+        setAvailableBaseModels(res.data?.data?.availableBaseModels || []);
+      })
+      .catch(() => setAvailableBaseModels([]));
+  }, [open, isComfyUI, watchedServerId]);
+
+  // 그룹 목록 fetch (#198) — 모달 open 시 1회
+  React.useEffect(() => {
+    if (!open) return;
+    groupAPI.getAll()
+      .then((res) => setAvailableGroups(res.data?.data?.groups || []))
+      .catch(() => setAvailableGroups([]));
+  }, [open]);
 
   React.useEffect(() => {
     return () => {
@@ -328,36 +563,21 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             description: fullData.description || '',
             serverId: fullData.serverId?._id || fullData.serverId || '',
             serverType: fullData.serverId?.serverType || '',
-            apiFormat: fullData.apiFormat || (fullData.workboardType === 'prompt' ? 'OpenAI Compatible' : 'ComfyUI'),
             outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
             workflowData: fullData.workflowData || '',
+            allowedModelTypes: fullData.allowedModelTypes || [],
+            // 권한 / 노출 정책 (#198) hydration
+            allowedGroupIds: (fullData.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
+            modelExposurePolicy: fullData.modelExposurePolicy || 'full',
+            modelWhitelist: fullData.modelWhitelist || [],
+            loraExposurePolicy: fullData.loraExposurePolicy || 'full',
+            loraWhitelist: fullData.loraWhitelist || [],
             isActive: fullData.isActive ?? true,
-            aiModels: fullData.baseInputFields?.aiModel?.map(m => ({ key: m.key || '', value: m.value || '' })) || [],
-            imageSizes: fullData.baseInputFields?.imageSizes?.map(s => ({ key: s.key || '', value: s.value || '' })) || [],
-            referenceImageMethods: fullData.baseInputFields?.referenceImageMethods?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
-            systemPrompt: fullData.baseInputFields?.systemPrompt || '',
-            referenceImages: fullData.baseInputFields?.referenceImages?.map(r => ({ key: r.key || '', value: r.value || '' })) || [],
-            // 커스텀 필드
-            negativePromptField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'negativePrompt') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'negativePrompt')?.required || false
-            },
-            upscaleMethodField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'upscaleMethod') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'upscaleMethod')?.required || false,
-              options: fullData.additionalInputFields?.find(f => f.name === 'upscaleMethod')?.options || []
-            },
-            baseStyleField: {
-              enabled: fullData.additionalInputFields?.some(f => f.name === 'baseStyle') || false,
-              required: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.required || false,
-              options: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.options || [],
-              formatString: fullData.additionalInputFields?.find(f => f.name === 'baseStyle')?.formatString || '{{##base_style##}}'
-            },
-            // 추가 커스톰 필드들
-            additionalCustomFields: fullData.additionalInputFields?.filter(f => !['negativePrompt', 'upscaleMethod', 'baseStyle'].includes(f.name)).map(f => ({
+            // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출
+            additionalCustomFields: (fullData.additionalInputFields || []).map(f => ({
               ...f,
               imageConfig: f.imageConfig || { maxImages: 1 }
-            })) || []
+            }))
           };
           
           console.log('Form data to reset with:', formData);
@@ -394,41 +614,9 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   };
 
   const onSubmit = (data) => {
-    // 추가 입력 필드들을 올바른 형식으로 변환
+    // 커스텀 필드들을 단일 generic 편집기에서 가져와서 구성
     const additionalInputFields = [];
 
-    if (data.negativePromptField?.enabled) {
-      additionalInputFields.push({
-        name: 'negativePrompt',
-        label: '부정 프롬프트',
-        type: 'string',
-        required: Boolean(data.negativePromptField.required),
-        placeholder: '부정 프롬프트를 입력하세요...'
-      });
-    }
-
-    if (data.upscaleMethodField?.enabled) {
-      additionalInputFields.push({
-        name: 'upscaleMethod',
-        label: '업스케일 방법',
-        type: 'select',
-        required: Boolean(data.upscaleMethodField.required),
-        options: (data.upscaleMethodField.options || []).filter(opt => opt.key && opt.value)
-      });
-    }
-
-    if (data.baseStyleField?.enabled) {
-      additionalInputFields.push({
-        name: 'baseStyle',
-        label: '기초 스타일',
-        type: 'select',
-        required: Boolean(data.baseStyleField.required),
-        options: (data.baseStyleField.options || []).filter(opt => opt.key && opt.value),
-        formatString: data.baseStyleField.formatString || '{{##base_style##}}'
-      });
-    }
-
-    // 추가 커스톰 필드들 추가
     if (data.additionalCustomFields) {
       data.additionalCustomFields.forEach(field => {
         if (field.name && field.label) {
@@ -455,28 +643,31 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
       });
     }
 
-    const normalizedApiFormat = data.apiFormat || 'ComfyUI';
-    const isComfyUIFormat = normalizedApiFormat === 'ComfyUI';
-    // v1.8.0+ : baseInputFields 분기는 outputFormat 기준. apiFormat 은 legacy.
+    const isComfyUIServer = data.serverType === 'ComfyUI';
     const normalizedOutputFormat = data.outputFormat || 'image';
-    const isPromptOutputFormat = normalizedOutputFormat === 'text';
-    const isImageOutputFormat = normalizedOutputFormat === 'image';
-    // GPT Image 는 deprecated 이미지 전용 — 강제 image 유지. 그 외 capability 는 사용자 선택 존중.
-    const isFixedImageApiFormat = normalizedApiFormat === 'GPT Image';
     const updateData = {
       name: data.name?.trim(),
       description: data.description?.trim(),
       serverId: data.serverId,
-      apiFormat: normalizedApiFormat,
-      outputFormat: isFixedImageApiFormat ? 'image' : normalizedOutputFormat,
-      workflowData: !isComfyUIFormat ? '' : data.workflowData,
+      outputFormat: normalizedOutputFormat,
+      workflowData: isComfyUIServer ? data.workflowData : '',
+      allowedModelTypes: isComfyUIServer ? (data.allowedModelTypes || []) : [],
+      // 권한 / 노출 정책 (#198)
+      allowedGroupIds: data.allowedGroupIds || [],
+      modelExposurePolicy: data.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
+      loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+      loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
       isActive: Boolean(data.isActive),
+      // F3: baseInputFields 편집 제거 — 신규/기존 모두 빈 상태로 저장.
+      // 스키마의 required: true (aiModel) 통과 위해 빈 배열 명시.
+      // F4 에서 baseInputFields 스키마 자체 drop 예정.
       baseInputFields: {
-        aiModel: (data.aiModels || []).filter(m => m.key && m.value),
-        imageSizes: isImageOutputFormat ? (data.imageSizes || []).filter(s => s.key && s.value) : [],
-        referenceImageMethods: isComfyUIFormat ? (data.referenceImageMethods || []).filter(r => r.key && r.value) : [],
-        systemPrompt: isPromptOutputFormat ? (data.systemPrompt || '') : '',
-        referenceImages: isPromptOutputFormat ? (data.referenceImages || []).filter(r => r.key && r.value) : []
+        aiModel: [],
+        imageSizes: [],
+        referenceImageMethods: [],
+        systemPrompt: '',
+        referenceImages: []
       },
       additionalInputFields
     };
@@ -518,8 +709,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           </Box>
           <Tabs value={tabValue} onChange={(e, newValue) => setTabValue(newValue)} sx={{ mb: 3 }}>
             <Tab label="기본 정보" />
-            <Tab label="기초 입력값" />
-            <Tab label="커스텀 필드" />
+            <Tab label="입력 양식" />
+            <Tab label="권한 / 노출" />
             {isComfyUI && <Tab label="워크플로우" />}
           </Tabs>
 
@@ -535,608 +726,17 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             />
           )}
 
-          {/* 기초 입력값 탭 */}
+
+          {/* 입력 양식 탭 */}
           {tabValue === 1 && (
             <Box>
-              {/* AI 모델 설정 - 공통 */}
-              <Accordion defaultExpanded>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6">AI 모델 설정</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Box>
-                      <Typography variant="body2" color="textSecondary">
-                        사용자가 선택할 수 있는 AI 모델들을 설정합니다.
-                      </Typography>
-                      {isComfyUI && (
-                        <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                          Workflow JSON 형식: <code>{'{{##model##}}'}</code>
-                        </Typography>
-                      )}
-                    </Box>
-                    <Button
-                      startIcon={<Add />}
-                      onClick={() => addArrayItem('aiModels')}
-                      size="small"
-                    >
-                      모델 추가
-                    </Button>
-                  </Box>
-                  <DragDropContext onDragEnd={onDragEnd}>
-                    <Droppable droppableId="aiModels" type="aiModels">
-                      {(provided) => (
-                        <Box ref={provided.innerRef} {...provided.droppableProps}>
-                          {watch('aiModels')?.map((model, index) => (
-                            <Draggable key={index} draggableId={`aiModel-${index}`} index={index}>
-                              {(provided) => (
-                                <Box
-                                  ref={provided.innerRef}
-                                  {...provided.draggableProps}
-                                  display="flex" gap={2} mb={2} alignItems="center"
-                                >
-                                  <Controller
-                                    name={`aiModels.${index}.key`}
-                                    control={control}
-                                    render={({ field }) => (
-                                      <TextField
-                                        {...field}
-                                        label="모델 표시명"
-                                        size="small"
-                                        sx={{ flex: 1 }}
-                                      />
-                                    )}
-                                  />
-                                  <Controller
-                                    name={`aiModels.${index}.value`}
-                                    control={control}
-                                    render={({ field }) => (
-                                      <TextField
-                                        {...field}
-                                        label={
-                                          apiFormat === 'OpenAI Compatible'
-                                            ? '모델 ID (예: gpt-4)'
-                                            : apiFormat === 'Gemini'
-                                              ? '모델 ID (예: gemini-2.5-flash-image)'
-                                              : apiFormat === 'GPT Image'
-                                                ? '모델 ID (예: gpt-image-1.5)'
-                                              : '모델 파일 경로'
-                                        }
-                                        size="small"
-                                        sx={{ flex: 2 }}
-                                      />
-                                    )}
-                                  />
-                                  <IconButton
-                                    onClick={() => removeArrayItem('aiModels', index)}
-                                    color="error"
-                                    size="small"
-                                  >
-                                    <Delete />
-                                  </IconButton>
-                                  <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
-                                    <DragIndicator />
-                                  </Box>
-                                </Box>
-                              )}
-                            </Draggable>
-                          ))}
-                          {provided.placeholder}
-                        </Box>
-                      )}
-                    </Droppable>
-                  </DragDropContext>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 프롬프트 작업판 전용 설정 */}
-              {isPromptFormat && (
-                <>
-                  <Accordion defaultExpanded>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography variant="h6">시스템 프롬프트</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Typography variant="body2" color="textSecondary" mb={2}>
-                        AI에게 전달할 시스템 프롬프트를 설정합니다. 사용자 입력 앞에 이 내용이 추가됩니다.
-                      </Typography>
-                      <Controller
-                        name="systemPrompt"
-                        control={control}
-                        render={({ field }) => (
-                          <TextField
-                            {...field}
-                            fullWidth
-                            multiline
-                            rows={6}
-                            label="시스템 프롬프트"
-                            placeholder="예: 당신은 창의적인 프롬프트 작성 전문가입니다..."
-                          />
-                        )}
-                      />
-                    </AccordionDetails>
-                  </Accordion>
-
-                  <Accordion>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography variant="h6">참고 이미지 설정</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Typography variant="body2" color="textSecondary">
-                          프롬프트 생성 시 참고할 이미지 타입을 설정합니다.
-                        </Typography>
-                        <Button
-                          startIcon={<Add />}
-                          onClick={() => addArrayItem('referenceImages')}
-                          size="small"
-                        >
-                          이미지 타입 추가
-                        </Button>
-                      </Box>
-                      {watch('referenceImages')?.map((ref, index) => (
-                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                          <Controller
-                            name={`referenceImages.${index}.key`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="이미지 타입명"
-                                placeholder="예: 캐릭터 참고"
-                                size="small"
-                                sx={{ flex: 1 }}
-                              />
-                            )}
-                          />
-                          <Controller
-                            name={`referenceImages.${index}.value`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="설명"
-                                placeholder="예: 캐릭터 외형 참고 이미지"
-                                size="small"
-                                sx={{ flex: 2 }}
-                              />
-                            )}
-                          />
-                          <IconButton
-                            onClick={() => removeArrayItem('referenceImages', index)}
-                            color="error"
-                            size="small"
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </AccordionDetails>
-                  </Accordion>
-                </>
-              )}
-
-              {/* 이미지 작업판 전용 설정 */}
-              {isImageFormat && (
-                <>
-                  <Accordion>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography variant="h6">이미지 크기 설정</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Box>
-                          <Typography variant="body2" color="textSecondary">
-                            이미지 생성 크기 옵션들을 설정합니다.
-                          </Typography>
-                          {isComfyUI && (
-                            <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                              Workflow JSON 형식: <code>{'{{##width##}}'}</code>, <code>{'{{##height##}}'}</code>
-                            </Typography>
-                          )}
-                        </Box>
-                        <Button
-                          startIcon={<Add />}
-                          onClick={() => addArrayItem('imageSizes')}
-                          size="small"
-                        >
-                          크기 추가
-                        </Button>
-                      </Box>
-                      {watch('imageSizes')?.map((size, index) => (
-                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                          <Controller
-                            name={`imageSizes.${index}.key`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="크기 표시명 (예: 512x512)"
-                                size="small"
-                                sx={{ flex: 1 }}
-                              />
-                            )}
-                          />
-                          <Controller
-                            name={`imageSizes.${index}.value`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="실제 크기 값"
-                                size="small"
-                                sx={{ flex: 1 }}
-                              />
-                            )}
-                          />
-                          <IconButton
-                            onClick={() => removeArrayItem('imageSizes', index)}
-                            color="error"
-                            size="small"
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </AccordionDetails>
-                  </Accordion>
-
-                  {isComfyUI && (
-                    <Accordion>
-                    <AccordionSummary expandIcon={<ExpandMore />}>
-                      <Typography variant="h6">참고 이미지 사용방식</Typography>
-                    </AccordionSummary>
-                    <AccordionDetails>
-                      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                        <Box>
-                          <Typography variant="body2" color="textSecondary">
-                            참고 이미지를 어떻게 활용할지 옵션들을 설정합니다.
-                          </Typography>
-                          <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                            Workflow JSON 형식: <code>{'{{##reference_method##}}'}</code>
-                          </Typography>
-                        </Box>
-                        <Button
-                          startIcon={<Add />}
-                          onClick={() => addArrayItem('referenceImageMethods')}
-                          size="small"
-                        >
-                          방식 추가
-                        </Button>
-                      </Box>
-                      {watch('referenceImageMethods')?.map((method, index) => (
-                        <Box key={index} display="flex" gap={2} mb={2} alignItems="center">
-                          <Controller
-                            name={`referenceImageMethods.${index}.key`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="방식 표시명"
-                                size="small"
-                                sx={{ flex: 1 }}
-                              />
-                            )}
-                          />
-                          <Controller
-                            name={`referenceImageMethods.${index}.value`}
-                            control={control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                label="실제 처리 방식"
-                                size="small"
-                                sx={{ flex: 1 }}
-                              />
-                            )}
-                          />
-                          <IconButton
-                            onClick={() => removeArrayItem('referenceImageMethods', index)}
-                            color="error"
-                            size="small"
-                          >
-                            <Delete />
-                          </IconButton>
-                        </Box>
-                      ))}
-                    </AccordionDetails>
-                    </Accordion>
-                  )}
-                </>
-              )}
-            </Box>
-          )}
-
-          {/* 커스텀 필드 탭 */}
-          {tabValue === 2 && (
-            <Box>
-              <Alert severity="info" sx={{ mb: 3 }}>
-                커스텀 필드는 관리자가 선택적으로 활성화할 수 있는 입력 필드들입니다.
-              </Alert>
-
-              {/* 부정 프롬프트 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">부정 프롬프트</Typography>
-                    <Controller
-                      name="negativePromptField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="negativePromptField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 입력"
-                      />
-                    )}
-                  />
-                  <Typography variant="body2" color="textSecondary" mt={1}>
-                    사용자가 부정 프롬프트를 입력할 수 있는 텍스트 필드입니다.
-                  </Typography>
-                  <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                    📝 Workflow JSON 형식: <code>{'{{##negative_prompt##}}'}</code>
-                  </Typography>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 업스케일 방법 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">업스케일 방법</Typography>
-                    <Controller
-                      name="upscaleMethodField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="upscaleMethodField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 선택"
-                      />
-                    )}
-                  />
-                  <Box mt={2}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Box>
-                        <Typography variant="body2">업스케일 방법 옵션</Typography>
-                        <Typography variant="caption" color="primary" sx={{ fontFamily: 'monospace', mt: 1, display: 'block' }}>
-                          📝 Workflow JSON 형식: <code>{'{{##upscale_method##}}'}</code>
-                        </Typography>
-                      </Box>
-                      <Button
-                        startIcon={<Add />}
-                        onClick={() => {
-                          const current = watch('upscaleMethodField.options') || [];
-                          setValue('upscaleMethodField.options', [...current, { key: '', value: '' }]);
-                        }}
-                        size="small"
-                      >
-                        옵션 추가
-                      </Button>
-                    </Box>
-                    <DragDropContext onDragEnd={onDragEnd}>
-                      <Droppable droppableId="upscaleMethodOptions" type="upscaleMethodField.options">
-                        {(provided) => (
-                          <Box ref={provided.innerRef} {...provided.droppableProps}>
-                            {watch('upscaleMethodField.options')?.map((option, index) => (
-                              <Draggable key={index} draggableId={`upscaleOption-${index}`} index={index}>
-                                {(provided) => (
-                                  <Box
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    display="flex" gap={2} mb={2} alignItems="center"
-                                  >
-                                    <Controller
-                                      name={`upscaleMethodField.options.${index}.key`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="표시명"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <Controller
-                                      name={`upscaleMethodField.options.${index}.value`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="실제 값"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <IconButton
-                                      onClick={() => {
-                                        const current = watch('upscaleMethodField.options') || [];
-                                        setValue('upscaleMethodField.options', current.filter((_, i) => i !== index));
-                                      }}
-                                      color="error"
-                                      size="small"
-                                    >
-                                      <Delete />
-                                    </IconButton>
-                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
-                                      <DragIndicator />
-                                    </Box>
-                                  </Box>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </Box>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 기초 스타일 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box display="flex" alignItems="center" gap={2}>
-                    <Typography variant="h6">기초 스타일</Typography>
-                    <Controller
-                      name="baseStyleField.enabled"
-                      control={control}
-                      render={({ field }) => (
-                        <FormControlLabel
-                          control={<Switch {...field} checked={field.value} />}
-                          label="활성화"
-                        />
-                      )}
-                    />
-                  </Box>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Controller
-                    name="baseStyleField.required"
-                    control={control}
-                    render={({ field }) => (
-                      <FormControlLabel
-                        control={<Switch {...field} checked={field.value} />}
-                        label="필수 선택"
-                      />
-                    )}
-                  />
-                  {/* 형식 문자열 설정 */}
-                  <Box mb={2}>
-                    <Controller
-                      name="baseStyleField.formatString"
-                      control={control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Workflow JSON 형식 문자열"
-                          placeholder="예: {{##base_style##}}"
-                          size="small"
-                          sx={{ fontFamily: 'monospace' }}
-                        />
-                      )}
-                    />
-                    <Typography variant="caption" color="textSecondary">
-                      Workflow JSON에서 이 필드를 대체할 문자열을 설정하세요.
-                    </Typography>
-                  </Box>
-                  <Box mt={2}>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                      <Typography variant="body2">스타일 옵션 (LoRA 설정)</Typography>
-                      <Button
-                        startIcon={<Add />}
-                        onClick={() => {
-                          const current = watch('baseStyleField.options') || [];
-                          setValue('baseStyleField.options', [...current, { key: '', value: '' }]);
-                        }}
-                        size="small"
-                      >
-                        스타일 추가
-                      </Button>
-                    </Box>
-                    <DragDropContext onDragEnd={onDragEnd}>
-                      <Droppable droppableId="baseStyleOptions" type="baseStyleField.options">
-                        {(provided) => (
-                          <Box ref={provided.innerRef} {...provided.droppableProps}>
-                            {watch('baseStyleField.options')?.map((style, index) => (
-                              <Draggable key={index} draggableId={`baseStyleOption-${index}`} index={index}>
-                                {(provided) => (
-                                  <Box
-                                    ref={provided.innerRef}
-                                    {...provided.draggableProps}
-                                    display="flex" gap={2} mb={2} alignItems="center"
-                                  >
-                                    <Controller
-                                      name={`baseStyleField.options.${index}.key`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="스타일명"
-                                          size="small"
-                                          sx={{ flex: 1 }}
-                                        />
-                                      )}
-                                    />
-                                    <Controller
-                                      name={`baseStyleField.options.${index}.value`}
-                                      control={control}
-                                      render={({ field }) => (
-                                        <TextField
-                                          {...field}
-                                          label="LoRA 경로/설정"
-                                          size="small"
-                                          sx={{ flex: 2 }}
-                                        />
-                                      )}
-                                    />
-                                    <IconButton
-                                      onClick={() => {
-                                        const current = watch('baseStyleField.options') || [];
-                                        setValue('baseStyleField.options', current.filter((_, i) => i !== index));
-                                      }}
-                                      color="error"
-                                      size="small"
-                                    >
-                                      <Delete />
-                                    </IconButton>
-                                    <Box {...provided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }}>
-                                      <DragIndicator />
-                                    </Box>
-                                  </Box>
-                                )}
-                              </Draggable>
-                            ))}
-                            {provided.placeholder}
-                          </Box>
-                        )}
-                      </Droppable>
-                    </DragDropContext>
-                  </Box>
-                </AccordionDetails>
-              </Accordion>
-
-              {/* 추가 커스톰 필드 */}
-              <Accordion>
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Typography variant="h6">추가 커스톰 필드</Typography>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                    <Typography variant="body2" color="textSecondary">
-                      사용자 정의 입력 필드를 추가할 수 있습니다.
-                    </Typography>
-                    <Button
-                      startIcon={<Add />}
-                      onClick={() => {
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="body2" color="textSecondary">
+                  작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
+                </Typography>
+                <Button
+                  startIcon={<Add />}
+                  onClick={() => {
                         const current = watch('additionalCustomFields') || [];
                         setValue('additionalCustomFields', [...current, {
                           name: '',
@@ -1157,7 +757,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     <Accordion key={index} sx={{ mb: 2 }}>
                       <AccordionSummary expandIcon={<ExpandMore />}>
                         <Typography>
-                          {field.label || `커스톰 필드 ${index + 1}`}
+                          {field.label || `커스텀 필드 ${index + 1}`}
                         </Typography>
                       </AccordionSummary>
                       <AccordionDetails>
@@ -1187,7 +787,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   {...fieldProps}
                                   fullWidth
                                   label="표시명"
-                                  placeholder="예: 커스톰 옵션"
+                                  placeholder="예: 커스텀 옵션"
                                   size="small"
                                 />
                               )}
@@ -1210,6 +810,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   <MenuItem value="select">선택</MenuItem>
                                   <MenuItem value="boolean">체크박스</MenuItem>
                                   <MenuItem value="image">이미지</MenuItem>
+                                  <MenuItem value="baseModel">베이스 모델</MenuItem>
+                                  <MenuItem value="lora">LoRA</MenuItem>
                                 </TextField>
                               )}
                             />
@@ -1242,6 +844,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                               )}
                             />
                           </Grid>
+                          {(field.type === 'baseModel' || field.type === 'lora') && (
+                            <Grid item xs={12}>
+                              <Alert severity="info" sx={{ mb: 0 }}>
+                                {field.type === 'baseModel'
+                                  ? '베이스 모델 타입 — 사용자는 서버의 모델 목록에서 선택합니다. 작업판의 모델 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'
+                                  : 'LoRA 타입 — 사용자는 서버의 LoRA 목록에서 선택합니다. 작업판의 LoRA 노출 정책 / 화이트리스트 (권한 / 노출 탭) 가 적용됩니다.'}
+                              </Alert>
+                            </Grid>
+                          )}
                           {field.type === 'image' && (
                             <Grid item xs={12}>
                               <Typography variant="body2" gutterBottom>
@@ -1364,9 +975,19 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       </AccordionDetails>
                     </Accordion>
                   ))}
-                </AccordionDetails>
-              </Accordion>
             </Box>
+          )}
+
+          {/* 권한 / 노출 탭 (#198) */}
+          {tabValue === 2 && (
+            <PermissionsAndExposurePanel
+              control={control}
+              isComfyUI={isComfyUI}
+              serverId={watchedServerId}
+              groups={availableGroups}
+              modelExposurePolicyValue={watch('modelExposurePolicy')}
+              loraExposurePolicyValue={watch('loraExposurePolicy')}
+            />
           )}
 
           {/* 워크플로우 탭 - 이미지 타입만 */}
@@ -1434,7 +1055,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     </Box>
                   ) : (
                     <Typography variant="body2" color="textSecondary">
-                      "커스텀 필드" 탭에서 필드를 정의하면 여기에 표시됩니다.
+                      "입력 양식" 탭에서 항목을 정의하면 여기에 표시됩니다.
                     </Typography>
                   )}
 
@@ -1448,33 +1069,76 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               </Accordion>
 
               {isComfyUI && (
-                <Controller
-                  name="workflowData"
-                  control={control}
-                  rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      fullWidth
-                      multiline
-                      rows={20}
-                      label="ComfyUI Workflow JSON"
-                      error={!!errors.workflowData}
-                      helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                      sx={{ fontFamily: 'monospace' }}
+                <>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                      허용 모델 타입 (선택)
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      이 작업판에서 사용 가능한 base 모델 타입을 다중 지정. 비워두면 모든 모델이 표시됩니다. Civitai 미등록 모델 (메타데이터 없음) 은 제약과 무관하게 항상 노출됩니다.
+                    </Typography>
+                    <Controller
+                      name="allowedModelTypes"
+                      control={control}
+                      render={({ field }) => (
+                        <Autocomplete
+                          {...field}
+                          multiple
+                          freeSolo
+                          options={availableBaseModels}
+                          value={field.value || []}
+                          onChange={(_, newValue) => field.onChange(newValue)}
+                          renderTags={(value, getTagProps) =>
+                            value.map((option, index) => (
+                              <Chip
+                                {...getTagProps({ index })}
+                                key={option}
+                                label={option}
+                                size="small"
+                                color="primary"
+                                variant="outlined"
+                              />
+                            ))
+                          }
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              size="small"
+                              placeholder={availableBaseModels.length === 0 ? '서버 모델 sync 후 baseModel 자동 채움' : '예: SDXL, Illustrious, Pony'}
+                            />
+                          )}
+                        />
+                      )}
                     />
-                  )}
-                />
+                  </Box>
+                  <Controller
+                    name="workflowData"
+                    control={control}
+                    rules={{ required: isComfyUI ? 'Workflow JSON을 입력해주세요' : false }}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        multiline
+                        rows={20}
+                        label="ComfyUI Workflow JSON"
+                        error={!!errors.workflowData}
+                        helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
+                        sx={{ fontFamily: 'monospace' }}
+                      />
+                    )}
+                  />
+                </>
               )}
               {isGemini && (
                 <Alert severity="info">
                   Gemini 작업판은 워크플로우 JSON 없이 REST API로 이미지를 생성합니다.
                 </Alert>
               )}
-              {isGptImage && (
+              {isOpenAIImage && (
                 <>
                   <Alert severity="info">
-                    GPT Image 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
+                    OpenAI 이미지 작업판은 워크플로우 JSON 없이 OpenAI Images API로 이미지를 생성합니다.
                   </Alert>
                   <Alert severity="warning" sx={{ mt: 1 }}>
                     <strong>gpt-image-2</strong> 모델은 OpenAI 조직 인증(Verify Organization) 완료 후 약 15분 뒤부터 사용 가능합니다. 인증 페이지: <a href="https://platform.openai.com/settings/organization/general" target="_blank" rel="noopener noreferrer">platform.openai.com/settings/organization/general</a>
@@ -1696,7 +1360,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
             <Alert severity="info" sx={{ mb: 2 }}>
               <Typography variant="subtitle2">작업판 정보</Typography>
               <Typography variant="body2">
-                API: {parsedData.workboard.apiFormat || 'ComfyUI'} / 출력: {parsedData.workboard.outputFormat || 'image'}
+                서버: {parsedData.server?.serverType || '?'} / 출력: {parsedData.workboard.outputFormat || 'image'}
               </Typography>
               {parsedData.server && (
                 <Typography variant="body2">
@@ -2033,25 +1697,17 @@ function WorkboardManagement() {
 
   const handleSave = (data) => {
     if (selectedWorkboard) {
-      // 편집: 기존 apiFormat 유지. data 는 form 에서 온 새 값으로 덮어씀.
-      const normalizedData = { ...data };
-      // 폼이 더 이상 apiFormat 을 노출하지 않으므로 기존 값 보존
-      if (selectedWorkboard.apiFormat && !normalizedData.apiFormat) {
-        normalizedData.apiFormat = selectedWorkboard.apiFormat;
-      }
-      delete normalizedData.serverType; // 폼 내부 헬퍼 필드
+      const { serverType: _omit, ...normalizedData } = data;
       updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
     } else {
-      // 생성: serverType + outputFormat → 템플릿 + legacy apiFormat 파생
+      // 생성: serverType + outputFormat → 템플릿 적용
       const serverType = data.serverType || 'ComfyUI';
       const outputFormat = data.outputFormat || 'image';
       const template = getWorkboardTemplate(serverType, outputFormat);
-      const apiFormat = deriveLegacyApiFormat(serverType, outputFormat);
 
       const { serverType: _omit, ...rest } = data;
       const workboardData = {
         ...rest,
-        apiFormat,
         outputFormat,
         ...template,
       };

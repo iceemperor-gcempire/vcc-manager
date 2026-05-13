@@ -1,20 +1,26 @@
 {
-  "baseInputFields": {
-    "aiModel": [
-      { "key": "GPT Image 2 (조직 인증 필요)", "value": "gpt-image-2" },
-      { "key": "GPT Image 1.5", "value": "gpt-image-1.5" },
-      { "key": "GPT Image 1", "value": "gpt-image-1" },
-      { "key": "GPT Image 1 Mini", "value": "gpt-image-1-mini" }
-    ],
-    "imageSizes": [
-      { "key": "자동 (auto)", "value": "auto" },
-      { "key": "1024x1024", "value": "1024x1024" },
-      { "key": "1024x1536", "value": "1024x1536" },
-      { "key": "1536x1024", "value": "1536x1024" }
-    ],
-    "referenceImageMethods": []
-  },
+  "baseInputFields": {},
   "additionalInputFields": [
+    {
+      "name": "aiModel",
+      "label": "베이스 모델",
+      "type": "baseModel",
+      "required": true,
+      "description": "서버의 모델 목록에서 선택. 작업판의 모델 노출 정책이 적용됩니다."
+    },
+    {
+      "name": "imageSize",
+      "label": "이미지 크기",
+      "type": "select",
+      "required": true,
+      "defaultValue": "auto",
+      "options": [
+        { "key": "자동 (auto)", "value": "auto" },
+        { "key": "1024x1024", "value": "1024x1024" },
+        { "key": "1024x1536", "value": "1024x1536" },
+        { "key": "1536x1024", "value": "1536x1024" }
+      ]
+    },
     {
       "name": "quality",
       "label": "품질",

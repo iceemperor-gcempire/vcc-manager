@@ -29,6 +29,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI } from '../services/api';
+import MetadataFieldInput from './common/MetadataFieldInput';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -157,12 +158,7 @@ function PromptGeneratorPanel({
 
   const workboard = externalWorkboard || workboardData?.data?.workboard;
 
-  useEffect(() => {
-    if (workboard?.baseInputFields?.aiModel?.length > 0) {
-      const defaultModel = workboard.baseInputFields.aiModel[0].value;
-      setValue('model', defaultModel);
-    }
-  }, [workboard, setValue]);
+  // F2: baseInputFields.aiModel 기반 기본값 제거 — customField 의 defaultValue 만 사용
 
   useEffect(() => {
     if (onResultChange) {
@@ -275,39 +271,7 @@ function PromptGeneratorPanel({
                 </Typography>
               )}
 
-              <Controller
-                name="model"
-                control={control}
-                rules={{ required: 'AI 모델을 선택해주세요' }}
-                render={({ field }) => (
-                  <FormControl fullWidth sx={{ mb: 2 }} error={!!errors.model} size={compact ? 'small' : 'medium'}>
-                    <InputLabel>AI 모델</InputLabel>
-                    <Select {...field} label="AI 모델">
-                      {workboard.baseInputFields?.aiModel?.map((model) => (
-                        <MenuItem key={model.value} value={model.value}>
-                          {model.key}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                )}
-              />
-
-              {workboard.baseInputFields?.referenceImages?.map((refImage) => (
-                <Box key={refImage.key} sx={{ mb: 2 }}>
-                  <ImageUploadField
-                    label={refImage.key}
-                    description={refImage.value}
-                    images={referenceImages[refImage.key] || []}
-                    onImagesChange={(images) => setReferenceImages(prev => ({
-                      ...prev,
-                      [refImage.key]: images
-                    }))}
-                    maxImages={3}
-                  />
-                </Box>
-              ))}
-
+              {/* F2: baseInputFields.aiModel / referenceImages hardcoded UI 제거 — customField 가 통합 처리 */}
               {workboard.additionalInputFields?.map((field) => (
                 <Box key={field.name} sx={{ mb: 2 }}>
                   {field.type === 'string' && (
@@ -346,6 +310,23 @@ function PromptGeneratorPanel({
                             ))}
                           </Select>
                         </FormControl>
+                      )}
+                    />
+                  )}
+                  {(field.type === 'baseModel' || field.type === 'lora') && (
+                    <Controller
+                      name={field.name}
+                      control={control}
+                      rules={{ required: field.required ? `${field.label}을(를) 선택해주세요` : false }}
+                      render={({ field: formField }) => (
+                        <MetadataFieldInput
+                          kind={field.type === 'baseModel' ? 'model' : 'lora'}
+                          field={field}
+                          value={formField.value || ''}
+                          onChange={formField.onChange}
+                          workboardId={workboard._id}
+                          serverId={workboard?.serverId?._id || workboard?.serverId}
+                        />
                       )}
                     />
                   )}
@@ -451,26 +432,7 @@ function PromptGeneratorPanel({
               )}
             </Paper>
 
-            {showSystemPrompt && workboard.baseInputFields?.systemPrompt && (
-              <Paper sx={{ p: compact ? 2 : 3, mt: 2 }} elevation={compact ? 0 : 1}>
-                <Typography variant="subtitle2" gutterBottom>
-                  시스템 프롬프트
-                </Typography>
-                <Typography
-                  variant="body2"
-                  color="textSecondary"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    maxHeight: compact ? 80 : 150,
-                    overflow: 'auto',
-                    bgcolor: 'grey.100',
-                    p: 1,
-                    borderRadius: 1
-                  }}
-                >
-                  {workboard.baseInputFields.systemPrompt}
-                </Typography>
-              </Paper>
+            {/* F2: systemPrompt 표시 제거 — customField 로 통합 (admin 이 systemPrompt 필드 정의 시 폼에서 직접 보임) */}
             )}
           </Grid>
         </Grid>
