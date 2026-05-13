@@ -282,7 +282,12 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
       });
     });
   } catch (error) {
-    throw new Error(`Failed to submit workflow: ${error.message}`);
+    // ComfyUI 응답 본문 로깅 — 400 등 에러 시 root cause (validation 메시지 / node mismatch 등) 보존
+    const respBody = error.response?.data ? JSON.stringify(error.response.data).substring(0, 1500) : '';
+    if (respBody) {
+      console.error('❌ ComfyUI 응답 본문:', respBody);
+    }
+    throw new Error(`Failed to submit workflow: ${error.message}${respBody ? ` | body: ${respBody}` : ''}`);
   }
 };
 
