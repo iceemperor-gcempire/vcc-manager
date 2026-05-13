@@ -22,8 +22,6 @@ router.post('/generate', requireAuth, async (req, res) => {
       workboardId,
       prompt,
       negativePrompt,
-      aiModel,
-      imageSize,
       referenceImages,
       referenceImageMethod,
       stylePreset,
@@ -33,7 +31,13 @@ router.post('/generate', requireAuth, async (req, res) => {
       randomSeed,
       tags
     } = req.body;
-    
+
+    // #199 F2 이후 사용자 페이지는 aiModel / imageSize 등을 additionalParams 네임스페이스로 전송.
+    // legacy top-level 도 backward-compat 으로 받아 hoist.
+    const ap = additionalParams || {};
+    const aiModel = req.body.aiModel || ap.aiModel;
+    const imageSize = req.body.imageSize || ap.imageSize;
+
     console.log('🔍 Extracted fields:', {
       workboardId,
       prompt: prompt?.substring(0, 50) + '...',
@@ -41,9 +45,9 @@ router.post('/generate', requireAuth, async (req, res) => {
       imageSize,
       seed,
       randomSeed,
-      additionalParamsKeys: additionalParams ? Object.keys(additionalParams) : []
+      additionalParamsKeys: Object.keys(ap)
     });
-    
+
     if (!workboardId || !prompt || !aiModel) {
       console.error('❌ Missing required fields:', { workboardId: !!workboardId, prompt: !!prompt, aiModel: !!aiModel });
       return res.status(400).json({
