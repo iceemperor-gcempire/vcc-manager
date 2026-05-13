@@ -60,15 +60,25 @@ const LEGACY_BASE_FIELD_TO_ROLE = Object.freeze({
 // 서비스 코드 fallback 및 Phase C 의 additionalInputFields role 자동 부여 마이그레이션에서 사용.
 const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
   ...LEGACY_BASE_FIELD_TO_ROLE,
+  // camelCase (v1.x ~ v2.0.0)
   prompt: FIELD_ROLES.PROMPT,
   negativePrompt: FIELD_ROLES.NEGATIVE_PROMPT,
   seed: FIELD_ROLES.SEED,
-  // 신규 템플릿 (Phase F1) 는 단수형 이름 사용 — legacy plural 과 동등.
   imageSize: FIELD_ROLES.IMAGE_SIZE,
   referenceImageMethod: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
   stylePreset: FIELD_ROLES.STYLE_PRESET,
   upscaleMethod: FIELD_ROLES.UPSCALE_METHOD,
-  referenceImage: FIELD_ROLES.REFERENCE_IMAGE
+  referenceImage: FIELD_ROLES.REFERENCE_IMAGE,
+  // snake_case (v2.0.2+ 컨벤션 — ComfyUI workflow placeholder 와 일관)
+  base_model: FIELD_ROLES.MODEL,
+  negative_prompt: FIELD_ROLES.NEGATIVE_PROMPT,
+  system_prompt: FIELD_ROLES.SYSTEM_PROMPT,
+  image_size: FIELD_ROLES.IMAGE_SIZE,
+  reference_image: FIELD_ROLES.REFERENCE_IMAGE,
+  reference_image_method: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
+  style_preset: FIELD_ROLES.STYLE_PRESET,
+  upscale_method: FIELD_ROLES.UPSCALE_METHOD,
+  max_tokens: FIELD_ROLES.MAX_TOKENS
 });
 
 module.exports = {
