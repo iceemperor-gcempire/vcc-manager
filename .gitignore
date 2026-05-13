@@ -143,3 +143,6 @@ uploads/generated/*
 
 # PM2
 ecosystem.config.js
+
+# pnpm content-addressable store (생성 환경 노드 22+ 의 host pnpm 실행 시 생성)
+.pnpm-store/
