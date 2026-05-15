@@ -595,7 +595,8 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   const replacements = {
     '{{##prompt##}}': { value: promptValue, type: 'string' },
     '{{##negative_prompt##}}': { value: negativePromptValue, type: 'string' },
-    '{{##model##}}': { value: extractValue(modelValue), type: 'string' },
+    '{{##model##}}': { value: extractValue(modelValue), type: 'string' },          // legacy alias
+    '{{##base_model##}}': { value: extractValue(modelValue), type: 'string' },     // snake_case canonical (v2.0.6+)
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
     '{{##seed##}}': { value: seedValue, type: 'number' },
