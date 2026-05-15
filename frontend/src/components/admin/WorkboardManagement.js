@@ -1034,7 +1034,17 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                         <Typography variant="subtitle2" fontWeight="bold" gutterBottom>{catLabel}</Typography>
                         <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
                           <tbody>
-                            {vars.map((v) => renderVariableRow(v.key, `${v.label} (${formatValueType(v.valueType, v.defaultValue)})`))}
+                            {vars.map((v) => renderVariableRow(
+                              v.key,
+                              <Box>
+                                {v.label} ({formatValueType(v.valueType, v.defaultValue)})
+                                {v.note && (
+                                  <Typography variant="caption" color="text.secondary" display="block">
+                                    {v.note}
+                                  </Typography>
+                                )}
+                              </Box>
+                            ))}
                           </tbody>
                         </Box>
                       </React.Fragment>
