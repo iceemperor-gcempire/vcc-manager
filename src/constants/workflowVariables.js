@@ -9,8 +9,8 @@ const BUILTIN_WORKFLOW_VARIABLES = Object.freeze([
   { key: '{{##prompt##}}', label: '프롬프트', valueType: 'string', category: 'basic' },
   { key: '{{##negative_prompt##}}', label: '네거티브 프롬프트', valueType: 'string', category: 'basic' },
   { key: '{{##base_model##}}', label: '베이스 모델 (filename / model id)', valueType: 'string', category: 'basic' },
-  { key: '{{##width##}}', label: '이미지 너비', valueType: 'number', category: 'basic' },
-  { key: '{{##height##}}', label: '이미지 높이', valueType: 'number', category: 'basic' },
+  { key: '{{##width##}}', label: '이미지 너비', valueType: 'number', category: 'basic', note: 'image_size 의 \"WxH\" 값에서 자동 추출 (기본 512)' },
+  { key: '{{##height##}}', label: '이미지 높이', valueType: 'number', category: 'basic', note: 'image_size 의 \"WxH\" 값에서 자동 추출 (기본 512)' },
   { key: '{{##seed##}}', label: '시드값 (64비트 UInt)', valueType: 'number', category: 'basic' },
 
   // 추가

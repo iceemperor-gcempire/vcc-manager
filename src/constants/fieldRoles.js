@@ -55,30 +55,22 @@ const LEGACY_BASE_FIELD_TO_ROLE = Object.freeze({
   maxTokens: FIELD_ROLES.MAX_TOKENS
 });
 
-// well-known 필드 이름 → role 매핑 (superset).
-// LEGACY_BASE_FIELD_TO_ROLE 의 baseInputFields 키 + additionalInputFields 에서 자주 쓰이는 이름.
-// 서비스 코드 fallback 및 Phase C 의 additionalInputFields role 자동 부여 마이그레이션에서 사용.
+// well-known 필드 이름 → role 매핑 — snake_case 단일 컨벤션 (v2.1.1+).
+// 서비스 코드 fallback 에서 customField 이름이 well-known 인 경우 자동으로 role 인식.
+// LEGACY_BASE_FIELD_TO_ROLE 는 마이그레이션 전용으로 분리 — 신규 런타임 lookup 에는 미사용.
 const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
-  ...LEGACY_BASE_FIELD_TO_ROLE,
-  // camelCase (v1.x ~ v2.0.0)
   prompt: FIELD_ROLES.PROMPT,
-  negativePrompt: FIELD_ROLES.NEGATIVE_PROMPT,
-  seed: FIELD_ROLES.SEED,
-  imageSize: FIELD_ROLES.IMAGE_SIZE,
-  referenceImageMethod: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
-  stylePreset: FIELD_ROLES.STYLE_PRESET,
-  upscaleMethod: FIELD_ROLES.UPSCALE_METHOD,
-  referenceImage: FIELD_ROLES.REFERENCE_IMAGE,
-  // snake_case (v2.0.2+ 컨벤션 — ComfyUI workflow placeholder 와 일관)
-  base_model: FIELD_ROLES.MODEL,
   negative_prompt: FIELD_ROLES.NEGATIVE_PROMPT,
+  base_model: FIELD_ROLES.MODEL,
   system_prompt: FIELD_ROLES.SYSTEM_PROMPT,
   image_size: FIELD_ROLES.IMAGE_SIZE,
+  seed: FIELD_ROLES.SEED,
+  temperature: FIELD_ROLES.TEMPERATURE,
+  max_tokens: FIELD_ROLES.MAX_TOKENS,
   reference_image: FIELD_ROLES.REFERENCE_IMAGE,
   reference_image_method: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
   style_preset: FIELD_ROLES.STYLE_PRESET,
-  upscale_method: FIELD_ROLES.UPSCALE_METHOD,
-  max_tokens: FIELD_ROLES.MAX_TOKENS
+  upscale_method: FIELD_ROLES.UPSCALE_METHOD
 });
 
 module.exports = {
