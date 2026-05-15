@@ -592,11 +592,12 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   const modelValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL);
   const referenceMethodValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.REFERENCE_IMAGE_METHOD);
 
+  // placeholder 키 정의는 src/constants/workflowVariables.js 와 frontend mirror 에 등록.
+  // 신규 placeholder 추가 시 세 곳 모두 갱신 필요.
   const replacements = {
     '{{##prompt##}}': { value: promptValue, type: 'string' },
     '{{##negative_prompt##}}': { value: negativePromptValue, type: 'string' },
-    '{{##model##}}': { value: extractValue(modelValue), type: 'string' },          // legacy alias
-    '{{##base_model##}}': { value: extractValue(modelValue), type: 'string' },     // snake_case canonical (v2.0.6+)
+    '{{##base_model##}}': { value: extractValue(modelValue), type: 'string' },
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
     '{{##seed##}}': { value: seedValue, type: 'number' },
@@ -606,7 +607,6 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     '{{##scheduler##}}': { value: inputData.additionalParams?.scheduler || 'normal', type: 'string' },
     '{{##reference_method##}}': { value: extractValue(referenceMethodValue), type: 'string' },
     '{{##upscale_method##}}': { value: upscaleMethodValue, type: 'string' },
-    '{{##upscale##}}': { value: upscaleMethodValue, type: 'string' },  // 별칭 추가
     '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' },
     '{{##user_id##}}': { value: hashedUserId, type: 'string' }
   };

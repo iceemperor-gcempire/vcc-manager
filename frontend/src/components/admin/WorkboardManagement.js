@@ -58,6 +58,7 @@ import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import MetadataPickerModal from '../common/MetadataPickerModal';
 import { getWorkboardTemplate } from '../../templates';
+import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
 import {
   getServerTypeLabel,
   getOutputFormatLabel,
@@ -1025,38 +1026,20 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     아래 변수들을 워크플로우 JSON에서 사용할 수 있습니다. 변수는 작업 실행 시 실제 값으로 치환됩니다.
                   </Typography>
 
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>기본 변수</Typography>
-                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
-                    <tbody>
-                      {renderVariableRow('{{##prompt##}}', '프롬프트 (문자열)')}
-                      {renderVariableRow('{{##negative_prompt##}}', '네거티브 프롬프트 (문자열)')}
-                      {renderVariableRow('{{##model##}}', 'AI 모델 (문자열)')}
-                      {renderVariableRow('{{##width##}}', '이미지 너비 (숫자)')}
-                      {renderVariableRow('{{##height##}}', '이미지 높이 (숫자)')}
-                      {renderVariableRow('{{##seed##}}', '시드값 (숫자, 64비트)')}
-                    </tbody>
-                  </Box>
-
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>샘플링 파라미터</Typography>
-                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
-                    <tbody>
-                      {renderVariableRow('{{##steps##}}', '스텝 수 (숫자, 기본값: 20)')}
-                      {renderVariableRow('{{##cfg##}}', 'CFG 스케일 (숫자, 기본값: 7)')}
-                      {renderVariableRow('{{##sampler##}}', '샘플러 (문자열, 기본값: euler)')}
-                      {renderVariableRow('{{##scheduler##}}', '스케줄러 (문자열, 기본값: normal)')}
-                    </tbody>
-                  </Box>
-
-                  <Typography variant="subtitle2" fontWeight="bold" gutterBottom>추가 기능</Typography>
-                  <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
-                    <tbody>
-                      {renderVariableRow('{{##reference_method##}}', '참조 이미지 방식 (문자열)')}
-                      {renderVariableRow('{{##upscale_method##}}', '업스케일 방식 (문자열)')}
-                      {renderVariableRow('{{##upscale##}}', '업스케일 방식 별칭 (문자열)')}
-                      {renderVariableRow('{{##base_style##}}', '기본 스타일 (문자열)')}
-                      {renderVariableRow('{{##user_id##}}', '사용자 ID 해시 (문자열, 8자리)')}
-                    </tbody>
-                  </Box>
+                  {Object.entries(WORKFLOW_VARIABLE_CATEGORIES).map(([catKey, catLabel]) => {
+                    const vars = BUILTIN_WORKFLOW_VARIABLES.filter((v) => v.category === catKey);
+                    if (vars.length === 0) return null;
+                    return (
+                      <React.Fragment key={catKey}>
+                        <Typography variant="subtitle2" fontWeight="bold" gutterBottom>{catLabel}</Typography>
+                        <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                          <tbody>
+                            {vars.map((v) => renderVariableRow(v.key, `${v.label} (${formatValueType(v.valueType, v.defaultValue)})`))}
+                          </tbody>
+                        </Box>
+                      </React.Fragment>
+                    );
+                  })}
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>사용자 정의 변수</Typography>
                   {watch('additionalCustomFields')?.length > 0 ? (
