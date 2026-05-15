@@ -753,13 +753,25 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       필드 추가
                     </Button>
                   </Box>
+                  <DragDropContext onDragEnd={onDragEnd}>
+                    <Droppable droppableId="additionalCustomFields" type="additionalCustomFields">
+                      {(droppableProvided) => (
+                        <Box ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
                   {watch('additionalCustomFields')?.map((field, index) => (
-                    <Accordion key={index} sx={{ mb: 2 }}>
-                      <AccordionSummary expandIcon={<ExpandMore />}>
-                        <Typography>
-                          {field.label || `커스텀 필드 ${index + 1}`}
-                        </Typography>
-                      </AccordionSummary>
+                    <Draggable key={index} draggableId={`customField-${index}`} index={index}>
+                      {(draggableProvided) => (
+                        <Box ref={draggableProvided.innerRef} {...draggableProvided.draggableProps}>
+                          <Accordion sx={{ mb: 2 }}>
+                            <AccordionSummary expandIcon={<ExpandMore />}>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                                <Box {...draggableProvided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }} onClick={(e) => e.stopPropagation()}>
+                                  <DragIndicator />
+                                </Box>
+                                <Typography>
+                                  {field.label || `커스텀 필드 ${index + 1}`}
+                                </Typography>
+                              </Box>
+                            </AccordionSummary>
                       <AccordionDetails>
                         <Grid container spacing={2}>
                           <Grid item xs={6}>
@@ -973,8 +985,16 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           </Grid>
                         </Grid>
                       </AccordionDetails>
-                    </Accordion>
+                          </Accordion>
+                        </Box>
+                      )}
+                    </Draggable>
                   ))}
+                          {droppableProvided.placeholder}
+                        </Box>
+                      )}
+                    </Droppable>
+                  </DragDropContext>
             </Box>
           )}
 
