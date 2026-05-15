@@ -13,12 +13,6 @@ const BUILTIN_WORKFLOW_VARIABLES = Object.freeze([
   { key: '{{##height##}}', label: '이미지 높이', valueType: 'number', category: 'basic' },
   { key: '{{##seed##}}', label: '시드값 (64비트 UInt)', valueType: 'number', category: 'basic' },
 
-  // 샘플링 (additionalParams 에서 가져옴, 기본값 있음)
-  { key: '{{##steps##}}', label: '스텝 수', valueType: 'number', category: 'sampling', defaultValue: 20 },
-  { key: '{{##cfg##}}', label: 'CFG 스케일', valueType: 'number', category: 'sampling', defaultValue: 7 },
-  { key: '{{##sampler##}}', label: '샘플러', valueType: 'string', category: 'sampling', defaultValue: 'euler' },
-  { key: '{{##scheduler##}}', label: '스케줄러', valueType: 'string', category: 'sampling', defaultValue: 'normal' },
-
   // 추가
   { key: '{{##reference_method##}}', label: '참조 이미지 방식', valueType: 'string', category: 'extra' },
   { key: '{{##upscale_method##}}', label: '업스케일 방식', valueType: 'string', category: 'extra' },
@@ -30,7 +24,6 @@ const WORKFLOW_VARIABLE_KEYS = Object.freeze(BUILTIN_WORKFLOW_VARIABLES.map((v) 
 
 const WORKFLOW_VARIABLE_CATEGORIES = Object.freeze({
   basic: '기본 변수',
-  sampling: '샘플링 파라미터',
   extra: '추가 기능'
 });
 
