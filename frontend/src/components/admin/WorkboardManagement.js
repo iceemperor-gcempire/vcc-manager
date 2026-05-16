@@ -235,7 +235,7 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
 // 화이트리스트 필드 — Autocomplete (수동 입력) + picker 모달 (서버 모델/LoRA 선택).
 // ComfyUI 서버에서만 picker 표시. picker 는 multi-add 모드 — 카드 클릭마다 한 건씩 추가됨.
-function WhitelistField({ name, control, kind, serverId, placeholder, showPicker }) {
+function WhitelistField({ name, control, kind, serverId, outputFormat, placeholder, showPicker = true }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <Controller
@@ -293,6 +293,7 @@ function WhitelistField({ name, control, kind, serverId, placeholder, showPicker
                 open={pickerOpen}
                 onClose={() => setPickerOpen(false)}
                 serverId={serverId}
+                outputFormat={outputFormat}
                 isAdmin
                 mode="multi-add"
                 onPrimary={handleAdd}
@@ -306,7 +307,7 @@ function WhitelistField({ name, control, kind, serverId, placeholder, showPicker
 }
 
 // 권한 / 노출 정책 panel (#198) — 작업판 admin 폼의 한 탭으로 사용.
-function PermissionsAndExposurePanel({ control, isComfyUI, serverId, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
+function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputFormat, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
   return (
     <Box>
       {/* 접근 그룹 */}
@@ -384,16 +385,16 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, groups, mod
           {modelExposurePolicyValue === 'whitelist' && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                노출할 모델 식별자 (ComfyUI=파일 경로, OpenAI/Gemini=모델 ID)
-                {isComfyUI && ' · "선택" 으로 서버에서 직접 추가'}
+                노출할 모델 식별자 (ComfyUI=파일 경로, OpenAI/Gemini=모델 ID) · "선택" 으로 서버에서 직접 추가
               </Typography>
               <WhitelistField
                 name="modelWhitelist"
                 control={control}
                 kind="model"
                 serverId={serverId}
+                outputFormat={outputFormat}
                 placeholder="예: SDXL/illustrious_v6.safetensors"
-                showPicker={isComfyUI}
+                showPicker
               />
             </Box>
           )}
@@ -1005,6 +1006,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               control={control}
               isComfyUI={isComfyUI}
               serverId={watchedServerId}
+              outputFormat={watch('outputFormat')}
               groups={availableGroups}
               modelExposurePolicyValue={watch('modelExposurePolicy')}
               loraExposurePolicyValue={watch('loraExposurePolicy')}

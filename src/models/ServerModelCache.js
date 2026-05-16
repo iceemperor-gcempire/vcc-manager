@@ -54,6 +54,9 @@ const modelItemSchema = new mongoose.Schema({
     name: String,
     description: String,
     capabilities: [String],
+    // 모델이 지원하는 outputFormat (#354). image / text / video / embedding / audio
+    // 추론 실패 시 빈 배열 — 필터에서 fallback 으로 노출
+    outputFormats: [String],
     contextWindow: Number,
     fetchedAt: Date,
     error: String
