@@ -27,6 +27,22 @@ export function civitaiThumbnailUrl(url, width = 300) {
   return url.replace(/\/original=true\//, `/width=${width}/`);
 }
 
+// Civitai 비디오 URL → 첫 프레임 정지 이미지 (poster 용).
+// `/anim=false,width=N/` transform segment 로 치환. 비-Civitai URL 은 null 반환.
+// (#321) 비디오 썸네일 hover 전 백색 화면 방지.
+export function civitaiVideoPosterUrl(url, width = 300) {
+  if (!url || typeof url !== 'string') return null;
+  if (!url.includes('image.civitai.com')) return null;
+  if (/\/anim=false/.test(url)) return url;
+  if (/\/original=true\//.test(url)) {
+    return url.replace(/\/original=true\//, `/anim=false,width=${width}/`);
+  }
+  if (/\/width=\d+\//.test(url)) {
+    return url.replace(/\/width=\d+\//, `/anim=false,width=${width}/`);
+  }
+  return null;
+}
+
 function MetadataMediaThumbnail({ image, alt, height, width, sx }) {
   const videoRef = useRef(null);
 
@@ -38,11 +54,13 @@ function MetadataMediaThumbnail({ image, alt, height, width, sx }) {
   const optimizedUrl = isVideoMedia(image) ? image.url : civitaiThumbnailUrl(image.url, targetWidth);
 
   if (isVideoMedia(image)) {
+    const posterUrl = civitaiVideoPosterUrl(image.url, targetWidth);
     return (
       <Box
         component="video"
         ref={videoRef}
         src={optimizedUrl}
+        poster={posterUrl || undefined}
         muted
         loop
         playsInline
