@@ -1034,6 +1034,7 @@ function ImageGeneration() {
                               onChange={formField.onChange}
                               workboardId={id}
                               serverId={workboardData?.serverId?._id || workboardData?.serverId}
+                              allowedModelTypes={field.type === 'baseModel' ? workboardData?.allowedModelTypes : undefined}
                             />
                           ) : (
                             <TextField

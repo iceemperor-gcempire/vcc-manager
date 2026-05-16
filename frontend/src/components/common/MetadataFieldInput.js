@@ -13,7 +13,7 @@ import MetadataPickerModal from './MetadataPickerModal';
 // 다른 customField (select / number / string) 와 동일하게 TextField 의 floating label 사용해 디자인 통일.
 // 표시는 Civitai 모델 이름 (있으면) 또는 파일 basename — 경로는 tooltip / helperText.
 // 내부 form value 는 그대로 filename (workflow injection 용).
-function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverId }) {
+function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverId, allowedModelTypes }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [displayValue, setDisplayValue] = useState('');
@@ -71,6 +71,7 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
         onClose={() => setPickerOpen(false)}
         workboardId={workboardId}
         serverId={serverId}
+        allowedModelTypes={allowedModelTypes}
         mode="select-single"
         selectedItem={value}
         onPrimary={(rawItem) => {
