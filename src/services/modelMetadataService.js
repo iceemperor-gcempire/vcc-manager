@@ -69,6 +69,31 @@ const checkVccFileHashNodeAvailable = async (serverUrl) => {
 };
 
 /**
+ * ComfyUI folder_paths 의 특정 folder_type 캐시 강제 갱신 요청.
+ * vcc-file-hash 노드 v3.1+ 의 \`POST /api/vcc/file-hash/refresh/{folder_type}\` 사용.
+ * 노드가 구 버전이면 endpoint 가 없어 404 — silently 무시 (#349).
+ */
+const refreshFolderCache = async (serverUrl, folderType) => {
+  try {
+    const response = await axios.post(
+      `${serverUrl}/api/vcc/file-hash/refresh/${folderType}`,
+      null,
+      { timeout: 10000 }
+    );
+    if (response.data?.success) {
+      console.log(`[ModelSync] folder_paths cache refreshed for ${folderType} (${response.data.count} files)`);
+      return true;
+    }
+  } catch (error) {
+    // 404 (endpoint 없음) 은 정상적인 fallback. 다른 에러는 로깅만.
+    if (error.response?.status !== 404) {
+      console.warn(`[ModelSync] folder refresh failed for ${folderType}: ${error.message}`);
+    }
+  }
+  return false;
+};
+
+/**
  * 단일 checkpoint 파일의 SHA256 해시 조회.
  * 신규 노드 (file-hash/checkpoints/{filename}) 사용. 구 노드는 checkpoint 미지원.
  */
@@ -313,6 +338,9 @@ const syncServerCheckpoints = async (serverId, serverUrl, { progressCallback = n
 
     if (progressCallback) progressCallback('fetching_list', 0, 0);
     await cache.updateProgress(0, 0, 'fetching_list');
+
+    // ComfyUI folder_paths 캐시 강제 갱신 (삭제된 파일 즉시 반영, #349)
+    await refreshFolderCache(serverUrl, 'checkpoints');
 
     const filenames = await getCheckpointFilenames(serverUrl);
     console.log(`[ModelSync] Got ${filenames.length} checkpoints from ComfyUI`);
