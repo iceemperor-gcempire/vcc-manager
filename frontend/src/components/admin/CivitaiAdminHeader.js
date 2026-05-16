@@ -92,13 +92,13 @@ function CivitaiAdminHeader({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      {/* 1행: 서버 + Civitai API 키 */}
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={2}
         alignItems={{ md: 'center' }}
         sx={{ flexWrap: 'wrap' }}
       >
-        {/* 서버 선택기 */}
         <FormControl size="small" sx={{ minWidth: 220 }}>
           <InputLabel>서버</InputLabel>
           <Select
@@ -120,7 +120,29 @@ function CivitaiAdminHeader({
           </Select>
         </FormControl>
 
-        {/* NSFW 이미지 토글 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <KeyIcon color="action" fontSize="small" />
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            Civitai API 키:
+          </Typography>
+          {hasCivitaiApiKey ? (
+            <Chip label="등록됨" color="success" size="small" variant="outlined" />
+          ) : (
+            <Chip label="미등록" size="small" variant="outlined" />
+          )}
+          <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
+            {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
+          </Button>
+        </Box>
+      </Stack>
+
+      {/* 2행: NSFW 토글들 */}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{ mt: 1, flexWrap: 'wrap' }}
+      >
         <FormControlLabel
           control={
             <Switch
@@ -137,7 +159,6 @@ function CivitaiAdminHeader({
           }
         />
 
-        {/* NSFW 모델 토글 — 베이스 모델 / LoRA 양쪽 동시 적용 (#339) */}
         <FormControlLabel
           control={
             <Switch
@@ -153,22 +174,6 @@ function CivitaiAdminHeader({
             </Box>
           }
         />
-
-        {/* API 키 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <KeyIcon color="action" fontSize="small" />
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            Civitai API 키:
-          </Typography>
-          {hasCivitaiApiKey ? (
-            <Chip label="등록됨" color="success" size="small" variant="outlined" />
-          ) : (
-            <Chip label="미등록" size="small" variant="outlined" />
-          )}
-          <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
-            {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
-          </Button>
-        </Box>
       </Stack>
 
       {showApiKeyInput && (
