@@ -22,12 +22,17 @@ import {
   MenuItem,
   InputLabel,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  ToggleButton,
+  ToggleButtonGroup
 } from '@mui/material';
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  ViewModule as GridViewIcon,
+  ViewList as ListViewIcon,
+  ViewStream as ImageListIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
@@ -36,7 +41,10 @@ import Pagination from './Pagination';
 import MetadataItemCard from './MetadataItemCard';
 import MetadataItemGrid from './MetadataItemGrid';
 import MetadataDetailDialog from './MetadataDetailDialog';
+import MetadataImageListItem from '../admin/MetadataImageListItem';
 import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
+
+const VIEW_MODE_KEY_PREFIX = 'vcc.picker.viewMode.';
 
 // ─── Per-kind API adapters ────────────────────────────────────────
 // kind 별 fetch / sync / status / normalize / 응답 필드명을 한 곳에서 관리.
@@ -147,6 +155,11 @@ function MetadataPickerModal({
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [detailItem, setDetailItem] = useState(null);
+
+  // view mode 는 kind 별 localStorage 영속화 (#346)
+  const viewModeKey = `${VIEW_MODE_KEY_PREFIX}${kind}`;
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem(viewModeKey) || 'grid');
+  useEffect(() => { localStorage.setItem(viewModeKey, viewMode); }, [viewModeKey, viewMode]);
 
   const queryClient = useQueryClient();
 
@@ -334,6 +347,22 @@ function MetadataPickerModal({
               </Select>
             </FormControl>
           )}
+          <ToggleButtonGroup
+            value={viewMode}
+            exclusive
+            onChange={(_, v) => v && setViewMode(v)}
+            size="small"
+          >
+            <ToggleButton value="grid" title="이미지 그리드">
+              <GridViewIcon />
+            </ToggleButton>
+            <ToggleButton value="image-list" title="이미지 리스트">
+              <ImageListIcon />
+            </ToggleButton>
+            <ToggleButton value="list" title="텍스트 리스트">
+              <ListViewIcon />
+            </ToggleButton>
+          </ToggleButtonGroup>
           {serverId && (
             <Tooltip title={isAdmin ? `${adapter.label} 메타데이터 동기화` : `${adapter.label} 메타데이터 동기화 (관리자만)`}>
               <span>
@@ -458,27 +487,106 @@ function MetadataPickerModal({
           </Box>
         ) : (
           <>
-            <MetadataItemGrid
-              items={filteredItems}
-              getKey={(rawItem, index) => rawItem.filename || index}
-              renderItem={(rawItem) => {
-                const item = adapter.normalize(rawItem);
-                if (!item) return null;
-                return (
-                  <MetadataItemCard
-                    item={item}
-                    selected={selectedItem === item.filename}
-                    onDetailClick={() => setDetailItem(item)}
-                    onPrimary={() => handlePrimary(rawItem)}
-                    primaryVariant={cardPrimaryVariant}
-                    cardClickable={cardClickable}
-                    onTrainedWordClick={onTrainedWordClick ? (word) => onTrainedWordClick(word, rawItem) : undefined}
-                    trainedWordInsertMode={mode === 'prompt-insert'}
-                    nsfwImageFilter={nsfwImageFilter}
-                  />
-                );
-              }}
-            />
+            {viewMode === 'grid' && (
+              <MetadataItemGrid
+                items={filteredItems}
+                getKey={(rawItem, index) => rawItem.filename || index}
+                renderItem={(rawItem) => {
+                  const item = adapter.normalize(rawItem);
+                  if (!item) return null;
+                  return (
+                    <MetadataItemCard
+                      item={item}
+                      selected={selectedItem === item.filename}
+                      onDetailClick={() => setDetailItem(item)}
+                      onPrimary={() => handlePrimary(rawItem)}
+                      primaryVariant={cardPrimaryVariant}
+                      cardClickable={cardClickable}
+                      onTrainedWordClick={onTrainedWordClick ? (word) => onTrainedWordClick(word, rawItem) : undefined}
+                      trainedWordInsertMode={mode === 'prompt-insert'}
+                      nsfwImageFilter={nsfwImageFilter}
+                    />
+                  );
+                }}
+              />
+            )}
+
+            {viewMode === 'image-list' && (
+              <Box>
+                {filteredItems.map((rawItem, idx) => {
+                  const item = adapter.normalize(rawItem);
+                  if (!item) return null;
+                  return (
+                    <MetadataImageListItem
+                      key={rawItem?.filename || idx}
+                      item={item}
+                      selected={selectedItem === item.filename}
+                      onDetailClick={() => setDetailItem(item)}
+                      onPrimary={() => handlePrimary(rawItem)}
+                      primaryVariant={cardPrimaryVariant}
+                      cardClickable={cardClickable}
+                      onTrainedWordClick={onTrainedWordClick ? (word) => onTrainedWordClick(word, rawItem) : undefined}
+                      trainedWordInsertMode={mode === 'prompt-insert'}
+                      nsfwImageFilter={nsfwImageFilter}
+                    />
+                  );
+                })}
+              </Box>
+            )}
+
+            {viewMode === 'list' && (
+              <Box>
+                {filteredItems.map((rawItem, idx) => {
+                  const item = adapter.normalize(rawItem);
+                  if (!item) return null;
+                  const isSelected = selectedItem === item.filename;
+                  return (
+                    <Box
+                      key={rawItem?.filename || idx}
+                      onClick={cardClickable ? () => handlePrimary(rawItem) : undefined}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 1,
+                        py: 1,
+                        px: 1.5,
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        cursor: cardClickable ? 'pointer' : 'default',
+                        bgcolor: isSelected ? 'action.selected' : 'transparent',
+                        '&:hover': { bgcolor: 'action.hover' }
+                      }}
+                    >
+                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                        <Typography variant="body2" noWrap title={item.displayName} sx={{ fontWeight: isSelected ? 600 : 500 }}>
+                          {item.displayName}
+                          {item.versionName && (
+                            <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                              ({item.versionName})
+                            </Typography>
+                          )}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace' }}>
+                          {item.filename}
+                        </Typography>
+                      </Box>
+                      {item.baseModel && (
+                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                          {item.baseModel}
+                        </Typography>
+                      )}
+                      <Button size="small" onClick={(e) => { e.stopPropagation(); setDetailItem(item); }}>상세</Button>
+                      {!cardClickable && (
+                        <Button size="small" variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }}>
+                          {mode === 'prompt-insert' ? '추가' : mode === 'multi-add' ? '추가' : '선택'}
+                        </Button>
+                      )}
+                    </Box>
+                  );
+                })}
+              </Box>
+            )}
+
             {pagination.pages > 1 && (
               <Box mt={2} display="flex" justifyContent="center">
                 <Pagination
