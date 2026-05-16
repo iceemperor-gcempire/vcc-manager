@@ -35,6 +35,7 @@ import { serverAPI, workboardAPI, userAPI } from '../../services/api';
 import Pagination from './Pagination';
 import MetadataItemCard from './MetadataItemCard';
 import MetadataItemGrid from './MetadataItemGrid';
+import MetadataDetailDialog from './MetadataDetailDialog';
 import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
 
 // ─── Per-kind API adapters ────────────────────────────────────────
@@ -67,7 +68,8 @@ const KIND_ADAPTERS = {
       return responseData?.cacheInfo || null;
     },
     extractAvailableBaseModels: (responseData) => responseData?.availableBaseModels || null,
-    sync: (serverId) => serverAPI.syncLoras(serverId),
+    // 동기화 버튼은 항상 forceRefresh — 기존 hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+    sync: (serverId) => serverAPI.syncLoras(serverId, { forceRefresh: true }),
     getStatus: (serverId) => serverAPI.getLorasSyncStatus(serverId),
     normalize: normalizeLora,
     label: 'LoRA',
@@ -88,7 +90,8 @@ const KIND_ADAPTERS = {
     extractPagination: (responseData) => responseData?.pagination || { current: 1, pages: 0, total: 0 },
     extractCacheInfo: (responseData) => responseData?.cacheInfo || null,
     extractAvailableBaseModels: (responseData) => responseData?.availableBaseModels || null,
-    sync: (serverId) => serverAPI.syncModels(serverId),
+    // 동기화 버튼은 항상 forceRefresh (#335)
+    sync: (serverId) => serverAPI.syncModels(serverId, { forceRefresh: true }),
     getStatus: (serverId) => serverAPI.getModelsSyncStatus(serverId),
     normalize: normalizeModel,
     label: '베이스 모델',
@@ -143,7 +146,7 @@ function MetadataPickerModal({
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
-  const [expandedId, setExpandedId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -465,8 +468,7 @@ function MetadataPickerModal({
                   <MetadataItemCard
                     item={item}
                     selected={selectedItem === item.filename}
-                    expanded={expandedId === item.id}
-                    onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                    onDetailClick={() => setDetailItem(item)}
                     onPrimary={() => handlePrimary(rawItem)}
                     primaryVariant={cardPrimaryVariant}
                     cardClickable={cardClickable}
@@ -493,6 +495,12 @@ function MetadataPickerModal({
       <DialogActions>
         <Button onClick={onClose}>닫기</Button>
       </DialogActions>
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={nsfwImageFilter}
+      />
     </Dialog>
   );
 }

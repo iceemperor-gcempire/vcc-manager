@@ -13,14 +13,12 @@ import {
 } from '@mui/material';
 import {
   Info as InfoIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
+  InfoOutlined as InfoOutlinedIcon,
   OpenInNew as OpenInNewIcon,
   CheckCircle as CheckCircleIcon,
   Add as AddIcon
 } from '@mui/icons-material';
 import MetadataMediaThumbnail from './MetadataMediaThumbnail';
-import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import { getKindLabel } from '../../utils/metadataItem';
 
 // baseModel → MUI color 매핑 — LoRA / Model 공용. 기존 LoraListModal 의 정책 그대로.
@@ -41,8 +39,7 @@ export function getBaseModelColor(baseModel) {
  * @param {Object} props
  * @param {import('../../utils/metadataItem').MetadataItem} props.item
  * @param {boolean} [props.selected] — 선택 표시 (단일 선택 picker)
- * @param {boolean} [props.expanded] — 확장 영역 (description + 추가 이미지) 표시
- * @param {() => void} [props.onToggleExpand]
+ * @param {(item) => void} [props.onDetailClick] — 디테일 버튼 클릭 콜백 (#333)
  * @param {(item) => void} [props.onPrimary] — 카드 전체 클릭 또는 primary 버튼 액션. 미지정 시 클릭 비활성
  * @param {string} [props.primaryLabel] — primary 버튼 라벨 (기본 '선택')
  * @param {'select'|'add'|'insert'} [props.primaryVariant] — 버튼 스타일 힌트
@@ -55,8 +52,7 @@ export function getBaseModelColor(baseModel) {
 const MetadataItemCard = React.memo(function MetadataItemCard({
   item,
   selected = false,
-  expanded = false,
-  onToggleExpand,
+  onDetailClick,
   onPrimary,
   primaryLabel,
   primaryVariant = 'select',
@@ -72,9 +68,6 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
     ? (item.images || []).filter((img) => !img.nsfw)
     : (item.images || []);
   const previewImage = filteredImages[0];
-
-  const hasCivitai = item.metadataSource === 'civitai';
-  const hasProvider = item.metadataSource === 'provider';
 
   const handleCardClick = cardClickable && onPrimary ? () => onPrimary(item) : undefined;
 
@@ -124,10 +117,16 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
           </Typography>
         </Stack>
 
-        {/* 파일명 (메타데이터 있을 때만 별도 표시) */}
-        {item.hasMetadata && item.filename !== item.displayName && (
-          <Typography variant="caption" color="text.secondary" noWrap display="block">
-            {item.filename}
+        {/* 버전명 (civitai 메타에 versionName 이 있을 때만) */}
+        {item.versionName && (
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            noWrap
+            display="block"
+            title={item.versionName}
+          >
+            버전: {item.versionName}
           </Typography>
         )}
 
@@ -164,14 +163,14 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
           </Typography>
         )}
 
-        {/* 트리거 워드 (LoRA / civitai trainedWords) */}
+        {/* 트리거 워드 (LoRA / civitai trainedWords) — 최대 3개. 전체 목록은 디테일 다이얼로그에서 */}
         {item.trainedWords?.length > 0 && (
           <Box sx={{ mt: 1 }}>
             <Typography variant="caption" color="text.secondary">
               트리거 워드{onTrainedWordClick ? (trainedWordInsertMode ? ' (클릭시 프롬프트에 삽입)' : ' (클릭시 복사)') : ''}:
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-              {item.trainedWords.slice(0, expanded ? undefined : 3).map((word, i) => (
+              {item.trainedWords.slice(0, 3).map((word, i) => (
                 <Chip
                   key={i}
                   label={word}
@@ -185,7 +184,7 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
                   variant={trainedWordInsertMode ? 'outlined' : 'filled'}
                 />
               ))}
-              {!expanded && item.trainedWords.length > 3 && (
+              {item.trainedWords.length > 3 && (
                 <Chip label={`+${item.trainedWords.length - 3}`} size="small" variant="outlined" />
               )}
             </Box>
@@ -193,62 +192,20 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
         )}
       </CardContent>
 
-      {/* 확장 영역 (description + 추가 이미지) */}
-      {expanded && (
-        <CardContent sx={{ pt: 0 }}>
-          {item.description && hasCivitai && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{
-                maxHeight: 100,
-                overflow: 'auto',
-                mb: 1,
-                '& p': { margin: 0 }
-              }}
-              dangerouslySetInnerHTML={{
-                __html: sanitizeHtml(item.description.substring(0, 500))
-              }}
-            />
-          )}
-          {item.description && hasProvider && (
-            <Typography
-              variant="body2"
-              color="text.secondary"
-              sx={{ maxHeight: 100, overflow: 'auto', mb: 1 }}
-            >
-              {item.description.substring(0, 500)}
-            </Typography>
-          )}
-          {filteredImages.length > 1 && (
-            <Box sx={{ display: 'flex', gap: 1, overflow: 'auto', mt: 1 }}>
-              {filteredImages.slice(1).map((img, i) => (
-                <MetadataMediaThumbnail
-                  key={i}
-                  image={img}
-                  alt={`Preview ${i + 2}`}
-                  width={60}
-                  height={60}
-                  sx={{ borderRadius: 1, flexShrink: 0 }}
-                />
-              ))}
-            </Box>
-          )}
-        </CardContent>
-      )}
-
       <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
         <Stack direction="row" spacing={0.5}>
-          {(item.hasMetadata || item.description) && onToggleExpand && (
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleExpand();
-              }}
-            >
-              {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-            </IconButton>
+          {onDetailClick && (
+            <Tooltip title="상세 정보">
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDetailClick(item);
+                }}
+              >
+                <InfoOutlinedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
           )}
           {item.modelUrl && (
             <Tooltip title="Civitai 에서 보기">

@@ -35,6 +35,7 @@ import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeModel } from '../../utils/metadataItem';
 
 // selectedServerId / servers / nsfwModelFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337, #339)
@@ -49,7 +50,7 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
 
@@ -133,7 +134,8 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
     if (!selectedServerId) return;
     try {
       setSyncing(true);
-      await serverAPI.syncModels(selectedServerId);
+      // 동기화 = 항상 강제 재동기화. hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+      await serverAPI.syncModels(selectedServerId, { forceRefresh: true });
       toast.success('모델 동기화를 시작했습니다.');
     } catch (err) {
       console.error('Sync failed:', err);
@@ -341,8 +343,7 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
               return (
                 <MetadataItemCard
                   item={item}
-                  expanded={expandedId === item.id}
-                  onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  onDetailClick={() => setDetailItem(item)}
                   nsfwImageFilter={false}
                 />
               );
@@ -360,6 +361,12 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
           )}
         </>
       )}
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={false}
+      />
 
       <Dialog open={clearCacheConfirmOpen} onClose={() => setClearCacheConfirmOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>모델 캐시 완전 삭제</DialogTitle>

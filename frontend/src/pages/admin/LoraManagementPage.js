@@ -42,6 +42,7 @@ import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeLora } from '../../utils/metadataItem';
 
 // LoRA 리스트 아이템 컴포넌트
@@ -201,7 +202,7 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
   const [cacheInfo, setCacheInfo] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedLora, setExpandedLora] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
 
@@ -311,7 +312,8 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
     return () => clearTimeout(timer);
   }, [selectedServerId, searchQuery, baseModelFilter, fetchLoraModels]);
 
-  const handleSync = async (forceRefresh = false) => {
+  // 동기화 = 항상 강제 재동기화. hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+  const handleSync = async () => {
     if (!selectedServerId) {
       toast.error('서버를 선택해주세요.');
       return;
@@ -321,10 +323,8 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
     setError(null);
 
     try {
-      await serverAPI.syncLoras(selectedServerId, { forceRefresh });
-      toast.success(forceRefresh
-        ? 'LoRA 강제 새로고침이 시작되었습니다. (모든 메타데이터를 다시 가져옵니다)'
-        : 'LoRA 동기화가 시작되었습니다.');
+      await serverAPI.syncLoras(selectedServerId, { forceRefresh: true });
+      toast.success('LoRA 동기화가 시작되었습니다.');
     } catch (err) {
       console.error('Failed to start sync:', err);
       setSyncing(false);
@@ -454,26 +454,13 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
               <Box sx={{ flex: 1 }} /> {/* 스페이서 */}
               <Button
                 variant="contained"
-                onClick={() => handleSync(false)}
+                onClick={handleSync}
                 disabled={syncing || loading}
                 startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
                 size="small"
               >
-                {syncStatus?.totalLoras > 0 ? '동기화' : '동기화'}
+                동기화
               </Button>
-              {syncStatus?.totalLoras > 0 && (
-                <Tooltip title="모든 메타데이터를 Civitai에서 새로 가져옵니다">
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => handleSync(true)}
-                    disabled={syncing || loading}
-                    size="small"
-                  >
-                    강제
-                  </Button>
-                </Tooltip>
-              )}
               <Tooltip title="모든 hash + civitai 메타데이터 삭제 (다음 동기화는 시간이 오래 걸림)">
                 <span>
                   <Button
@@ -590,10 +577,7 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
                       return (
                         <MetadataItemCard
                           item={item}
-                          expanded={expandedLora === item.filename}
-                          onToggleExpand={() => setExpandedLora(
-                            expandedLora === item.filename ? null : item.filename
-                          )}
+                          onDetailClick={() => setDetailItem(item)}
                           onTrainedWordClick={(word) => handleCopyTriggerWord(word)}
                           nsfwImageFilter={nsfwFilter}
                         />
@@ -635,6 +619,12 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
           })()}
         </>
       )}
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={nsfwFilter}
+      />
 
       <Dialog open={clearCacheConfirmOpen} onClose={() => setClearCacheConfirmOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>LoRA 캐시 완전 삭제</DialogTitle>

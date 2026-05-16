@@ -19,6 +19,7 @@
  * @property {string} filename        — 원본 식별자 (저장 시 사용)
  * @property {'lora'|'checkpoint'|'provider-model'} kind
  * @property {string} displayName     — UI 표시 이름 (civitai → provider → filename 우선순위)
+ * @property {string|null} versionName — civitai 모델 버전명 (예: "V2.0", "v20Bold"). 모델명과 별도 표시 (#333)
  * @property {string} description     — 설명 (HTML 가능)
  * @property {string|null} baseModel  — 베이스 모델 (Civitai)
  * @property {string[]} trainedWords  — 트리거 워드 (LoRA / Civitai)
@@ -65,6 +66,7 @@ export function normalizeLora(raw) {
     filename: raw.filename,
     kind: 'lora',
     displayName: pickDisplayName(raw),
+    versionName: civ.versionName || null,
     description: pickDescription(raw),
     baseModel: civ.baseModel || null,
     trainedWords: civ.trainedWords || [],
@@ -109,6 +111,7 @@ export function normalizeModel(raw, { serverType } = {}) {
     filename: raw.filename,
     kind,
     displayName: pickDisplayName(raw),
+    versionName: civ.versionName || null,
     description: pickDescription(raw),
     baseModel: civ.baseModel || null,
     trainedWords: civ.trainedWords || [],
