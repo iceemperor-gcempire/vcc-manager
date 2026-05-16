@@ -565,32 +565,12 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   }
   console.log('📏 Parsed dimensions:', { width, height });
   
-  // 기본 고정 형식 문자열들과 타입 정보
-  // 업스케일 메서드 값 추출 (role 기반 + additionalParams fallback)
-  let upscaleMethodValue = '';
-  const upscaleFromRole = getFieldValueByRole(workboard, inputData, FIELD_ROLES.UPSCALE_METHOD);
-  if (upscaleFromRole) {
-    upscaleMethodValue = extractValue(upscaleFromRole);
-  } else if (inputData.additionalParams?.upscaleMethod) {
-    upscaleMethodValue = extractValue(inputData.additionalParams.upscaleMethod);
-  } else if (inputData.additionalParams?.upscale) {
-    upscaleMethodValue = extractValue(inputData.additionalParams.upscale);
-  }
-  
-  console.log('📈 Upscale method detection:', {
-    'inputData.upscaleMethod': inputData.upscaleMethod,
-    'inputData.additionalParams?.upscaleMethod': inputData.additionalParams?.upscaleMethod,
-    'inputData.additionalParams?.upscale': inputData.additionalParams?.upscale,
-    'final_value': upscaleMethodValue
-  });
-
   // 유저 ID 해시 생성
   const hashedUserId = hashUserId(inputData.userId);
 
   const promptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT) || '';
   const negativePromptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT) || '';
   const modelValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL);
-  const referenceMethodValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.REFERENCE_IMAGE_METHOD);
 
   // placeholder 키 정의는 src/constants/workflowVariables.js 와 frontend mirror 에 등록.
   // 신규 placeholder 추가 시 세 곳 모두 갱신 필요.
@@ -601,9 +581,6 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     '{{##width##}}': { value: width, type: 'number' },
     '{{##height##}}': { value: height, type: 'number' },
     '{{##seed##}}': { value: seedValue, type: 'number' },
-    '{{##reference_method##}}': { value: extractValue(referenceMethodValue), type: 'string' },
-    '{{##upscale_method##}}': { value: upscaleMethodValue, type: 'string' },
-    '{{##base_style##}}': { value: extractValue(inputData.baseStyle), type: 'string' },
     '{{##user_id##}}': { value: hashedUserId, type: 'string' }
   };
   
