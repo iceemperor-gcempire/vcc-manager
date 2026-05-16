@@ -412,7 +412,8 @@ function LoraManagementPage() {
     return () => clearTimeout(timer);
   }, [selectedServerId, searchQuery, baseModelFilter, fetchLoraModels]);
 
-  const handleSync = async (forceRefresh = false) => {
+  // 동기화 = 항상 강제 재동기화. hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+  const handleSync = async () => {
     if (!selectedServerId) {
       toast.error('서버를 선택해주세요.');
       return;
@@ -422,10 +423,8 @@ function LoraManagementPage() {
     setError(null);
 
     try {
-      await serverAPI.syncLoras(selectedServerId, { forceRefresh });
-      toast.success(forceRefresh
-        ? 'LoRA 강제 새로고침이 시작되었습니다. (모든 메타데이터를 다시 가져옵니다)'
-        : 'LoRA 동기화가 시작되었습니다.');
+      await serverAPI.syncLoras(selectedServerId, { forceRefresh: true });
+      toast.success('LoRA 동기화가 시작되었습니다.');
     } catch (err) {
       console.error('Failed to start sync:', err);
       setSyncing(false);
@@ -658,26 +657,13 @@ function LoraManagementPage() {
               <Box sx={{ flex: 1 }} /> {/* 스페이서 */}
               <Button
                 variant="contained"
-                onClick={() => handleSync(false)}
+                onClick={handleSync}
                 disabled={syncing || loading}
                 startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
                 size="small"
               >
-                {syncStatus?.totalLoras > 0 ? '동기화' : '동기화'}
+                동기화
               </Button>
-              {syncStatus?.totalLoras > 0 && (
-                <Tooltip title="모든 메타데이터를 Civitai에서 새로 가져옵니다">
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    onClick={() => handleSync(true)}
-                    disabled={syncing || loading}
-                    size="small"
-                  >
-                    강제
-                  </Button>
-                </Tooltip>
-              )}
             </Box>
           </Box>
 
