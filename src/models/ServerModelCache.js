@@ -24,6 +24,7 @@ const modelItemSchema = new mongoose.Schema({
     modelId: Number,
     modelVersionId: Number,
     name: String,
+    versionName: String,
     description: String,
     baseModel: String,
     trainedWords: [String],

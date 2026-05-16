@@ -35,6 +35,7 @@ import { serverAPI, workboardAPI, userAPI } from '../../services/api';
 import Pagination from './Pagination';
 import MetadataItemCard from './MetadataItemCard';
 import MetadataItemGrid from './MetadataItemGrid';
+import MetadataDetailDialog from './MetadataDetailDialog';
 import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
 
 // ─── Per-kind API adapters ────────────────────────────────────────
@@ -143,7 +144,7 @@ function MetadataPickerModal({
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
-  const [expandedId, setExpandedId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -465,8 +466,7 @@ function MetadataPickerModal({
                   <MetadataItemCard
                     item={item}
                     selected={selectedItem === item.filename}
-                    expanded={expandedId === item.id}
-                    onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                    onDetailClick={() => setDetailItem(item)}
                     onPrimary={() => handlePrimary(rawItem)}
                     primaryVariant={cardPrimaryVariant}
                     cardClickable={cardClickable}
@@ -493,6 +493,12 @@ function MetadataPickerModal({
       <DialogActions>
         <Button onClick={onClose}>닫기</Button>
       </DialogActions>
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={nsfwImageFilter}
+      />
     </Dialog>
   );
 }
