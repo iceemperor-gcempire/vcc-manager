@@ -27,7 +27,6 @@ import {
   ToggleButtonGroup
 } from '@mui/material';
 import {
-  Refresh as RefreshIcon,
   Search as SearchIcon,
   Close as CloseIcon,
   ViewModule as GridViewIcon,
@@ -82,7 +81,8 @@ const KIND_ADAPTERS = {
     normalize: normalizeLora,
     label: 'LoRA',
     listLabel: 'LoRA',
-    nsfwItemPreference: 'nsfwLoraFilter',  // 사용자 preferences key — NSFW LoRA item 자체 숨김
+    nsfwItemPreference: 'nsfwModelFilter',  // 사용자 preferences key — NSFW 모델 (LoRA 포함) 숨김 (#346)
+    nsfwItemLabel: 'NSFW 모델 숨기기',
   },
   model: {
     fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
@@ -104,7 +104,8 @@ const KIND_ADAPTERS = {
     normalize: normalizeModel,
     label: '베이스 모델',
     listLabel: '베이스 모델',
-    nsfwItemPreference: null  // model 은 현재 NSFW item 필터 없음
+    nsfwItemPreference: 'nsfwModelFilter',  // 베이스 모델에도 NSFW 모델 숨김 적용 (#346)
+    nsfwItemLabel: 'NSFW 모델 숨기기',
   }
 };
 
@@ -168,8 +169,9 @@ function MetadataPickerModal({
   });
   const userPreferences = profileData?.data?.user?.preferences || {};
   const nsfwImageFilter = isAdmin ? false : (userPreferences.nsfwImageFilter ?? true);
+  // nsfwModelFilter 우선, 없으면 legacy nsfwLoraFilter fallback (#346)
   const nsfwItemFilter = !isAdmin && adapter.nsfwItemPreference
-    ? (userPreferences[adapter.nsfwItemPreference] ?? true)
+    ? (userPreferences[adapter.nsfwItemPreference] ?? userPreferences.nsfwLoraFilter ?? true)
     : false;
 
   const updatePreferencesMutation = useMutation(
@@ -273,19 +275,6 @@ function MetadataPickerModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, baseModelFilter, fetchItems]);
 
-  const handleSync = async () => {
-    if (!serverId) return;
-    try {
-      setSyncing(true);
-      await adapter.sync(serverId);
-      toast.success(`${adapter.label} 동기화를 시작했습니다.`);
-    } catch (err) {
-      console.error('Sync failed:', err);
-      setSyncing(false);
-      toast.error(err.response?.data?.message || '동기화 시작 실패');
-    }
-  };
-
   const handlePrimary = (rawItem) => {
     if (onPrimary) onPrimary(rawItem);
     if (mode === 'select-single' && onClose) onClose();
@@ -363,20 +352,6 @@ function MetadataPickerModal({
               <ListViewIcon />
             </ToggleButton>
           </ToggleButtonGroup>
-          {serverId && (
-            <Tooltip title={isAdmin ? `${adapter.label} 메타데이터 동기화` : `${adapter.label} 메타데이터 동기화 (관리자만)`}>
-              <span>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={handleSync}
-                  disabled={syncing || !isAdmin}
-                >
-                  {syncing ? '동기화 중...' : '동기화'}
-                </Button>
-              </span>
-            </Tooltip>
-          )}
         </Stack>
 
         {!isAdmin && (
@@ -402,7 +377,7 @@ function MetadataPickerModal({
                     disabled={updatePreferencesMutation.isLoading}
                   />
                 }
-                label={<Typography variant="caption">NSFW {adapter.label} 숨기기</Typography>}
+                label={<Typography variant="caption">{adapter.nsfwItemLabel || `NSFW ${adapter.label} 숨기기`}</Typography>}
               />
             )}
           </Stack>

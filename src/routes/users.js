@@ -43,7 +43,13 @@ router.put('/profile', requireAuth, async (req, res) => {
       if (typeof preferences.useRandomSeedOnContinue === 'boolean') {
         req.user.preferences.useRandomSeedOnContinue = preferences.useRandomSeedOnContinue;
       }
-      if (typeof preferences.nsfwLoraFilter === 'boolean') {
+      if (typeof preferences.nsfwModelFilter === 'boolean') {
+        req.user.preferences.nsfwModelFilter = preferences.nsfwModelFilter;
+        // legacy 필드도 동기 (다른 곳에서 아직 읽을 가능성 대비)
+        req.user.preferences.nsfwLoraFilter = preferences.nsfwModelFilter;
+      } else if (typeof preferences.nsfwLoraFilter === 'boolean') {
+        // legacy 단독 업데이트 — nsfwModelFilter 로 통합
+        req.user.preferences.nsfwModelFilter = preferences.nsfwLoraFilter;
         req.user.preferences.nsfwLoraFilter = preferences.nsfwLoraFilter;
       }
       if (typeof preferences.nsfwImageFilter === 'boolean') {

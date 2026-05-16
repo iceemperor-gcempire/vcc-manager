@@ -84,6 +84,12 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    // NSFW 모델 (베이스 모델 / LoRA) 숨김 (#346)
+    nsfwModelFilter: {
+      type: Boolean,
+      default: true
+    },
+    // legacy — nsfwModelFilter 도입 전. fallback 으로 유지
     nsfwLoraFilter: {
       type: Boolean,
       default: true
