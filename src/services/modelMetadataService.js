@@ -208,16 +208,31 @@ const inferOpenAIOutputFormats = (modelId) => {
 
 /**
  * Gemini 모델 정보로부터 outputFormat 추론 (#354).
- * 이름에 'image-generation' 포함 시 image, 그 외 generateContent 지원 시 text.
+ * Gemini 의 이미지 모델 명명 패턴이 다양해 (imagen, gemini-X-flash-image-*,
+ * gemini-X-pro-image-*, nano-banana 등) 포괄 매칭.
  */
 const inferGeminiOutputFormats = ({ name = '', displayName = '', supportedGenerationMethods = [] }) => {
   const fullName = `${name} ${displayName}`.toLowerCase();
   const methods = Array.isArray(supportedGenerationMethods) ? supportedGenerationMethods : [];
   const formats = [];
-  if (fullName.includes('image-generation') || fullName.includes('imagen')) {
+
+  // image 패턴: imagen / image-generation / image-preview / image-edit / nano-banana
+  // 또는 일반 -image- 중간 토큰 / -image 끝 토큰 (vision 입력 전용 모델 제외).
+  const isImage = (
+    /imagen/.test(fullName) ||
+    /image-generation/.test(fullName) ||
+    /image-preview/.test(fullName) ||
+    /image-edit/.test(fullName) ||
+    /nano-banana/.test(fullName) ||
+    /-image-/.test(fullName) ||
+    /-image$/.test(fullName)
+  ) && !/vision/.test(fullName);
+
+  if (isImage) {
     formats.push('image');
   }
-  if (methods.includes('generateContent') && formats.length === 0) {
+  // text 는 image 분류가 안 됐고 generateContent 지원하는 경우
+  if (formats.length === 0 && methods.includes('generateContent')) {
     formats.push('text');
   }
   return formats;
