@@ -242,19 +242,23 @@ router.get('/jobs', requireAdmin, async (req, res) => {
   }
 });
 
+// 응답 페이로드 빌더 — legacy nsfwLoraFilter 와 신규 nsfwModelFilter 둘 다 노출 (#339)
+function buildLoraSettingsResponse(settings) {
+  // nsfwModelFilter 우선, 없으면 legacy nsfwLoraFilter fallback
+  const nsfwModelFilter = settings.lora.nsfwModelFilter ?? settings.lora.nsfwLoraFilter ?? true;
+  return {
+    nsfwFilter: settings.lora.nsfwFilter,
+    nsfwModelFilter,
+    nsfwLoraFilter: nsfwModelFilter,  // legacy alias
+    hasCivitaiApiKey: !!settings.lora.civitaiApiKey
+  };
+}
+
 // LoRA 설정 조회
 router.get('/settings/lora', requireAdmin, async (req, res) => {
   try {
     const settings = await SystemSettings.getGlobal();
-
-    res.json({
-      success: true,
-      data: {
-        nsfwFilter: settings.lora.nsfwFilter,
-        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
-        hasCivitaiApiKey: !!settings.lora.civitaiApiKey
-      }
-    });
+    res.json({ success: true, data: buildLoraSettingsResponse(settings) });
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -266,14 +270,17 @@ router.get('/settings/lora', requireAdmin, async (req, res) => {
 // LoRA 설정 업데이트
 router.put('/settings/lora', requireAdmin, async (req, res) => {
   try {
-    const { nsfwFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
+    const { nsfwFilter, nsfwModelFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
 
     const updates = {};
     if (nsfwFilter !== undefined) {
       updates.nsfwFilter = nsfwFilter;
     }
-    if (nsfwLoraFilter !== undefined) {
-      updates.nsfwLoraFilter = nsfwLoraFilter;
+    // nsfwModelFilter 우선 사용. legacy nsfwLoraFilter 도 호환 처리 (#339)
+    if (nsfwModelFilter !== undefined) {
+      updates.nsfwModelFilter = nsfwModelFilter;
+    } else if (nsfwLoraFilter !== undefined) {
+      updates.nsfwModelFilter = nsfwLoraFilter;
     }
     if (civitaiApiKey !== undefined) {
       updates.civitaiApiKey = civitaiApiKey;
@@ -284,11 +291,7 @@ router.put('/settings/lora', requireAdmin, async (req, res) => {
     res.json({
       success: true,
       message: 'Settings updated successfully',
-      data: {
-        nsfwFilter: settings.lora.nsfwFilter,
-        nsfwLoraFilter: settings.lora.nsfwLoraFilter,
-        hasCivitaiApiKey: !!settings.lora.civitaiApiKey
-      }
+      data: buildLoraSettingsResponse(settings)
     });
   } catch (error) {
     res.status(500).json({

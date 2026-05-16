@@ -192,11 +192,13 @@ export const serverAPI = {
   syncModels: (id, options = {}) => api.post(`/servers/${id}/models/sync`, options),
   getModelsSyncStatus: (id) => api.get(`/servers/${id}/models/status`),
   resetModelsSync: (id) => api.post(`/servers/${id}/models/sync/reset`),
+  clearModelCache: (id) => api.delete(`/servers/${id}/models/cache`),
   // LoRA 메타데이터 API
   getLoras: (id, params) => api.get(`/servers/${id}/loras`, { params }),
   syncLoras: (id, options = {}) => api.post(`/servers/${id}/loras/sync`, options),
   getLorasSyncStatus: (id) => api.get(`/servers/${id}/loras/status`),
   resetLorasSync: (id) => api.post(`/servers/${id}/loras/sync/reset`),
+  clearLoraCache: (id) => api.delete(`/servers/${id}/loras/cache`),
 };
 
 // 사용자 그룹 (#198)

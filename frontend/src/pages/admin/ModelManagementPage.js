@@ -9,8 +9,6 @@ import {
   TextField,
   InputAdornment,
   Button,
-  Grid,
-  Chip,
   CircularProgress,
   LinearProgress,
   Alert,
@@ -22,21 +20,26 @@ import {
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  RestartAlt as RestartAltIcon
+  RestartAlt as RestartAltIcon,
+  DeleteSweep as DeleteSweepIcon
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeModel } from '../../utils/metadataItem';
 
-// 모델 동기화를 지원하는 serverType 목록 (#200 의 모든 4종)
-const SUPPORTED_SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
-
-function ModelManagementPage() {
-  const [selectedServerId, setSelectedServerId] = useState('');
+// selectedServerId / servers / nsfwModelFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337, #339)
+function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter = true }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
@@ -47,26 +50,11 @@ function ModelManagementPage() {
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
+  const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
-  // 서버 목록 (4종 serverType) 조회
-  const { data: serversData } = useQuery(
-    ['servers', { includeInactive: false }],
-    () => serverAPI.getServers({ includeInactive: false }),
-    {
-      onSuccess: (data) => {
-        const all = data?.data?.data?.servers || [];
-        const supported = all.filter((s) => SUPPORTED_SERVER_TYPES.includes(s.serverType));
-        if (supported.length > 0 && !selectedServerId) {
-          setSelectedServerId(supported[0]._id);
-        }
-      }
-    }
-  );
-
-  const allServers = serversData?.data?.data?.servers || [];
-  const supportedServers = allServers.filter((s) => SUPPORTED_SERVER_TYPES.includes(s.serverType));
-  const selectedServer = supportedServers.find((s) => s._id === selectedServerId);
+  const selectedServer = servers.find((s) => s._id === selectedServerId);
 
   // 모델 목록 fetch
   const fetchModels = useCallback(
@@ -146,7 +134,8 @@ function ModelManagementPage() {
     if (!selectedServerId) return;
     try {
       setSyncing(true);
-      await serverAPI.syncModels(selectedServerId);
+      // 동기화 = 항상 강제 재동기화. hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+      await serverAPI.syncModels(selectedServerId, { forceRefresh: true });
       toast.success('모델 동기화를 시작했습니다.');
     } catch (err) {
       console.error('Sync failed:', err);
@@ -167,6 +156,26 @@ function ModelManagementPage() {
     }
   };
 
+  const handleClearCache = async () => {
+    if (!selectedServerId) return;
+    setClearingCache(true);
+    try {
+      await serverAPI.clearModelCache(selectedServerId);
+      toast.success('모델 캐시를 비웠습니다. 다음 동기화부터 hash 부터 재계산됩니다.');
+      setClearCacheConfirmOpen(false);
+      setModels([]);
+      setCacheInfo(null);
+      setAvailableBaseModels([]);
+      setPagination({ current: 1, pages: 0, total: 0 });
+      const response = await serverAPI.getModelsSyncStatus(selectedServerId);
+      setSyncStatus(response.data.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || '캐시 삭제 실패');
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} mb={3}>
@@ -176,20 +185,6 @@ function ModelManagementPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>서버</InputLabel>
-            <Select
-              value={selectedServerId}
-              label="서버"
-              onChange={(e) => setSelectedServerId(e.target.value)}
-            >
-              {supportedServers.map((s) => (
-                <MenuItem key={s._id} value={s._id}>
-                  {s.name} ({s.serverType})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
           <Tooltip title="모델 메타데이터 동기화">
             <span>
               <Button
@@ -214,6 +209,19 @@ function ModelManagementPage() {
               </Button>
             </Tooltip>
           )}
+          <Tooltip title="모든 hash + civitai 메타데이터 삭제 (다음 동기화는 시간이 오래 걸림)">
+            <span>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setClearCacheConfirmOpen(true)}
+                disabled={!selectedServerId || syncing || clearingCache}
+              >
+                캐시 삭제
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
 
@@ -327,7 +335,7 @@ function ModelManagementPage() {
       ) : (
         <>
           <MetadataItemGrid
-            items={models}
+            items={nsfwModelFilter ? models.filter((m) => !m.civitai?.nsfw) : models}
             getKey={(rawModel, index) => rawModel.filename || index}
             renderItem={(rawModel) => {
               const item = normalizeModel(rawModel, { serverType: selectedServer?.serverType });
@@ -335,8 +343,7 @@ function ModelManagementPage() {
               return (
                 <MetadataItemCard
                   item={item}
-                  expanded={expandedId === item.id}
-                  onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  onDetailClick={() => setDetailItem(item)}
                   nsfwImageFilter={false}
                 />
               );
@@ -354,6 +361,32 @@ function ModelManagementPage() {
           )}
         </>
       )}
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={false}
+      />
+
+      <Dialog open={clearCacheConfirmOpen} onClose={() => setClearCacheConfirmOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>모델 캐시 완전 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            선택한 서버({selectedServer?.name || ''})의 모델 캐시를 모두 비웁니다.
+            <br /><br />
+            • 모든 모델의 hash, civitai 메타데이터가 삭제됩니다.<br />
+            • 다음 동기화는 hash 부터 다시 계산하므로 시간이 오래 걸릴 수 있습니다 (모델 수와 파일 크기에 따라 수 분 이상).<br />
+            • 일반 \"동기화\" 는 hash 를 재사용하므로 빠릅니다 — 이 작업은 처음부터 다시 받아야 할 때만 사용하세요.<br /><br />
+            계속하시겠어요?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearCacheConfirmOpen(false)} disabled={clearingCache}>취소</Button>
+          <Button onClick={handleClearCache} color="error" variant="contained" disabled={clearingCache} startIcon={clearingCache ? <CircularProgress size={16} /> : <DeleteSweepIcon />}>
+            캐시 삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
