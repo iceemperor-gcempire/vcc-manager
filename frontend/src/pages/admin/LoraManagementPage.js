@@ -9,14 +9,9 @@ import {
   TextField,
   InputAdornment,
   Button,
-  Card,
-  CardContent,
-  CardMedia,
-  CardActions,
   Grid,
   Chip,
   IconButton,
-  Collapse,
   CircularProgress,
   LinearProgress,
   Alert,
@@ -24,8 +19,6 @@ import {
   Stack,
   Switch,
   FormControlLabel,
-  Paper,
-  Divider,
   ToggleButton,
   ToggleButtonGroup,
   Avatar
@@ -33,25 +26,15 @@ import {
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   OpenInNew as OpenInNewIcon,
-  Info as InfoIcon,
   ContentCopy as CopyIcon,
-  Settings as SettingsIcon,
-  Visibility as VisibilityIcon,
-  VisibilityOff as VisibilityOffIcon,
-  Save as SaveIcon,
-  Key as KeyIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
   Block as BlockIcon
 } from '@mui/icons-material';
-import { useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, adminAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
-import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
 import { normalizeLora } from '../../utils/metadataItem';
@@ -203,8 +186,8 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
   );
 }
 
-function LoraManagementPage() {
-  const [selectedServerId, setSelectedServerId] = useState('');
+// selectedServerId / servers / nsfwFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337)
+function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true }) {
   const [loraModels, setLoraModels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -216,13 +199,8 @@ function LoraManagementPage() {
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
 
-  // 전역 설정 상태
-  const [nsfwFilter, setNsfwFilter] = useState(true);
+  // LoRA 한정 NSFW 필터 (NSFW 이미지 토글은 공용 헤더가 보유)
   const [nsfwLoraFilter, setNsfwLoraFilter] = useState(true);
-  const [hasCivitaiApiKey, setHasCivitaiApiKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
-  const [savingSettings, setSavingSettings] = useState(false);
 
   // 서버 전체 기본 모델 목록 (API에서 가져옴)
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
@@ -230,37 +208,18 @@ function LoraManagementPage() {
   // 뷰 모드 상태
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
-  const queryClient = useQueryClient();
+  const comfyUIServers = servers;
 
-  // 전역 설정 조회
+  // LoRA 한정 설정 조회 (nsfwLoraFilter)
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const response = await adminAPI.getLoraSettings();
+    adminAPI.getLoraSettings()
+      .then((response) => {
         if (response.data.success) {
-          setNsfwFilter(response.data.data.nsfwFilter);
           setNsfwLoraFilter(response.data.data.nsfwLoraFilter ?? true);
-          setHasCivitaiApiKey(response.data.data.hasCivitaiApiKey);
         }
-      } catch (err) {
-        console.error('Failed to fetch LoRA settings:', err);
-      }
-    };
-    fetchSettings();
+      })
+      .catch((err) => console.error('Failed to fetch LoRA-specific settings:', err));
   }, []);
-
-  // NSFW 이미지 필터 토글
-  const handleNsfwFilterToggle = async () => {
-    const newValue = !nsfwFilter;
-    setNsfwFilter(newValue);
-    try {
-      await adminAPI.updateLoraSettings({ nsfwFilter: newValue });
-      toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
-    } catch (err) {
-      setNsfwFilter(!newValue); // 롤백
-      toast.error('설정 저장에 실패했습니다.');
-    }
-  };
 
   // NSFW LoRA 필터 토글
   const handleNsfwLoraFilterToggle = async () => {
@@ -274,48 +233,6 @@ function LoraManagementPage() {
       toast.error('설정 저장에 실패했습니다.');
     }
   };
-
-  // API 키 저장
-  const handleSaveApiKey = async () => {
-    if (!apiKeyInput.trim() && !hasCivitaiApiKey) {
-      toast.error('API 키를 입력해주세요.');
-      return;
-    }
-
-    setSavingSettings(true);
-    try {
-      await adminAPI.updateLoraSettings({
-        civitaiApiKey: apiKeyInput.trim() || null
-      });
-      setHasCivitaiApiKey(!!apiKeyInput.trim());
-      setApiKeyInput('');
-      setShowApiKeyInput(false);
-      toast.success(apiKeyInput.trim() ? 'Civitai API 키가 저장되었습니다.' : 'API 키가 삭제되었습니다.');
-    } catch (err) {
-      toast.error('API 키 저장에 실패했습니다.');
-    } finally {
-      setSavingSettings(false);
-    }
-  };
-
-  // ComfyUI 서버 목록 조회
-  const { data: serversData, isLoading: serversLoading } = useQuery(
-    ['servers', { includeInactive: false }],
-    () => serverAPI.getServers({ includeInactive: false }),
-    {
-      onSuccess: (data) => {
-        const servers = data?.data?.data?.servers || [];
-        const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
-        // 첫 번째 ComfyUI 서버 자동 선택
-        if (comfyUIServers.length > 0 && !selectedServerId) {
-          setSelectedServerId(comfyUIServers[0]._id);
-        }
-      }
-    }
-  );
-
-  const servers = serversData?.data?.data?.servers || [];
-  const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
 
   // 동기화 상태 폴링
   useEffect(() => {
@@ -455,134 +372,31 @@ function LoraManagementPage() {
 
   return (
     <Box sx={{ overflow: 'hidden' }}>
-      {/* 전역 설정 패널 */}
-      <Paper variant="outlined" sx={{ p: 2, mb: 3, overflow: 'hidden' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-          <SettingsIcon color="action" />
-          <Typography variant="subtitle1" fontWeight="medium">
-            전역 설정
-          </Typography>
-        </Box>
-
-        <Grid container spacing={3} alignItems="center">
-          {/* NSFW LoRA 필터 */}
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={nsfwLoraFilter}
-                  onChange={handleNsfwLoraFilterToggle}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <BlockIcon fontSize="small" />
-                  <span>NSFW LoRA 숨기기</span>
-                </Box>
-              }
+      {/* LoRA 전용 설정 (NSFW LoRA 숨기기) — 공용 NSFW 이미지 / API key 는 공용 헤더 (#337) */}
+      <Box sx={{ mb: 2 }}>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={nsfwLoraFilter}
+              onChange={handleNsfwLoraFilterToggle}
+              color="primary"
+              size="small"
             />
-          </Grid>
-
-          {/* NSFW 이미지 필터 */}
-          <Grid item xs={12} sm={6} md={3}>
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={nsfwFilter}
-                  onChange={handleNsfwFilterToggle}
-                  color="primary"
-                />
-              }
-              label={
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {nsfwFilter ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                  <span>NSFW 이미지 숨기기</span>
-                </Box>
-              }
-            />
-          </Grid>
-
-          {/* Civitai API 키 */}
-          <Grid item xs={12} sm={12} md={6}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-              <KeyIcon color="action" fontSize="small" />
-              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-                Civitai API 키:
-              </Typography>
-              {hasCivitaiApiKey ? (
-                <Chip label="등록됨" color="success" size="small" variant="outlined" />
-              ) : (
-                <Chip label="미등록" size="small" variant="outlined" />
-              )}
-              <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
-                {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
-              </Button>
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <BlockIcon fontSize="small" />
+              <Typography variant="body2">NSFW LoRA 숨기기</Typography>
             </Box>
-
-            {showApiKeyInput && (
-              <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-                <TextField
-                  size="small"
-                  type="password"
-                  placeholder={hasCivitaiApiKey ? '새 API 키 (빈칸=삭제)' : 'API 키 입력'}
-                  value={apiKeyInput}
-                  onChange={(e) => setApiKeyInput(e.target.value)}
-                  sx={{ flex: '1 1 200px', minWidth: 150, maxWidth: 400 }}
-                  autoComplete="off"
-                />
-                <Button
-                  variant="contained"
-                  size="small"
-                  onClick={handleSaveApiKey}
-                  disabled={savingSettings}
-                  startIcon={savingSettings ? <CircularProgress size={16} /> : <SaveIcon />}
-                >
-                  저장
-                </Button>
-              </Box>
-            )}
-
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              API 키 등록 시 조회 속도 5배 향상 (1초→0.2초)
-            </Typography>
-          </Grid>
-        </Grid>
-      </Paper>
-
-      {/* 서버 선택 */}
-      <Box sx={{ mb: 3 }}>
-        <FormControl fullWidth>
-          <InputLabel>ComfyUI 서버 선택</InputLabel>
-          <Select
-            value={selectedServerId}
-            label="ComfyUI 서버 선택"
-            onChange={(e) => {
-              setSelectedServerId(e.target.value);
-              setLoraModels([]);
-              setCacheInfo(null);
-              setSyncStatus(null);
-              setSearchQuery('');
-              setBaseModelFilter('');
-              setAvailableBaseModels([]);
-            }}
-            disabled={serversLoading}
-          >
-            {comfyUIServers.map(server => (
-              <MenuItem key={server._id} value={server._id}>
-                <Box sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {server.name}
-                </Box>
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-        {comfyUIServers.length === 0 && !serversLoading && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            등록된 ComfyUI 서버가 없습니다. 서버 관리에서 ComfyUI 서버를 추가해주세요.
-          </Alert>
-        )}
+          }
+        />
       </Box>
+
+      {comfyUIServers.length === 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          등록된 ComfyUI 서버가 없습니다. 서버 관리에서 ComfyUI 서버를 추가해주세요.
+        </Alert>
+      )}
 
       {selectedServerId && (
         <>

@@ -9,8 +9,6 @@ import {
   TextField,
   InputAdornment,
   Button,
-  Grid,
-  Chip,
   CircularProgress,
   LinearProgress,
   Alert,
@@ -24,7 +22,6 @@ import {
   Search as SearchIcon,
   RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
@@ -32,11 +29,8 @@ import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
 import { normalizeModel } from '../../utils/metadataItem';
 
-// 모델 동기화를 지원하는 serverType 목록 (#200 의 모든 4종)
-const SUPPORTED_SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
-
-function ModelManagementPage() {
-  const [selectedServerId, setSelectedServerId] = useState('');
+// selectedServerId / servers 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337)
+function ModelManagementPage({ selectedServerId, servers = [] }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
@@ -49,24 +43,7 @@ function ModelManagementPage() {
   const [syncStatus, setSyncStatus] = useState(null);
   const [expandedId, setExpandedId] = useState(null);
 
-  // 서버 목록 (4종 serverType) 조회
-  const { data: serversData } = useQuery(
-    ['servers', { includeInactive: false }],
-    () => serverAPI.getServers({ includeInactive: false }),
-    {
-      onSuccess: (data) => {
-        const all = data?.data?.data?.servers || [];
-        const supported = all.filter((s) => SUPPORTED_SERVER_TYPES.includes(s.serverType));
-        if (supported.length > 0 && !selectedServerId) {
-          setSelectedServerId(supported[0]._id);
-        }
-      }
-    }
-  );
-
-  const allServers = serversData?.data?.data?.servers || [];
-  const supportedServers = allServers.filter((s) => SUPPORTED_SERVER_TYPES.includes(s.serverType));
-  const selectedServer = supportedServers.find((s) => s._id === selectedServerId);
+  const selectedServer = servers.find((s) => s._id === selectedServerId);
 
   // 모델 목록 fetch
   const fetchModels = useCallback(
@@ -176,20 +153,6 @@ function ModelManagementPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>서버</InputLabel>
-            <Select
-              value={selectedServerId}
-              label="서버"
-              onChange={(e) => setSelectedServerId(e.target.value)}
-            >
-              {supportedServers.map((s) => (
-                <MenuItem key={s._id} value={s._id}>
-                  {s.name} ({s.serverType})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
           <Tooltip title="모델 메타데이터 동기화">
             <span>
               <Button
