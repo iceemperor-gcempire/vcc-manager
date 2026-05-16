@@ -146,7 +146,8 @@ function ModelManagementPage() {
     if (!selectedServerId) return;
     try {
       setSyncing(true);
-      await serverAPI.syncModels(selectedServerId);
+      // 동기화 = 항상 강제 재동기화. hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
+      await serverAPI.syncModels(selectedServerId, { forceRefresh: true });
       toast.success('모델 동기화를 시작했습니다.');
     } catch (err) {
       console.error('Sync failed:', err);
