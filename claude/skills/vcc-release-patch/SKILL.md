@@ -81,6 +81,8 @@ gh pr create --base main --head dev --title "release: v{version}" --body "## v{v
 gh pr merge {PR번호} --merge
 \`\`\`
 
+> 리포지토리 설정 \`delete_branch_on_merge\` 는 **off** (#329). 릴리스 PR 머지 후 dev 브랜치는 자동 삭제되지 않음. 만에 하나 누군가 수동으로 dev 를 지운 경우 아래 \`주의사항 4\` 의 복구 절차 사용.
+
 ### 6단계: main 동기화 + 태그 + Release 생성
 
 \`\`\`bash
