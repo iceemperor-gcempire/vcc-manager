@@ -152,6 +152,7 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
       modelId: data.modelId,
       modelVersionId: data.id,
       name: data.model?.name || data.name,
+      versionName: data.name || null,
       description: data.description || data.model?.description,
       baseModel: data.baseModel,
       trainedWords: data.trainedWords || [],

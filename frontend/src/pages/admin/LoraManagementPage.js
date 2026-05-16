@@ -54,6 +54,7 @@ import Pagination from '../../components/common/Pagination';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeLora } from '../../utils/metadataItem';
 
 // LoRA 리스트 아이템 컴포넌트
@@ -212,7 +213,7 @@ function LoraManagementPage() {
   const [cacheInfo, setCacheInfo] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedLora, setExpandedLora] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
 
@@ -779,10 +780,7 @@ function LoraManagementPage() {
                       return (
                         <MetadataItemCard
                           item={item}
-                          expanded={expandedLora === item.filename}
-                          onToggleExpand={() => setExpandedLora(
-                            expandedLora === item.filename ? null : item.filename
-                          )}
+                          onDetailClick={() => setDetailItem(item)}
                           onTrainedWordClick={(word) => handleCopyTriggerWord(word)}
                           nsfwImageFilter={nsfwFilter}
                         />
@@ -824,6 +822,12 @@ function LoraManagementPage() {
           })()}
         </>
       )}
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={nsfwFilter}
+      />
     </Box>
   );
 }

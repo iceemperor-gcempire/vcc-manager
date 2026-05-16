@@ -30,6 +30,7 @@ import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
+import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeModel } from '../../utils/metadataItem';
 
 // 모델 동기화를 지원하는 serverType 목록 (#200 의 모든 4종)
@@ -47,7 +48,7 @@ function ModelManagementPage() {
   const [error, setError] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
-  const [expandedId, setExpandedId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
 
   // 서버 목록 (4종 serverType) 조회
   const { data: serversData } = useQuery(
@@ -335,8 +336,7 @@ function ModelManagementPage() {
               return (
                 <MetadataItemCard
                   item={item}
-                  expanded={expandedId === item.id}
-                  onToggleExpand={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                  onDetailClick={() => setDetailItem(item)}
                   nsfwImageFilter={false}
                 />
               );
@@ -354,6 +354,12 @@ function ModelManagementPage() {
           )}
         </>
       )}
+      <MetadataDetailDialog
+        open={!!detailItem}
+        item={detailItem}
+        onClose={() => setDetailItem(null)}
+        nsfwImageFilter={false}
+      />
     </Box>
   );
 }
