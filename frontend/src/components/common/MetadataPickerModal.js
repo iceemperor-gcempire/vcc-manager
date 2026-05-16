@@ -247,13 +247,15 @@ function MetadataPickerModal({
     }
   }, [open, serverId, workboardId, fetchItems, adapter]);
 
-  // search/filter 변경 debounce
+  // search / baseModel 변경 시 debounce fetch. `open` 은 의존성에서 제외 —
+  // 모달 open 시 최초 fetch 는 위 useEffect 가 담당하며, 여기 포함하면 중복 fetch 로
+  // 카드 그리드가 잠깐 깜박임 (#324).
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (open) fetchItems(1);
-    }, 300);
+    if (!open) return undefined;
+    const timer = setTimeout(() => fetchItems(1), 300);
     return () => clearTimeout(timer);
-  }, [searchQuery, baseModelFilter, open, fetchItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, baseModelFilter, fetchItems]);
 
   const handleSync = async () => {
     if (!serverId) return;
