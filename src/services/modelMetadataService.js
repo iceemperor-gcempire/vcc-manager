@@ -208,33 +208,37 @@ const inferOpenAIOutputFormats = (modelId) => {
 
 /**
  * Gemini 모델 정보로부터 outputFormat 추론 (#354).
- * Gemini 의 이미지 모델 명명 패턴이 다양해 (imagen, gemini-X-flash-image-*,
- * gemini-X-pro-image-*, nano-banana 등) 포괄 매칭.
+ * 신호 우선순위:
+ *   1. supportedGenerationMethods.predict / predictLongRunning → Imagen 류 image 생성
+ *   2. generateContent + 이름/설명에 image 키워드 → multimodal image (Nano Banana 등)
+ *   3. generateContent 단독 → text
  */
-const inferGeminiOutputFormats = ({ name = '', displayName = '', supportedGenerationMethods = [] }) => {
-  const fullName = `${name} ${displayName}`.toLowerCase();
-  const methods = Array.isArray(supportedGenerationMethods) ? supportedGenerationMethods : [];
+const inferGeminiOutputFormats = (modelData) => {
+  const name = (modelData.name || '').toLowerCase();
+  const displayName = (modelData.displayName || '').toLowerCase();
+  const description = (modelData.description || '').toLowerCase();
+  const fullText = `${name} ${displayName} ${description}`;
+  const methods = Array.isArray(modelData.supportedGenerationMethods) ? modelData.supportedGenerationMethods : [];
+
+  const hasPredict = methods.includes('predict') || methods.includes('predictLongRunning');
+  const hasGenerateContent = methods.includes('generateContent');
+  const hasEmbed = methods.includes('embedContent') || methods.includes('batchEmbedContents');
+
+  // image 키워드 — 이름 + displayName + description 통합 검사
+  const imagePattern = /imagen|image-generation|image-preview|image-edit|nano-banana|-image-|-image$|image\s*generation/;
+  const isImageByName = imagePattern.test(fullText);
+  // vision = image INPUT 전용 (gemini-pro-vision). image OUT 으로 분류하지 않음.
+  const isVision = /\bvision\b/.test(fullText) && !isImageByName;
+
   const formats = [];
-
-  // image 패턴: imagen / image-generation / image-preview / image-edit / nano-banana
-  // 또는 일반 -image- 중간 토큰 / -image 끝 토큰 (vision 입력 전용 모델 제외).
-  const isImage = (
-    /imagen/.test(fullName) ||
-    /image-generation/.test(fullName) ||
-    /image-preview/.test(fullName) ||
-    /image-edit/.test(fullName) ||
-    /nano-banana/.test(fullName) ||
-    /-image-/.test(fullName) ||
-    /-image$/.test(fullName)
-  ) && !/vision/.test(fullName);
-
-  if (isImage) {
+  if (!isVision && (hasPredict || (isImageByName && hasGenerateContent))) {
     formats.push('image');
   }
-  // text 는 image 분류가 안 됐고 generateContent 지원하는 경우
-  if (formats.length === 0 && methods.includes('generateContent')) {
+  if (formats.length === 0 && hasGenerateContent && !isImageByName) {
     formats.push('text');
   }
+  // embed 전용 모델은 현재 워크플로 미지원 → 빈 배열 반환하여 picker 미노출
+
   return formats;
 };
 
