@@ -157,7 +157,8 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
       trainedWords: data.trainedWords || [],
       images,
       nsfw: data.model?.nsfw || false,
-      modelUrl: `https://civitai.com/models/${data.modelId}?modelVersionId=${data.id}`,
+      // civitai 정책: NSFW 모델은 civitai.red 도메인으로만 접근 (#331)
+      modelUrl: `https://${data.model?.nsfw ? 'civitai.red' : 'civitai.com'}/models/${data.modelId}?modelVersionId=${data.id}`,
       fetchedAt: new Date()
     };
   } catch (error) {
