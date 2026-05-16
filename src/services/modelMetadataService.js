@@ -324,6 +324,7 @@ const syncServerProviderModels = async (server, { progressCallback = null } = {}
         name: pm.name,
         description: pm.description,
         capabilities: pm.capabilities,
+        outputFormats: pm.outputFormats || [],
         contextWindow: pm.contextWindow,
         fetchedAt: new Date()
       }
