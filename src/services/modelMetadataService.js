@@ -629,13 +629,14 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
   }
 
   // outputFormat: provider.outputFormats 기반 필터 (#354).
-  // SaaS provider 모델 한정. ComfyUI checkpoint 는 provider.outputFormats 가 없으므로 영향 없음.
-  // outputFormats 미설정 (구 캐시) 항목은 fallback 으로 통과 — 다음 sync 후 정상 분류.
+  // SaaS provider 모델 한정 — ComfyUI checkpoint 는 provider.found=false 라 영향 없음.
+  // 매칭 실패 / 미분류 (whisper / tts / embedding 등 현재 워크플로 미지원) 도 숨김 — 나중에
+  // 해당 타입 워크플로 도입 시 inferOpenAI/inferGemini 에 맞춰 노출 (#354 후속).
   if (outputFormat) {
     filtered = filtered.filter(m => {
-      const formats = m.provider?.outputFormats;
-      if (!Array.isArray(formats) || formats.length === 0) return true;  // fallback
-      return formats.includes(outputFormat);
+      if (!m.provider?.found) return true;  // ComfyUI checkpoint 등
+      const formats = m.provider.outputFormats;
+      return Array.isArray(formats) && formats.includes(outputFormat);
     });
   }
 
