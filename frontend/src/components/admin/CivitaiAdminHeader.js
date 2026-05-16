@@ -19,7 +19,8 @@ import {
   Save as SaveIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  Key as KeyIcon
+  Key as KeyIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { adminAPI } from '../../services/api';
@@ -39,6 +40,8 @@ function CivitaiAdminHeader({
   eligibleServers,
   nsfwFilter,
   onNsfwFilterChange,
+  nsfwModelFilter,
+  onNsfwModelFilterChange,
   hasCivitaiApiKey,
   onApiKeySaved
 }) {
@@ -52,6 +55,17 @@ function CivitaiAdminHeader({
       await adminAPI.updateLoraSettings({ nsfwFilter: newValue });
       onNsfwFilterChange(newValue);
       toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
+    } catch (_e) {
+      toast.error('설정 저장에 실패했습니다.');
+    }
+  };
+
+  const handleNsfwModelToggle = async () => {
+    const newValue = !nsfwModelFilter;
+    try {
+      await adminAPI.updateLoraSettings({ nsfwModelFilter: newValue });
+      onNsfwModelFilterChange(newValue);
+      toast.success(newValue ? 'NSFW 모델이 숨겨집니다.' : 'NSFW 모델이 표시됩니다.');
     } catch (_e) {
       toast.error('설정 저장에 실패했습니다.');
     }
@@ -78,13 +92,13 @@ function CivitaiAdminHeader({
 
   return (
     <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+      {/* 1행: 서버 + Civitai API 키 */}
       <Stack
         direction={{ xs: 'column', md: 'row' }}
         spacing={2}
         alignItems={{ md: 'center' }}
         sx={{ flexWrap: 'wrap' }}
       >
-        {/* 서버 선택기 */}
         <FormControl size="small" sx={{ minWidth: 220 }}>
           <InputLabel>서버</InputLabel>
           <Select
@@ -106,7 +120,29 @@ function CivitaiAdminHeader({
           </Select>
         </FormControl>
 
-        {/* NSFW 이미지 토글 */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <KeyIcon color="action" fontSize="small" />
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            Civitai API 키:
+          </Typography>
+          {hasCivitaiApiKey ? (
+            <Chip label="등록됨" color="success" size="small" variant="outlined" />
+          ) : (
+            <Chip label="미등록" size="small" variant="outlined" />
+          )}
+          <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
+            {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
+          </Button>
+        </Box>
+      </Stack>
+
+      {/* 2행: NSFW 토글들 */}
+      <Stack
+        direction="row"
+        spacing={2}
+        alignItems="center"
+        sx={{ mt: 1, flexWrap: 'wrap' }}
+      >
         <FormControlLabel
           control={
             <Switch
@@ -123,21 +159,21 @@ function CivitaiAdminHeader({
           }
         />
 
-        {/* API 키 */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <KeyIcon color="action" fontSize="small" />
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            Civitai API 키:
-          </Typography>
-          {hasCivitaiApiKey ? (
-            <Chip label="등록됨" color="success" size="small" variant="outlined" />
-          ) : (
-            <Chip label="미등록" size="small" variant="outlined" />
-          )}
-          <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
-            {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
-          </Button>
-        </Box>
+        <FormControlLabel
+          control={
+            <Switch
+              checked={!!nsfwModelFilter}
+              onChange={handleNsfwModelToggle}
+              color="primary"
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <BlockIcon fontSize="small" />
+              <Typography variant="body2">NSFW 모델 숨기기</Typography>
+            </Box>
+          }
+        />
       </Stack>
 
       {showApiKeyInput && (

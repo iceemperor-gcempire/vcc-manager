@@ -17,7 +17,13 @@ const systemSettingsSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     },
-    // NSFW LoRA 필터링 설정
+    // NSFW 모델 (베이스 모델 / LoRA) 필터링 설정 (#339)
+    // 이전 이름: nsfwLoraFilter (legacy fallback 으로 읽음)
+    nsfwModelFilter: {
+      type: Boolean,
+      default: true
+    },
+    // legacy field — #339 이전. nsfwModelFilter 로 마이그레이션 후 제거 예정
     nsfwLoraFilter: {
       type: Boolean,
       default: true
@@ -52,6 +58,11 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
 
   if (updates.nsfwFilter !== undefined) {
     settings.lora.nsfwFilter = updates.nsfwFilter;
+  }
+  if (updates.nsfwModelFilter !== undefined) {
+    settings.lora.nsfwModelFilter = updates.nsfwModelFilter;
+    // legacy 필드도 동시 갱신 (다른 곳에서 아직 읽을 가능성 대비)
+    settings.lora.nsfwLoraFilter = updates.nsfwModelFilter;
   }
   if (updates.nsfwLoraFilter !== undefined) {
     settings.lora.nsfwLoraFilter = updates.nsfwLoraFilter;

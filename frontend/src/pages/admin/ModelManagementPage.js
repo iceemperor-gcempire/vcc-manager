@@ -30,8 +30,8 @@ import MetadataItemGrid from '../../components/common/MetadataItemGrid';
 import MetadataDetailDialog from '../../components/common/MetadataDetailDialog';
 import { normalizeModel } from '../../utils/metadataItem';
 
-// selectedServerId / servers 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337)
-function ModelManagementPage({ selectedServerId, servers = [] }) {
+// selectedServerId / servers / nsfwModelFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337, #339)
+function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter = true }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
@@ -292,7 +292,7 @@ function ModelManagementPage({ selectedServerId, servers = [] }) {
       ) : (
         <>
           <MetadataItemGrid
-            items={models}
+            items={nsfwModelFilter ? models.filter((m) => !m.civitai?.nsfw) : models}
             getKey={(rawModel, index) => rawModel.filename || index}
             renderItem={(rawModel) => {
               const item = normalizeModel(rawModel, { serverType: selectedServer?.serverType });

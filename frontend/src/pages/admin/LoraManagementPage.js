@@ -17,8 +17,6 @@ import {
   Alert,
   Tooltip,
   Stack,
-  Switch,
-  FormControlLabel,
   ToggleButton,
   ToggleButtonGroup,
   Avatar
@@ -29,11 +27,10 @@ import {
   OpenInNew as OpenInNewIcon,
   ContentCopy as CopyIcon,
   ViewModule as GridViewIcon,
-  ViewList as ListViewIcon,
-  Block as BlockIcon
+  ViewList as ListViewIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
-import { serverAPI, adminAPI } from '../../services/api';
+import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
 import MetadataItemCard from '../../components/common/MetadataItemCard';
 import MetadataItemGrid from '../../components/common/MetadataItemGrid';
@@ -188,7 +185,8 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwFilter }
 }
 
 // selectedServerId / servers / nsfwFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337)
-function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true }) {
+// selectedServerId / servers / nsfwFilter / nsfwModelFilter 는 부모 (MetadataManagementPage) 에서 공용 헤더와 함께 보유 (#337, #339)
+function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true, nsfwModelFilter = true }) {
   const [loraModels, setLoraModels] = useState([]);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -200,9 +198,6 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true 
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [baseModelFilter, setBaseModelFilter] = useState('');
 
-  // LoRA 한정 NSFW 필터 (NSFW 이미지 토글은 공용 헤더가 보유)
-  const [nsfwLoraFilter, setNsfwLoraFilter] = useState(true);
-
   // 서버 전체 기본 모델 목록 (API에서 가져옴)
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
 
@@ -210,30 +205,6 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true 
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
   const comfyUIServers = servers;
-
-  // LoRA 한정 설정 조회 (nsfwLoraFilter)
-  useEffect(() => {
-    adminAPI.getLoraSettings()
-      .then((response) => {
-        if (response.data.success) {
-          setNsfwLoraFilter(response.data.data.nsfwLoraFilter ?? true);
-        }
-      })
-      .catch((err) => console.error('Failed to fetch LoRA-specific settings:', err));
-  }, []);
-
-  // NSFW LoRA 필터 토글
-  const handleNsfwLoraFilterToggle = async () => {
-    const newValue = !nsfwLoraFilter;
-    setNsfwLoraFilter(newValue);
-    try {
-      await adminAPI.updateLoraSettings({ nsfwLoraFilter: newValue });
-      toast.success(newValue ? 'NSFW LoRA가 숨겨집니다.' : 'NSFW LoRA가 표시됩니다.');
-    } catch (err) {
-      setNsfwLoraFilter(!newValue); // 롤백
-      toast.error('설정 저장에 실패했습니다.');
-    }
-  };
 
   // 동기화 상태 폴링
   useEffect(() => {
@@ -372,26 +343,6 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true 
 
   return (
     <Box sx={{ overflow: 'hidden' }}>
-      {/* LoRA 전용 설정 (NSFW LoRA 숨기기) — 공용 NSFW 이미지 / API key 는 공용 헤더 (#337) */}
-      <Box sx={{ mb: 2 }}>
-        <FormControlLabel
-          control={
-            <Switch
-              checked={nsfwLoraFilter}
-              onChange={handleNsfwLoraFilterToggle}
-              color="primary"
-              size="small"
-            />
-          }
-          label={
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <BlockIcon fontSize="small" />
-              <Typography variant="body2">NSFW LoRA 숨기기</Typography>
-            </Box>
-          }
-        />
-      </Box>
-
       {comfyUIServers.length === 0 && (
         <Alert severity="info" sx={{ mb: 2 }}>
           등록된 ComfyUI 서버가 없습니다. 서버 관리에서 ComfyUI 서버를 추가해주세요.
@@ -535,7 +486,7 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true 
           {/* LoRA 목록 */}
           {(() => {
             // NSFW LoRA 필터링 적용
-            const filteredLoraModels = nsfwLoraFilter
+            const filteredLoraModels = nsfwModelFilter
               ? loraModels.filter(lora => !lora.civitai?.nsfw)
               : loraModels;
 
@@ -551,14 +502,14 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true 
               return (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body1" color="text.secondary" gutterBottom>
-                    {searchQuery || nsfwLoraFilter ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
+                    {searchQuery || nsfwModelFilter ? '검색 결과가 없습니다.' : 'LoRA 모델이 없습니다.'}
                   </Typography>
-                  {!searchQuery && !nsfwLoraFilter && (
+                  {!searchQuery && !nsfwModelFilter && (
                     <Typography variant="body2" color="text.secondary">
                       "동기화 시작" 버튼을 클릭하여 서버에서 LoRA 목록을 가져오세요.
                     </Typography>
                   )}
-                  {nsfwLoraFilter && loraModels.length > 0 && filteredLoraModels.length === 0 && (
+                  {nsfwModelFilter && loraModels.length > 0 && filteredLoraModels.length === 0 && (
                     <Typography variant="body2" color="text.secondary">
                       NSFW 필터가 활성화되어 일부 LoRA가 숨겨졌습니다.
                     </Typography>

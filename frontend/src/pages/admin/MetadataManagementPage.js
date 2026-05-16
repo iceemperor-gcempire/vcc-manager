@@ -19,6 +19,7 @@ function MetadataManagementPage() {
   const [tab, setTab] = useState('checkpoint');
   const [selectedServerId, setSelectedServerId] = useState(() => localStorage.getItem(SELECTED_SERVER_KEY) || '');
   const [nsfwFilter, setNsfwFilter] = useState(true);
+  const [nsfwModelFilter, setNsfwModelFilter] = useState(true);
   const [hasCivitaiApiKey, setHasCivitaiApiKey] = useState(false);
 
   // 전체 서버 목록
@@ -48,13 +49,15 @@ function MetadataManagementPage() {
     if (selectedServerId) localStorage.setItem(SELECTED_SERVER_KEY, selectedServerId);
   }, [selectedServerId]);
 
-  // 글로벌 settings (nsfwFilter / hasCivitaiApiKey) 로드
+  // 글로벌 settings (nsfwFilter / nsfwModelFilter / hasCivitaiApiKey) 로드
   useEffect(() => {
     adminAPI.getLoraSettings()
       .then((response) => {
         if (response.data.success) {
-          setNsfwFilter(response.data.data.nsfwFilter ?? true);
-          setHasCivitaiApiKey(!!response.data.data.hasCivitaiApiKey);
+          const data = response.data.data;
+          setNsfwFilter(data.nsfwFilter ?? true);
+          setNsfwModelFilter(data.nsfwModelFilter ?? data.nsfwLoraFilter ?? true);
+          setHasCivitaiApiKey(!!data.hasCivitaiApiKey);
         }
       })
       .catch((err) => console.error('Failed to fetch admin settings:', err));
@@ -72,6 +75,8 @@ function MetadataManagementPage() {
         eligibleServers={eligibleServers}
         nsfwFilter={nsfwFilter}
         onNsfwFilterChange={setNsfwFilter}
+        nsfwModelFilter={nsfwModelFilter}
+        onNsfwModelFilterChange={setNsfwModelFilter}
         hasCivitaiApiKey={hasCivitaiApiKey}
         onApiKeySaved={setHasCivitaiApiKey}
       />
@@ -87,6 +92,7 @@ function MetadataManagementPage() {
         <ModelManagementPage
           selectedServerId={selectedServerId}
           servers={eligibleServers}
+          nsfwModelFilter={nsfwModelFilter}
         />
       )}
       {tab === 'lora' && (
@@ -94,6 +100,7 @@ function MetadataManagementPage() {
           selectedServerId={selectedServerId}
           servers={eligibleServers}
           nsfwFilter={nsfwFilter}
+          nsfwModelFilter={nsfwModelFilter}
         />
       )}
     </Container>
