@@ -19,7 +19,8 @@ import {
   Save as SaveIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
-  Key as KeyIcon
+  Key as KeyIcon,
+  Block as BlockIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { adminAPI } from '../../services/api';
@@ -39,6 +40,8 @@ function CivitaiAdminHeader({
   eligibleServers,
   nsfwFilter,
   onNsfwFilterChange,
+  nsfwModelFilter,
+  onNsfwModelFilterChange,
   hasCivitaiApiKey,
   onApiKeySaved
 }) {
@@ -52,6 +55,17 @@ function CivitaiAdminHeader({
       await adminAPI.updateLoraSettings({ nsfwFilter: newValue });
       onNsfwFilterChange(newValue);
       toast.success(newValue ? 'NSFW 이미지가 숨겨집니다.' : 'NSFW 이미지가 표시됩니다.');
+    } catch (_e) {
+      toast.error('설정 저장에 실패했습니다.');
+    }
+  };
+
+  const handleNsfwModelToggle = async () => {
+    const newValue = !nsfwModelFilter;
+    try {
+      await adminAPI.updateLoraSettings({ nsfwModelFilter: newValue });
+      onNsfwModelFilterChange(newValue);
+      toast.success(newValue ? 'NSFW 모델이 숨겨집니다.' : 'NSFW 모델이 표시됩니다.');
     } catch (_e) {
       toast.error('설정 저장에 실패했습니다.');
     }
@@ -119,6 +133,23 @@ function CivitaiAdminHeader({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {nsfwFilter ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
               <Typography variant="body2">NSFW 이미지 숨기기</Typography>
+            </Box>
+          }
+        />
+
+        {/* NSFW 모델 토글 — 베이스 모델 / LoRA 양쪽 동시 적용 (#339) */}
+        <FormControlLabel
+          control={
+            <Switch
+              checked={!!nsfwModelFilter}
+              onChange={handleNsfwModelToggle}
+              color="primary"
+            />
+          }
+          label={
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <BlockIcon fontSize="small" />
+              <Typography variant="body2">NSFW 모델 숨기기</Typography>
             </Box>
           }
         />
