@@ -271,12 +271,13 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
             width: DRAWER_WIDTH,
+            backgroundColor: '#2c3e50',  // 컨텐츠가 Paper 높이를 초과할 때 (관리자 메뉴) 하단 흰색 노출 방지 (#327)
           },
         }}
       >
         {drawer}
       </Drawer>
-      
+
       {/* 데스크탑용 permanent drawer */}
       <Drawer
         variant="permanent"
@@ -286,7 +287,8 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
             boxSizing: 'border-box',
             width: DRAWER_WIDTH,
             position: 'relative',
-            height: '100%'
+            height: '100%',
+            backgroundColor: '#2c3e50',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
           },
         }}
         open
