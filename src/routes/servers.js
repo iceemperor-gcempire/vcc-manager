@@ -557,6 +557,32 @@ router.get('/:id/models/status', verifyJWT, async (req, res) => {
   }
 });
 
+// Model 캐시 완전 삭제 - 관리자만 (#341)
+// 일반 동기화는 existing.hash 를 재사용하지만, 캐시 자체를 비우면 다음 sync 가 hash 부터 재계산.
+router.delete('/:id/models/cache', requireAdmin, async (req, res) => {
+  try {
+    const cache = await ServerModelCache.findOne({ serverId: req.params.id });
+    if (!cache) {
+      return res.json({ success: true, message: '캐시가 없습니다.' });
+    }
+    cache.models = [];
+    cache.lastFetched = null;
+    cache.lastMetadataSync = null;
+    cache.progress = { current: 0, total: 0, stage: 'idle' };
+    cache.status = 'idle';
+    cache.errorMessage = null;
+    await cache.save();
+    res.json({ success: true, message: '모델 캐시를 비웠습니다.' });
+  } catch (error) {
+    console.error('모델 캐시 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: '모델 캐시 삭제에 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
 // LoRA 동기화 (메타데이터 포함) - 관리자만
 router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
   try {
@@ -624,6 +650,31 @@ router.get('/:id/loras/status', verifyJWT, async (req, res) => {
     res.status(500).json({
       success: false,
       message: '동기화 상태를 조회하는데 실패했습니다.',
+      error: error.message
+    });
+  }
+});
+
+// LoRA 캐시 완전 삭제 - 관리자만 (#341)
+router.delete('/:id/loras/cache', requireAdmin, async (req, res) => {
+  try {
+    const cache = await ServerLoraCache.findOne({ serverId: req.params.id });
+    if (!cache) {
+      return res.json({ success: true, message: '캐시가 없습니다.' });
+    }
+    cache.loraModels = [];
+    cache.lastFetched = null;
+    cache.lastCivitaiSync = null;
+    cache.progress = { current: 0, total: 0, stage: 'idle' };
+    cache.status = 'idle';
+    cache.errorMessage = null;
+    await cache.save();
+    res.json({ success: true, message: 'LoRA 캐시를 비웠습니다.' });
+  } catch (error) {
+    console.error('LoRA 캐시 삭제 오류:', error);
+    res.status(500).json({
+      success: false,
+      message: 'LoRA 캐시 삭제에 실패했습니다.',
       error: error.message
     });
   }

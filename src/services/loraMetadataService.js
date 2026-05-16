@@ -258,7 +258,10 @@ const syncServerLoras = async (serverId, serverUrl, { progressCallback = null, f
         continue;
       }
 
-      // 새 모델 데이터 구성
+      // hash 재사용 정책 (#341):
+      // existing.hash 가 있으면 재계산하지 않고 civitai 메타만 새로 받음. 파일 내용이 바뀌면
+      // 파일명도 같이 바뀌는 경우가 대부분이라 기존 hash 를 신뢰해도 충돌 가능성 낮음. hash 까지
+      // 다시 받고 싶으면 admin 의 \"캐시 완전 삭제\" 버튼 (DELETE /api/servers/:id/loras/cache) 사용.
       const loraModel = {
         filename,
         relativePath: filename,

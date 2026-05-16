@@ -27,8 +27,16 @@ import {
   OpenInNew as OpenInNewIcon,
   ContentCopy as CopyIcon,
   ViewModule as GridViewIcon,
-  ViewList as ListViewIcon
+  ViewList as ListViewIcon,
+  DeleteSweep as DeleteSweepIcon
 } from '@mui/icons-material';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
@@ -203,6 +211,10 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
   // 뷰 모드 상태
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
 
+  // 캐시 완전 삭제 (#341)
+  const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
+
   const comfyUIServers = servers;
 
   // 동기화 상태 폴링
@@ -325,6 +337,26 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
     toast.success(`"${word}" 복사됨`);
   };
 
+  const handleClearCache = async () => {
+    if (!selectedServerId) return;
+    setClearingCache(true);
+    try {
+      await serverAPI.clearLoraCache(selectedServerId);
+      toast.success('LoRA 캐시를 비웠습니다. 다음 동기화부터 hash 부터 재계산됩니다.');
+      setClearCacheConfirmOpen(false);
+      setLoraModels([]);
+      setCacheInfo(null);
+      setAvailableBaseModels([]);
+      setPagination({ current: 1, pages: 0, total: 0 });
+      const response = await serverAPI.getLorasSyncStatus(selectedServerId);
+      setSyncStatus(response.data.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || '캐시 삭제 실패');
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return '없음';
     return new Date(dateString).toLocaleString('ko-KR');
@@ -442,6 +474,20 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
                   </Button>
                 </Tooltip>
               )}
+              <Tooltip title="모든 hash + civitai 메타데이터 삭제 (다음 동기화는 시간이 오래 걸림)">
+                <span>
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    onClick={() => setClearCacheConfirmOpen(true)}
+                    disabled={!selectedServerId || syncing || loading || clearingCache}
+                    startIcon={<DeleteSweepIcon />}
+                    size="small"
+                  >
+                    캐시 삭제
+                  </Button>
+                </span>
+              </Tooltip>
             </Box>
           </Box>
 
@@ -589,6 +635,26 @@ function LoraManagementPage({ selectedServerId, servers = [], nsfwFilter = true,
           })()}
         </>
       )}
+
+      <Dialog open={clearCacheConfirmOpen} onClose={() => setClearCacheConfirmOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>LoRA 캐시 완전 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            선택한 서버({selectedServer?.name || ''})의 LoRA 캐시를 모두 비웁니다.
+            <br /><br />
+            • 모든 LoRA 의 hash, civitai 메타데이터가 삭제됩니다.<br />
+            • 다음 동기화는 hash 부터 다시 계산하므로 시간이 오래 걸릴 수 있습니다.<br />
+            • 일반 \"동기화\" 는 hash 를 재사용하므로 빠릅니다 — 이 작업은 처음부터 다시 받아야 할 때만 사용하세요.<br /><br />
+            계속하시겠어요?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearCacheConfirmOpen(false)} disabled={clearingCache}>취소</Button>
+          <Button onClick={handleClearCache} color="error" variant="contained" disabled={clearingCache} startIcon={clearingCache ? <CircularProgress size={16} /> : <DeleteSweepIcon />}>
+            캐시 삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
