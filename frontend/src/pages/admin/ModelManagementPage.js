@@ -20,8 +20,16 @@ import {
 import {
   Refresh as RefreshIcon,
   Search as SearchIcon,
-  RestartAlt as RestartAltIcon
+  RestartAlt as RestartAltIcon,
+  DeleteSweep as DeleteSweepIcon
 } from '@mui/icons-material';
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions
+} from '@mui/material';
 import toast from 'react-hot-toast';
 import { serverAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
@@ -43,6 +51,8 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
   const [syncing, setSyncing] = useState(false);
   const [syncStatus, setSyncStatus] = useState(null);
   const [detailItem, setDetailItem] = useState(null);
+  const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
+  const [clearingCache, setClearingCache] = useState(false);
 
   const selectedServer = servers.find((s) => s._id === selectedServerId);
 
@@ -146,6 +156,26 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
     }
   };
 
+  const handleClearCache = async () => {
+    if (!selectedServerId) return;
+    setClearingCache(true);
+    try {
+      await serverAPI.clearModelCache(selectedServerId);
+      toast.success('모델 캐시를 비웠습니다. 다음 동기화부터 hash 부터 재계산됩니다.');
+      setClearCacheConfirmOpen(false);
+      setModels([]);
+      setCacheInfo(null);
+      setAvailableBaseModels([]);
+      setPagination({ current: 1, pages: 0, total: 0 });
+      const response = await serverAPI.getModelsSyncStatus(selectedServerId);
+      setSyncStatus(response.data.data);
+    } catch (err) {
+      toast.error(err.response?.data?.message || '캐시 삭제 실패');
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
   return (
     <Box>
       <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ md: 'center' }} spacing={2} mb={3}>
@@ -179,6 +209,19 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
               </Button>
             </Tooltip>
           )}
+          <Tooltip title="모든 hash + civitai 메타데이터 삭제 (다음 동기화는 시간이 오래 걸림)">
+            <span>
+              <Button
+                variant="outlined"
+                color="error"
+                startIcon={<DeleteSweepIcon />}
+                onClick={() => setClearCacheConfirmOpen(true)}
+                disabled={!selectedServerId || syncing || clearingCache}
+              >
+                캐시 삭제
+              </Button>
+            </span>
+          </Tooltip>
         </Stack>
       </Stack>
 
@@ -324,6 +367,26 @@ function ModelManagementPage({ selectedServerId, servers = [], nsfwModelFilter =
         onClose={() => setDetailItem(null)}
         nsfwImageFilter={false}
       />
+
+      <Dialog open={clearCacheConfirmOpen} onClose={() => setClearCacheConfirmOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>모델 캐시 완전 삭제</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            선택한 서버({selectedServer?.name || ''})의 모델 캐시를 모두 비웁니다.
+            <br /><br />
+            • 모든 모델의 hash, civitai 메타데이터가 삭제됩니다.<br />
+            • 다음 동기화는 hash 부터 다시 계산하므로 시간이 오래 걸릴 수 있습니다 (모델 수와 파일 크기에 따라 수 분 이상).<br />
+            • 일반 \"동기화\" 는 hash 를 재사용하므로 빠릅니다 — 이 작업은 처음부터 다시 받아야 할 때만 사용하세요.<br /><br />
+            계속하시겠어요?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setClearCacheConfirmOpen(false)} disabled={clearingCache}>취소</Button>
+          <Button onClick={handleClearCache} color="error" variant="contained" disabled={clearingCache} startIcon={clearingCache ? <CircularProgress size={16} /> : <DeleteSweepIcon />}>
+            캐시 삭제
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
