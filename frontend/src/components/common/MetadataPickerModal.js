@@ -397,9 +397,6 @@ function MetadataPickerModal({
             {allowedModelTypes.map((t) => (
               <Chip key={t} label={t} size="small" color="primary" variant="outlined" />
             ))}
-            <Typography variant="caption" color="text.secondary">
-              + 메타데이터 없는 모델
-            </Typography>
           </Box>
         )}
 
