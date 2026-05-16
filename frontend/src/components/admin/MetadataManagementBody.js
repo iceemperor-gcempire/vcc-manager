@@ -288,20 +288,20 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
         </Box>
       )}
 
-      {/* 검색 + 필터 + 액션 */}
-      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems={{ md: 'center' }} sx={{ mb: 2, flexWrap: 'wrap' }}>
+      {/* 1행: 검색 + 베이스 모델 필터 */}
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ sm: 'center' }} sx={{ mb: 1.5 }}>
         <TextField
           placeholder={adapter.searchPlaceholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           size="small"
-          sx={{ flex: '1 1 200px', minWidth: 200 }}
+          sx={{ flexGrow: 1, minWidth: 0 }}
           InputProps={{
             startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
           }}
         />
         {availableBaseModels.length > 0 && (
-          <FormControl size="small" sx={{ minWidth: 140 }}>
+          <FormControl size="small" sx={{ width: { xs: '100%', sm: 180 }, flexShrink: 0 }}>
             <InputLabel>베이스 모델</InputLabel>
             <Select
               value={baseModelFilter}
@@ -315,6 +315,10 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
             </Select>
           </FormControl>
         )}
+      </Stack>
+
+      {/* 2행: view mode 토글 + 액션 버튼 */}
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap', rowGap: 1 }}>
         <ToggleButtonGroup
           value={viewMode}
           exclusive
@@ -331,7 +335,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
             <ListViewIcon />
           </ToggleButton>
         </ToggleButtonGroup>
-        <Box sx={{ flex: 1 }} />
+        <Box sx={{ flexGrow: 1, minWidth: 0 }} />
         <Tooltip title={`${adapter.label} 메타데이터 동기화`}>
           <span>
             <Button
