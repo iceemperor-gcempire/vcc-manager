@@ -85,13 +85,16 @@ const KIND_ADAPTERS = {
     nsfwItemLabel: 'NSFW 모델 숨기기',
   },
   model: {
-    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
+    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, outputFormat, page, limit }) => {
       const params = { search, baseModel, page, limit };
       if (allowedBaseModels && allowedBaseModels.length > 0) {
         params.allowedBaseModels = allowedBaseModels;
       }
       // workboardId 전달 시 backend 가 작업판의 modelExposurePolicy / modelWhitelist 적용 (#198 Phase D)
+      // 추가로 workboard.outputFormat 으로 provider outputFormats 자동 필터 (#354)
       if (workboardId) params.workboardId = workboardId;
+      // outputFormat 명시 전달 — workboardId 없이 admin 페이지에서 작업판 폼의 값으로 호출하는 경우 (#354)
+      if (outputFormat) params.outputFormat = outputFormat;
       return serverAPI.getDetailedModels(serverId, params);
     },
     extractList: (responseData) => responseData?.models || [],
@@ -132,6 +135,7 @@ function MetadataPickerModal({
   onClose,
   serverId,
   workboardId,
+  outputFormat,
   isAdmin = false,
   mode = 'select-single',
   selectedItem,
@@ -202,6 +206,7 @@ function MetadataPickerModal({
           search: searchQuery,
           baseModel: baseModelFilter,
           allowedBaseModels: allowedModelTypes,
+          outputFormat,
           page,
           limit: 20
         });
@@ -220,7 +225,7 @@ function MetadataPickerModal({
         setLoading(false);
       }
     },
-    [serverId, workboardId, searchQuery, baseModelFilter, allowedModelTypes, kind, adapter]
+    [serverId, workboardId, searchQuery, baseModelFilter, allowedModelTypes, outputFormat, kind, adapter]
   );
 
   // sync 폴링
