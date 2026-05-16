@@ -32,8 +32,22 @@ ComfyUI 를 재시작하면 자동 로드됨.
 {
   "success": true,
   "message": "VCC File Hash node is running",
-  "version": "3.0",
+  "version": "3.1",
   "supported_folder_types": ["checkpoints", "clip", "loras", "vae", ...]
+}
+```
+
+### POST /api/vcc/file-hash/refresh/{folder_type}
+
+ComfyUI `folder_paths.cached_filename_list_` 의 해당 folder 캐시 무효화 + 즉시 재스캔. 파일 추가/삭제가 mtime 변화로 즉시 반영되지 않을 때 사용. vcc-manager 동기화 시작 시 자동 호출 (v2.2+).
+
+**응답 예시:**
+```json
+{
+  "success": true,
+  "folder_type": "checkpoints",
+  "invalidated": true,
+  "count": 54
 }
 ```
 
