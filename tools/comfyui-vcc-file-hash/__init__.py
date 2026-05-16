@@ -19,7 +19,7 @@ import folder_paths
 from aiohttp import web
 from server import PromptServer
 
-NODE_VERSION = "3.0"
+NODE_VERSION = "3.1"
 
 # ComfyUI folder_paths 가 인식하는 type 만 허용 (path traversal 방어)
 SUPPORTED_FOLDER_TYPES = {
@@ -136,6 +136,40 @@ async def get_file_hash(request):
     filename = request.match_info.get("filename", "")
     return build_hash_response(folder_type, filename)
 
+@PromptServer.instance.routes.post("/api/vcc/file-hash/refresh/{folder_type}")
+async def refresh_folder_cache(request):
+    """
+    ComfyUI folder_paths 의 특정 folder_type 캐시 무효화 + 즉시 재스캔.
+    파일 삭제·추가가 즉시 반영되지 않을 때 vcc-manager 동기화 직전 호출 (#349).
+    """
+    folder_type = request.match_info.get("folder_type", "")
+    if folder_type not in SUPPORTED_FOLDER_TYPES:
+        return web.json_response({
+            "success": False,
+            "error": f"Unsupported folder_type: {folder_type}"
+        }, status=400)
+
+    try:
+        invalidated = False
+        cache_dict = getattr(folder_paths, "cached_filename_list_", None)
+        if isinstance(cache_dict, dict) and folder_type in cache_dict:
+            del cache_dict[folder_type]
+            invalidated = True
+        # 즉시 재스캔
+        files = folder_paths.get_filename_list(folder_type)
+        return web.json_response({
+            "success": True,
+            "folder_type": folder_type,
+            "invalidated": invalidated,
+            "count": len(files) if files else 0,
+        })
+    except Exception as e:
+        print(f"[VCC File Hash] refresh error: {e}")
+        return web.json_response({
+            "success": False,
+            "error": str(e)
+        }, status=500)
+
 # ── Legacy API (backward compat for older vcc-manager versions) ─────
 
 @PromptServer.instance.routes.get("/api/vcc/lora-hash/ping")
@@ -156,7 +190,8 @@ NODE_CLASS_MAPPINGS = {}
 NODE_DISPLAY_NAME_MAPPINGS = {}
 
 print("[VCC File Hash] Loaded - API endpoints:")
-print("[VCC File Hash]   GET /api/vcc/file-hash/ping")
-print("[VCC File Hash]   GET /api/vcc/file-hash/{folder_type}/{filename}")
-print("[VCC File Hash]   GET /api/vcc/lora-hash/ping              (legacy alias)")
-print("[VCC File Hash]   GET /api/vcc/lora-hash/{filename}         (legacy alias for folder_type=loras)")
+print("[VCC File Hash]   GET  /api/vcc/file-hash/ping")
+print("[VCC File Hash]   GET  /api/vcc/file-hash/{folder_type}/{filename}")
+print("[VCC File Hash]   POST /api/vcc/file-hash/refresh/{folder_type}")
+print("[VCC File Hash]   GET  /api/vcc/lora-hash/ping              (legacy alias)")
+print("[VCC File Hash]   GET  /api/vcc/lora-hash/{filename}         (legacy alias for folder_type=loras)")

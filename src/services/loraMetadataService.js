@@ -54,6 +54,29 @@ const getLoraFilenames = async (serverUrl) => {
 };
 
 /**
+ * ComfyUI folder_paths 의 loras 캐시 강제 갱신 (#349).
+ * vcc-file-hash 노드 v3.1+ 가 있어야 함. 구 노드면 404 fallback.
+ */
+const refreshFolderCache = async (serverUrl, folderType) => {
+  try {
+    const response = await axios.post(
+      `${serverUrl}/api/vcc/file-hash/refresh/${folderType}`,
+      null,
+      { timeout: 10000 }
+    );
+    if (response.data?.success) {
+      console.log(`[LoraSync] folder_paths cache refreshed for ${folderType} (${response.data.count} files)`);
+      return true;
+    }
+  } catch (error) {
+    if (error.response?.status !== 404) {
+      console.warn(`[LoraSync] folder refresh failed for ${folderType}: ${error.message}`);
+    }
+  }
+  return false;
+};
+
+/**
  * VCC File Hash 커스텀 노드 설치 여부 확인.
  * v2.0 의 신규 일반화 엔드포인트 우선, 구 LoRA 전용 엔드포인트 fallback.
  */
@@ -217,6 +240,9 @@ const syncServerLoras = async (serverId, serverUrl, { progressCallback = null, f
     // 2단계: ComfyUI에서 LoRA 파일명 목록 조회
     if (progressCallback) progressCallback('fetching_list', 0, 0);
     await cache.updateProgress(0, 0, 'fetching_list');
+
+    // ComfyUI folder_paths 캐시 강제 갱신 (#349)
+    await refreshFolderCache(serverUrl, 'loras');
 
     const filenames = await getLoraFilenames(serverUrl);
     console.log(`Got ${filenames.length} LoRA files from ComfyUI`);
