@@ -76,6 +76,25 @@ const imageGenerationJobSchema = new mongoose.Schema({
   actualTime: Number,
   startedAt: Date,
   completedAt: Date,
+  // provider 가 반환한 토큰 사용량 (#364). 현재 OpenAI 이미지 생성만 채움.
+  usage: {
+    inputTokens: Number,
+    inputTextTokens: Number,
+    inputImageTokens: Number,
+    outputTokens: Number,
+    totalTokens: Number,
+  },
+  // 자체 가격표 (src/utils/pricing.js) 로 산출한 비용 추정 (#364)
+  costEstimate: {
+    amount: Number,
+    currency: String,
+    pricingVersion: String,
+    breakdown: {
+      inputText: Number,
+      inputImage: Number,
+      output: Number,
+    },
+  },
   retryCount: {
     type: Number,
     default: 0
@@ -115,11 +134,19 @@ imageGenerationJobSchema.methods.updateStatus = function(status, data = {}) {
   if (data.resultImages) {
     this.resultImages = data.resultImages;
   }
-  
+
   if (data.resultVideos) {
     this.resultVideos = data.resultVideos;
   }
-  
+
+  // 비용 추정 (#364) — OpenAI 이미지 생성 worker 가 채움. 다른 provider 는 일단 null.
+  if (data.usage) {
+    this.usage = data.usage;
+  }
+  if (data.costEstimate) {
+    this.costEstimate = data.costEstimate;
+  }
+
   return this.save();
 };
 

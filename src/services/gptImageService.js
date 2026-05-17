@@ -78,7 +78,13 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
     throw new Error('No image returned from GPT Image');
   }
 
-  return { images, videos: [] };
+  // usage 포함하여 반환 — 호출자가 cost 추정에 사용 (#364)
+  return {
+    images,
+    videos: [],
+    usage: response.data?.usage || null,
+    model,
+  };
 };
 
 module.exports = {
