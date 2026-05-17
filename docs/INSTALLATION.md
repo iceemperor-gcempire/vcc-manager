@@ -230,6 +230,56 @@ docker-compose up -d
 
 ---
 
+## 🧩 초기 모델 / LoRA 동기화 (관리자)
+
+설치 직후엔 시스템에 모델 / LoRA 가 비어있습니다. 아래 절차로 admin 이 한 번 등록·동기화하면 사용자가 작업판에서 베이스 모델 / LoRA picker 로 선택 가능합니다.
+
+### 1. 서버 등록
+**admin → 서버 관리** 에서 ComfyUI / OpenAI / OpenAI Compatible / Gemini 서버 추가.
+- ComfyUI: `serverUrl` (예: `http://localhost:8188`)
+- SaaS 계열: `serverUrl` + API key (서버 등록 시 입력)
+
+### 2. (ComfyUI 만) `vcc-file-hash` 커스텀 노드 설치
+체크포인트 / LoRA 의 SHA256 해시를 ComfyUI 가 제공하기 위해 필요합니다. Civitai 메타데이터 매칭의 전제.
+
+```bash
+# ComfyUI 의 custom_nodes 폴더에 복사 또는 심볼릭 링크
+cp -r /path/to/vcc-manager/tools/comfyui-vcc-file-hash ComfyUI/custom_nodes/
+# 또는
+ln -s /path/to/vcc-manager/tools/comfyui-vcc-file-hash ComfyUI/custom_nodes/comfyui-vcc-file-hash
+
+# ComfyUI 재시작
+```
+
+설치 확인:
+```bash
+curl "http://<comfyui-url>/api/vcc/file-hash/ping"
+# 응답에 "version": "3.1+" 가 보이면 정상
+```
+
+> v3.1+ 부터 vcc-manager 동기화 시작 시 자동으로 `POST /api/vcc/file-hash/refresh/{folder_type}` 호출 → ComfyUI 의 stale 파일 목록을 강제 갱신. 파일 삭제 등이 즉시 반영됩니다.
+
+### 3. (선택) Civitai API key 등록
+파일 SHA256 으로 Civitai 메타데이터 (모델 이름·버전·트리거 워드·미리보기 이미지 등) 를 받기 위한 단계. 키 없이도 동기화는 가능하지만 rate limit 이 5배 느림 (1초/요청 → 0.2초/요청).
+
+**admin → 모델 관리** 페이지 상단 공용 헤더의 **\"Civitai API 키\"** 항목에서 입력 → 저장.
+
+### 4. 모델 / LoRA 동기화
+**admin → 모델 관리** → 상단의 서버 선택기에서 대상 서버 선택 → **\"베이스 모델\"** 탭 → **\"동기화\"** 버튼 클릭.
+- 진행률 표시 (해시 계산 → Civitai 조회)
+- 완료 후 카드 그리드 / image-list / list 3종 view mode 로 결과 확인 가능
+- **\"LoRA\"** 탭에서도 동일 동작 (ComfyUI 서버만)
+
+NSFW 모델 / 이미지 숨김 토글도 공용 헤더에서 설정. 작업판 사용자 페이지 picker 에 동일 토글 (user preference) 도 제공.
+
+### 5. (선택) 캐시 완전 삭제 후 재동기화
+일반 \"동기화\" 는 기존 hash 를 재사용해 빠르지만, 드물게 hash 까지 다시 계산하고 싶을 때:
+**admin → 모델 관리** 페이지 상단의 **\"캐시 삭제\"** 버튼 → 확인 → 다시 \"동기화\".
+
+체크포인트는 파일당 SHA256 계산이 수십 초~분 단위라 시간이 오래 걸립니다.
+
+---
+
 ## 📚 다음 단계
 
 설치 완료 후 다음 문서들을 참조하세요:

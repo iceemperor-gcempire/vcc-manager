@@ -325,7 +325,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         });
       }
 
-      const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
+      const { search, hasMetadata, baseModel, workboardId, outputFormat: outputFormatQuery, page = 1, limit = 50 } = req.query;
       // allowedBaseModels: query string 으로 array 또는 single 둘 다 받기.
       let allowedBaseModels = req.query.allowedBaseModels;
       if (typeof allowedBaseModels === 'string') {
@@ -334,8 +334,9 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         allowedBaseModels = undefined;
       }
 
-      // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D)
+      // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D) + outputFormat 자동 유추 (#354)
       let whitelist = undefined;
+      let outputFormat = outputFormatQuery || undefined;
       if (workboardId) {
         const wb = await Workboard.findById(workboardId);
         if (!wb) {
@@ -349,6 +350,10 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
           // 빈 whitelist 면 정책상 0개 노출 — sentinel 로 빈 배열 대신 '__none__' 매칭 안 됨
           if (whitelist.length === 0) whitelist = ['__no_models_in_whitelist__'];
         }
+        // 명시적 outputFormat 쿼리가 없으면 workboard 의 것으로 자동 적용
+        if (!outputFormat && wb.outputFormat) {
+          outputFormat = wb.outputFormat;
+        }
       }
 
       const result = await modelMetadataService.searchServerModels(server._id, {
@@ -357,6 +362,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         baseModel,
         allowedBaseModels,
         whitelist,
+        outputFormat,
         page: parseInt(page),
         limit: parseInt(limit)
       });

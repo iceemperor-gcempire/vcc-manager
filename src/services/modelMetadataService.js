@@ -181,6 +181,68 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
 };
 
 /**
+ * OpenAI 모델 id 로부터 outputFormat 추론 (#354).
+ * `/v1/models` 응답에 타입 필드가 없어 id 패턴으로 분류.
+ * 매칭 실패 시 빈 배열 → 필터에서 fallback (안전: 미분류 모델은 노출됨)
+ */
+const inferOpenAIOutputFormats = (modelId) => {
+  if (!modelId || typeof modelId !== 'string') return [];
+  const id = modelId.toLowerCase();
+  // image 생성 (DALL-E, GPT-Image, sora 등)
+  if (id.startsWith('dall-e') || id.includes('gpt-image') || id.startsWith('sora')) {
+    return ['image'];
+  }
+  // text/chat 모델
+  if (
+    id.startsWith('gpt-') || id.startsWith('chatgpt-') ||
+    id.startsWith('o1-') || id.startsWith('o1') ||
+    id.startsWith('o3-') || id.startsWith('o3') ||
+    id.startsWith('o4-') || id.startsWith('o4')
+  ) {
+    return ['text'];
+  }
+  // 그 외 (whisper / tts / embedding / moderation 등) — 현재 워크플로 미지원이라
+  // 빈 배열 반환하여 어느 outputFormat 의 picker 에도 안 보이게.
+  return [];
+};
+
+/**
+ * Gemini 모델 정보로부터 outputFormat 추론 (#354).
+ * 신호 우선순위:
+ *   1. supportedGenerationMethods.predict / predictLongRunning → Imagen 류 image 생성
+ *   2. generateContent + 이름/설명에 image 키워드 → multimodal image (Nano Banana 등)
+ *   3. generateContent 단독 → text
+ */
+const inferGeminiOutputFormats = (modelData) => {
+  const name = (modelData.name || '').toLowerCase();
+  const displayName = (modelData.displayName || '').toLowerCase();
+  const description = (modelData.description || '').toLowerCase();
+  const fullText = `${name} ${displayName} ${description}`;
+  const methods = Array.isArray(modelData.supportedGenerationMethods) ? modelData.supportedGenerationMethods : [];
+
+  const hasPredict = methods.includes('predict') || methods.includes('predictLongRunning');
+  const hasGenerateContent = methods.includes('generateContent');
+  const hasEmbed = methods.includes('embedContent') || methods.includes('batchEmbedContents');
+
+  // image 키워드 — 이름 + displayName + description 통합 검사
+  const imagePattern = /imagen|image-generation|image-preview|image-edit|nano-banana|-image-|-image$|image\s*generation/;
+  const isImageByName = imagePattern.test(fullText);
+  // vision = image INPUT 전용 (gemini-pro-vision). image OUT 으로 분류하지 않음.
+  const isVision = /\bvision\b/.test(fullText) && !isImageByName;
+
+  const formats = [];
+  if (!isVision && (hasPredict || (isImageByName && hasGenerateContent))) {
+    formats.push('image');
+  }
+  if (formats.length === 0 && hasGenerateContent && !isImageByName) {
+    formats.push('text');
+  }
+  // embed 전용 모델은 현재 워크플로 미지원 → 빈 배열 반환하여 picker 미노출
+
+  return formats;
+};
+
+/**
  * OpenAI / OpenAI Compatible 서버의 모델 목록 조회 (`GET /v1/models`).
  * 응답 스펙: { data: [{ id, object, created, owned_by, ... }] }
  */
@@ -200,6 +262,7 @@ const getOpenAIProviderModels = async (serverUrl, apiKey) => {
       name: m.id,
       description: m.description || '',
       capabilities: [],
+      outputFormats: inferOpenAIOutputFormats(m.id),
       contextWindow: m.context_window || null,
       ownedBy: m.owned_by || null
     }));
@@ -225,6 +288,7 @@ const getGeminiProviderModels = async (serverUrl, apiKey) => {
       name: m.displayName || m.name,
       description: m.description || '',
       capabilities: m.supportedGenerationMethods || [],
+      outputFormats: inferGeminiOutputFormats(m),
       contextWindow: m.inputTokenLimit || null
     }));
   } catch (error) {
@@ -279,6 +343,7 @@ const syncServerProviderModels = async (server, { progressCallback = null } = {}
         name: pm.name,
         description: pm.description,
         capabilities: pm.capabilities,
+        outputFormats: pm.outputFormats || [],
         contextWindow: pm.contextWindow,
         fetchedAt: new Date()
       }
@@ -527,7 +592,7 @@ const resetSyncStatus = async (serverId) => {
  * @param {string[]} opts.allowedBaseModels — civitai.baseModel 다중 매칭
  *   (작업판의 allowedModelTypes 와 매핑 — 필터 활성 시 Civitai 미등록 모델은 제외, #320)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -580,6 +645,18 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
   // 필터 활성 시 civitai 미등록 (baseModel 미상) 모델도 제외 (#320).
   if (Array.isArray(allowedBaseModels) && allowedBaseModels.length > 0) {
     filtered = filtered.filter(m => allowedBaseModels.includes(m.civitai?.baseModel));
+  }
+
+  // outputFormat: provider.outputFormats 기반 필터 (#354).
+  // SaaS provider 모델 한정 — ComfyUI checkpoint 는 provider.found=false 라 영향 없음.
+  // 매칭 실패 / 미분류 (whisper / tts / embedding 등 현재 워크플로 미지원) 도 숨김 — 나중에
+  // 해당 타입 워크플로 도입 시 inferOpenAI/inferGemini 에 맞춰 노출 (#354 후속).
+  if (outputFormat) {
+    filtered = filtered.filter(m => {
+      if (!m.provider?.found) return true;  // ComfyUI checkpoint 등
+      const formats = m.provider.outputFormats;
+      return Array.isArray(formats) && formats.includes(outputFormat);
+    });
   }
 
   // whitelist: 작업판의 modelExposurePolicy='whitelist' + modelWhitelist 적용 (#198 Phase D).

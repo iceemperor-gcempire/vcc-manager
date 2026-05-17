@@ -28,7 +28,16 @@ const systemSettingsSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     },
-    // Civitai API 키 (암호화 저장 권장)
+    // legacy field — #293 Phase B 에서 settings.external.civitaiApiKey 로 이전.
+    // 마이그레이션 후에도 fallback 으로 유지하다가 후속 cleanup 에서 제거.
+    civitaiApiKey: {
+      type: String,
+      default: null
+    }
+  },
+  // 외부 서비스 통합 설정 (#293 Phase B) — Civitai 등 외부 API.
+  // 베이스 모델 / LoRA 양쪽 서비스가 공유 사용.
+  external: {
     civitaiApiKey: {
       type: String,
       default: null
@@ -68,7 +77,10 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
     settings.lora.nsfwLoraFilter = updates.nsfwLoraFilter;
   }
   if (updates.civitaiApiKey !== undefined) {
-    settings.lora.civitaiApiKey = updates.civitaiApiKey || null;
+    // #293 Phase B — 새 위치 우선, legacy 도 동기 갱신 (다른 코드 fallback 대비)
+    const v = updates.civitaiApiKey || null;
+    settings.external.civitaiApiKey = v;
+    settings.lora.civitaiApiKey = v;
   }
 
   await settings.save();
@@ -76,11 +88,17 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
 };
 
 /**
- * Civitai API 키 조회
+ * Civitai API 키 조회 — settings.external.civitaiApiKey 우선, legacy settings.lora.civitaiApiKey
+ * fallback, 마지막으로 환경변수 (#293 Phase B)
  */
 systemSettingsSchema.statics.getCivitaiApiKey = async function() {
   const settings = await this.getGlobal();
-  return settings.lora.civitaiApiKey || process.env.CIVITAI_API_KEY || null;
+  return (
+    settings.external?.civitaiApiKey ||
+    settings.lora?.civitaiApiKey ||
+    process.env.CIVITAI_API_KEY ||
+    null
+  );
 };
 
 /**

@@ -37,6 +37,7 @@ const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
 const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
+const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
 
 dotenv.config();
 
@@ -62,6 +63,15 @@ app.use(cors({
 // Body parsing middleware
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// API GET 응답에 Cache-Control 명시 — 브라우저 heuristic 캐싱으로 인한 stale 응답 방지
+// (예: admin 모델 sync 후 picker 가 같은 URL 캐시를 재사용해 이전 목록을 보이는 문제)
+app.use('/api', (req, res, next) => {
+  if (req.method === 'GET') {
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+  }
+  next();
+});
 
 // Passport configuration
 require('./config/passport');
@@ -189,6 +199,7 @@ const startServer = async () => {
     await assignDefaultGroupToWorkboards();
     await backfillCustomFieldRoles();
     await dropBaseInputFieldsSchema();
+    await relocateCivitaiApiKey();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');

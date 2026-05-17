@@ -85,13 +85,16 @@ const KIND_ADAPTERS = {
     nsfwItemLabel: 'NSFW 모델 숨기기',
   },
   model: {
-    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, page, limit }) => {
+    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, outputFormat, page, limit }) => {
       const params = { search, baseModel, page, limit };
       if (allowedBaseModels && allowedBaseModels.length > 0) {
         params.allowedBaseModels = allowedBaseModels;
       }
       // workboardId 전달 시 backend 가 작업판의 modelExposurePolicy / modelWhitelist 적용 (#198 Phase D)
+      // 추가로 workboard.outputFormat 으로 provider outputFormats 자동 필터 (#354)
       if (workboardId) params.workboardId = workboardId;
+      // outputFormat 명시 전달 — workboardId 없이 admin 페이지에서 작업판 폼의 값으로 호출하는 경우 (#354)
+      if (outputFormat) params.outputFormat = outputFormat;
       return serverAPI.getDetailedModels(serverId, params);
     },
     extractList: (responseData) => responseData?.models || [],
@@ -132,6 +135,7 @@ function MetadataPickerModal({
   onClose,
   serverId,
   workboardId,
+  outputFormat,
   isAdmin = false,
   mode = 'select-single',
   selectedItem,
@@ -202,6 +206,7 @@ function MetadataPickerModal({
           search: searchQuery,
           baseModel: baseModelFilter,
           allowedBaseModels: allowedModelTypes,
+          outputFormat,
           page,
           limit: 20
         });
@@ -220,7 +225,7 @@ function MetadataPickerModal({
         setLoading(false);
       }
     },
-    [serverId, workboardId, searchQuery, baseModelFilter, allowedModelTypes, kind, adapter]
+    [serverId, workboardId, searchQuery, baseModelFilter, allowedModelTypes, outputFormat, kind, adapter]
   );
 
   // sync 폴링
@@ -296,7 +301,16 @@ function MetadataPickerModal({
   const resolvedTitle = title || `${adapter.label} 선택`;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="lg"
+      fullWidth
+      PaperProps={{
+        // 검색 입력 시 결과 영역 height 변화로 다이얼로그 전체가 덜컹거리는 문제 방지 (#354)
+        sx: { height: '85vh' }
+      }}
+    >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h6">{resolvedTitle}</Typography>
         <IconButton onClick={onClose} size="small">
@@ -383,17 +397,13 @@ function MetadataPickerModal({
           </Stack>
         )}
 
-        {cacheInfo && (
+        {cacheInfo && (cacheInfo.lastFetched || cacheInfo.lastMetadataSync || cacheInfo.lastCivitaiSync) && (
           <Box sx={{ mb: 2 }}>
             <Typography variant="caption" color="text.secondary">
               {cacheInfo.lastFetched && `마지막 조회: ${new Date(cacheInfo.lastFetched).toLocaleString('ko-KR')}`}
               {(cacheInfo.lastMetadataSync || cacheInfo.lastCivitaiSync) && ` · 메타 동기화: ${new Date(cacheInfo.lastMetadataSync || cacheInfo.lastCivitaiSync).toLocaleString('ko-KR')}`}
             </Typography>
-            {cacheInfo.hashNodeAvailable === false && (
-              <Alert severity="info" sx={{ mt: 1 }}>
-                ComfyUI 의 vcc-file-hash 노드가 설치되지 않아 해시 기반 메타데이터를 가져올 수 없습니다.
-              </Alert>
-            )}
+            {/* vcc-file-hash 미설치 안내는 admin 페이지에만 (#354) — picker 에선 ComfyUI 인지 즉시 알 수 없어 OpenAI 서버에도 잘못 노출되던 문제. */}
           </Box>
         )}
 
