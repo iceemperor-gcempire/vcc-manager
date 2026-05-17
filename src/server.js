@@ -37,6 +37,7 @@ const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
 const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
+const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
 
 dotenv.config();
 
@@ -198,6 +199,7 @@ const startServer = async () => {
     await assignDefaultGroupToWorkboards();
     await backfillCustomFieldRoles();
     await dropBaseInputFieldsSchema();
+    await relocateCivitaiApiKey();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
