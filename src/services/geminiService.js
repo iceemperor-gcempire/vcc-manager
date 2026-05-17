@@ -107,7 +107,13 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
     throw new Error('No image returned from Gemini');
   }
 
-  return { images, videos: [] };
+  // usage 포함 반환 — 호출자가 cost 추정에 사용 (#367)
+  return {
+    images,
+    videos: [],
+    usage: response.data?.usageMetadata || null,
+    model,
+  };
 };
 
 // Gemini LLM (Chat) — generateContent 호출 후 첫 번째 candidate 의 텍스트 본문 반환.
