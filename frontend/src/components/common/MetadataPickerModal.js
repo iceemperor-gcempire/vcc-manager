@@ -139,6 +139,7 @@ function MetadataPickerModal({
   isAdmin = false,
   mode = 'select-single',
   selectedItem,
+  selectedItems = EMPTY_ALLOWED_MODEL_TYPES,  // multi-add 모드의 현재 선택 목록 (#277)
   onPrimary,
   onTrainedWordClick,
   allowedModelTypes = EMPTY_ALLOWED_MODEL_TYPES,
@@ -368,6 +369,18 @@ function MetadataPickerModal({
           </ToggleButtonGroup>
         </Stack>
 
+        {/* multi-add 모드 선택 카운트 안내 (#277) */}
+        {mode === 'multi-add' && (
+          <Box sx={{ mb: 1.5 }}>
+            <Chip
+              label={`${selectedItems.length}개 선택됨`}
+              size="small"
+              color={selectedItems.length > 0 ? 'primary' : 'default'}
+              variant="outlined"
+            />
+          </Box>
+        )}
+
         {!isAdmin && (
           <Stack direction="row" spacing={2} sx={{ mb: 1, flexWrap: 'wrap' }}>
             <FormControlLabel
@@ -482,7 +495,7 @@ function MetadataPickerModal({
                   return (
                     <MetadataItemCard
                       item={item}
-                      selected={selectedItem === item.filename}
+                      selected={mode === 'multi-add' ? selectedItems.includes(item.filename) : selectedItem === item.filename}
                       onDetailClick={() => setDetailItem(item)}
                       onPrimary={() => handlePrimary(rawItem)}
                       primaryVariant={cardPrimaryVariant}
@@ -505,7 +518,7 @@ function MetadataPickerModal({
                     <MetadataImageListItem
                       key={rawItem?.filename || idx}
                       item={item}
-                      selected={selectedItem === item.filename}
+                      selected={mode === 'multi-add' ? selectedItems.includes(item.filename) : selectedItem === item.filename}
                       onDetailClick={() => setDetailItem(item)}
                       onPrimary={() => handlePrimary(rawItem)}
                       primaryVariant={cardPrimaryVariant}
@@ -524,7 +537,7 @@ function MetadataPickerModal({
                 {filteredItems.map((rawItem, idx) => {
                   const item = adapter.normalize(rawItem);
                   if (!item) return null;
-                  const isSelected = selectedItem === item.filename;
+                  const isSelected = mode === 'multi-add' ? selectedItems.includes(item.filename) : selectedItem === item.filename;
                   return (
                     <Box
                       key={rawItem?.filename || idx}
@@ -563,7 +576,7 @@ function MetadataPickerModal({
                       <Button size="small" onClick={(e) => { e.stopPropagation(); setDetailItem(item); }}>상세</Button>
                       {!cardClickable && (
                         <Button size="small" variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }}>
-                          {mode === 'prompt-insert' ? '추가' : mode === 'multi-add' ? '추가' : '선택'}
+                          {mode === 'prompt-insert' ? '추가' : mode === 'multi-add' ? (isSelected ? '제거' : '추가') : '선택'}
                         </Button>
                       )}
                     </Box>
