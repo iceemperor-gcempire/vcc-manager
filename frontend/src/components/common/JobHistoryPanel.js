@@ -743,6 +743,21 @@ function JobDetailDialog({ job, open, onClose, onImageView }) {
               {job.completedAt ? new Date(job.completedAt).toLocaleString() : '-'}
             </Typography>
           </Grid>
+          {job.costEstimate?.amount !== undefined && (
+            <Grid item xs={12}>
+              <Typography variant="body2" color="textSecondary">
+                추정 비용 ({job.costEstimate.pricingVersion || 'unknown'})
+              </Typography>
+              <Typography variant="body1">
+                ${job.costEstimate.amount?.toFixed(6) || '0.000000'} {job.costEstimate.currency || 'USD'}
+              </Typography>
+              {job.usage && (
+                <Typography variant="caption" color="textSecondary" component="div" sx={{ mt: 0.5 }}>
+                  토큰: 입력 텍스트 {job.usage.inputTextTokens ?? 0} · 입력 이미지 {job.usage.inputImageTokens ?? 0} · 출력 {job.usage.outputTokens ?? 0} (총 {job.usage.totalTokens ?? 0})
+                </Typography>
+              )}
+            </Grid>
+          )}
         </Grid>
 
         {job.inputData?.referenceImages?.length > 0 && (
