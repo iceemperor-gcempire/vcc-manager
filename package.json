@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "jest"
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
     "archiver": "^6.0.1",
@@ -35,6 +38,7 @@
     "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.49.0",
     "jest": "^29.7.0",
     "nodemon": "^3.0.2",
     "supertest": "^6.3.3"
