@@ -390,14 +390,14 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
 router.post('/generate-prompt', requireAuth, async (req, res) => {
   try {
-    const { workboardId, inputData } = req.body;
-    
+    const { workboardId, inputData, conversationId } = req.body;
+
     if (!workboardId || !inputData?.userPrompt) {
       return res.status(400).json({
         message: 'Missing required fields: workboardId, inputData.userPrompt'
       });
     }
-    
+
     const workboard = await Workboard.findById(workboardId).populate('serverId');
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -411,41 +411,67 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     if (workboard.outputFormat !== 'text' && workboard.workboardType !== 'prompt') {
       return res.status(400).json({ message: 'This workboard is not a prompt workboard' });
     }
-    
+
     const server = workboard.serverId;
     if (!server || !server.isActive) {
       return res.status(400).json({ message: 'Server is not available' });
     }
-    
+
     const systemPrompt = workboard.baseInputFields?.systemPrompt || '';
     const model = inputData.model || workboard.baseInputFields?.aiModel?.[0]?.value || 'gpt-4';
     const temperature = workboard.baseInputFields?.temperature ?? 0.7;
     const maxTokens = workboard.baseInputFields?.maxTokens ?? 2000;
-    
+
     console.log('Prompt generation request:', {
       workboardId,
       model,
       temperature,
       maxTokens,
       serverUrl: server.serverUrl,
-      hasApiKey: !!server.configuration?.apiKey
+      hasApiKey: !!server.configuration?.apiKey,
+      isContinuation: !!conversationId,
     });
-    
-    const messages = [];
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
-    }
-    messages.push({ role: 'user', content: inputData.userPrompt });
 
-    // ConversationJob pending 생성 (#373) — 호출 실패해도 히스토리에 흔적이 남도록.
-    const conversation = await ConversationJob.create({
-      userId: req.user._id,
-      workboardId: workboard._id,
-      serverType: server.serverType,
-      model,
-      messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
-      status: 'processing',
-    });
+    // 멀티턴 (#375): conversationId 가 있으면 기존 대화 로드 후 append.
+    // 없으면 신규 대화 생성 (#373 Phase 1 동일 흐름).
+    let conversation;
+    let messages;
+    if (conversationId) {
+      conversation = await ConversationJob.findById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: '대화를 찾을 수 없습니다.' });
+      }
+      if (String(conversation.userId) !== String(req.user._id) && !req.user.isAdmin) {
+        return res.status(403).json({ message: '이 대화에 접근할 권한이 없습니다.' });
+      }
+      if (String(conversation.workboardId) !== String(workboard._id)) {
+        return res.status(400).json({ message: '대화가 다른 작업판에 속해 있습니다.' });
+      }
+      conversation.messages.push({
+        role: 'user',
+        content: inputData.userPrompt,
+        createdAt: new Date(),
+      });
+      conversation.status = 'processing';
+      conversation.error = undefined;
+      await conversation.save();
+      // LLM 에는 전체 시퀀스 전달
+      messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
+    } else {
+      messages = [];
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      }
+      messages.push({ role: 'user', content: inputData.userPrompt });
+      conversation = await ConversationJob.create({
+        userId: req.user._id,
+        workboardId: workboard._id,
+        serverType: server.serverType,
+        model,
+        messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
+        status: 'processing',
+      });
+    }
 
     // server.serverType 기반 chat 서비스 분기. Gemini 는 generateContent (텍스트 모드),
     // 그 외 (OpenAI / OpenAI Compatible) 는 /v1/chat/completions.
@@ -469,7 +495,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       throw chatError;
     }
 
-    // assistant 응답 messages 에 append + 비용 (Phase 3 에서 채움)
+    // assistant 응답 messages 에 append + usage (Phase 3 에서 비용 추정 채움)
     conversation.messages.push({
       role: 'assistant',
       content: result,
