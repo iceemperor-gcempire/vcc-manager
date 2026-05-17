@@ -118,9 +118,10 @@ const authRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
+// signup rate limit — 기본 1시간당 3회. env SIGNUP_RATE_LIMIT_MAX 로 dev / e2e 환경 완화 가능 (#359).
 const signupRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // limit each IP to 3 signup attempts per hour
+  max: parseInt(process.env.SIGNUP_RATE_LIMIT_MAX, 10) || 3,
   message: {
     message: 'Too many signup attempts, please try again later.'
   },

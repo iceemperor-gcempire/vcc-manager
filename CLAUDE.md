@@ -118,6 +118,27 @@ docker-compose down && docker-compose up --build -d
 docker-compose logs -f backend
 ```
 
+### E2E 테스트 (Playwright, #359)
+critical user journey 자동 회귀 검증. `e2e/` 디렉토리 + `playwright.config.js` 참고.
+
+```bash
+# 첫 실행 — Playwright 브라우저 다운로드
+npx playwright install chromium
+
+# 헤드리스 실행 (docker-compose 가 떠 있어야 함)
+npm run test:e2e
+
+# UI 모드 / 헤드 모드
+npm run test:e2e:ui
+npm run test:e2e:headed
+```
+
+**유지보수 정책** — UI 변경 시 함께 갱신:
+- 셀렉터 / 네비게이션 흐름 / 라벨 텍스트 등이 바뀌면 관련 e2e spec 도 동시 수정. 별도 후속 작업으로 미루지 말 것.
+- 핵심 user journey 추가 (예: 신규 페이지, 새 인증 흐름) 시 smoke 1개 이상 추가 권장.
+- PR 머지 전 로컬에서 `npm run test:e2e` 통과 확인.
+- 테스트가 깨졌을 때 \"테스트가 잘못됨\" 으로 무조건 spec 만 고치지 말 것 — UI 실제 동작 검증 후 spec / 실 동작 어느 쪽이 맞는지 결정.
+
 ### 환경 변수 파일
 - `.env` - 로컬 개발용
 - `.env.production` - 프로덕션용
