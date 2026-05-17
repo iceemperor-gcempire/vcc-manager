@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -490,7 +490,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀.
   // ServerModelCache 의 detailed endpoint 에서 derived (limit 1 로 가벼운 호출).
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open || !isComfyUI || !watchedServerId) {
       setAvailableBaseModels([]);
       return;
@@ -503,14 +503,14 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   }, [open, isComfyUI, watchedServerId]);
 
   // 그룹 목록 fetch (#198) — 모달 open 시 1회
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) return;
     groupAPI.getAll()
       .then((res) => setAvailableGroups(res.data?.data?.groups || []))
       .catch(() => setAvailableGroups([]));
   }, [open]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (copyResetTimerRef.current) {
         clearTimeout(copyResetTimerRef.current);
@@ -553,7 +553,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   );
 
   // 관리자 전용 API로 완전한 데이터 로딩
-  React.useEffect(() => {
+  useEffect(() => {
     if (workboard && workboard._id && open) {
       setLoading(true);
       console.log('Fetching full workboard data with ID:', workboard._id);
@@ -1193,7 +1193,7 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
     }
   });
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (open) {
       reset({
         name: '',
@@ -1265,7 +1265,7 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
     setDragOver(false);
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!open) resetState();
   }, [open]);
 
@@ -1462,10 +1462,29 @@ function WorkboardImportDialog({ open, onClose, onSuccess }) {
   );
 }
 
+// 사용자용 Workboards 와 별도 prefix 로 충돌 회피 (#370)
+const ADMIN_WB_SEARCH_KEY = 'vcc.adminWorkboards.search';
+const ADMIN_WB_SERVER_KEY = 'vcc.adminWorkboards.serverType';
+const ADMIN_WB_OUTPUT_KEY = 'vcc.adminWorkboards.outputFormat';
+
 function WorkboardManagement() {
-  const [search, setSearch] = useState('');
-  const [serverTypeFilter, setServerTypeFilter] = useState('');
-  const [outputFormatFilter, setOutputFormatFilter] = useState('');
+  const [search, setSearch] = useState(() => localStorage.getItem(ADMIN_WB_SEARCH_KEY) || '');
+  const [serverTypeFilter, setServerTypeFilter] = useState(() => localStorage.getItem(ADMIN_WB_SERVER_KEY) || '');
+  const [outputFormatFilter, setOutputFormatFilter] = useState(() => localStorage.getItem(ADMIN_WB_OUTPUT_KEY) || '');
+
+  // 필터 변경 시 localStorage 동기 (#370)
+  useEffect(() => {
+    if (search) localStorage.setItem(ADMIN_WB_SEARCH_KEY, search);
+    else localStorage.removeItem(ADMIN_WB_SEARCH_KEY);
+  }, [search]);
+  useEffect(() => {
+    if (serverTypeFilter) localStorage.setItem(ADMIN_WB_SERVER_KEY, serverTypeFilter);
+    else localStorage.removeItem(ADMIN_WB_SERVER_KEY);
+  }, [serverTypeFilter]);
+  useEffect(() => {
+    if (outputFormatFilter) localStorage.setItem(ADMIN_WB_OUTPUT_KEY, outputFormatFilter);
+    else localStorage.removeItem(ADMIN_WB_OUTPUT_KEY);
+  }, [outputFormatFilter]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
