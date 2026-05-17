@@ -314,8 +314,14 @@ const processImageGeneration = async (job) => {
     }
     
     job.progress(100);
-    
-    return { images: savedImages, videos: savedVideos };
+
+    // handler 가 추가 제공한 정보 (usage / costEstimate 등) 보존 (#364)
+    return {
+      images: savedImages,
+      videos: savedVideos,
+      usage: generationResult.usage,
+      costEstimate: generationResult.costEstimate,
+    };
   } catch (error) {
     console.error(`Error processing job ${jobId}:`, error);
     throw error;
