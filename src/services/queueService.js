@@ -7,7 +7,7 @@ const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const geminiService = require('./geminiService');
 const gptImageService = require('./gptImageService');
-const { computeOpenAIImageCost } = require('../utils/pricing');
+const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -159,7 +159,28 @@ async function handleGeminiImage({ workboardData, inputData, job }) {
     }
   );
   job.progress(90);
-  return result;
+
+  // 토큰 사용량 → 비용 추정 (#367)
+  let usageNormalized = null;
+  let costEstimate = null;
+  if (result.usage) {
+    usageNormalized = {
+      inputTokens: result.usage.promptTokenCount,
+      // Gemini 응답은 입력 텍스트/이미지 구분 없음 — input 전체를 inputImage 칸에 보관
+      inputTextTokens: 0,
+      inputImageTokens: result.usage.promptTokenCount,
+      outputTokens: result.usage.candidatesTokenCount,
+      totalTokens: result.usage.totalTokenCount,
+    };
+    costEstimate = computeGeminiImageCost(result.model, result.usage);
+  }
+
+  return {
+    images: result.images,
+    videos: result.videos,
+    usage: usageNormalized,
+    costEstimate,
+  };
 }
 
 async function handleOpenAIImage({ workboardData, inputData, job }) {
