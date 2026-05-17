@@ -41,7 +41,12 @@ function MetadataImageListItem({
   const previewImage = filteredImages[0];
 
   const handleRowClick = cardClickable && onPrimary ? () => onPrimary(item) : undefined;
-  const resolvedPrimaryLabel = primaryLabel || (primaryVariant === 'insert' ? '프롬프트에 추가' : primaryVariant === 'add' ? '추가' : '선택');
+  // multi-add 모드에서 이미 선택된 항목은 토글로 \"제거\" 표시 (#277)
+  const resolvedPrimaryLabel = primaryLabel || (
+    primaryVariant === 'insert' ? '프롬프트에 추가'
+      : primaryVariant === 'add' ? (selected ? '제거' : '추가')
+      : '선택'
+  );
 
   return (
     <Box

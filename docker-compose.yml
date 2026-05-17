@@ -63,6 +63,10 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-VCC Manager}
       SIGNED_URL_EXPIRY: ${SIGNED_URL_EXPIRY:-3600}
       SIGNED_URL_ROUND_SECONDS: ${SIGNED_URL_ROUND_SECONDS:-1440}
+      # dev / e2e 환경 — signup rate limit 완화 (#359). 프로덕션은 기본값 3 유지.
+      SIGNUP_RATE_LIMIT_MAX: ${SIGNUP_RATE_LIMIT_MAX:-100}
+      # E2E 백도어 (#359) — 해당 도메인 이메일은 자동 admin 승격. 프로덕션 미사용.
+      TEST_AUTO_ADMIN_DOMAIN: ${TEST_AUTO_ADMIN_DOMAIN:-example.com}
     ports:
       - "${BACKEND_PORT:-3136}:3000"
     volumes:

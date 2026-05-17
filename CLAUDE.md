@@ -20,13 +20,10 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 작업 요청을 받았을 경우 아래 상황을 확인하여 진행.
 
 **개발 작업 시:**
-1. **모든 변경은 GitHub issue 부터 생성** — 사소한 오타 / hotfix 도 예외 없음. 작은 변경은 여러 항목을 묶어 하나의 이슈로 통합 가능 (예: \"[v2.x] 미세 UI 정리 묶음\")
-2. `dev` 브랜치에서 `feature/{이슈번호}-{설명}` 또는 `fix/{이슈번호}-{설명}` 브랜치 생성
-	1. 이 부분에 대해서는 `Git 작업 체계` > `브랜치 전략` 참고
-	2. `Github Issue 처리` 항목 참고
-3. 작업 완료 후 PR 생성 → `dev` 브랜치로 머지
-4. PR 제목: 커밋 메시지 스타일 + 이슈 번호 (예: `feat: 기능 설명 (#이슈번호)`)
-5. PR 본문에 변경사항 요약 + `closes #이슈번호` 포함
+1. **모든 변경은 GitHub issue 부터 생성** — 사소한 오타 / hotfix 도 예외 없음. 작은 변경은 여러 항목을 묶어 하나의 이슈로 통합 가능 (예: \"[v2.x] 미세 UI 정리 묶음\").
+2. `dev` 브랜치에서 `feature/{이슈번호}-{설명}` 또는 `fix/{이슈번호}-{설명}` 브랜치 생성 (브랜치 명명 규칙은 `Git 작업 체계` 섹션 참고).
+3. 작업 완료 후 PR 생성 → `dev` 브랜치로 머지. PR 제목은 커밋 메시지 스타일 + 이슈 번호 (예: `feat: 기능 설명 (#이슈번호)`), PR 본문에 변경사항 요약 + `closes #이슈번호` 포함.
+4. 머지 후 issue 자동 close 가 안 됐다면 `gh issue close <번호>` 로 명시.
 
 **버전 릴리스 시:**
 1. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
@@ -82,26 +79,23 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
 
 ---
 
-## GitHub Issue 처리
+## GitHub Issue 참조 / 보강
+
+> 절차 전반은 상단의 **작업 Workflow** 참고. 이 섹션은 issue 참조 문법 + 보강 정책만 다룸.
 
 ### Issue 참조 방식
 ```bash
-# 커밋에서 이슈 참조
+# 커밋 메시지에서 이슈 참조
 git commit -m "feat: add user settings (#38)"
 
-# PR로 이슈 자동 종료
+# PR 본문에서 자동 close
 closes #38
 fixes #38
 ```
 
-### Issue 처리 절차
-1. Issue 내용 확인 및 요구사항 파악
-2. 관련 코드 분석
-3. 구현 및 테스트
-4. 커밋 (이슈 번호 참조)
-5. 필요시 PR 생성
-6. 작업 중 Issue 에서 설명이 부족했던 부분이나 잘못 적혀 있어 작업 진행 중 보강되거나 수정된 항목들에 대해 comment로 추가해 둘 것.
-7. PR 머지 후 해당 이슈 닫기 (`gh issue close <번호>` 또는 PR 본문에 `closes #번호` 사용)
+### Issue 보강 정책
+- 작업 중 issue 본문에 설명이 부족했거나 잘못 적혀 있어 **보강 / 수정된 항목** 은 해당 issue 에 comment 로 남길 것 — 미래의 reader (또는 동일 영역 재방문 시) 가 PR 만으로는 잡기 어려운 맥락을 보존.
+- PR 머지 시 자동 close 가 일어나지 않으면 (dev 머지 등) `gh issue close <번호>` 로 명시 close.
 
 ---
 
@@ -117,6 +111,27 @@ docker-compose down && docker-compose up --build -d
 # 로그 확인
 docker-compose logs -f backend
 ```
+
+### E2E 테스트 (Playwright, #359)
+critical user journey 자동 회귀 검증. `e2e/` 디렉토리 + `playwright.config.js` 참고.
+
+```bash
+# 첫 실행 — Playwright 브라우저 다운로드
+npx playwright install chromium
+
+# 헤드리스 실행 (docker-compose 가 떠 있어야 함)
+npm run test:e2e
+
+# UI 모드 / 헤드 모드
+npm run test:e2e:ui
+npm run test:e2e:headed
+```
+
+**유지보수 정책** — UI 변경 시 함께 갱신:
+- 셀렉터 / 네비게이션 흐름 / 라벨 텍스트 등이 바뀌면 관련 e2e spec 도 동시 수정. 별도 후속 작업으로 미루지 말 것.
+- 핵심 user journey 추가 (예: 신규 페이지, 새 인증 흐름) 시 smoke 1개 이상 추가 권장.
+- PR 머지 전 로컬에서 `npm run test:e2e` 통과 확인.
+- 테스트가 깨졌을 때 \"테스트가 잘못됨\" 으로 무조건 spec 만 고치지 말 것 — UI 실제 동작 검증 후 spec / 실 동작 어느 쪽이 맞는지 결정.
 
 ### 환경 변수 파일
 - `.env` - 로컬 개발용
