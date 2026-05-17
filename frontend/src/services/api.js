@@ -112,6 +112,14 @@ export const jobAPI = {
   getQueueStats: () => api.get('/jobs/queue/stats'),
 };
 
+// LLM 대화 히스토리 (#373)
+export const conversationAPI = {
+  getMy: (params) => api.get('/conversations/my', { params }),
+  getById: (id) => api.get(`/conversations/${id}`),
+  delete: (id) => api.delete(`/conversations/${id}`),
+  getAll: (params) => api.get('/conversations/all', { params }),
+};
+
 export const imageAPI = {
   upload: (formData) => api.post('/images/upload', formData, {
     headers: {
