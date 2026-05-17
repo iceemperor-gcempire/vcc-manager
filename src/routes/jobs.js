@@ -14,6 +14,7 @@ const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -417,10 +418,21 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'Server is not available' });
     }
 
-    const systemPrompt = workboard.baseInputFields?.systemPrompt || '';
-    const model = inputData.model || workboard.baseInputFields?.aiModel?.[0]?.value || 'gpt-4';
-    const temperature = workboard.baseInputFields?.temperature ?? 0.7;
-    const maxTokens = workboard.baseInputFields?.maxTokens ?? 2000;
+    // role 기반 lookup (#377) — 작업판 customField (`base_model`, `system_prompt`, ...) 가 단일 진입점.
+    // legacy baseInputFields fallback 제거됨 — F2 / baseInputFields migration 완료 후 DB 에 잔존 없음.
+    const extractOpt = (v) => (v && typeof v === 'object' && v.value !== undefined ? v.value : v);
+    const systemPrompt = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.SYSTEM_PROMPT)) || '';
+    const resolvedModel = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL));
+    if (!resolvedModel && !conversationId) {
+      // 멀티턴(이어가기) 은 inputData 에 model 이 없어도 conversation 에 저장된 model 을 사용
+      return res.status(400).json({ message: '작업판에 모델이 선택되지 않았습니다.' });
+    }
+    const temperatureValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.TEMPERATURE));
+    const temperature = temperatureValue != null ? Number(temperatureValue) : 0.7;
+    const maxTokensValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MAX_TOKENS));
+    const maxTokens = maxTokensValue != null ? Number(maxTokensValue) : 2000;
+    // 멀티턴 시 model 은 기존 대화에 저장된 값을 우선 (작업판 변경에도 일관성 유지)
+    let model = resolvedModel;
 
     console.log('Prompt generation request:', {
       workboardId,
@@ -446,6 +458,10 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       }
       if (String(conversation.workboardId) !== String(workboard._id)) {
         return res.status(400).json({ message: '대화가 다른 작업판에 속해 있습니다.' });
+      }
+      // 멀티턴은 대화에 저장된 model 유지 (#377)
+      if (conversation.model) {
+        model = conversation.model;
       }
       conversation.messages.push({
         role: 'user',
@@ -495,13 +511,31 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       throw chatError;
     }
 
-    // assistant 응답 messages 에 append + usage (Phase 3 에서 비용 추정 채움)
+    // assistant 응답 + usage + 비용 추정 (#377). usage 누적 (멀티턴 시 직전 턴 토큰 합산).
     conversation.messages.push({
       role: 'assistant',
       content: result,
       createdAt: new Date(),
     });
-    conversation.usage = usage;
+    const turnUsage = usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+    const prevUsage = conversation.usage || {};
+    conversation.usage = {
+      promptTokens: (prevUsage.promptTokens || 0) + (turnUsage.promptTokens || 0),
+      completionTokens: (prevUsage.completionTokens || 0) + (turnUsage.completionTokens || 0),
+      totalTokens: (prevUsage.totalTokens || 0) + (turnUsage.totalTokens || 0),
+    };
+    const computeCost = server.serverType === 'Gemini'
+      ? computeGeminiTextCost
+      : computeOpenAITextCost;
+    const turnCost = computeCost(model, turnUsage);
+    if (turnCost) {
+      const prevAmount = conversation.costEstimate?.amount || 0;
+      conversation.costEstimate = {
+        amount: +(prevAmount + turnCost.amount).toFixed(6),
+        currency: turnCost.currency,
+        pricingVersion: turnCost.pricingVersion,
+      };
+    }
     conversation.status = 'completed';
     conversation.completedAt = new Date();
     await conversation.save();
@@ -512,7 +546,8 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       success: true,
       conversationId: conversation._id,
       result,
-      usage,
+      usage: turnUsage,
+      costEstimate: conversation.costEstimate || null,
       model
     });
   } catch (error) {

@@ -219,6 +219,12 @@ function ConversationHistoryPanel() {
                   <Typography variant="caption" color="text.secondary" display="block">
                     토큰: 입력 {detailItem.usage.promptTokens ?? 0} · 출력 {detailItem.usage.completionTokens ?? 0} (총 {detailItem.usage.totalTokens ?? 0})
                   </Typography>
+                  {detailItem.costEstimate?.amount != null && (
+                    <Typography variant="caption" color="text.secondary" display="block">
+                      추정 비용: ${detailItem.costEstimate.amount.toFixed(6)} {detailItem.costEstimate.currency || 'USD'}
+                      {detailItem.costEstimate.pricingVersion && ` (${detailItem.costEstimate.pricingVersion})`}
+                    </Typography>
+                  )}
                 </Box>
               )}
             </Stack>
