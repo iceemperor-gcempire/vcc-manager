@@ -26,7 +26,9 @@ import {
   Settings as SystemIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { Chat as ChatIcon } from '@mui/icons-material';
 import { conversationAPI } from '../../services/api';
 import Pagination from './Pagination';
 
@@ -36,6 +38,7 @@ function ConversationHistoryPanel() {
   const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState(null);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data, isLoading, error } = useQuery(
     ['conversations', page],
@@ -97,6 +100,13 @@ function ConversationHistoryPanel() {
                     color={conv.status === 'completed' ? 'success' : conv.status === 'failed' ? 'error' : 'default'}
                     variant="outlined"
                   />
+                  {(conv.messages?.filter((m) => m.role !== 'system').length || 0) > 2 && (
+                    <Chip
+                      label={`${conv.messages.filter((m) => m.role !== 'system').length}턴`}
+                      size="small"
+                      variant="outlined"
+                    />
+                  )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
                     {new Date(conv.createdAt).toLocaleString('ko-KR')}
@@ -215,6 +225,18 @@ function ConversationHistoryPanel() {
           )}
         </DialogContent>
         <DialogActions>
+          {detailItem?.workboardId?._id && (
+            <Button
+              variant="contained"
+              color="secondary"
+              startIcon={<ChatIcon />}
+              onClick={() => {
+                navigate(`/prompt-generate/${detailItem.workboardId._id}?conversationId=${detailItem._id}`);
+              }}
+            >
+              이 대화 이어가기
+            </Button>
+          )}
           <Button onClick={() => setDetailItem(null)}>닫기</Button>
         </DialogActions>
       </Dialog>
