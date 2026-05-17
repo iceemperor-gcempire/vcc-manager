@@ -5,6 +5,7 @@ const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const ConversationJob = require('../models/ConversationJob');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -436,22 +437,54 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     }
     messages.push({ role: 'user', content: inputData.userPrompt });
 
+    // ConversationJob pending 생성 (#373) — 호출 실패해도 히스토리에 흔적이 남도록.
+    const conversation = await ConversationJob.create({
+      userId: req.user._id,
+      workboardId: workboard._id,
+      serverType: server.serverType,
+      model,
+      messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
+      status: 'processing',
+    });
+
     // server.serverType 기반 chat 서비스 분기. Gemini 는 generateContent (텍스트 모드),
     // 그 외 (OpenAI / OpenAI Compatible) 는 /v1/chat/completions.
     const chatService = server.serverType === 'Gemini'
       ? geminiService
       : openAIChatService;
-    const { content: result, usage } = await chatService.complete(
-      server.serverUrl,
-      server.configuration?.apiKey,
-      messages,
-      { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
-    );
+
+    let result, usage;
+    try {
+      ({ content: result, usage } = await chatService.complete(
+        server.serverUrl,
+        server.configuration?.apiKey,
+        messages,
+        { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
+      ));
+    } catch (chatError) {
+      conversation.status = 'failed';
+      conversation.error = { message: chatError.message };
+      conversation.completedAt = new Date();
+      await conversation.save();
+      throw chatError;
+    }
+
+    // assistant 응답 messages 에 append + 비용 (Phase 3 에서 채움)
+    conversation.messages.push({
+      role: 'assistant',
+      content: result,
+      createdAt: new Date(),
+    });
+    conversation.usage = usage;
+    conversation.status = 'completed';
+    conversation.completedAt = new Date();
+    await conversation.save();
 
     await workboard.incrementUsage();
 
     res.json({
       success: true,
+      conversationId: conversation._id,
       result,
       usage,
       model
