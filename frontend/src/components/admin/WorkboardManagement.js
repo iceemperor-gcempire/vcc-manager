@@ -243,11 +243,15 @@ function WhitelistField({ name, control, kind, serverId, outputFormat, placehold
       control={control}
       render={({ field }) => {
         const value = field.value || [];
-        const handleAdd = (rawItem) => {
+        // picker 의 multi-add 모드에서 카드를 다시 클릭하면 토글 — 이미 포함된 항목은 제거 (#277)
+        const handleToggle = (rawItem) => {
           const id = rawItem?.filename;
           if (!id) return;
-          if (value.includes(id)) return;
-          field.onChange([...value, id]);
+          if (value.includes(id)) {
+            field.onChange(value.filter((v) => v !== id));
+          } else {
+            field.onChange([...value, id]);
+          }
         };
         return (
           <Box>
@@ -296,7 +300,8 @@ function WhitelistField({ name, control, kind, serverId, outputFormat, placehold
                 outputFormat={outputFormat}
                 isAdmin
                 mode="multi-add"
-                onPrimary={handleAdd}
+                selectedItems={value}
+                onPrimary={handleToggle}
               />
             )}
           </Box>
