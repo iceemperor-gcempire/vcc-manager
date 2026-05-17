@@ -3,25 +3,33 @@
 // 단가는 \$/1M tokens 단위. 갱신 시 PRICING_VERSION 도 함께 올려야 과거 저장된
 // 추정치가 \"어느 시점의 단가로 계산됐는지\" 추적 가능.
 
-// 가격표는 2026-05 기준. provider 가 가격 변경 시 이 값과 PRICING_VERSION 갱신.
+// 가격표는 2026-05 기준. 출처: https://developers.openai.com/api/docs/pricing
 const PRICING_VERSION = '2026-05';
 
 // 단위: USD per 1,000,000 tokens
 const OPENAI_IMAGE_PRICING = {
+  // gpt-image-1: 공식 페이지에서 제거됨. legacy 추정값 유지 (deprecated)
   'gpt-image-1': {
     input_text: 5,
     input_image: 10,
     output: 40,
   },
-  // gpt-image-1.5 — gpt-image-1 과 2 의 중간 정도 단가 (정확한 공식 단가 미공개 추정)
+  'gpt-image-1-mini': {
+    input_text: 2,
+    input_image: 2.5,
+    input_image_cached: 0.25,
+    output: 8,
+  },
   'gpt-image-1.5': {
     input_text: 5,
-    input_image: 9,
-    output: 35,
+    input_image: 8,
+    input_image_cached: 2,
+    output: 32,
   },
   'gpt-image-2': {
     input_text: 5,
     input_image: 8,
+    input_image_cached: 2,
     output: 30,
   },
 };
