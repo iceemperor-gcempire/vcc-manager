@@ -55,6 +55,9 @@ function MetadataImageListItem({
         display: 'flex',
         alignItems: 'stretch',
         gap: 1.5,
+        width: '100%',
+        minWidth: 0,
+        overflow: 'hidden',
         border: 1,
         borderColor: selected ? 'primary.main' : 'divider',
         borderWidth: selected ? 2 : 1,
@@ -79,7 +82,7 @@ function MetadataImageListItem({
       </Box>
 
       {/* 중앙: 정보 */}
-      <Box sx={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', py: 0.25 }}>
+      <Box sx={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', py: 0.25 }}>
         {/* 모델명 + 버전 */}
         <Box>
           <Stack direction="row" alignItems="center" spacing={0.5}>

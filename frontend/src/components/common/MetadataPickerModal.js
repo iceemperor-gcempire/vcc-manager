@@ -533,7 +533,7 @@ function MetadataPickerModal({
             )}
 
             {viewMode === 'list' && (
-              <Box>
+              <Box sx={{ width: '100%', overflow: 'hidden' }}>
                 {filteredItems.map((rawItem, idx) => {
                   const item = adapter.normalize(rawItem);
                   if (!item) return null;
@@ -548,6 +548,9 @@ function MetadataPickerModal({
                         gap: 1,
                         py: 1,
                         px: 1.5,
+                        width: '100%',
+                        minWidth: 0,
+                        overflow: 'hidden',
                         borderBottom: 1,
                         borderColor: 'divider',
                         cursor: cardClickable ? 'pointer' : 'default',
@@ -555,7 +558,7 @@ function MetadataPickerModal({
                         '&:hover': { bgcolor: 'action.hover' }
                       }}
                     >
-                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                      <Box sx={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                         <Typography variant="body2" noWrap title={item.displayName} sx={{ fontWeight: isSelected ? 600 : 500 }}>
                           {item.displayName}
                           {item.versionName && (
@@ -564,18 +567,18 @@ function MetadataPickerModal({
                             </Typography>
                           )}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace' }}>
+                        <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace', display: 'block' }}>
                           {item.filename}
                         </Typography>
                       </Box>
                       {item.baseModel && (
-                        <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                        <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 1, minWidth: 0, maxWidth: { xs: 80, sm: 160 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {item.baseModel}
                         </Typography>
                       )}
-                      <Button size="small" onClick={(e) => { e.stopPropagation(); setDetailItem(item); }}>상세</Button>
+                      <Button size="small" onClick={(e) => { e.stopPropagation(); setDetailItem(item); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
                       {!cardClickable && (
-                        <Button size="small" variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }}>
+                        <Button size="small" variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>
                           {mode === 'prompt-insert' ? '추가' : mode === 'multi-add' ? (isSelected ? '제거' : '추가') : '선택'}
                         </Button>
                       )}

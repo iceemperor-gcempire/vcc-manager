@@ -14,6 +14,7 @@ import {
   Alert,
   Tooltip,
   Stack,
+  Grid,
   Paper,
   ToggleButton,
   ToggleButtonGroup,
@@ -372,27 +373,27 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
         </Tooltip>
       </Stack>
 
-      {/* 캐시 info 패널 */}
+      {/* 캐시 info 패널 — 모바일은 2×2, 데스크탑은 1×4 로 정렬 (#383 후속) */}
       {cacheInfo && (
         <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" spacing={3} flexWrap="wrap">
-            <Box>
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">서버</Typography>
-              <Typography variant="body2">{selectedServer?.name || '—'}</Typography>
-            </Box>
-            <Box>
+              <Typography variant="body2" noWrap title={selectedServer?.name || ''}>{selectedServer?.name || '—'}</Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">총 {adapter.label}</Typography>
               <Typography variant="body2">{adapter.extractTotal(syncStatus, pagination)}개</Typography>
-            </Box>
-            <Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">메타데이터 있음</Typography>
               <Typography variant="body2">{adapter.extractMetaCount(syncStatus) ?? '-'}개</Typography>
-            </Box>
-            <Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">마지막 메타 동기화</Typography>
               <Typography variant="body2">{formatDate(adapter.extractLastSync(cacheInfo, syncStatus))}</Typography>
-            </Box>
-          </Stack>
+            </Grid>
+          </Grid>
           {cacheInfo?.hashNodeAvailable === false && selectedServer?.serverType === 'ComfyUI' && (
             <Alert severity="info" sx={{ mt: 1 }}>
               ComfyUI 의 vcc-file-hash 노드가 설치되지 않아 해시 기반 메타데이터를 가져올 수 없습니다.
@@ -443,7 +444,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           )}
 
           {viewMode === 'list' && (
-            <Box>
+            <Box sx={{ width: '100%', overflow: 'hidden' }}>
               {renderItems.map(({ raw, item }, idx) => (
                 <Box
                   key={raw?.filename || idx}
@@ -453,12 +454,15 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                     gap: 1,
                     py: 1,
                     px: 1.5,
+                    width: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
                     borderBottom: 1,
                     borderColor: 'divider',
                     '&:hover': { bgcolor: 'action.hover' }
                   }}
                 >
-                  <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                  <Box sx={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                     <Typography variant="body2" noWrap title={item.displayName} sx={{ fontWeight: 500 }}>
                       {item.displayName}
                       {item.versionName && (
@@ -467,21 +471,21 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                         </Typography>
                       )}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace' }}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace', display: 'block' }}>
                       {item.filename}
                     </Typography>
                   </Box>
                   {item.baseModel && (
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 1, minWidth: 0, maxWidth: { xs: 80, sm: 160 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.baseModel}
                     </Typography>
                   )}
                   {!item.hasMetadata && (
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontStyle: 'italic' }}>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 0, fontStyle: 'italic' }}>
                       {item.hash ? '미등록' : '메타 없음'}
                     </Typography>
                   )}
-                  <Button size="small" onClick={() => setDetailItem(item)}>상세</Button>
+                  <Button size="small" onClick={() => setDetailItem(item)} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
                 </Box>
               ))}
             </Box>
