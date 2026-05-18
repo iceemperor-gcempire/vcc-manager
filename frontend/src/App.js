@@ -119,9 +119,11 @@ function MainLayout() {
       <Header onMobileToggle={handleMobileToggle} />
       <Box sx={{ display: 'flex', flex: 1 }}>
         <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
-        <Box component="main" sx={{ 
-          flexGrow: 1, 
-          p: 3, 
+        <Box component="main" sx={{
+          flexGrow: 1,
+          minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)
+          overflowX: 'hidden',
+          p: 3,
           backgroundColor: '#f5f5f5',
           minHeight: 'calc(100vh - 64px)'
         }}>
