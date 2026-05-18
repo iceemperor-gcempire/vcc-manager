@@ -143,13 +143,8 @@ userSchema.pre('save', async function(next) {
 userSchema.methods.updateAdminStatus = function() {
   const adminEmails = (process.env.ADMIN_EMAILS || '').split(',').map(email => email.trim());
   this.isAdmin = adminEmails.includes(this.email);
-  // E2E 백도어 (#359) — TEST_AUTO_ADMIN_DOMAIN 환경변수 (예: 'example.com') 설정 시
-  // 해당 도메인 이메일의 신규 가입자를 자동 admin 으로 승격. dev / e2e 환경 전용,
-  // 프로덕션에서는 절대 설정하지 말 것.
-  const testDomain = (process.env.TEST_AUTO_ADMIN_DOMAIN || '').trim();
-  if (testDomain && this.email.endsWith(`@${testDomain}`)) {
-    this.isAdmin = true;
-  }
+  // TEST_AUTO_ADMIN_DOMAIN 백도어 제거됨 (#379). dev 환경도 alpha 도메인으로 외부 노출되는 구조라
+  // 도메인 기반 자동 admin 승격은 공격 표면이 됨. E2E 테스트는 후속 작업에서 별도 안전 경로로 재설계 필요.
   // 관리자는 자동으로 승인됨
   if (this.isAdmin && this.approvalStatus === 'pending') {
     this.approvalStatus = 'approved';

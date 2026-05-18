@@ -431,9 +431,6 @@ function PromptGeneratorPanel({
                 </Box>
               )}
             </Paper>
-
-            {/* F2: systemPrompt 표시 제거 — customField 로 통합 (admin 이 systemPrompt 필드 정의 시 폼에서 직접 보임) */}
-            )}
           </Grid>
         </Grid>
       </form>

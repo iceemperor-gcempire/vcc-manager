@@ -14,15 +14,18 @@ import {
   Chat,
   ContentCopy
 } from '@mui/icons-material';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
+import ConversationChatPanel from '../components/common/ConversationChatPanel';
 import toast from 'react-hot-toast';
 
 function PromptGeneration() {
   const { workboardId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const conversationId = searchParams.get('conversationId');
 
   const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
     ['workboard', workboardId],
@@ -75,15 +78,15 @@ function PromptGeneration() {
       <Box display="flex" alignItems="center" gap={2} mb={3}>
         <Button
           startIcon={<ArrowBack />}
-          onClick={() => navigate('/prompt-workboards')}
+          onClick={() => navigate(conversationId ? '/jobs' : '/prompt-workboards')}
         >
-          작업판 선택
+          {conversationId ? '히스토리로' : '작업판 선택'}
         </Button>
         <Box display="flex" alignItems="center" gap={1}>
           <Chat color="secondary" />
           <Typography variant="h5">{workboard.name}</Typography>
         </Box>
-        <Chip label="프롬프트 생성" color="secondary" size="small" />
+        <Chip label={conversationId ? '대화 이어가기' : '프롬프트 생성'} color="secondary" size="small" />
       </Box>
 
       <Box display="flex" alignItems="center" gap={0.5} mb={2}>
@@ -95,18 +98,25 @@ function PromptGeneration() {
         </IconButton>
       </Box>
 
-      {workboard.description && (
+      {workboard.description && !conversationId && (
         <Alert severity="info" sx={{ mb: 3 }}>
           {workboard.description}
         </Alert>
       )}
 
-      <PromptGeneratorPanel
-        workboard={workboard}
-        showHeader={false}
-        showSystemPrompt={false}
-        compact={false}
-      />
+      {conversationId ? (
+        <ConversationChatPanel
+          workboard={workboard}
+          conversationId={conversationId}
+        />
+      ) : (
+        <PromptGeneratorPanel
+          workboard={workboard}
+          showHeader={false}
+          showSystemPrompt={false}
+          compact={false}
+        />
+      )}
     </Container>
   );
 }

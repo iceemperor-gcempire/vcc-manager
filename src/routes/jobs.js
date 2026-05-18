@@ -5,6 +5,7 @@ const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const ConversationJob = require('../models/ConversationJob');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -13,6 +14,7 @@ const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -389,14 +391,14 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
 router.post('/generate-prompt', requireAuth, async (req, res) => {
   try {
-    const { workboardId, inputData } = req.body;
-    
+    const { workboardId, inputData, conversationId } = req.body;
+
     if (!workboardId || !inputData?.userPrompt) {
       return res.status(400).json({
         message: 'Missing required fields: workboardId, inputData.userPrompt'
       });
     }
-    
+
     const workboard = await Workboard.findById(workboardId).populate('serverId');
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -410,50 +412,142 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     if (workboard.outputFormat !== 'text' && workboard.workboardType !== 'prompt') {
       return res.status(400).json({ message: 'This workboard is not a prompt workboard' });
     }
-    
+
     const server = workboard.serverId;
     if (!server || !server.isActive) {
       return res.status(400).json({ message: 'Server is not available' });
     }
-    
-    const systemPrompt = workboard.baseInputFields?.systemPrompt || '';
-    const model = inputData.model || workboard.baseInputFields?.aiModel?.[0]?.value || 'gpt-4';
-    const temperature = workboard.baseInputFields?.temperature ?? 0.7;
-    const maxTokens = workboard.baseInputFields?.maxTokens ?? 2000;
-    
+
+    // role 기반 lookup (#377) — 작업판 customField (`base_model`, `system_prompt`, ...) 가 단일 진입점.
+    // legacy baseInputFields fallback 제거됨 — F2 / baseInputFields migration 완료 후 DB 에 잔존 없음.
+    const extractOpt = (v) => (v && typeof v === 'object' && v.value !== undefined ? v.value : v);
+    const systemPrompt = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.SYSTEM_PROMPT)) || '';
+    const resolvedModel = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL));
+    if (!resolvedModel && !conversationId) {
+      // 멀티턴(이어가기) 은 inputData 에 model 이 없어도 conversation 에 저장된 model 을 사용
+      return res.status(400).json({ message: '작업판에 모델이 선택되지 않았습니다.' });
+    }
+    const temperatureValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.TEMPERATURE));
+    const temperature = temperatureValue != null ? Number(temperatureValue) : 0.7;
+    const maxTokensValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MAX_TOKENS));
+    const maxTokens = maxTokensValue != null ? Number(maxTokensValue) : 2000;
+    // 멀티턴 시 model 은 기존 대화에 저장된 값을 우선 (작업판 변경에도 일관성 유지)
+    let model = resolvedModel;
+
     console.log('Prompt generation request:', {
       workboardId,
       model,
       temperature,
       maxTokens,
       serverUrl: server.serverUrl,
-      hasApiKey: !!server.configuration?.apiKey
+      hasApiKey: !!server.configuration?.apiKey,
+      isContinuation: !!conversationId,
     });
-    
-    const messages = [];
-    if (systemPrompt) {
-      messages.push({ role: 'system', content: systemPrompt });
+
+    // 멀티턴 (#375): conversationId 가 있으면 기존 대화 로드 후 append.
+    // 없으면 신규 대화 생성 (#373 Phase 1 동일 흐름).
+    let conversation;
+    let messages;
+    if (conversationId) {
+      conversation = await ConversationJob.findById(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ message: '대화를 찾을 수 없습니다.' });
+      }
+      if (String(conversation.userId) !== String(req.user._id) && !req.user.isAdmin) {
+        return res.status(403).json({ message: '이 대화에 접근할 권한이 없습니다.' });
+      }
+      if (String(conversation.workboardId) !== String(workboard._id)) {
+        return res.status(400).json({ message: '대화가 다른 작업판에 속해 있습니다.' });
+      }
+      // 멀티턴은 대화에 저장된 model 유지 (#377)
+      if (conversation.model) {
+        model = conversation.model;
+      }
+      conversation.messages.push({
+        role: 'user',
+        content: inputData.userPrompt,
+        createdAt: new Date(),
+      });
+      conversation.status = 'processing';
+      conversation.error = undefined;
+      await conversation.save();
+      // LLM 에는 전체 시퀀스 전달
+      messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
+    } else {
+      messages = [];
+      if (systemPrompt) {
+        messages.push({ role: 'system', content: systemPrompt });
+      }
+      messages.push({ role: 'user', content: inputData.userPrompt });
+      conversation = await ConversationJob.create({
+        userId: req.user._id,
+        workboardId: workboard._id,
+        serverType: server.serverType,
+        model,
+        messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
+        status: 'processing',
+      });
     }
-    messages.push({ role: 'user', content: inputData.userPrompt });
 
     // server.serverType 기반 chat 서비스 분기. Gemini 는 generateContent (텍스트 모드),
     // 그 외 (OpenAI / OpenAI Compatible) 는 /v1/chat/completions.
     const chatService = server.serverType === 'Gemini'
       ? geminiService
       : openAIChatService;
-    const { content: result, usage } = await chatService.complete(
-      server.serverUrl,
-      server.configuration?.apiKey,
-      messages,
-      { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
-    );
+
+    let result, usage;
+    try {
+      ({ content: result, usage } = await chatService.complete(
+        server.serverUrl,
+        server.configuration?.apiKey,
+        messages,
+        { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
+      ));
+    } catch (chatError) {
+      conversation.status = 'failed';
+      conversation.error = { message: chatError.message };
+      conversation.completedAt = new Date();
+      await conversation.save();
+      throw chatError;
+    }
+
+    // assistant 응답 + usage + 비용 추정 (#377). usage 누적 (멀티턴 시 직전 턴 토큰 합산).
+    conversation.messages.push({
+      role: 'assistant',
+      content: result,
+      createdAt: new Date(),
+    });
+    const turnUsage = usage || { promptTokens: 0, completionTokens: 0, totalTokens: 0 };
+    const prevUsage = conversation.usage || {};
+    conversation.usage = {
+      promptTokens: (prevUsage.promptTokens || 0) + (turnUsage.promptTokens || 0),
+      completionTokens: (prevUsage.completionTokens || 0) + (turnUsage.completionTokens || 0),
+      totalTokens: (prevUsage.totalTokens || 0) + (turnUsage.totalTokens || 0),
+    };
+    const computeCost = server.serverType === 'Gemini'
+      ? computeGeminiTextCost
+      : computeOpenAITextCost;
+    const turnCost = computeCost(model, turnUsage);
+    if (turnCost) {
+      const prevAmount = conversation.costEstimate?.amount || 0;
+      conversation.costEstimate = {
+        amount: +(prevAmount + turnCost.amount).toFixed(6),
+        currency: turnCost.currency,
+        pricingVersion: turnCost.pricingVersion,
+      };
+    }
+    conversation.status = 'completed';
+    conversation.completedAt = new Date();
+    await conversation.save();
 
     await workboard.incrementUsage();
 
     res.json({
       success: true,
+      conversationId: conversation._id,
       result,
-      usage,
+      usage: turnUsage,
+      costEstimate: conversation.costEstimate || null,
       model
     });
   } catch (error) {

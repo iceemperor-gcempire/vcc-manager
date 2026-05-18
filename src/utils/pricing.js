@@ -131,10 +131,131 @@ function computeGeminiImageCost(model, usage) {
   };
 }
 
+// 텍스트(chat) 모델 단가 (2026-05).
+// OpenAI: https://developers.openai.com/api/docs/pricing
+// 단위: USD per 1M tokens.
+const OPENAI_TEXT_PRICING = {
+  // gpt-5.5 family
+  'gpt-5.5': {
+    input: 5.00,
+    input_cached: 0.50,
+    output: 30.00,
+  },
+  'gpt-5.5-pro': {
+    input: 30.00,
+    output: 180.00,
+  },
+  // gpt-5.4 family
+  'gpt-5.4': {
+    input: 2.50,
+    input_cached: 0.25,
+    output: 15.00,
+  },
+  'gpt-5.4-mini': {
+    input: 0.75,
+    input_cached: 0.075,
+    output: 4.50,
+  },
+  'gpt-5.4-nano': {
+    input: 0.20,
+    input_cached: 0.02,
+    output: 1.25,
+  },
+  'gpt-5.4-pro': {
+    input: 30.00,
+    output: 180.00,
+  },
+};
+
+// Gemini: https://ai.google.dev/gemini-api/docs/pricing
+// gemini-3.1-pro-preview 는 context length tier 가 200k 기준으로 단가가 다름.
+const GEMINI_TEXT_PRICING = {
+  'gemini-3.1-flash-lite': {
+    input: 0.25,
+    output: 1.50,
+  },
+  'gemini-3.1-flash-lite-preview': {
+    input: 0.25,
+    output: 1.50,
+  },
+  'gemini-3.1-pro-preview': {
+    input: 2.00,
+    output: 12.00,
+    input_long: 4.00,
+    output_long: 18.00,
+    long_threshold: 200_000,
+  },
+};
+
+/**
+ * OpenAI 텍스트(chat) 응답 usage → 비용 추정 (#377).
+ * 현재 normalized usage shape 은 cached 구분이 없어 input 전체를 표준 input 단가로 계산.
+ * @param {string} model
+ * @param {{ promptTokens?: number, completionTokens?: number }} usage
+ */
+function computeOpenAITextCost(model, usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const rates = OPENAI_TEXT_PRICING[model];
+  if (!rates) return null;
+
+  const input = Number(usage.promptTokens) || 0;
+  const output = Number(usage.completionTokens) || 0;
+
+  const costInput = input * rates.input * PER_TOKEN;
+  const costOutput = output * rates.output * PER_TOKEN;
+  const amount = +(costInput + costOutput).toFixed(6);
+
+  return {
+    amount,
+    currency: 'USD',
+    pricingVersion: PRICING_VERSION,
+    breakdown: {
+      input: +costInput.toFixed(6),
+      output: +costOutput.toFixed(6),
+    },
+  };
+}
+
+/**
+ * Gemini 텍스트 응답 usage → 비용 추정 (#377).
+ * gemini-3.1-pro-preview 는 promptTokens > 200k 면 long_* 단가 적용.
+ */
+function computeGeminiTextCost(model, usage) {
+  if (!usage || typeof usage !== 'object') return null;
+  const rates = GEMINI_TEXT_PRICING[model];
+  if (!rates) return null;
+
+  const input = Number(usage.promptTokens) || 0;
+  const output = Number(usage.completionTokens) || 0;
+
+  const longTier = rates.long_threshold && input > rates.long_threshold;
+  const inputRate = longTier ? rates.input_long : rates.input;
+  const outputRate = longTier ? rates.output_long : rates.output;
+
+  const costInput = input * inputRate * PER_TOKEN;
+  const costOutput = output * outputRate * PER_TOKEN;
+  const amount = +(costInput + costOutput).toFixed(6);
+
+  return {
+    amount,
+    currency: 'USD',
+    pricingVersion: PRICING_VERSION,
+    breakdown: {
+      input: +costInput.toFixed(6),
+      output: +costOutput.toFixed(6),
+      tier: longTier ? 'long' : 'standard',
+    },
+  };
+}
+
 module.exports = {
   PRICING_VERSION,
   OPENAI_IMAGE_PRICING,
   GEMINI_IMAGE_PRICING,
+  OPENAI_TEXT_PRICING,
+  GEMINI_TEXT_PRICING,
   computeOpenAIImageCost,
   computeGeminiImageCost,
+  computeOpenAITextCost,
+  computeGeminiTextCost,
 };
