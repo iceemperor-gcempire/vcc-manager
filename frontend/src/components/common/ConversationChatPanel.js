@@ -95,6 +95,14 @@ function ConversationChatPanel({ workboard, conversationId }) {
         <Chip label="대화 이어가기" color="secondary" size="small" />
         {conversation.model && <Chip label={conversation.model} size="small" variant="outlined" />}
         {conversation.serverType && <Chip label={conversation.serverType} size="small" variant="outlined" />}
+        {conversation.costEstimate?.amount != null && (
+          <Chip
+            label={`누적 $${conversation.costEstimate.amount.toFixed(6)}`}
+            size="small"
+            variant="outlined"
+            color="info"
+          />
+        )}
         <Box sx={{ flexGrow: 1 }} />
         <Typography variant="caption" color="text.secondary">
           시작: {new Date(conversation.createdAt).toLocaleString('ko-KR')}
