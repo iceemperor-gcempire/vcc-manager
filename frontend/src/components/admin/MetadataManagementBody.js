@@ -443,7 +443,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           )}
 
           {viewMode === 'list' && (
-            <Box>
+            <Box sx={{ width: '100%', overflow: 'hidden' }}>
               {renderItems.map(({ raw, item }, idx) => (
                 <Box
                   key={raw?.filename || idx}
@@ -453,12 +453,15 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                     gap: 1,
                     py: 1,
                     px: 1.5,
+                    width: '100%',
+                    minWidth: 0,
+                    overflow: 'hidden',
                     borderBottom: 1,
                     borderColor: 'divider',
                     '&:hover': { bgcolor: 'action.hover' }
                   }}
                 >
-                  <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                  <Box sx={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>
                     <Typography variant="body2" noWrap title={item.displayName} sx={{ fontWeight: 500 }}>
                       {item.displayName}
                       {item.versionName && (
@@ -467,21 +470,21 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                         </Typography>
                       )}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace' }}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace', display: 'block' }}>
                       {item.filename}
                     </Typography>
                   </Box>
                   {item.baseModel && (
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 1, minWidth: 0, maxWidth: { xs: 80, sm: 160 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {item.baseModel}
                     </Typography>
                   )}
                   {!item.hasMetadata && (
-                    <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, fontStyle: 'italic' }}>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 0, fontStyle: 'italic' }}>
                       {item.hash ? '미등록' : '메타 없음'}
                     </Typography>
                   )}
-                  <Button size="small" onClick={() => setDetailItem(item)}>상세</Button>
+                  <Button size="small" onClick={() => setDetailItem(item)} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
                 </Box>
               ))}
             </Box>
