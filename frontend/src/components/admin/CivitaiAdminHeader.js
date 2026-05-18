@@ -136,14 +136,15 @@ function CivitaiAdminHeader({
         </Box>
       </Stack>
 
-      {/* 2행: NSFW 토글들 */}
+      {/* 2행: NSFW 토글들. 모바일은 명시적 column 으로 X 정렬 흔들림 방지 (#383 후속) */}
       <Stack
-        direction="row"
-        spacing={2}
-        alignItems="center"
-        sx={{ mt: 1, flexWrap: 'wrap' }}
+        direction={{ xs: 'column', sm: 'row' }}
+        spacing={{ xs: 0.5, sm: 2 }}
+        alignItems={{ xs: 'flex-start', sm: 'center' }}
+        sx={{ mt: 1 }}
       >
         <FormControlLabel
+          sx={{ ml: 0, mr: 0 }}
           control={
             <Switch
               checked={nsfwFilter}
@@ -160,6 +161,7 @@ function CivitaiAdminHeader({
         />
 
         <FormControlLabel
+          sx={{ ml: 0, mr: 0 }}
           control={
             <Switch
               checked={!!nsfwModelFilter}

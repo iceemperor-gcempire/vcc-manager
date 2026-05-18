@@ -14,6 +14,7 @@ import {
   Alert,
   Tooltip,
   Stack,
+  Grid,
   Paper,
   ToggleButton,
   ToggleButtonGroup,
@@ -372,27 +373,27 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
         </Tooltip>
       </Stack>
 
-      {/* 캐시 info 패널 */}
+      {/* 캐시 info 패널 — 모바일은 2×2, 데스크탑은 1×4 로 정렬 (#383 후속) */}
       {cacheInfo && (
         <Paper variant="outlined" sx={{ p: 1.5, mb: 2 }}>
-          <Stack direction="row" spacing={3} flexWrap="wrap">
-            <Box>
+          <Grid container spacing={2}>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">서버</Typography>
-              <Typography variant="body2">{selectedServer?.name || '—'}</Typography>
-            </Box>
-            <Box>
+              <Typography variant="body2" noWrap title={selectedServer?.name || ''}>{selectedServer?.name || '—'}</Typography>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">총 {adapter.label}</Typography>
               <Typography variant="body2">{adapter.extractTotal(syncStatus, pagination)}개</Typography>
-            </Box>
-            <Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">메타데이터 있음</Typography>
               <Typography variant="body2">{adapter.extractMetaCount(syncStatus) ?? '-'}개</Typography>
-            </Box>
-            <Box>
+            </Grid>
+            <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary" display="block">마지막 메타 동기화</Typography>
               <Typography variant="body2">{formatDate(adapter.extractLastSync(cacheInfo, syncStatus))}</Typography>
-            </Box>
-          </Stack>
+            </Grid>
+          </Grid>
           {cacheInfo?.hashNodeAvailable === false && selectedServer?.serverType === 'ComfyUI' && (
             <Alert severity="info" sx={{ mt: 1 }}>
               ComfyUI 의 vcc-file-hash 노드가 설치되지 않아 해시 기반 메타데이터를 가져올 수 없습니다.
