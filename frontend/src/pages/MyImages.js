@@ -31,6 +31,7 @@ import toast from 'react-hot-toast';
 import { imageAPI, userAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 import MediaGrid from '../components/common/MediaGrid';
+import TextContentPanel from '../components/common/TextContentPanel';
 
 function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = false }) {
   const [tags, setTags] = useState([]);
@@ -343,6 +344,7 @@ function MyImages() {
   };
 
   const currentType = getTypeForTab();
+  const isTextTab = tab === 3 || tab === 4;
 
   // Bulk mode handlers
   const handleBulkToggle = useCallback((id) => {
@@ -392,8 +394,8 @@ function MyImages() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">내 이미지</Typography>
-        {!bulkMode ? (
+        <Typography variant="h4">내 컨텐츠</Typography>
+        {!bulkMode && !isTextTab ? (
           <Button
             variant="outlined"
             startIcon={<CheckBoxIcon />}
@@ -447,25 +449,31 @@ function MyImages() {
       )}
 
       <Box mb={3}>
-        <Tabs value={tab} onChange={handleTabChange}>
+        <Tabs value={tab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
           <Tab label="생성된 이미지" />
           <Tab label="업로드된 이미지" />
           <Tab icon={<Videocam />} label="생성된 동영상" iconPosition="start" />
+          <Tab label="직접 작성 텍스트" />
+          <Tab label="생성된 텍스트" />
         </Tabs>
       </Box>
 
-      <MediaGrid
-        key={currentType}
-        type={currentType}
-        queryKey={getQueryKeyForTab()}
-        pageSize={12}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        bulkMode={bulkMode}
-        bulkSelectedIds={selectedIds}
-        onBulkToggle={handleBulkToggle}
-        onStateChange={setMediaState}
-      />
+      {!isTextTab && (
+        <MediaGrid
+          key={currentType}
+          type={currentType}
+          queryKey={getQueryKeyForTab()}
+          pageSize={12}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          bulkMode={bulkMode}
+          bulkSelectedIds={selectedIds}
+          onBulkToggle={handleBulkToggle}
+          onStateChange={setMediaState}
+        />
+      )}
+      {tab === 3 && <TextContentPanel kind="uploaded" />}
+      {tab === 4 && <TextContentPanel kind="generated" />}
 
       {/* 업로드 FAB (업로드된 이미지 탭에서만) */}
       {tab === 1 && !bulkMode && (
