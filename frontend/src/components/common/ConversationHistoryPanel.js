@@ -19,7 +19,8 @@ import {
   Divider
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
+  Info as InfoIcon,
+  PlayArrow as PlayArrowIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
   SmartToy as AssistantIcon,
@@ -154,12 +155,38 @@ function ConversationHistoryPanel() {
                   </Typography>
                 )}
               </CardContent>
-              <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Tooltip title="상세">
-                  <IconButton size="small" onClick={() => setDetailItem(conv)}>
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+              <CardActions
+                sx={{
+                  pt: 0,
+                  justifyContent: 'flex-end',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
+                }}
+              >
+                <Button
+                  size="small"
+                  onClick={() => setDetailItem(conv)}
+                  startIcon={<InfoIcon />}
+                  sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+                >
+                  상세
+                </Button>
+                {conv.workboardId?._id && (
+                  <Button
+                    size="small"
+                    color="success"
+                    variant="contained"
+                    onClick={() =>
+                      navigate(`/prompt-generate/${conv.workboardId._id}?conversationId=${conv._id}`)
+                    }
+                    startIcon={<PlayArrowIcon />}
+                    sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+                  >
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
+                  </Button>
+                )}
                 <Tooltip title="삭제">
                   <IconButton
                     size="small"
