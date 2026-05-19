@@ -19,6 +19,7 @@ import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
 import ConversationChatPanel from '../components/common/ConversationChatPanel';
+import WorkboardChatPanel from '../components/common/WorkboardChatPanel';
 import toast from 'react-hot-toast';
 
 function PromptGeneration() {
@@ -104,19 +105,25 @@ function PromptGeneration() {
         </Alert>
       )}
 
-      {conversationId ? (
-        <ConversationChatPanel
-          workboard={workboard}
-          conversationId={conversationId}
-        />
-      ) : (
-        <PromptGeneratorPanel
-          workboard={workboard}
-          showHeader={false}
-          showSystemPrompt={false}
-          compact={false}
-        />
-      )}
+      {(() => {
+        if (conversationId) {
+          return <ConversationChatPanel workboard={workboard} conversationId={conversationId} />;
+        }
+        // #391: workboard.conversation_mode customField default 가 true 면 채팅 모드
+        const conversationMode = !!(workboard.additionalInputFields || [])
+          .find((f) => f.name === 'conversation_mode')?.defaultValue;
+        if (conversationMode) {
+          return <WorkboardChatPanel workboard={workboard} />;
+        }
+        return (
+          <PromptGeneratorPanel
+            workboard={workboard}
+            showHeader={false}
+            showSystemPrompt={false}
+            compact={false}
+          />
+        );
+      })()}
     </Container>
   );
 }

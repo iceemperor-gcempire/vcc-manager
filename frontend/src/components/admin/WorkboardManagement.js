@@ -65,6 +65,60 @@ import {
   getServerTypeColor,
 } from '../../templates/capabilities';
 
+// admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
+function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
+  const fetcher = type === 'baseModel' ? serverAPI.getDetailedModels : serverAPI.getLoras;
+  const { data, isLoading } = useQuery(
+    ['adminDefaultValueMetadata', type, serverId],
+    () => fetcher(serverId, { limit: 200, detailed: true }),
+    { enabled: !!serverId, staleTime: 60_000 }
+  );
+  const items = data?.data?.data?.items
+    || data?.data?.data?.models
+    || data?.data?.data?.loras
+    || data?.data?.models
+    || data?.data?.loras
+    || [];
+
+  return (
+    <Autocomplete
+      options={items}
+      getOptionLabel={(opt) => {
+        if (!opt) return '';
+        if (typeof opt === 'string') return opt;
+        return opt.civitai?.model?.name
+          ? `${opt.civitai.model.name} (${opt.filename || opt.fileName})`
+          : (opt.filename || opt.fileName || opt.name || '');
+      }}
+      isOptionEqualToValue={(opt, val) => {
+        const optKey = typeof opt === 'string' ? opt : (opt.filename || opt.fileName || opt.name);
+        const valKey = typeof val === 'string' ? val : (val?.filename || val?.fileName || val?.name);
+        return optKey === valKey;
+      }}
+      value={typeof value === 'string'
+        ? (items.find((m) => (m.filename || m.fileName) === value) || (value ? value : null))
+        : (value || null)}
+      onChange={(_, picked) => {
+        if (!picked) return onChange('');
+        const key = typeof picked === 'string' ? picked : (picked.filename || picked.fileName || picked.name || '');
+        onChange(key);
+      }}
+      loading={isLoading}
+      disabled={!serverId}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          size="small"
+          fullWidth
+          label={label}
+          helperText={!serverId ? '서버 선택 후 사용 가능' : (isLoading ? '모델 목록 로딩 중...' : `${items.length}개 중 선택`)}
+        />
+      )}
+      size="small"
+    />
+  );
+}
+
 function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const menuOpen = Boolean(anchorEl);
@@ -580,9 +634,13 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             loraExposurePolicy: fullData.loraExposurePolicy || 'full',
             loraWhitelist: fullData.loraWhitelist || [],
             isActive: fullData.isActive ?? true,
-            // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출
+            // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출.
+            // defaultValue / description / placeholder 도 form 에 같이 싣어 admin 이 편집 가능 (#391)
             additionalCustomFields: (fullData.additionalInputFields || []).map(f => ({
               ...f,
+              defaultValue: f.defaultValue,
+              description: f.description || '',
+              placeholder: f.placeholder || '',
               imageConfig: f.imageConfig || { maxImages: 1 }
             }))
           };
@@ -634,17 +692,35 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             required: Boolean(field.required),
             formatString: field.formatString || `{{##${field.name}##}}`
           };
-          
+
+          // defaultValue / description / placeholder 보존 (#391).
+          // boolean 은 false 도 의미 있으니 undefined 만 제외.
+          if (field.defaultValue !== undefined && field.defaultValue !== '') {
+            // number 타입은 숫자로 변환
+            if (field.type === 'number') {
+              const n = Number(field.defaultValue);
+              if (!Number.isNaN(n)) fieldData.defaultValue = n;
+            } else if (field.type === 'boolean') {
+              fieldData.defaultValue = Boolean(field.defaultValue);
+            } else {
+              fieldData.defaultValue = field.defaultValue;
+            }
+          } else if (field.type === 'boolean' && field.defaultValue === false) {
+            fieldData.defaultValue = false;
+          }
+          if (field.description) fieldData.description = field.description;
+          if (field.placeholder) fieldData.placeholder = field.placeholder;
+
           if (field.type === 'select') {
             fieldData.options = field.options || [];
           }
-          
+
           if (field.type === 'image') {
             fieldData.imageConfig = {
               maxImages: field.imageConfig?.maxImages || 1
             };
           }
-          
+
           additionalInputFields.push(fieldData);
         }
       });
@@ -859,6 +935,100 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                 <FormControlLabel
                                   control={<Switch {...fieldProps} checked={fieldProps.value} />}
                                   label="필수 입력"
+                                />
+                              )}
+                            />
+                          </Grid>
+                          {/* 사전정의값 (defaultValue) — type 별 입력 (#391) */}
+                          <Grid item xs={12}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.defaultValue`}
+                              control={control}
+                              render={({ field: fieldProps }) => {
+                                if (field.type === 'boolean') {
+                                  return (
+                                    <FormControlLabel
+                                      control={<Switch checked={!!fieldProps.value} onChange={(e) => fieldProps.onChange(e.target.checked)} />}
+                                      label="기본값 (ON / OFF)"
+                                    />
+                                  );
+                                }
+                                if (field.type === 'select') {
+                                  const options = watch(`additionalCustomFields.${index}.options`) || [];
+                                  return (
+                                    <TextField
+                                      {...fieldProps}
+                                      value={fieldProps.value || ''}
+                                      fullWidth
+                                      select
+                                      label="기본값 (선택)"
+                                      size="small"
+                                      SelectProps={{ displayEmpty: true }}
+                                    >
+                                      <MenuItem value="">선택 없음</MenuItem>
+                                      {options.map((opt, i) => (
+                                        <MenuItem key={i} value={opt.value || ''}>{opt.key || opt.value}</MenuItem>
+                                      ))}
+                                    </TextField>
+                                  );
+                                }
+                                if (field.type === 'baseModel' || field.type === 'lora') {
+                                  return (
+                                    <ServerMetadataDefaultValueInput
+                                      serverId={watch('serverId')}
+                                      type={field.type}
+                                      value={fieldProps.value || ''}
+                                      onChange={fieldProps.onChange}
+                                      label={field.type === 'baseModel' ? '기본값 (베이스 모델)' : '기본값 (LoRA)'}
+                                    />
+                                  );
+                                }
+                                if (field.type === 'image') {
+                                  return null; // 이미지 기본값은 의미 없음
+                                }
+                                return (
+                                  <TextField
+                                    {...fieldProps}
+                                    value={fieldProps.value ?? ''}
+                                    fullWidth
+                                    type={field.type === 'number' ? 'number' : 'text'}
+                                    label="기본값"
+                                    placeholder="비워두면 기본값 없음"
+                                    size="small"
+                                  />
+                                );
+                              }}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.placeholder`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  value={fieldProps.value || ''}
+                                  fullWidth
+                                  label="플레이스홀더"
+                                  placeholder="입력창 안내 문구"
+                                  size="small"
+                                  disabled={['boolean', 'image', 'baseModel', 'lora'].includes(field.type)}
+                                />
+                              )}
+                            />
+                          </Grid>
+                          <Grid item xs={12} sm={6}>
+                            <Controller
+                              name={`additionalCustomFields.${index}.description`}
+                              control={control}
+                              render={({ field: fieldProps }) => (
+                                <TextField
+                                  {...fieldProps}
+                                  value={fieldProps.value || ''}
+                                  fullWidth
+                                  label="설명"
+                                  placeholder="필드 아래에 표시될 설명"
+                                  size="small"
                                 />
                               )}
                             />
