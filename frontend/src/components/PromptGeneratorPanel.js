@@ -271,8 +271,9 @@ function PromptGeneratorPanel({
                 </Typography>
               )}
 
-              {/* F2: baseInputFields.aiModel / referenceImages hardcoded UI 제거 — customField 가 통합 처리 */}
-              {workboard.additionalInputFields?.map((field) => (
+              {/* F2: baseInputFields.aiModel / referenceImages hardcoded UI 제거 — customField 가 통합 처리.
+                  #391: conversation_mode 는 admin 전용 설정이라 사용자 폼에선 숨김 */}
+              {workboard.additionalInputFields?.filter((f) => f.name !== 'conversation_mode').map((field) => (
                 <Box key={field.name} sx={{ mb: 2 }}>
                   {field.type === 'string' && (
                     <Controller

@@ -9,17 +9,20 @@ import {
   Alert,
   Stack,
   Chip,
-  Divider
+  Divider,
+  Tooltip,
+  IconButton
 } from '@mui/material';
 import {
   Send,
   Person as PersonIcon,
   SmartToy as AssistantIcon,
-  Settings as SystemIcon
+  Settings as SystemIcon,
+  BookmarkAdd as BookmarkAddIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { conversationAPI, jobAPI } from '../../services/api';
+import { conversationAPI, jobAPI, textAPI } from '../../services/api';
 
 // 멀티턴 대화 모드 패널 (#375).
 // `conversationId` 가 주어졌을 때 PromptGeneration 페이지에서 PromptGeneratorPanel 대신 렌더.
@@ -43,6 +46,17 @@ function ConversationChatPanel({ workboard, conversationId }) {
       transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
   }, [messages.length]);
+
+  const saveMessageMutation = useMutation(
+    ({ conversationJobId: cid, messageIndex }) => textAPI.createGenerated({ conversationJobId: cid, messageIndex }),
+    {
+      onSuccess: () => {
+        toast.success('생성된 텍스트로 저장되었습니다.');
+        queryClient.invalidateQueries('generatedTexts');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
+    }
+  );
 
   const sendMutation = useMutation(
     async (text) => {
@@ -136,6 +150,17 @@ function ConversationChatPanel({ workboard, conversationId }) {
                   {msg.content}
                 </Typography>
               </Box>
+              {msg.role === 'assistant' && (
+                <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                  <IconButton
+                    size="small"
+                    onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
+                    disabled={saveMessageMutation.isLoading}
+                  >
+                    <BookmarkAddIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              )}
             </Box>
           ))}
         </Stack>

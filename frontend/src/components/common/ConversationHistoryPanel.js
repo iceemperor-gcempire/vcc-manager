@@ -19,7 +19,8 @@ import {
   Divider
 } from '@mui/material';
 import {
-  Visibility as VisibilityIcon,
+  Info as InfoIcon,
+  PlayArrow as PlayArrowIcon,
   Delete as DeleteIcon,
   Person as PersonIcon,
   SmartToy as AssistantIcon,
@@ -28,8 +29,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Chat as ChatIcon } from '@mui/icons-material';
-import { conversationAPI } from '../../services/api';
+import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-material';
+import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
 
 // LLM 대화 히스토리 패널 (#373).
@@ -55,6 +56,17 @@ function ConversationHistoryPanel() {
         setDetailItem(null);
       },
       onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
+    }
+  );
+
+  const saveMessageMutation = useMutation(
+    ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
+    {
+      onSuccess: () => {
+        toast.success('생성된 텍스트로 저장되었습니다.');
+        queryClient.invalidateQueries('generatedTexts');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
     }
   );
 
@@ -143,12 +155,38 @@ function ConversationHistoryPanel() {
                   </Typography>
                 )}
               </CardContent>
-              <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Tooltip title="상세">
-                  <IconButton size="small" onClick={() => setDetailItem(conv)}>
-                    <VisibilityIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
+              <CardActions
+                sx={{
+                  pt: 0,
+                  justifyContent: 'flex-end',
+                  flexWrap: 'wrap',
+                  gap: 0.5,
+                  '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
+                }}
+              >
+                <Button
+                  size="small"
+                  onClick={() => setDetailItem(conv)}
+                  startIcon={<InfoIcon />}
+                  sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+                >
+                  상세
+                </Button>
+                {conv.workboardId?._id && (
+                  <Button
+                    size="small"
+                    color="success"
+                    variant="contained"
+                    onClick={() =>
+                      navigate(`/prompt-generate/${conv.workboardId._id}?conversationId=${conv._id}`)
+                    }
+                    startIcon={<PlayArrowIcon />}
+                    sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+                  >
+                    <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
+                    <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
+                  </Button>
+                )}
                 <Tooltip title="삭제">
                   <IconButton
                     size="small"
@@ -209,6 +247,17 @@ function ConversationHistoryPanel() {
                       {msg.content}
                     </Typography>
                   </Box>
+                  {msg.role === 'assistant' && (
+                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                      <IconButton
+                        size="small"
+                        onClick={() => saveMessageMutation.mutate({ conversationJobId: detailItem._id, messageIndex: idx })}
+                        disabled={saveMessageMutation.isLoading}
+                      >
+                        <BookmarkAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               ))}
               {detailItem.error?.message && (

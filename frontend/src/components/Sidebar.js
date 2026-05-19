@@ -55,8 +55,8 @@ const menuItems = [
     roles: ['user', 'admin']
   },
   {
-    text: '내 이미지',
-    path: '/images',
+    text: '내 컨텐츠',
+    path: '/content',
     icon: <Image />,
     roles: ['user', 'admin']
   },
