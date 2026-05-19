@@ -28,8 +28,8 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { Chat as ChatIcon } from '@mui/icons-material';
-import { conversationAPI } from '../../services/api';
+import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-material';
+import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
 
 // LLM 대화 히스토리 패널 (#373).
@@ -55,6 +55,17 @@ function ConversationHistoryPanel() {
         setDetailItem(null);
       },
       onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
+    }
+  );
+
+  const saveMessageMutation = useMutation(
+    ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
+    {
+      onSuccess: () => {
+        toast.success('생성된 텍스트로 저장되었습니다.');
+        queryClient.invalidateQueries('generatedTexts');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
     }
   );
 
@@ -209,6 +220,17 @@ function ConversationHistoryPanel() {
                       {msg.content}
                     </Typography>
                   </Box>
+                  {msg.role === 'assistant' && (
+                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                      <IconButton
+                        size="small"
+                        onClick={() => saveMessageMutation.mutate({ conversationJobId: detailItem._id, messageIndex: idx })}
+                        disabled={saveMessageMutation.isLoading}
+                      >
+                        <BookmarkAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </Box>
               ))}
               {detailItem.error?.message && (

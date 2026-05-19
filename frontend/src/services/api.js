@@ -120,6 +120,22 @@ export const conversationAPI = {
   getAll: (params) => api.get('/conversations/all', { params }),
 };
 
+// 텍스트 컨텐츠 — UploadedText (직접 작성) / GeneratedText (대화에서 저장) (#387)
+export const textAPI = {
+  // 직접 작성
+  getUploaded: (params) => api.get('/texts/uploaded', { params }),
+  getUploadedById: (id) => api.get(`/texts/uploaded/${id}`),
+  createUploaded: (data) => api.post('/texts/uploaded', data),
+  updateUploaded: (id, data) => api.patch(`/texts/uploaded/${id}`, data),
+  deleteUploaded: (id) => api.delete(`/texts/uploaded/${id}`),
+  // 대화에서 저장
+  getGenerated: (params) => api.get('/texts/generated', { params }),
+  getGeneratedById: (id) => api.get(`/texts/generated/${id}`),
+  createGenerated: (data) => api.post('/texts/generated', data),
+  updateGenerated: (id, data) => api.patch(`/texts/generated/${id}`, data),
+  deleteGenerated: (id) => api.delete(`/texts/generated/${id}`),
+};
+
 export const imageAPI = {
   upload: (formData) => api.post('/images/upload', formData, {
     headers: {

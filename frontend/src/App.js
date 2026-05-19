@@ -100,9 +100,9 @@ function MainLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 이미지)
+  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 컨텐츠)
   useEffect(() => {
-    const refreshPaths = ['/jobs', '/images'];
+    const refreshPaths = ['/jobs', '/content'];
     if (refreshPaths.includes(location.pathname)) {
       queryClient.invalidateQueries('recentJobs');
       queryClient.invalidateQueries('generatedImages');
@@ -134,7 +134,8 @@ function MainLayout() {
             <Route path="/prompt-workboards" element={<Navigate to="/workboards" replace />} />
             <Route path="/generate/:id" element={<ImageGeneration />} />
             <Route path="/prompt-generate/:workboardId" element={<PromptGeneration />} />
-            <Route path="/images" element={<MyImages />} />
+            <Route path="/content" element={<MyImages />} />
+            <Route path="/images" element={<Navigate to="/content" replace />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
             <Route path="/projects" element={<ProjectList />} />
