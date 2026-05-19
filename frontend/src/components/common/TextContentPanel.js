@@ -25,15 +25,24 @@ import {
   Delete as DeleteIcon,
   Visibility as VisibilityIcon,
   ContentCopy as ContentCopyIcon,
+  UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { textAPI } from '../../services/api';
 import Pagination from './Pagination';
 import TagInput from './TagInput';
 
 const MAX_CONTENT_LENGTH = 1_000_000;
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const PREVIEW_CHARS = 200;
+
+// 파일명에서 확장자 제거 (마지막 dot 기준)
+function stripExtension(filename) {
+  const idx = filename.lastIndexOf('.');
+  return idx > 0 ? filename.slice(0, idx) : filename;
+}
 
 // 텍스트 컨텐츠 패널 (#387).
 // kind: 'uploaded' (직접 작성, 편집/생성 가능) | 'generated' (대화에서 저장, 태그/삭제만 가능).
@@ -45,6 +54,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [] }) {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [viewerItem, setViewerItem] = useState(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const queryKey = isUploaded ? 'uploadedTexts' : 'generatedTexts';
@@ -129,13 +139,26 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [] }) {
 
   return (
     <Box>
-      <TextField
-        size="small"
-        placeholder={isUploaded ? '제목 / 본문 검색...' : '본문 검색...'}
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        sx={{ mb: 2, width: { xs: '100%', sm: 320 } }}
-      />
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }} alignItems={{ sm: 'center' }}>
+        <TextField
+          size="small"
+          placeholder={isUploaded ? '제목 / 본문 검색...' : '본문 검색...'}
+          value={search}
+          onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          sx={{ width: { xs: '100%', sm: 320 } }}
+        />
+        {isUploaded && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<UploadFileIcon />}
+            onClick={() => setUploadOpen(true)}
+            sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}
+          >
+            파일 업로드
+          </Button>
+        )}
+      </Stack>
 
       {items.length === 0 ? (
         <Box textAlign="center" py={4}>
@@ -348,7 +371,174 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [] }) {
           <Button onClick={() => setViewerItem(null)}>닫기</Button>
         </DialogActions>
       </Dialog>
+
+      <TextFileUploadDialog
+        open={uploadOpen}
+        onClose={() => setUploadOpen(false)}
+        defaultTags={defaultTags}
+        onComplete={() => queryClient.invalidateQueries(queryKey)}
+      />
     </Box>
+  );
+}
+
+// .txt / .md 파일을 클라이언트에서 읽어 UploadedText 로 일괄 저장 (#389).
+function TextFileUploadDialog({ open, onClose, defaultTags = [], onComplete }) {
+  const [files, setFiles] = useState([]); // [{ file, status, error, content }]
+  const [tags, setTags] = useState(defaultTags);
+  const [uploading, setUploading] = useState(false);
+
+  // 다이얼로그 닫을 때마다 초기화
+  const handleClose = () => {
+    if (uploading) return;
+    setFiles([]);
+    setTags(defaultTags);
+    onClose();
+  };
+
+  const onDrop = (accepted) => {
+    const next = accepted.map((file) => {
+      let error = null;
+      if (file.size > MAX_FILE_SIZE) {
+        error = `파일이 ${(MAX_FILE_SIZE / 1024 / 1024).toFixed(0)}MB 를 초과합니다`;
+      }
+      return { file, status: error ? 'error' : 'pending', error };
+    });
+    setFiles((prev) => [...prev, ...next]);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: { 'text/plain': ['.txt'], 'text/markdown': ['.md', '.markdown'] },
+    maxSize: MAX_FILE_SIZE,
+    disabled: uploading,
+  });
+
+  const removeFile = (idx) => {
+    if (uploading) return;
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const readFileAsText = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = () => reject(reader.error || new Error('파일 읽기 실패'));
+      reader.readAsText(file, 'utf-8');
+    });
+
+  const handleUpload = async () => {
+    if (files.length === 0) return;
+    setUploading(true);
+    const tagIds = (tags || []).map((t) => t._id || t);
+    let successCount = 0;
+
+    for (let i = 0; i < files.length; i++) {
+      const entry = files[i];
+      if (entry.status === 'error' || entry.status === 'done') continue;
+      setFiles((prev) => prev.map((f, idx) => (idx === i ? { ...f, status: 'reading' } : f)));
+      try {
+        const text = await readFileAsText(entry.file);
+        if (text.length > MAX_CONTENT_LENGTH) {
+          throw new Error(`본문이 ${MAX_CONTENT_LENGTH.toLocaleString()}자 초과`);
+        }
+        setFiles((prev) => prev.map((f, idx) => (idx === i ? { ...f, status: 'uploading' } : f)));
+        await textAPI.createUploaded({
+          title: stripExtension(entry.file.name),
+          content: text,
+          tags: tagIds,
+        });
+        setFiles((prev) => prev.map((f, idx) => (idx === i ? { ...f, status: 'done' } : f)));
+        successCount += 1;
+      } catch (err) {
+        const msg = err.response?.data?.message || err.message || '실패';
+        setFiles((prev) => prev.map((f, idx) => (idx === i ? { ...f, status: 'error', error: msg } : f)));
+      }
+    }
+
+    setUploading(false);
+    if (successCount > 0) {
+      toast.success(`${successCount}개 파일이 업로드되었습니다.`);
+      onComplete?.();
+    }
+  };
+
+  const allDone = files.length > 0 && files.every((f) => f.status === 'done');
+  const anyPending = files.some((f) => f.status === 'pending' || f.status === 'reading' || f.status === 'uploading');
+
+  return (
+    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <DialogTitle>텍스트 파일 업로드</DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2}>
+          <Box
+            {...getRootProps()}
+            sx={{
+              p: 3,
+              border: '2px dashed',
+              borderColor: isDragActive ? 'primary.main' : 'divider',
+              borderRadius: 1,
+              textAlign: 'center',
+              bgcolor: isDragActive ? 'action.hover' : 'background.paper',
+              cursor: uploading ? 'not-allowed' : 'pointer',
+            }}
+          >
+            <input {...getInputProps()} />
+            <UploadFileIcon sx={{ fontSize: 40, color: 'action.active', mb: 1 }} />
+            <Typography variant="body2">
+              {isDragActive ? '여기에 놓으세요' : '클릭 또는 드래그해 텍스트 파일 추가 (.txt, .md, 최대 5MB)'}
+            </Typography>
+          </Box>
+
+          {files.length > 0 && (
+            <Stack spacing={1}>
+              {files.map((entry, idx) => (
+                <Box
+                  key={idx}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1, border: 1, borderColor: 'divider', borderRadius: 1 }}
+                >
+                  <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                    <Typography variant="body2" noWrap title={entry.file.name}>
+                      {entry.file.name}
+                    </Typography>
+                    <Typography variant="caption" color={entry.status === 'error' ? 'error' : 'text.secondary'}>
+                      {entry.status === 'pending' && `${(entry.file.size / 1024).toFixed(1)} KB · 대기`}
+                      {entry.status === 'reading' && '읽는 중...'}
+                      {entry.status === 'uploading' && '업로드 중...'}
+                      {entry.status === 'done' && '완료'}
+                      {entry.status === 'error' && `오류: ${entry.error}`}
+                    </Typography>
+                  </Box>
+                  {(entry.status === 'reading' || entry.status === 'uploading') && <CircularProgress size={16} />}
+                  {!uploading && entry.status !== 'done' && (
+                    <IconButton size="small" onClick={() => removeFile(idx)}>
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          )}
+
+          <Box>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              모든 업로드 항목에 적용될 태그
+            </Typography>
+            <TagInput value={tags} onChange={setTags} />
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleClose} disabled={uploading}>{allDone ? '닫기' : '취소'}</Button>
+        <Button
+          variant="contained"
+          onClick={handleUpload}
+          disabled={uploading || files.length === 0 || !anyPending}
+        >
+          {uploading ? '업로드 중...' : `${files.filter((f) => f.status === 'pending').length}개 업로드`}
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
