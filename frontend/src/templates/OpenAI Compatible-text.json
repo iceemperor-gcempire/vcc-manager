@@ -23,11 +23,12 @@
       "defaultValue": 0.7
     },
     {
-      "name": "max_tokens",
-      "label": "Max Tokens",
-      "type": "number",
+      "name": "conversation_mode",
+      "label": "멀티턴 대화 모드",
+      "type": "boolean",
       "required": false,
-      "defaultValue": 2000
+      "defaultValue": false,
+      "description": "켜면 작업판이 단일 샷 프롬프트 생성기 대신 채팅 UI 로 동작합니다. 사용자에겐 노출되지 않는 관리자 설정입니다."
     }
   ],
   "workflowData": ""

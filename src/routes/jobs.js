@@ -429,8 +429,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     }
     const temperatureValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.TEMPERATURE));
     const temperature = temperatureValue != null ? Number(temperatureValue) : 0.7;
-    const maxTokensValue = extractOpt(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MAX_TOKENS));
-    const maxTokens = maxTokensValue != null ? Number(maxTokensValue) : 2000;
+    // maxTokens 는 두 chat 서비스 모두 모델 기본값을 사용하도록 단순화됨 (#391 후속) — 입력 받지 않음.
     // 멀티턴 시 model 은 기존 대화에 저장된 값을 우선 (작업판 변경에도 일관성 유지)
     let model = resolvedModel;
 
@@ -438,7 +437,6 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       workboardId,
       model,
       temperature,
-      maxTokens,
       serverUrl: server.serverUrl,
       hasApiKey: !!server.configuration?.apiKey,
       isContinuation: !!conversationId,
@@ -501,7 +499,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         server.serverUrl,
         server.configuration?.apiKey,
         messages,
-        { model, temperature, maxTokens, timeout: server.configuration?.timeout || 60000 }
+        { model, temperature, timeout: server.configuration?.timeout || 60000 }
       ));
     } catch (chatError) {
       conversation.status = 'failed';
