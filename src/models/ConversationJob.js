@@ -32,6 +32,16 @@ const conversationJobSchema = new mongoose.Schema({
   },
   serverType: String,
   model: String,
+  // 프로젝트 컨텍스트 (#396). 실행 시 사용자가 지정한 프로젝트 ID. null 가능.
+  // 프로젝트 작업 히스토리 / 사전 컨텍스트 표시에 사용.
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project',
+  },
+  // 합성 전 원본을 분리 저장해 display / audit 용도로 사용 (#396).
+  // 실제 LLM 호출엔 둘을 합쳐 system 메시지 1개로 전송하지만, 보존은 분리.
+  workboardSystemPrompt: String,
+  worldviewContext: String,
   messages: [conversationMessageSchema],
   status: {
     type: String,
@@ -58,5 +68,6 @@ const conversationJobSchema = new mongoose.Schema({
 
 conversationJobSchema.index({ userId: 1, createdAt: -1 });
 conversationJobSchema.index({ workboardId: 1, createdAt: -1 });
+conversationJobSchema.index({ projectId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('ConversationJob', conversationJobSchema);

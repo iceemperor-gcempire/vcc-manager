@@ -7,6 +7,33 @@ const PromptData = require('../models/PromptData');
 const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
+// 세계관 역할 태그 조회 — 없으면 자동 생성 (#396). 신규 사용자 대응.
+router.get('/worldview', requireAuth, async (req, res) => {
+  try {
+    let tag = await Tag.findOne({ userId: req.user._id, isWorldviewTag: true });
+    if (!tag) {
+      const sameName = await Tag.findOne({ userId: req.user._id, name: '세계관' });
+      if (sameName) {
+        sameName.isWorldviewTag = true;
+        await sameName.save();
+        tag = sameName;
+      } else {
+        tag = await Tag.create({
+          userId: req.user._id,
+          createdBy: req.user._id,
+          name: '세계관',
+          color: '#9c27b0',
+          isWorldviewTag: true,
+        });
+      }
+    }
+    res.json({ tag });
+  } catch (error) {
+    console.error('Worldview tag fetch error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { search, limit = 50 } = req.query;

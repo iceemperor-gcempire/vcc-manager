@@ -15,6 +15,41 @@ const Server = require('../models/Server');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
+const Project = require('../models/Project');
+const Tag = require('../models/Tag');
+const UploadedText = require('../models/UploadedText');
+
+// 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
+// system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
+// worldview = 프로젝트의 사실 / 컨텍스트 (사용자가 보유)
+function composeSystemPrompt(systemPrompt, worldviewTexts) {
+  const parts = [];
+  if (systemPrompt) {
+    parts.push('[작업 지침]\n' + systemPrompt);
+  }
+  if (worldviewTexts && worldviewTexts.length > 0) {
+    const ctx = worldviewTexts.map((t) => {
+      const head = t.title ? `## ${t.title}\n` : '';
+      return head + (t.content || '');
+    }).join('\n\n---\n\n');
+    parts.push('[배경 / 사전 컨텍스트]\n' + ctx);
+  }
+  return parts.join('\n\n');
+}
+
+// 프로젝트의 세계관 UploadedText 들 로드 (#396).
+async function getProjectWorldview(userId, projectId) {
+  if (!projectId) return [];
+  const project = await Project.findOne({ _id: projectId, userId }).lean();
+  if (!project || !project.tagId) return [];
+  const worldviewTag = await Tag.findOne({ userId, isWorldviewTag: true }).lean();
+  if (!worldviewTag) return [];
+  const texts = await UploadedText.find({
+    userId,
+    tags: { $all: [project.tagId, worldviewTag._id] },
+  }).sort({ createdAt: 1 }).lean();
+  return texts;
+}
 const router = express.Router();
 
 router.post('/generate', requireAuth, async (req, res) => {
@@ -391,7 +426,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
 router.post('/generate-prompt', requireAuth, async (req, res) => {
   try {
-    const { workboardId, inputData, conversationId } = req.body;
+    const { workboardId, inputData, conversationId, projectId, useWorldview } = req.body;
 
     if (!workboardId || !inputData?.userPrompt) {
       return res.status(400).json({
@@ -472,16 +507,26 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       // LLM 에는 전체 시퀀스 전달
       messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
     } else {
+      // 신규 대화 — 세계관 (#396) 주입 합성. 멀티턴 이어가기 시엔 기존 system 메시지 보존되므로
+      // 여기서만 합성.
+      const worldviewTexts = useWorldview ? await getProjectWorldview(req.user._id, projectId) : [];
+      const worldviewContext = worldviewTexts.length > 0
+        ? worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n')
+        : '';
+      const composedSystem = composeSystemPrompt(systemPrompt, worldviewTexts);
       messages = [];
-      if (systemPrompt) {
-        messages.push({ role: 'system', content: systemPrompt });
+      if (composedSystem) {
+        messages.push({ role: 'system', content: composedSystem });
       }
       messages.push({ role: 'user', content: inputData.userPrompt });
       conversation = await ConversationJob.create({
         userId: req.user._id,
         workboardId: workboard._id,
+        projectId: projectId || undefined,
         serverType: server.serverType,
         model,
+        workboardSystemPrompt: systemPrompt || undefined,
+        worldviewContext: worldviewContext || undefined,
         messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
         status: 'processing',
       });

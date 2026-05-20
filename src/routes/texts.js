@@ -13,8 +13,19 @@ const router = express.Router();
 
 function buildListFilter(req) {
   const filter = { userId: req.user._id };
-  const { tag, search } = req.query;
-  if (tag) filter.tags = tag;
+  const { tag, tags, search } = req.query;
+  // 다중 태그 — AND 조건 (모두 포함). 콤마 분리 또는 배열.
+  // 세계관 조회처럼 [projectTag, worldviewTag] 모두 포함하는 항목을 찾을 때 사용 (#396).
+  let tagList = [];
+  if (tags) {
+    tagList = Array.isArray(tags) ? tags : String(tags).split(',').filter(Boolean);
+  }
+  if (tag) tagList.push(tag);
+  if (tagList.length === 1) {
+    filter.tags = tagList[0];
+  } else if (tagList.length > 1) {
+    filter.tags = { $all: tagList };
+  }
   if (search) {
     const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ title: re }, { content: re }];
