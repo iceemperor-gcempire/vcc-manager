@@ -261,6 +261,12 @@ export const projectAPI = {
   getPromptData: (id, params) => api.get(`/projects/${id}/prompt-data`, { params }),
   getJobs: (id, params) => api.get(`/projects/${id}/jobs`, { params }),
   getFavorites: () => api.get('/projects/favorites'),
+  // 작업판 멤버십 (#396)
+  getWorkboards: (id) => api.get(`/projects/${id}/workboards`),
+  addWorkboard: (id, workboardId) => api.post(`/projects/${id}/workboards/${workboardId}`),
+  removeWorkboard: (id, workboardId) => api.delete(`/projects/${id}/workboards/${workboardId}`),
+  // 프로젝트 컨텍스트로 실행된 LLM 대화 (#396)
+  getConversations: (id, params) => api.get(`/projects/${id}/conversations`, { params }),
 };
 
 export const apiKeyAPI = {
@@ -276,6 +282,8 @@ export const tagAPI = {
   delete: (id) => api.delete(`/tags/${id}`),
   search: (params) => api.get('/tags/search', { params }),
   getMy: () => api.get('/tags/my'),
+  // 세계관 역할 태그 — 없으면 자동 생성 (#396)
+  getWorldview: () => api.get('/tags/worldview'),
 };
 
 export default api;

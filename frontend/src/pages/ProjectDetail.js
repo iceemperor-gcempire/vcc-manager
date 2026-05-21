@@ -16,7 +16,9 @@ import {
   DialogActions,
   Tooltip,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  Stack,
+  TextField
 } from '@mui/material';
 import {
   ArrowBack,
@@ -24,6 +26,8 @@ import {
   StarBorder,
   Edit,
   Delete,
+  Delete as DeleteIcon,
+  PlayArrow,
   Image as ImageIcon,
   TextSnippet,
   History,
@@ -37,7 +41,9 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { projectAPI, imageAPI, userAPI, promptDataAPI } from '../services/api';
+import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI } from '../services/api';
+import TextContentPanel from '../components/common/TextContentPanel';
+import ConversationHistoryPanel from '../components/common/ConversationHistoryPanel';
 import MediaGrid from '../components/common/MediaGrid';
 import PromptDataPanel from '../components/common/PromptDataPanel';
 import PromptDataFormDialog from '../components/common/PromptDataFormDialog';
@@ -532,12 +538,198 @@ function PromptDataTab({ projectId }) {
   );
 }
 
-// 텍스트 탭 (placeholder)
-function TextTab() {
+// 세계관 (사전 컨텍스트) 탭 (#396).
+// UploadedText 중 [projectTag, worldviewTag] 모두 포함하는 항목만 노출.
+// 새 항목 생성 시 두 태그 자동 부여 (TextContentPanel 의 defaultTags).
+function WorldviewTab({ projectTag }) {
+  const { data: wvTagData, isLoading } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const worldviewTag = wvTagData?.data?.tag;
+  if (isLoading) return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
+  if (!worldviewTag || !projectTag) {
+    return <Alert severity="warning" sx={{ mt: 2 }}>세계관 태그 / 프로젝트 태그를 불러오지 못했습니다.</Alert>;
+  }
   return (
-    <Alert severity="info" sx={{ mt: 2 }}>
-      준비 중인 기능입니다.
-    </Alert>
+    <Box sx={{ mt: 2 }}>
+      <Alert severity="info" sx={{ mb: 2 }}>
+        여기에 작성한 텍스트는 작업판 실행 시 <strong>[배경 / 사전 컨텍스트]</strong> 로 LLM 에 주입됩니다.
+        등장인물 / 배경 / 톤 등 작업판이 알아야 할 사실을 단편으로 나눠 보관하세요.
+      </Alert>
+      <TextContentPanel
+        kind="uploaded"
+        defaultTags={[projectTag, worldviewTag]}
+        filterTags={[projectTag, worldviewTag]}
+      />
+    </Box>
+  );
+}
+
+// 작업판 멤버십 탭 (#396).
+function WorkboardsTab({ projectId }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const { data, isLoading } = useQuery(
+    ['projectWorkboards', projectId],
+    () => projectAPI.getWorkboards(projectId),
+  );
+  const workboards = data?.data?.data?.workboards || [];
+
+  const addMutation = useMutation(
+    (workboardId) => projectAPI.addWorkboard(projectId, workboardId),
+    {
+      onSuccess: () => {
+        toast.success('작업판이 추가되었습니다.');
+        queryClient.invalidateQueries(['projectWorkboards', projectId]);
+        setPickerOpen(false);
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '추가 실패'),
+    }
+  );
+
+  const removeMutation = useMutation(
+    (workboardId) => projectAPI.removeWorkboard(projectId, workboardId),
+    {
+      onSuccess: () => {
+        toast.success('작업판이 제거되었습니다.');
+        queryClient.invalidateQueries(['projectWorkboards', projectId]);
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '제거 실패'),
+    }
+  );
+
+  if (isLoading) return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+        <Button variant="outlined" startIcon={<TextSnippet />} onClick={() => setPickerOpen(true)}>
+          작업판 추가
+        </Button>
+      </Box>
+      {workboards.length === 0 ? (
+        <Box textAlign="center" py={4}>
+          <Typography variant="body2" color="text.secondary">
+            소속 작업판이 없습니다. 우상단 "작업판 추가" 로 등록하세요.
+          </Typography>
+        </Box>
+      ) : (
+        <Stack spacing={1.5}>
+          {workboards.map((wb) => (
+            <Box
+              key={wb._id}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1,
+                p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1,
+                '&:hover': { borderColor: 'primary.main' }
+              }}
+            >
+              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
+                {wb.description && (
+                  <Typography variant="caption" color="text.secondary" noWrap display="block">{wb.description}</Typography>
+                )}
+                <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                  {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.serverId?.name && <Chip label={wb.serverId.name} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {!wb.isActive && <Chip label="비활성" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                </Stack>
+              </Box>
+              <Button
+                size="small"
+                variant="contained"
+                color="success"
+                startIcon={<PlayArrow />}
+                onClick={() => navigate(`${wb.outputFormat === 'text' ? '/prompt-generate' : '/generate'}/${wb._id}?projectId=${projectId}`)}
+              >
+                실행
+              </Button>
+              <IconButton
+                size="small"
+                color="error"
+                onClick={() => {
+                  if (window.confirm('작업판을 프로젝트에서 제거하시겠습니까? (작업판 자체는 삭제되지 않습니다)')) {
+                    removeMutation.mutate(wb._id);
+                  }
+                }}
+              >
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Box>
+          ))}
+        </Stack>
+      )}
+
+      <WorkboardPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        existingIds={workboards.map((w) => w._id)}
+        onPick={(wbId) => addMutation.mutate(wbId)}
+      />
+    </Box>
+  );
+}
+
+// 모든 작업판 중 골라 프로젝트에 추가하는 다이얼로그 (#396).
+function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
+  const [search, setSearch] = useState('');
+  const { data, isLoading } = useQuery(
+    ['allWorkboardsForPicker'],
+    () => workboardAPI.getAll(),
+    { enabled: open }
+  );
+  const all = data?.data?.workboards || data?.data?.data?.workboards || [];
+  const filtered = all.filter((wb) => {
+    if (existingIds.includes(wb._id)) return false;
+    if (!search) return true;
+    return wb.name?.toLowerCase().includes(search.toLowerCase());
+  });
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>작업판 추가</DialogTitle>
+      <DialogContent dividers>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="작업판 검색..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ mb: 2 }}
+        />
+        {isLoading ? (
+          <Box display="flex" justifyContent="center" py={2}><CircularProgress size={20} /></Box>
+        ) : filtered.length === 0 ? (
+          <Typography variant="body2" color="text.secondary" textAlign="center" py={2}>
+            추가할 수 있는 작업판이 없습니다.
+          </Typography>
+        ) : (
+          <Stack spacing={1}>
+            {filtered.map((wb) => (
+              <Box
+                key={wb._id}
+                onClick={() => onPick(wb._id)}
+                sx={{
+                  display: 'flex', alignItems: 'center', gap: 1,
+                  p: 1.5, border: 1, borderColor: 'divider', borderRadius: 1,
+                  cursor: 'pointer',
+                  '&:hover': { bgcolor: 'action.hover', borderColor: 'primary.main' }
+                }}
+              >
+                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                  <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
+                  <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
+                    {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  </Stack>
+                </Box>
+              </Box>
+            ))}
+          </Stack>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>닫기</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -623,11 +815,12 @@ function ProjectDetail() {
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
+    <Container maxWidth="xl" sx={{ mt: { xs: 2, md: 4 }, mb: { xs: 2, md: 4 }, px: { xs: 1.5, sm: 3 } }}>
       <Button
         startIcon={<ArrowBack />}
         onClick={() => navigate('/projects')}
-        sx={{ mb: 2 }}
+        size="small"
+        sx={{ mb: 1 }}
       >
         프로젝트 목록
       </Button>
@@ -638,9 +831,10 @@ function ProjectDetail() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'flex-start',
-          mb: 3,
+          gap: 1,
+          mb: { xs: 1.5, md: 3 },
           borderRadius: 2,
-          p: 3,
+          p: { xs: 1.5, md: 3 },
           position: 'relative',
           ...(project.coverImage?.url && {
             backgroundImage: `url(${project.coverImage.url})`,
@@ -657,11 +851,14 @@ function ProjectDetail() {
           })
         }}
       >
-        <Box>
-          <Box display="flex" alignItems="center" gap={1} mb={1}>
-            <Typography variant="h4">{project.name}</Typography>
+        <Box sx={{ minWidth: 0, flex: '1 1 0' }}>
+          <Box display="flex" alignItems="center" gap={0.5} mb={0.5} sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="h5" sx={{ fontSize: { xs: '1.25rem', md: '2rem' }, fontWeight: 600, wordBreak: 'break-word' }}>
+              {project.name}
+            </Typography>
             <Tooltip title={project.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}>
               <IconButton
+                size="small"
                 onClick={() => favoriteMutation.mutate()}
                 color={project.isFavorite ? 'warning' : 'default'}
               >
@@ -670,12 +867,13 @@ function ProjectDetail() {
             </Tooltip>
           </Box>
           {project.description && (
-            <Typography variant="body1" color="textSecondary" sx={{ mb: 1 }}>
+            <Typography variant="body2" color="textSecondary" sx={{ mb: 1, wordBreak: 'break-word' }}>
               {project.description}
             </Typography>
           )}
-          <Box display="flex" gap={1} alignItems="center">
+          <Box display="flex" gap={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Chip
+              size="small"
               label={project.tagId?.name}
               sx={{ bgcolor: project.tagId?.color || '#7c4dff', color: 'white' }}
             />
@@ -700,15 +898,23 @@ function ProjectDetail() {
           </Box>
         </Box>
 
-        <Box display="flex" gap={1}>
-          <Button
-            variant="contained"
-            startIcon={<ViewModule />}
-            onClick={() => navigate(`/workboards?projectId=${id}`)}
-            size="small"
-          >
-            이미지 생성하기
-          </Button>
+        <Box display="flex" gap={1} sx={{ flexShrink: 0 }}>
+          <Tooltip title="작업판 목록으로 이동">
+            <Button
+              variant="contained"
+              startIcon={<ViewModule />}
+              onClick={() => navigate(`/workboards?projectId=${id}`)}
+              size="small"
+              sx={{
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+                minWidth: 'auto',
+                '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0, sm: 1 } }
+              }}
+            >
+              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>작업판 보기</Box>
+            </Button>
+          </Tooltip>
           <IconButton onClick={() => setEditOpen(true)}>
             <Edit />
           </IconButton>
@@ -718,22 +924,55 @@ function ProjectDetail() {
         </Box>
       </Box>
 
-      {/* 탭 */}
-      <Tabs
-        value={tabValue}
-        onChange={(e, v) => setTabValue(v)}
-        sx={{ mb: 1, borderBottom: 1, borderColor: 'divider' }}
+      {/* 탭 — 모바일에서 붕 뜨지 않도록 bgcolor 로 묶고, 컴팩트하게 (#396 후속) */}
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          borderRadius: 1,
+          mb: 0,
+        }}
       >
-        <Tab icon={<TextSnippet />} label="프롬프트 데이터" iconPosition="start" />
-        <Tab icon={<ImageIcon />} label="이미지" iconPosition="start" />
-        <Tab label="텍스트" />
-        <Tab icon={<History />} label="작업 히스토리" iconPosition="start" />
-      </Tabs>
+        <Tabs
+          value={tabValue}
+          onChange={(e, v) => setTabValue(v)}
+          variant="scrollable"
+          scrollButtons={false}
+          sx={{
+            minHeight: { xs: 40, md: 48 },
+            '& .MuiTab-root': {
+              minHeight: { xs: 40, md: 48 },
+              py: { xs: 0.5, md: 1 },
+              px: { xs: 1.5, md: 2 },
+              fontSize: { xs: '0.8125rem', md: '0.875rem' },
+              minWidth: 'auto',
+            },
+            '& .MuiTab-iconWrapper': { mr: 0.5 },
+          }}
+        >
+          <Tab label="작업판" />
+          <Tab label="세계관" />
+          <Tab icon={<TextSnippet fontSize="small" />} label="프롬프트 데이터" iconPosition="start" />
+          <Tab icon={<ImageIcon fontSize="small" />} label="이미지" iconPosition="start" />
+          <Tab icon={<History fontSize="small" />} label="작업 히스토리" iconPosition="start" />
+          <Tab label="대화 히스토리" />
+        </Tabs>
+      </Box>
 
-      {tabValue === 0 && <PromptDataTab projectId={id} />}
-      {tabValue === 1 && <ImagesTab projectId={id} />}
-      {tabValue === 2 && <TextTab />}
-      {tabValue === 3 && <JobsTab projectId={id} />}
+      {tabValue === 0 && <WorkboardsTab projectId={id} />}
+      {tabValue === 1 && <WorldviewTab projectTag={project?.tagId} />}
+      {tabValue === 2 && <PromptDataTab projectId={id} />}
+      {tabValue === 3 && <ImagesTab projectId={id} />}
+      {tabValue === 4 && <JobsTab projectId={id} />}
+      {tabValue === 5 && (
+        <Box sx={{ mt: 2 }}>
+          <ConversationHistoryPanel
+            fetchFn={(params) => projectAPI.getConversations(id, params)}
+            queryKey={`projectConversations-${id}`}
+          />
+        </Box>
+      )}
 
       {/* 편집 다이얼로그 */}
       <ProjectEditDialog

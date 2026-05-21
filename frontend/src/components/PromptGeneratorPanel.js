@@ -131,13 +131,15 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
   );
 }
 
-function PromptGeneratorPanel({ 
-  workboardId, 
+function PromptGeneratorPanel({
+  workboardId,
   workboard: externalWorkboard,
   onResultChange,
   showHeader = true,
   showSystemPrompt = true,
-  compact = false
+  compact = false,
+  projectId,
+  useWorldview
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState(null);
@@ -190,18 +192,21 @@ function PromptGeneratorPanel({
       
       const jobData = {
         workboardId: workboard._id,
+        // #396: 프로젝트 컨텍스트 / 세계관 적용 (단일 샷 모드)
+        projectId: projectId || undefined,
+        useWorldview: !!useWorldview,
         inputData: {
           model: formData.model,
           userPrompt: formData.userPrompt,
           ...uploadedImages,
           ...Object.fromEntries(
-            Object.entries(formData).filter(([key]) => 
+            Object.entries(formData).filter(([key]) =>
               !['model', 'userPrompt'].includes(key)
             )
           )
         }
       };
-      
+
       return jobAPI.createPromptJob(jobData);
     },
     {

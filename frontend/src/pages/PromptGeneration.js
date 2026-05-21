@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -20,6 +20,7 @@ import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
 import ConversationChatPanel from '../components/common/ConversationChatPanel';
 import WorkboardChatPanel from '../components/common/WorkboardChatPanel';
+import ProjectContextSelector from '../components/common/ProjectContextSelector';
 import toast from 'react-hot-toast';
 
 function PromptGeneration() {
@@ -27,6 +28,17 @@ function PromptGeneration() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const conversationId = searchParams.get('conversationId');
+  const initialProjectId = searchParams.get('projectId') || '';
+
+  // 프로젝트 컨텍스트 / 세계관 토글 (#396)
+  const [projectId, setProjectId] = useState(initialProjectId);
+  const [useWorldview, setUseWorldview] = useState(!!initialProjectId);
+
+  // initialProjectId 가 바뀌면 (다른 작업판으로 이동 시) 동기화
+  useEffect(() => {
+    setProjectId(initialProjectId);
+    setUseWorldview(!!initialProjectId);
+  }, [initialProjectId, workboardId]);
 
   const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
     ['workboard', workboardId],
@@ -105,6 +117,16 @@ function PromptGeneration() {
         </Alert>
       )}
 
+      {/* 프로젝트 컨텍스트 / 세계관 토글 (#396). 멀티턴 이어가기 (conversationId 진입) 시엔 숨김 — 이미 첫 턴에 주입됨. */}
+      {!conversationId && (
+        <ProjectContextSelector
+          projectId={projectId}
+          useWorldview={useWorldview}
+          onProjectChange={(v) => { setProjectId(v); if (!v) setUseWorldview(false); else setUseWorldview(true); }}
+          onUseWorldviewChange={setUseWorldview}
+        />
+      )}
+
       {(() => {
         if (conversationId) {
           return <ConversationChatPanel workboard={workboard} conversationId={conversationId} />;
@@ -113,7 +135,13 @@ function PromptGeneration() {
         const conversationMode = !!(workboard.additionalInputFields || [])
           .find((f) => f.name === 'conversation_mode')?.defaultValue;
         if (conversationMode) {
-          return <WorkboardChatPanel workboard={workboard} />;
+          return (
+            <WorkboardChatPanel
+              workboard={workboard}
+              projectId={projectId}
+              useWorldview={useWorldview}
+            />
+          );
         }
         return (
           <PromptGeneratorPanel
@@ -121,6 +149,8 @@ function PromptGeneration() {
             showHeader={false}
             showSystemPrompt={false}
             compact={false}
+            projectId={projectId}
+            useWorldview={useWorldview}
           />
         );
       })()}

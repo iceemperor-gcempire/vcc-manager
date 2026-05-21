@@ -47,7 +47,7 @@ function stripExtension(filename) {
 // 텍스트 컨텐츠 패널 (#387).
 // kind: 'uploaded' (직접 작성, 편집/생성 가능) | 'generated' (대화에서 저장, 태그/삭제만 가능).
 // defaultTags: 새 항목 생성 시 기본 태그 (프로젝트 맥락에서 프로젝트 태그 자동 추가용).
-function TextContentPanel({ kind = 'uploaded', defaultTags = [] }) {
+function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = [], title }) {
   const isUploaded = kind === 'uploaded';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -63,9 +63,14 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [] }) {
   const deleteFn = isUploaded ? textAPI.deleteUploaded : textAPI.deleteGenerated;
   const createFn = textAPI.createUploaded;
 
+  const tagIds = (filterTags || []).map((t) => t._id || t).filter(Boolean);
   const { data, isLoading, error } = useQuery(
-    [queryKey, page, search],
-    () => listFn({ page, limit: 20, search }),
+    [queryKey, page, search, tagIds.join(',')],
+    () => {
+      const params = { page, limit: 20, search };
+      if (tagIds.length > 0) params.tags = tagIds.join(',');
+      return listFn(params);
+    },
     { keepPreviousData: true }
   );
 
