@@ -24,26 +24,32 @@ import {
   Delete as DeleteIcon,
   Person as PersonIcon,
   SmartToy as AssistantIcon,
-  Settings as SystemIcon
+  Settings as SystemIcon,
+  Public as PublicIcon,
+  Article as ArticleIcon,
+  ExpandLess,
+  ExpandMore
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-material';
+import { Collapse, Paper } from '@mui/material';
 import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
 
 // LLM 대화 히스토리 패널 (#373).
 // JobHistory 페이지의 \"텍스트\" 탭에서 사용. 카드 리스트 + 상세 다이얼로그.
-function ConversationHistoryPanel() {
+function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
   const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const effectiveFetch = fetchFn || ((params) => conversationAPI.getMy(params));
 
   const { data, isLoading, error } = useQuery(
-    ['conversations', page],
-    () => conversationAPI.getMy({ page, limit: 20 }),
+    [queryKey, page],
+    () => effectiveFetch({ page, limit: 20 }),
     { keepPreviousData: true }
   );
 
@@ -232,7 +238,40 @@ function ConversationHistoryPanel() {
                 </Typography>
               </Stack>
               <Divider />
-              {(detailItem.messages || []).map((msg, idx) => (
+              {/* 작업 지침 / 사전 컨텍스트 분리 표시 (#396) */}
+              {(detailItem.workboardSystemPrompt || detailItem.worldviewContext) && (
+                <Stack spacing={1}>
+                  {detailItem.workboardSystemPrompt && (
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                        <SystemIcon fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>작업 지침</Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {detailItem.workboardSystemPrompt}
+                      </Typography>
+                    </Paper>
+                  )}
+                  {detailItem.worldviewContext && (
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(156, 39, 176, 0.04)' }}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                        <PublicIcon fontSize="small" sx={{ color: '#9c27b0' }} />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>사전 컨텍스트 (세계관)</Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {detailItem.worldviewContext}
+                      </Typography>
+                    </Paper>
+                  )}
+                </Stack>
+              )}
+              <Divider><Chip label="대화" size="small" icon={<ArticleIcon fontSize="small" />} /></Divider>
+              {(detailItem.messages || []).map((msg, idx) => {
+                // workboardSystemPrompt / worldviewContext 가 별도 섹션으로 표시되면 system 메시지는 중복이라 숨김
+                if (msg.role === 'system' && (detailItem.workboardSystemPrompt || detailItem.worldviewContext)) {
+                  return null;
+                }
+                return (
                 <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                   <Box sx={{ pt: 0.5 }}>
                     {msg.role === 'user' && <PersonIcon fontSize="small" color="primary" />}
@@ -259,7 +298,8 @@ function ConversationHistoryPanel() {
                     </Tooltip>
                   )}
                 </Box>
-              ))}
+                );
+              })}
               {detailItem.error?.message && (
                 <Alert severity="error">{detailItem.error.message}</Alert>
               )}

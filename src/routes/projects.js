@@ -239,6 +239,55 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// POST /:id/workboards/:workboardId - 작업판을 프로젝트에 추가 (#396)
+router.post('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
+  try {
+    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
+    const wbId = req.params.workboardId;
+    if (!project.workboardIds.some((id) => id.toString() === wbId)) {
+      project.workboardIds.push(wbId);
+      await project.save();
+    }
+    res.json({ success: true, data: { workboardIds: project.workboardIds } });
+  } catch (error) {
+    console.error('Add workboard to project error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// DELETE /:id/workboards/:workboardId - 작업판을 프로젝트에서 제거
+router.delete('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
+  try {
+    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
+    const wbId = req.params.workboardId;
+    project.workboardIds = project.workboardIds.filter((id) => id.toString() !== wbId);
+    await project.save();
+    res.json({ success: true, data: { workboardIds: project.workboardIds } });
+  } catch (error) {
+    console.error('Remove workboard from project error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// GET /:id/workboards - 프로젝트의 작업판 목록 (populate)
+router.get('/:id/workboards', requireAuth, async (req, res) => {
+  try {
+    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id })
+      .populate({
+        path: 'workboardIds',
+        select: 'name description workboardType outputFormat isActive serverId',
+        populate: { path: 'serverId', select: 'name serverType' }
+      });
+    if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
+    res.json({ success: true, data: { workboards: project.workboardIds || [] } });
+  } catch (error) {
+    console.error('Project workboards fetch error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // DELETE /:id - 프로젝트 삭제 (전용 태그 + 관련 아이템 태그 해제)
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
@@ -475,6 +524,51 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Get project jobs error:', error);
     res.status(500).json({ success: false, message: '프로젝트 작업 히스토리 조회 실패' });
+  }
+});
+
+// GET /:id/conversations - 프로젝트 컨텍스트로 실행된 LLM 대화 히스토리 (#396)
+router.get('/:id/conversations', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    if (!project) {
+      return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
+    }
+    const ConversationJob = require('../models/ConversationJob');
+    // 통일된 태그 기반 필터 (#397 후속). projectId 또는 tags 가 매칭되는 항목.
+    // 기존 데이터 호환 위해 둘 다 OR 로 검색.
+    const filter = {
+      userId: req.user._id,
+      $or: [
+        { projectId: project._id },
+        { tags: project.tagId },
+      ],
+    };
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    const [items, total] = await Promise.all([
+      ConversationJob.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit))
+        .populate('workboardId', 'name workboardType outputFormat')
+        .lean(),
+      ConversationJob.countDocuments(filter),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        conversations: items,
+        pagination: {
+          current: parseInt(page),
+          pages: Math.ceil(total / parseInt(limit)),
+          total,
+        },
+      },
+    });
+  } catch (error) {
+    console.error('Get project conversations error:', error);
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
