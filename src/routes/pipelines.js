@@ -69,7 +69,8 @@ router.post('/', requireAuth, async (req, res) => {
   try {
     const project = await loadProject(req, res);
     if (!project) return;
-    const { name, description, steps, useWorldview } = req.body;
+    // useWorldview 는 더 이상 사용 안 함 (#401) — 들어와도 무시.
+    const { name, description, steps } = req.body;
     if (!name?.trim()) return res.status(400).json({ success: false, message: '이름 필수' });
     if (Array.isArray(steps) && steps.length > 0) {
       const check = await validateSteps(req.user._id, steps);
@@ -84,9 +85,10 @@ router.post('/', requireAuth, async (req, res) => {
         workboardId: s.workboardId,
         autoInject: s.autoInject !== false,
         inputs: (s.inputs && typeof s.inputs === 'object') ? s.inputs : {},
+        contextDocIds: Array.isArray(s.contextDocIds) ? s.contextDocIds : [],
+        systemPromptDocId: s.systemPromptDocId || undefined,
         note: s.note,
       })) : [],
-      useWorldview: useWorldview !== false,
     });
     res.status(201).json({ success: true, data: { pipeline } });
   } catch (error) {
@@ -101,10 +103,10 @@ router.patch('/:id', requireAuth, async (req, res) => {
     if (!project) return;
     const pipeline = await Pipeline.findOne({ _id: req.params.id, projectId: project._id, userId: req.user._id });
     if (!pipeline) return res.status(404).json({ success: false, message: '파이프라인을 찾을 수 없습니다' });
-    const { name, description, steps, useWorldview } = req.body;
+    // useWorldview 는 더 이상 사용 안 함 (#401) — 들어와도 무시.
+    const { name, description, steps } = req.body;
     if (typeof name === 'string') pipeline.name = name.trim();
     if (typeof description === 'string') pipeline.description = description.trim();
-    if (typeof useWorldview === 'boolean') pipeline.useWorldview = useWorldview;
     if (Array.isArray(steps)) {
       const check = await validateSteps(req.user._id, steps);
       if (!check.ok) return res.status(400).json({ success: false, message: check.message });
@@ -112,6 +114,8 @@ router.patch('/:id', requireAuth, async (req, res) => {
         workboardId: s.workboardId,
         autoInject: s.autoInject !== false,
         inputs: (s.inputs && typeof s.inputs === 'object') ? s.inputs : {},
+        contextDocIds: Array.isArray(s.contextDocIds) ? s.contextDocIds : [],
+        systemPromptDocId: s.systemPromptDocId || undefined,
         note: s.note,
       }));
       // Mixed 타입 (step.inputs) 변경은 mongoose 가 자동 감지 못 함 — 명시 markModified
