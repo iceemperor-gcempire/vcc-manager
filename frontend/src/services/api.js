@@ -278,6 +278,15 @@ export const pipelineAPI = {
   delete: (projectId, pipelineId) => api.delete(`/projects/${projectId}/pipelines/${pipelineId}`),
 };
 
+// 파이프라인 실행 영속 (#407)
+export const pipelineRunAPI = {
+  list: (projectId, params) => api.get(`/projects/${projectId}/pipeline-runs`, { params }),
+  get: (projectId, runId) => api.get(`/projects/${projectId}/pipeline-runs/${runId}`),
+  start: (projectId, data) => api.post(`/projects/${projectId}/pipeline-runs`, data),
+  retry: (projectId, runId, data) => api.post(`/projects/${projectId}/pipeline-runs/${runId}/retry`, data),
+  delete: (projectId, runId) => api.delete(`/projects/${projectId}/pipeline-runs/${runId}`),
+};
+
 export const apiKeyAPI = {
   getAll: () => api.get('/apikeys'),
   create: (data) => api.post('/apikeys', data),
@@ -293,6 +302,10 @@ export const tagAPI = {
   getMy: () => api.get('/tags/my'),
   // 세계관 역할 태그 — 없으면 자동 생성 (#396)
   getWorldview: () => api.get('/tags/worldview'),
+  // 시스템 프롬프트 역할 태그 — 없으면 자동 생성 (#400)
+  getSystemPrompt: () => api.get('/tags/system-prompt'),
+  // 임의 name 으로 lookup / 자동 생성 — builtin / custom 무관
+  getByName: (name) => api.get(`/tags/by-name/${encodeURIComponent(name)}`),
 };
 
 export default api;

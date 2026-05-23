@@ -39,7 +39,7 @@ import {
 import MetadataFieldInput from './MetadataFieldInput';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { pipelineAPI, projectAPI, jobAPI } from '../../services/api';
+import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI } from '../../services/api';
 
 // 프로젝트 종속 작업판 파이프라인 (#397).
 // 단계: 목록 → 빌더 → 실행. 모두 한 패널에서.
@@ -117,7 +117,7 @@ function PipelinePanel({ projectId }) {
                 <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
                   <Chip label={`${p.steps?.length || 0}단계`} size="small" variant="outlined" />
-                  {p.useWorldview && <Chip label="세계관 ON" size="small" color="secondary" variant="outlined" />}
+                  {/* #401: useWorldview chip 제거 — 단계별 문서 연결로 표현 */}
                 </Box>
                 {p.description && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -217,31 +217,32 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   );
   const loaded = pipelineData?.data?.data?.pipeline;
 
-  // 프로젝트의 작업판 목록 (단계 선택용)
+  // 전체 작업판 목록 — 단계 picker 가 프로젝트 미가입 작업판도 보여줘야 함 (#407).
   const { data: wbData } = useQuery(
-    ['projectWorkboards', projectId],
-    () => projectAPI.getWorkboards(projectId),
+    ['allWorkboards'],
+    () => workboardAPI.getAll(),
   );
-  const projectWorkboards = wbData?.data?.data?.workboards || [];
+  const allWorkboards = wbData?.data?.workboards || wbData?.data?.data?.workboards || [];
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [useWorldview, setUseWorldview] = useState(true);
   const [steps, setSteps] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [inputsDialogStepIdx, setInputsDialogStepIdx] = useState(-1);
+  const [docsDialogStepIdx, setDocsDialogStepIdx] = useState(-1);
 
   // 로드 시 폼 초기화
   React.useEffect(() => {
     if (loaded) {
       setName(loaded.name || '');
       setDescription(loaded.description || '');
-      setUseWorldview(loaded.useWorldview !== false);
       setSteps((loaded.steps || []).map((s) => ({
         workboardId: s.workboardId?._id || s.workboardId,
         workboard: s.workboardId, // populated
         autoInject: s.autoInject !== false,
         inputs: s.inputs || {},
+        contextDocIds: Array.isArray(s.contextDocIds) ? s.contextDocIds.map((d) => d._id || d) : [],
+        systemPromptDocId: s.systemPromptDocId?._id || s.systemPromptDocId || null,
         note: s.note || '',
       })));
     }
@@ -277,11 +278,12 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
     saveMutation.mutate({
       name: name.trim(),
       description: description.trim(),
-      useWorldview,
       steps: steps.map((s) => ({
         workboardId: s.workboardId,
         autoInject: s.autoInject,
         inputs: s.inputs || {},
+        contextDocIds: s.contextDocIds || [],
+        systemPromptDocId: s.systemPromptDocId || undefined,
         note: s.note,
       })),
     });
@@ -342,10 +344,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           minRows={2}
           fullWidth
         />
-        <FormControlLabel
-          control={<Switch checked={useWorldview} onChange={(e) => setUseWorldview(e.target.checked)} />}
-          label="LLM 단계에서 프로젝트 세계관 자동 주입"
-        />
+        {/* useWorldview 토글 제거 (#401) — 단계별 문서 선택으로 대체 */}
 
         <Box>
           <Box display="flex" alignItems="center" mb={1}>
@@ -412,6 +411,21 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                         <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} size="small" sx={{ ml: 0.5, height: 18 }} />
                       )}
                     </Button>
+                    {/* 단계별 문서 연결 (#401) — LLM 단계만 의미 있지만 UI 는 모든 단계에 노출 (간소화) */}
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setDocsDialogStepIdx(idx)}
+                    >
+                      문서
+                      {((s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)) > 0 && (
+                        <Chip
+                          label={(s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)}
+                          size="small"
+                          sx={{ ml: 0.5, height: 18 }}
+                        />
+                      )}
+                    </Button>
                     <IconButton size="small" disabled={idx === 0} onClick={() => moveStep(idx, -1)}>
                       <ArrowUpward fontSize="small" />
                     </IconButton>
@@ -456,17 +470,31 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
         }}
       />
 
+      {/* 단계별 문서 연결 (사전 컨텍스트 / 시스템 프롬프트) 다이얼로그 (#401) */}
+      <StepDocsDialog
+        open={docsDialogStepIdx >= 0}
+        projectId={projectId}
+        step={docsDialogStepIdx >= 0 ? steps[docsDialogStepIdx] : null}
+        onClose={() => setDocsDialogStepIdx(-1)}
+        onSave={({ contextDocIds, systemPromptDocId }) => {
+          const next = [...steps];
+          next[docsDialogStepIdx] = { ...next[docsDialogStepIdx], contextDocIds, systemPromptDocId };
+          setSteps(next);
+          setDocsDialogStepIdx(-1);
+        }}
+      />
+
       {/* 단계 추가 picker — 프로젝트 소속 작업판만 */}
       <Dialog open={pickerOpen} onClose={() => setPickerOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>단계 추가 - 작업판 선택</DialogTitle>
         <DialogContent dividers>
-          {projectWorkboards.length === 0 ? (
+          {allWorkboards.length === 0 ? (
             <Alert severity="info">
-              프로젝트에 등록된 작업판이 없습니다. 먼저 "작업판" 탭에서 추가해 주세요.
+              사용 가능한 작업판이 없습니다.
             </Alert>
           ) : (
             <Stack spacing={1}>
-              {projectWorkboards.map((wb) => (
+              {allWorkboards.map((wb) => (
                 <Box
                   key={wb._id}
                   onClick={() => addStep(wb)}
@@ -625,15 +653,20 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
   );
 }
 
-// 파이프라인 실행 (클라이언트 측 순차 오케스트레이션, #397)
-function PipelineRunner({ projectId, pipelineId, onClose }) {
-  const { data: pipelineData, isLoading } = useQuery(
-    ['pipeline', projectId, pipelineId],
-    () => pipelineAPI.get(projectId, pipelineId),
-    { enabled: !!pipelineId }
-  );
-  const pipeline = pipelineData?.data?.data?.pipeline;
-  // 프로젝트 tagId — 모든 단계에서 생성되는 작업 / 컨텐츠에 자동 부여 (#397 후속)
+// 단계별 문서 연결 다이얼로그 (#401).
+// 사전 컨텍스트 문서 (다중) + 시스템 프롬프트 문서 (단일) 를 프로젝트의 문서 중 선택.
+// 문서 수정 시 다음 실행부터 자동 반영.
+function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
+  const [contextDocIds, setContextDocIds] = useState([]);
+  const [systemPromptDocId, setSystemPromptDocId] = useState(null);
+
+  // 빌트인 태그 (세계관 / 시스템 프롬프트)
+  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const worldviewTag = wvTagData?.data?.tag;
+  const systemPromptTag = spTagData?.data?.tag;
+
+  // 프로젝트 정보 (project tagId 필요)
   const { data: projectData } = useQuery(
     ['project', projectId],
     () => projectAPI.getById(projectId),
@@ -641,159 +674,229 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
   );
   const projectTagId = projectData?.data?.data?.project?.tagId?._id || projectData?.data?.data?.project?.tagId;
 
-  // 단계별 상태 / 결과
-  // status: 'pending' | 'running' | 'done' | 'failed' | 'skipped'
-  const [stepStates, setStepStates] = useState([]);
-  const [running, setRunning] = useState(false);
-  const [initialPrompt, setInitialPrompt] = useState('');
+  // 프로젝트의 세계관 / 시스템 프롬프트 문서 목록 조회
+  const { data: contextDocsData } = useQuery(
+    ['projectContextDocs', projectId, projectTagId, worldviewTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTagId, worldviewTag._id].join(','), limit: 100 }),
+    { enabled: !!(projectTagId && worldviewTag?._id && open) }
+  );
+  const contextDocs = contextDocsData?.data?.data?.items || [];
+
+  const { data: spDocsData } = useQuery(
+    ['projectSystemPromptDocs', projectId, projectTagId, systemPromptTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTagId, systemPromptTag._id].join(','), limit: 100 }),
+    { enabled: !!(projectTagId && systemPromptTag?._id && open) }
+  );
+  const spDocs = spDocsData?.data?.data?.items || [];
 
   React.useEffect(() => {
-    if (pipeline) {
-      setStepStates((pipeline.steps || []).map(() => ({ status: 'pending', output: null, error: null })));
+    if (step) {
+      setContextDocIds(step.contextDocIds || []);
+      setSystemPromptDocId(step.systemPromptDocId || null);
     }
-  }, [pipeline]);
+  }, [step]);
 
-  // 단계 입력 빌드 (#397 후속):
-  // 1. step.inputs 의 사전 입력값으로 시작
-  // 2. 자동 주입 — 첫 단계는 initialPrompt, 그 외 단계는 prevOutput 으로 prompt/image 필드 덮어씀
-  const buildStepInput = (workboard, prevOutput, stepInputs, stepIdx) => {
-    const inputData = { ...(stepInputs || {}) };
+  if (!step) return null;
 
-    // userPrompt 는 LLM 작업판의 텍스트 입력 키. 사전 입력에 없으면 기본 빈 문자열.
-    if (inputData.userPrompt == null) inputData.userPrompt = '';
+  const isLlmStep = step.workboard?.outputFormat === 'text';
 
-    if (stepIdx === 0) {
-      // 첫 단계 — 사용자 초기 프롬프트로 텍스트 필드 덮어쓰기
-      inputData.userPrompt = initialPrompt;
-      const promptField = (workboard.additionalInputFields || []).find(
-        (f) => f.name === 'prompt' || f.name === 'userPrompt'
-      );
-      if (promptField) inputData[promptField.name] = initialPrompt;
-    } else if (prevOutput) {
-      if (prevOutput.type === 'text') {
-        inputData.userPrompt = prevOutput.value;
-        const promptField = (workboard.additionalInputFields || []).find(
-          (f) => f.name === 'prompt' || f.name === 'userPrompt'
-        );
-        if (promptField) inputData[promptField.name] = prevOutput.value;
-      } else if (prevOutput.type === 'image' && prevOutput.imageIds?.length > 0) {
-        const imgField = (workboard.additionalInputFields || []).find((f) => f.type === 'image');
-        if (imgField) {
-          inputData[imgField.name] = prevOutput.imageIds.map((id) => ({ imageId: id }));
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        단계 문서 연결
+        {step.workboard?.name && <Typography variant="caption" color="text.secondary" display="block">{step.workboard.name}</Typography>}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {!isLlmStep && (
+            <Alert severity="info">
+              이미지 / 영상 작업판 단계입니다. 문서 연결은 LLM 호출에만 적용되므로 현재 단계에는 영향 없습니다.
+              (저장은 가능하지만 실행에 사용되지 않습니다)
+            </Alert>
+          )}
+
+          {/* 사전 컨텍스트 문서 (다중) */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              사전 컨텍스트 문서 (다중 선택)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              system 메시지의 [배경 / 사전 컨텍스트] 섹션으로 concat 주입됩니다.
+            </Typography>
+            {contextDocs.length === 0 ? (
+              <Alert severity="warning" variant="outlined" size="small">
+                이 프로젝트에 세계관 문서가 없습니다. 프로젝트의 세계관 탭에서 추가하세요.
+              </Alert>
+            ) : (
+              <Stack spacing={0.5}>
+                {contextDocs.map((doc) => {
+                  const selected = contextDocIds.includes(doc._id);
+                  return (
+                    <Box
+                      key={doc._id}
+                      onClick={() => {
+                        if (selected) setContextDocIds(contextDocIds.filter((id) => id !== doc._id));
+                        else setContextDocIds([...contextDocIds, doc._id]);
+                      }}
+                      sx={{
+                        p: 1, border: 1, borderRadius: 1, cursor: 'pointer',
+                        borderColor: selected ? 'primary.main' : 'divider',
+                        bgcolor: selected ? 'action.selected' : 'background.paper',
+                        '&:hover': { borderColor: 'primary.main' }
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={selected ? '선택' : ''}
+                          size="small"
+                          color={selected ? 'primary' : 'default'}
+                          variant={selected ? 'filled' : 'outlined'}
+                          sx={{ minWidth: 50 }}
+                        />
+                        <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                          <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                            {doc.title || '(제목 없음)'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap display="block">
+                            {(doc.content || '').slice(0, 80)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Box>
+
+          {/* 시스템 프롬프트 문서 (단일) */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              시스템 프롬프트 문서 (단일 선택)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              system 메시지의 [작업 지침] 으로 사용됩니다. 작업판의 system_prompt customField 보다 우선합니다.
+            </Typography>
+            <TextField
+              size="small"
+              fullWidth
+              select
+              SelectProps={{ native: true }}
+              InputLabelProps={{ shrink: true }}
+              label="시스템 프롬프트"
+              value={systemPromptDocId || ''}
+              onChange={(e) => setSystemPromptDocId(e.target.value || null)}
+            >
+              <option value="">— 선택 없음 (작업판 system_prompt 사용) —</option>
+              {spDocs.map((doc) => (
+                <option key={doc._id} value={doc._id}>
+                  {doc.title || '(제목 없음)'}
+                </option>
+              ))}
+            </TextField>
+            {spDocs.length === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                시스템 프롬프트 문서가 없습니다. 프로젝트의 세계관 탭 → "시스템 프롬프트" chip 으로 전환해 작성하세요.
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button variant="contained" onClick={() => onSave({ contextDocIds, systemPromptDocId })}>저장</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
+// 파이프라인 실행 (클라이언트 측 순차 오케스트레이션, #397)
+// 파이프라인 실행 (백엔드 오케스트레이션, #407).
+// "시작" → POST run → runId 받음 → polling 으로 상태 갱신. 페이지 떠나도 백엔드는 계속 실행.
+function PipelineRunner({ projectId, pipelineId, onClose }) {
+  const queryClient = useQueryClient();
+  const { data: pipelineData, isLoading } = useQuery(
+    ['pipeline', projectId, pipelineId],
+    () => pipelineAPI.get(projectId, pipelineId),
+    { enabled: !!pipelineId }
+  );
+  const pipeline = pipelineData?.data?.data?.pipeline;
+
+  const [initialPrompt, setInitialPrompt] = useState('');
+  const [runId, setRunId] = useState(null);
+
+  // 활성 run 의 상태 polling
+  const { data: runData } = useQuery(
+    ['pipelineRun', projectId, runId],
+    () => pipelineRunAPI.get(projectId, runId),
+    {
+      enabled: !!runId,
+      refetchInterval: (data) => {
+        const run = data?.data?.data?.run;
+        if (!run) return 3000;
+        if (run.status === 'pending' || run.status === 'running') return 2000;
+        return false; // 종료된 run 은 더 이상 polling 안 함
+      },
+    }
+  );
+  const run = runData?.data?.data?.run;
+
+  const startMutation = useMutation(
+    (payload) => pipelineRunAPI.start(projectId, payload),
+    {
+      onSuccess: (response) => {
+        const newRunId = response.data?.data?.run?._id;
+        if (newRunId) {
+          setRunId(newRunId);
+          queryClient.invalidateQueries(['pipelineRuns', projectId]);
         }
-      }
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '시작 실패'),
     }
-    return inputData;
-  };
+  );
 
-  const runStep = async (stepIdx, prevOutput) => {
-    const step = pipeline.steps[stepIdx];
-    const wb = step.workboardId;
-    if (!wb || wb.isActive === false) {
-      throw new Error(`작업판이 비활성 또는 삭제됨`);
+  const retryMutation = useMutation(
+    ({ fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['pipelineRun', projectId, runId]);
+        queryClient.invalidateQueries(['pipelineRuns', projectId]);
+        toast.success('재시작 요청됨');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'),
     }
-    const inputData = buildStepInput(wb, prevOutput, step.inputs, stepIdx);
+  );
 
-    if (wb.outputFormat === 'text') {
-      // 텍스트 작업판 — prompt-generate. 세계관은 첫 단계 + useWorldview ON 일 때만 주입.
-      // projectId 는 모든 단계에 전달 — 백엔드가 ConversationJob.tags 에 프로젝트 태그 자동 주입.
-      const response = await jobAPI.createPromptJob({
-        workboardId: wb._id,
-        projectId: projectId || undefined,
-        useWorldview: stepIdx === 0 && pipeline.useWorldview,
-        inputData,
-      });
-      return { type: 'text', value: response.data.result, conversationId: response.data.conversationId };
-    } else {
-      // 이미지 / 영상 — 기존 /api/jobs/generate. 결과 폴링 필요.
-      // 프로젝트 태그를 inputData.tags 에 주입 — ImageGenerationJob / GeneratedImage 모두에 전파됨.
-      const mergedTags = Array.isArray(inputData.tags) ? [...inputData.tags] : [];
-      if (projectTagId && !mergedTags.some((t) => String(t) === String(projectTagId))) {
-        mergedTags.push(projectTagId);
-      }
-      const createResp = await jobAPI.create({
-        workboardId: wb._id,
-        prompt: inputData.userPrompt || '',
-        ...inputData,
-        tags: mergedTags,
-      });
-      const jobId = createResp.data.job?.id;
-      if (!jobId) throw new Error('작업 ID 를 받지 못했습니다');
-
-      // 폴링 — 최대 5분 (60회 × 5초). 첫 MVP 단순 구현.
-      for (let i = 0; i < 60; i++) {
-        await new Promise((r) => setTimeout(r, 5000));
-        const jobResp = await jobAPI.getById(jobId);
-        const job = jobResp.data.job;
-        if (job.status === 'completed') {
-          if (wb.outputFormat === 'image') {
-            const imageIds = (job.resultImages || []).map((img) => img._id);
-            return { type: 'image', imageIds, jobId };
-          }
-          return { type: wb.outputFormat, jobId };
-        }
-        if (job.status === 'failed') {
-          throw new Error(job.errorMessage || '작업 실패');
-        }
-      }
-      throw new Error('작업이 시간 내 완료되지 않음 (5분 초과)');
-    }
-  };
-
-  const handleRun = async () => {
-    if (!pipeline || pipeline.steps.length === 0) return;
+  const handleStart = () => {
     if (!initialPrompt.trim()) {
       toast.error('첫 단계의 입력 프롬프트를 입력해 주세요.');
       return;
     }
-    setRunning(true);
-    let prevOutput = null;
-    const newStates = pipeline.steps.map(() => ({ status: 'pending', output: null, error: null }));
-    setStepStates(newStates);
-
-    for (let i = 0; i < pipeline.steps.length; i++) {
-      newStates[i] = { ...newStates[i], status: 'running' };
-      setStepStates([...newStates]);
-      try {
-        const stepAutoInject = i === 0 ? false : (pipeline.steps[i].autoInject !== false);
-        const inputPrev = stepAutoInject ? prevOutput : null;
-        const result = await runStep(i, inputPrev);
-        newStates[i] = { status: 'done', output: result, error: null };
-        setStepStates([...newStates]);
-        prevOutput = result;
-      } catch (err) {
-        newStates[i] = { status: 'failed', output: null, error: err.response?.data?.message || err.message };
-        setStepStates([...newStates]);
-        // 나머지 단계는 skipped
-        for (let j = i + 1; j < pipeline.steps.length; j++) {
-          newStates[j] = { ...newStates[j], status: 'skipped' };
-        }
-        setStepStates([...newStates]);
-        toast.error(`${i + 1}단계 실패: ${err.message}`);
-        break;
-      }
-    }
-    setRunning(false);
+    startMutation.mutate({ pipelineId, initialPrompt });
   };
 
   if (isLoading || !pipeline) {
     return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
   }
 
+  const isActive = run && (run.status === 'pending' || run.status === 'running');
+  const isCompleted = run && run.status === 'completed';
+  const isFailed = run && run.status === 'failed';
+  const firstFailedIdx = run ? (run.steps || []).findIndex((s) => s.status === 'failed') : -1;
+
   return (
     <Box sx={{ mt: 2 }}>
       <Box display="flex" alignItems="center" gap={1} mb={2}>
         <Typography variant="h6">{pipeline.name} 실행</Typography>
         <Box sx={{ flexGrow: 1 }} />
-        <Button onClick={onClose} disabled={running}>닫기</Button>
+        <Button onClick={onClose}>닫기</Button>
       </Box>
 
       <Stack spacing={2}>
         <Alert severity="info">
-          첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요. 각 단계가 순차로 실행되며,
-          이전 단계의 결과가 다음 단계의 입력에 자동으로 매핑됩니다.
-          {pipeline.useWorldview && ' 첫 단계가 LLM 인 경우 프로젝트 세계관이 함께 주입됩니다.'}
-          {' '}이 페이지를 떠나면 실행이 중단됩니다.
+          첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
+          실행은 백엔드 백그라운드에서 진행되므로 페이지를 떠나도 계속됩니다 — 파이프라인 히스토리 탭에서 결과 / 재실행 가능.
+          {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
         </Alert>
 
         <TextField
@@ -804,86 +907,340 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           multiline
           minRows={2}
           fullWidth
-          disabled={running}
+          disabled={isActive || !!runId}
         />
 
-        <Box>
-          <Button
-            variant="contained"
-            color="success"
-            startIcon={running ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
-            onClick={handleRun}
-            disabled={running || !initialPrompt.trim()}
-          >
-            {running ? '실행 중...' : '시작'}
-          </Button>
+        <Box display="flex" gap={1}>
+          {!runId && (
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={startMutation.isLoading ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
+              onClick={handleStart}
+              disabled={startMutation.isLoading || !initialPrompt.trim()}
+            >
+              시작
+            </Button>
+          )}
+          {runId && isFailed && firstFailedIdx >= 0 && (
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => retryMutation.mutate({ fromStep: firstFailedIdx })}
+              disabled={retryMutation.isLoading}
+            >
+              {firstFailedIdx + 1}단계부터 재시작
+            </Button>
+          )}
+          {runId && isCompleted && (
+            <Button
+              variant="outlined"
+              onClick={() => { setRunId(null); setInitialPrompt(''); }}
+            >
+              새 실행
+            </Button>
+          )}
+          {runId && (
+            <Chip
+              label={run?.status === 'pending' ? '대기' : run?.status === 'running' ? '진행 중' : run?.status === 'completed' ? '완료' : run?.status === 'failed' ? '실패' : run?.status}
+              color={run?.status === 'completed' ? 'success' : run?.status === 'failed' ? 'error' : 'default'}
+            />
+          )}
         </Box>
 
-        <Stepper activeStep={stepStates.findIndex((s) => s.status === 'running')} orientation="vertical">
-          {(pipeline.steps || []).map((step, idx) => {
-            const state = stepStates[idx] || { status: 'pending' };
-            return (
-              <Step key={idx} active expanded={state.status !== 'pending'}>
-                <StepLabel
-                  icon={
-                    state.status === 'done' ? <CheckCircleIcon color="success" />
-                    : state.status === 'failed' ? <ErrorIcon color="error" />
-                    : state.status === 'running' ? <CircularProgress size={20} />
-                    : state.status === 'skipped' ? <StopIcon color="disabled" />
-                    : <Chip label={idx + 1} size="small" />
-                  }
-                >
-                  <Typography variant="subtitle2">
-                    {step.workboardId?.name || '(작업판)'}
-                  </Typography>
-                  {step.workboardId?.description && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'pre-wrap' }}>
-                      {step.workboardId.description}
+        {run && (
+          <Stepper activeStep={(run.steps || []).findIndex((s) => s.status === 'running')} orientation="vertical">
+            {(pipeline.steps || []).map((step, idx) => {
+              const runStep = run.steps?.[idx] || { status: 'pending' };
+              return (
+                <Step key={idx} active expanded={runStep.status !== 'pending'}>
+                  <StepLabel
+                    icon={
+                      runStep.status === 'completed' ? <CheckCircleIcon color="success" />
+                      : runStep.status === 'failed' ? <ErrorIcon color="error" />
+                      : runStep.status === 'running' ? <CircularProgress size={20} />
+                      : runStep.status === 'skipped' ? <StopIcon color="disabled" />
+                      : <Chip label={idx + 1} size="small" />
+                    }
+                  >
+                    <Typography variant="subtitle2">
+                      {step.workboardId?.name || '(작업판)'}
                     </Typography>
-                  )}
-                  {step.workboardId?.outputFormat && (
-                    <Typography variant="caption" color="text.secondary">
-                      출력: {step.workboardId.outputFormat}
-                    </Typography>
-                  )}
-                </StepLabel>
-                <StepContent>
-                  {step.note && (
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>
-                      {step.note}
-                    </Typography>
-                  )}
-                  {state.status === 'done' && state.output && (
-                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
-                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
-                        결과 ({state.output.type})
+                    {step.workboardId?.description && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'pre-wrap' }}>
+                        {step.workboardId.description}
                       </Typography>
-                      {state.output.type === 'text' && (
-                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
-                          {state.output.value}
+                    )}
+                    {step.workboardId?.outputFormat && (
+                      <Typography variant="caption" color="text.secondary">
+                        출력: {step.workboardId.outputFormat}
+                      </Typography>
+                    )}
+                  </StepLabel>
+                  <StepContent>
+                    {step.note && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1, whiteSpace: 'pre-wrap', fontStyle: 'italic' }}>
+                        {step.note}
+                      </Typography>
+                    )}
+                    {runStep.status === 'completed' && runStep.output && (
+                      <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                          결과 ({runStep.output.type})
                         </Typography>
-                      )}
-                      {state.output.type === 'image' && (
-                        <Typography variant="caption" color="text.secondary">
-                          이미지 {state.output.imageIds?.length || 0}개 생성됨
-                        </Typography>
-                      )}
-                    </Paper>
-                  )}
-                  {state.status === 'failed' && (
-                    <Alert severity="error" sx={{ mb: 1 }}>
-                      {state.error}
-                    </Alert>
-                  )}
-                  {state.status === 'skipped' && (
-                    <Typography variant="caption" color="text.secondary">건너뜀</Typography>
-                  )}
-                </StepContent>
-              </Step>
-            );
-          })}
-        </Stepper>
+                        {runStep.output.type === 'text' && (
+                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+                            {runStep.output.value}
+                          </Typography>
+                        )}
+                        {runStep.output.type === 'image' && (
+                          <Typography variant="caption" color="text.secondary">
+                            이미지 {runStep.output.imageIds?.length || 0}개 생성됨
+                          </Typography>
+                        )}
+                      </Paper>
+                    )}
+                    {runStep.status === 'failed' && (
+                      <Alert severity="error" sx={{ mb: 1 }}>
+                        {runStep.error?.message || '실패'}
+                      </Alert>
+                    )}
+                    {runStep.status === 'skipped' && (
+                      <Typography variant="caption" color="text.secondary">건너뜀</Typography>
+                    )}
+                  </StepContent>
+                </Step>
+              );
+            })}
+          </Stepper>
+        )}
       </Stack>
+    </Box>
+  );
+}
+
+// 파이프라인 히스토리 패널 (#407). 프로젝트 상세 탭에서 사용.
+export function PipelineHistoryPanel({ projectId }) {
+  const queryClient = useQueryClient();
+  const [selectedRunId, setSelectedRunId] = useState(null);
+
+  const { data, isLoading } = useQuery(
+    ['pipelineRuns', projectId],
+    () => pipelineRunAPI.list(projectId, { limit: 50 }),
+    { refetchInterval: 5000 }
+  );
+  const runs = data?.data?.data?.runs || [];
+
+  const { data: detailData } = useQuery(
+    ['pipelineRun', projectId, selectedRunId],
+    () => pipelineRunAPI.get(projectId, selectedRunId),
+    {
+      enabled: !!selectedRunId,
+      refetchInterval: (data) => {
+        const run = data?.data?.data?.run;
+        if (!run) return 3000;
+        return (run.status === 'pending' || run.status === 'running') ? 2000 : false;
+      },
+    }
+  );
+  const detail = detailData?.data?.data?.run;
+
+  const retryMutation = useMutation(
+    ({ runId, fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
+    {
+      onSuccess: (_, vars) => {
+        queryClient.invalidateQueries(['pipelineRuns', projectId]);
+        queryClient.invalidateQueries(['pipelineRun', projectId, vars.runId]);
+        toast.success('재시작 요청됨');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'),
+    }
+  );
+
+  const deleteMutation = useMutation(
+    (id) => pipelineRunAPI.delete(projectId, id),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries(['pipelineRuns', projectId]);
+        if (selectedRunId) setSelectedRunId(null);
+        toast.success('삭제되었습니다.');
+      },
+      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
+    }
+  );
+
+  if (selectedRunId && detail) {
+    const firstFailedIdx = (detail.steps || []).findIndex((s) => s.status === 'failed');
+    return (
+      <Box sx={{ mt: 2 }}>
+        <Box display="flex" alignItems="center" gap={1} mb={2}>
+          <Button onClick={() => setSelectedRunId(null)}>← 목록</Button>
+          <Typography variant="h6">{detail.pipelineId?.name || '(파이프라인)'}</Typography>
+          <Chip
+            label={detail.status === 'pending' ? '대기' : detail.status === 'running' ? '진행 중' : detail.status === 'completed' ? '완료' : detail.status === 'failed' ? '실패' : detail.status}
+            color={detail.status === 'completed' ? 'success' : detail.status === 'failed' ? 'error' : 'default'}
+          />
+          <Box sx={{ flexGrow: 1 }} />
+          {detail.status === 'failed' && firstFailedIdx >= 0 && (
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<PlayArrowIcon />}
+              onClick={() => retryMutation.mutate({ runId: selectedRunId, fromStep: firstFailedIdx })}
+              disabled={retryMutation.isLoading}
+            >
+              {firstFailedIdx + 1}단계부터 재시작
+            </Button>
+          )}
+        </Box>
+        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+          {detail.startedAt ? `시작: ${new Date(detail.startedAt).toLocaleString('ko-KR')}` : ''}
+          {detail.completedAt ? ` · 종료: ${new Date(detail.completedAt).toLocaleString('ko-KR')}` : ''}
+          {detail.triggerCount > 1 ? ` · 재시도 ${detail.triggerCount - 1}회` : ''}
+        </Typography>
+        {detail.initialPrompt && (
+          <Paper variant="outlined" sx={{ p: 1.5, mb: 2, bgcolor: 'grey.50' }}>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              초기 프롬프트
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+              {detail.initialPrompt}
+            </Typography>
+          </Paper>
+        )}
+        <Stepper activeStep={(detail.steps || []).findIndex((s) => s.status === 'running')} orientation="vertical">
+          {(detail.steps || []).map((runStep, idx) => (
+            <Step key={idx} active expanded>
+              <StepLabel
+                icon={
+                  runStep.status === 'completed' ? <CheckCircleIcon color="success" />
+                  : runStep.status === 'failed' ? <ErrorIcon color="error" />
+                  : runStep.status === 'running' ? <CircularProgress size={20} />
+                  : runStep.status === 'skipped' ? <StopIcon color="disabled" />
+                  : <Chip label={idx + 1} size="small" />
+                }
+              >
+                <Typography variant="subtitle2">
+                  {runStep.workboardId?.name || '(작업판)'}
+                </Typography>
+                {runStep.workboardId?.outputFormat && (
+                  <Typography variant="caption" color="text.secondary">
+                    출력: {runStep.workboardId.outputFormat}
+                  </Typography>
+                )}
+              </StepLabel>
+              <StepContent>
+                {runStep.status === 'completed' && runStep.output && (
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      결과 ({runStep.output.type})
+                    </Typography>
+                    {runStep.output.type === 'text' && (
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
+                        {runStep.output.value}
+                      </Typography>
+                    )}
+                    {runStep.output.type === 'image' && (
+                      <Typography variant="caption" color="text.secondary">
+                        이미지 {runStep.output.imageIds?.length || 0}개 생성됨
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
+                {runStep.status === 'failed' && (
+                  <Alert severity="error">{runStep.error?.message || '실패'}</Alert>
+                )}
+                {runStep.status === 'skipped' && (
+                  <Typography variant="caption" color="text.secondary">건너뜀</Typography>
+                )}
+              </StepContent>
+            </Step>
+          ))}
+        </Stepper>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      {isLoading ? (
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+      ) : runs.length === 0 ? (
+        <Box textAlign="center" py={4}>
+          <Typography variant="body2" color="text.secondary">
+            아직 실행 기록이 없습니다. 파이프라인 탭에서 "실행" 으로 시작하세요.
+          </Typography>
+        </Box>
+      ) : (
+        <Stack spacing={1}>
+          {runs.map((r) => (
+            <Card key={r._id} variant="outlined">
+              <CardContent sx={{ pb: 1 }}>
+                <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                    {r.pipelineId?.name || '(파이프라인)'}
+                  </Typography>
+                  <Chip
+                    label={r.status === 'pending' ? '대기' : r.status === 'running' ? '진행 중' : r.status === 'completed' ? '완료' : r.status === 'failed' ? '실패' : r.status}
+                    size="small"
+                    color={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : r.status === 'running' ? 'primary' : 'default'}
+                  />
+                  {r.triggerCount > 1 && (
+                    <Chip label={`재시도 ${r.triggerCount - 1}회`} size="small" variant="outlined" />
+                  )}
+                  <Box sx={{ flexGrow: 1 }} />
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(r.createdAt).toLocaleString('ko-KR')}
+                  </Typography>
+                </Box>
+                {r.initialPrompt && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{
+                      overflow: 'hidden', textOverflow: 'ellipsis',
+                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                    }}
+                  >
+                    {r.initialPrompt}
+                  </Typography>
+                )}
+                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
+                  {(r.steps || []).map((s, idx) => (
+                    <Chip
+                      key={idx}
+                      label={idx + 1}
+                      size="small"
+                      color={
+                        s.status === 'completed' ? 'success'
+                        : s.status === 'failed' ? 'error'
+                        : s.status === 'running' ? 'primary'
+                        : s.status === 'skipped' ? 'default'
+                        : 'default'
+                      }
+                      variant={s.status === 'pending' ? 'outlined' : 'filled'}
+                      sx={{ height: 22, minWidth: 22 }}
+                    />
+                  ))}
+                </Stack>
+              </CardContent>
+              <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
+                <Button size="small" onClick={() => setSelectedRunId(r._id)}>상세</Button>
+                <IconButton
+                  size="small"
+                  color="error"
+                  onClick={() => {
+                    if (window.confirm('이 실행 기록을 삭제하시겠어요?')) deleteMutation.mutate(r._id);
+                  }}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </CardActions>
+            </Card>
+          ))}
+        </Stack>
+      )}
     </Box>
   );
 }

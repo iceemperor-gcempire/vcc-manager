@@ -37,12 +37,14 @@ function composeSystemPrompt(systemPrompt, worldviewTexts) {
   return parts.join('\n\n');
 }
 
-// 프로젝트의 세계관 UploadedText 들 로드 (#396).
+// 프로젝트의 세계관 UploadedText 들 로드 (#396 → #400 일반화).
+// 더 이상 flag (isWorldviewTag) 가 아닌 name 으로 세계관 태그를 조회 — 일반화된 태그 시스템.
+const { BUILTIN_TAG_NAMES } = require('../constants/builtinTags');
 async function getProjectWorldview(userId, projectId) {
   if (!projectId) return [];
   const project = await Project.findOne({ _id: projectId, userId }).lean();
   if (!project || !project.tagId) return [];
-  const worldviewTag = await Tag.findOne({ userId, isWorldviewTag: true }).lean();
+  const worldviewTag = await Tag.findOne({ userId, name: BUILTIN_TAG_NAMES.WORLDVIEW }).lean();
   if (!worldviewTag) return [];
   const texts = await UploadedText.find({
     userId,
@@ -426,7 +428,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
 router.post('/generate-prompt', requireAuth, async (req, res) => {
   try {
-    const { workboardId, inputData, conversationId, projectId, useWorldview } = req.body;
+    const { workboardId, inputData, conversationId, projectId, useWorldview, contextDocIds, systemPromptDocId } = req.body;
 
     if (!workboardId || !inputData?.userPrompt) {
       return res.status(400).json({
@@ -507,13 +509,34 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       // LLM 에는 전체 시퀀스 전달
       messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
     } else {
-      // 신규 대화 — 세계관 (#396) 주입 합성. 멀티턴 이어가기 시엔 기존 system 메시지 보존되므로
-      // 여기서만 합성.
-      const worldviewTexts = useWorldview ? await getProjectWorldview(req.user._id, projectId) : [];
+      // 신규 대화 — 세계관 / 사전 컨텍스트 / 시스템 프롬프트 문서 주입 (#396, #401).
+      // 우선순위:
+      //   1. 명시적 doc IDs (파이프라인 단계가 보낸 contextDocIds / systemPromptDocId)
+      //   2. useWorldview + projectId → 프로젝트의 모든 세계관 문서 (단일샷 fallback)
+      let worldviewTexts = [];
+      let resolvedSystemPrompt = systemPrompt; // 작업판 customField 의 system_prompt 가 기본
+      if (Array.isArray(contextDocIds) && contextDocIds.length > 0) {
+        worldviewTexts = await UploadedText.find({
+          userId: req.user._id,
+          _id: { $in: contextDocIds },
+        }).sort({ createdAt: 1 }).lean();
+      } else if (useWorldview) {
+        worldviewTexts = await getProjectWorldview(req.user._id, projectId);
+      }
+      if (systemPromptDocId) {
+        const spDoc = await UploadedText.findOne({
+          userId: req.user._id,
+          _id: systemPromptDocId,
+        }).lean();
+        if (spDoc) {
+          // 문서의 title + content 를 합쳐서 system prompt 로 사용 (title 은 헤더로)
+          resolvedSystemPrompt = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
+        }
+      }
       const worldviewContext = worldviewTexts.length > 0
         ? worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n')
         : '';
-      const composedSystem = composeSystemPrompt(systemPrompt, worldviewTexts);
+      const composedSystem = composeSystemPrompt(resolvedSystemPrompt, worldviewTexts);
       messages = [];
       if (composedSystem) {
         messages.push({ role: 'system', content: composedSystem });
@@ -532,7 +555,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         tags: projectTagIds,
         serverType: server.serverType,
         model,
-        workboardSystemPrompt: systemPrompt || undefined,
+        workboardSystemPrompt: resolvedSystemPrompt || undefined,
         worldviewContext: worldviewContext || undefined,
         messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
         status: 'processing',
