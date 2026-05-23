@@ -14,6 +14,7 @@ const imageRoutes = require('./routes/images');
 const jobRoutes = require('./routes/jobs');
 const conversationRoutes = require('./routes/conversations');
 const textRoutes = require('./routes/texts');
+const pipelineRoutes = require('./routes/pipelines');
 const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
@@ -41,6 +42,7 @@ const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles'
 const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
 const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
 const ensureWorldviewTag = require('./migrations/ensureWorldviewTag');
+const backfillConversationTags = require('./migrations/backfillConversationTags');
 
 dotenv.config();
 
@@ -142,6 +144,7 @@ app.use('/api/servers', serverRoutes);
 app.use('/api/prompt-data', promptDataRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/projects', projectRoutes);
+app.use('/api/projects/:projectId/pipelines', pipelineRoutes);
 app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
 app.use('/api/apikeys', apiKeyRoutes);
@@ -206,6 +209,7 @@ const startServer = async () => {
     await dropBaseInputFieldsSchema();
     await relocateCivitaiApiKey();
     await ensureWorldviewTag();
+    await backfillConversationTags();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
