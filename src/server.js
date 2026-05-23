@@ -15,6 +15,8 @@ const jobRoutes = require('./routes/jobs');
 const conversationRoutes = require('./routes/conversations');
 const textRoutes = require('./routes/texts');
 const pipelineRoutes = require('./routes/pipelines');
+const pipelineRunRoutes = require('./routes/pipelineRuns');
+const { initPipelineRunQueue } = require('./services/pipelineRunService');
 const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
@@ -145,6 +147,7 @@ app.use('/api/prompt-data', promptDataRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/projects/:projectId/pipelines', pipelineRoutes);
+app.use('/api/projects/:projectId/pipeline-runs', pipelineRunRoutes);
 app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
 app.use('/api/apikeys', apiKeyRoutes);
@@ -214,6 +217,7 @@ const startServer = async () => {
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
     await initializeQueues();
+    await initPipelineRunQueue();
     
     // Start HTTP server
     const server = app.listen(PORT, () => {

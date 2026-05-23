@@ -44,7 +44,7 @@ import toast from 'react-hot-toast';
 import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI } from '../services/api';
 import TextContentPanel from '../components/common/TextContentPanel';
 import ConversationHistoryPanel from '../components/common/ConversationHistoryPanel';
-import PipelinePanel from '../components/common/PipelinePanel';
+import PipelinePanel, { PipelineHistoryPanel } from '../components/common/PipelinePanel';
 import { BUILTIN_TAG_NAMES } from '../constants/builtinTags';
 import MediaGrid from '../components/common/MediaGrid';
 import PromptDataPanel from '../components/common/PromptDataPanel';
@@ -785,7 +785,7 @@ function ProjectDetail() {
   const queryClient = useQueryClient();
   // 탭 위치는 프로젝트별로 localStorage 영속화 (#396 후속) — 다른 프로젝트엔 영향 없음.
   const TAB_KEY = id ? `vcc.projectDetail.tab.${id}` : '';
-  const TAB_COUNT = 7;
+  const TAB_COUNT = 6;
   const [tabValue, setTabValue] = useState(0);
   React.useEffect(() => {
     if (!TAB_KEY) return;
@@ -996,23 +996,21 @@ function ProjectDetail() {
             '& .MuiTab-iconWrapper': { mr: 0.5 },
           }}
         >
-          <Tab label="작업판" />
           <Tab label="파이프라인" />
           <Tab label="세계관" />
           <Tab icon={<TextSnippet fontSize="small" />} label="프롬프트 데이터" iconPosition="start" />
           <Tab icon={<ImageIcon fontSize="small" />} label="이미지" iconPosition="start" />
-          <Tab icon={<History fontSize="small" />} label="작업 히스토리" iconPosition="start" />
+          <Tab icon={<History fontSize="small" />} label="파이프라인 히스토리" iconPosition="start" />
           <Tab label="대화 히스토리" />
         </Tabs>
       </Box>
 
-      {tabValue === 0 && <WorkboardsTab projectId={id} />}
-      {tabValue === 1 && <PipelinePanel projectId={id} />}
-      {tabValue === 2 && <WorldviewTab projectTag={project?.tagId} />}
-      {tabValue === 3 && <PromptDataTab projectId={id} />}
-      {tabValue === 4 && <ImagesTab projectId={id} />}
-      {tabValue === 5 && <JobsTab projectId={id} />}
-      {tabValue === 6 && (
+      {tabValue === 0 && <PipelinePanel projectId={id} />}
+      {tabValue === 1 && <WorldviewTab projectTag={project?.tagId} />}
+      {tabValue === 2 && <PromptDataTab projectId={id} />}
+      {tabValue === 3 && <ImagesTab projectId={id} />}
+      {tabValue === 4 && <PipelineHistoryPanel projectId={id} />}
+      {tabValue === 5 && (
         <Box sx={{ mt: 2 }}>
           <ConversationHistoryPanel
             fetchFn={(params) => projectAPI.getConversations(id, params)}
