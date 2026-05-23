@@ -22,6 +22,18 @@ const pipelineStepSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
   },
+  // 단계별 컨텍스트 문서 — UploadedText 다중 선택 (#401). LLM 호출 시 system 메시지의
+  // [배경 / 사전 컨텍스트] 섹션으로 concat 주입.
+  contextDocIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UploadedText',
+  }],
+  // 단계별 시스템 프롬프트 문서 — UploadedText 단일 (#401). system 메시지의 [작업 지침]
+  // 섹션으로 주입. 작업판의 system_prompt customField 보다 우선.
+  systemPromptDocId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'UploadedText',
+  },
   // 사용자 메모 (단계 설명) — 선택
   note: String,
 }, { _id: false });
@@ -50,11 +62,8 @@ const pipelineSchema = new mongoose.Schema({
     default: '',
   },
   steps: [pipelineStepSchema],
-  // 파이프라인 전체 세계관 사용 토글 — LLM 단계에 적용
-  useWorldview: {
-    type: Boolean,
-    default: true,
-  },
+  // useWorldview flag 제거 (#401). 단계별 contextDocIds / systemPromptDocId 로 대체.
+  // 기존 문서가 가졌던 값은 무시 — 마이그레이션 안 함.
 }, { timestamps: true });
 
 pipelineSchema.index({ projectId: 1, createdAt: -1 });

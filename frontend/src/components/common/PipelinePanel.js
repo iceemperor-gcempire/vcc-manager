@@ -39,7 +39,7 @@ import {
 import MetadataFieldInput from './MetadataFieldInput';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { pipelineAPI, projectAPI, jobAPI } from '../../services/api';
+import { pipelineAPI, projectAPI, jobAPI, tagAPI, textAPI } from '../../services/api';
 
 // 프로젝트 종속 작업판 파이프라인 (#397).
 // 단계: 목록 → 빌더 → 실행. 모두 한 패널에서.
@@ -117,7 +117,7 @@ function PipelinePanel({ projectId }) {
                 <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
                   <Chip label={`${p.steps?.length || 0}단계`} size="small" variant="outlined" />
-                  {p.useWorldview && <Chip label="세계관 ON" size="small" color="secondary" variant="outlined" />}
+                  {/* #401: useWorldview chip 제거 — 단계별 문서 연결로 표현 */}
                 </Box>
                 {p.description && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
@@ -226,22 +226,23 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [useWorldview, setUseWorldview] = useState(true);
   const [steps, setSteps] = useState([]);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [inputsDialogStepIdx, setInputsDialogStepIdx] = useState(-1);
+  const [docsDialogStepIdx, setDocsDialogStepIdx] = useState(-1);
 
   // 로드 시 폼 초기화
   React.useEffect(() => {
     if (loaded) {
       setName(loaded.name || '');
       setDescription(loaded.description || '');
-      setUseWorldview(loaded.useWorldview !== false);
       setSteps((loaded.steps || []).map((s) => ({
         workboardId: s.workboardId?._id || s.workboardId,
         workboard: s.workboardId, // populated
         autoInject: s.autoInject !== false,
         inputs: s.inputs || {},
+        contextDocIds: Array.isArray(s.contextDocIds) ? s.contextDocIds.map((d) => d._id || d) : [],
+        systemPromptDocId: s.systemPromptDocId?._id || s.systemPromptDocId || null,
         note: s.note || '',
       })));
     }
@@ -277,11 +278,12 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
     saveMutation.mutate({
       name: name.trim(),
       description: description.trim(),
-      useWorldview,
       steps: steps.map((s) => ({
         workboardId: s.workboardId,
         autoInject: s.autoInject,
         inputs: s.inputs || {},
+        contextDocIds: s.contextDocIds || [],
+        systemPromptDocId: s.systemPromptDocId || undefined,
         note: s.note,
       })),
     });
@@ -342,10 +344,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           minRows={2}
           fullWidth
         />
-        <FormControlLabel
-          control={<Switch checked={useWorldview} onChange={(e) => setUseWorldview(e.target.checked)} />}
-          label="LLM 단계에서 프로젝트 세계관 자동 주입"
-        />
+        {/* useWorldview 토글 제거 (#401) — 단계별 문서 선택으로 대체 */}
 
         <Box>
           <Box display="flex" alignItems="center" mb={1}>
@@ -412,6 +411,21 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                         <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} size="small" sx={{ ml: 0.5, height: 18 }} />
                       )}
                     </Button>
+                    {/* 단계별 문서 연결 (#401) — LLM 단계만 의미 있지만 UI 는 모든 단계에 노출 (간소화) */}
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => setDocsDialogStepIdx(idx)}
+                    >
+                      문서
+                      {((s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)) > 0 && (
+                        <Chip
+                          label={(s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)}
+                          size="small"
+                          sx={{ ml: 0.5, height: 18 }}
+                        />
+                      )}
+                    </Button>
                     <IconButton size="small" disabled={idx === 0} onClick={() => moveStep(idx, -1)}>
                       <ArrowUpward fontSize="small" />
                     </IconButton>
@@ -453,6 +467,20 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
         onSave={(inputs) => {
           updateStepInputs(inputsDialogStepIdx, inputs);
           setInputsDialogStepIdx(-1);
+        }}
+      />
+
+      {/* 단계별 문서 연결 (사전 컨텍스트 / 시스템 프롬프트) 다이얼로그 (#401) */}
+      <StepDocsDialog
+        open={docsDialogStepIdx >= 0}
+        projectId={projectId}
+        step={docsDialogStepIdx >= 0 ? steps[docsDialogStepIdx] : null}
+        onClose={() => setDocsDialogStepIdx(-1)}
+        onSave={({ contextDocIds, systemPromptDocId }) => {
+          const next = [...steps];
+          next[docsDialogStepIdx] = { ...next[docsDialogStepIdx], contextDocIds, systemPromptDocId };
+          setSteps(next);
+          setDocsDialogStepIdx(-1);
         }}
       />
 
@@ -625,6 +653,163 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
   );
 }
 
+// 단계별 문서 연결 다이얼로그 (#401).
+// 사전 컨텍스트 문서 (다중) + 시스템 프롬프트 문서 (단일) 를 프로젝트의 문서 중 선택.
+// 문서 수정 시 다음 실행부터 자동 반영.
+function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
+  const [contextDocIds, setContextDocIds] = useState([]);
+  const [systemPromptDocId, setSystemPromptDocId] = useState(null);
+
+  // 빌트인 태그 (세계관 / 시스템 프롬프트)
+  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const worldviewTag = wvTagData?.data?.tag;
+  const systemPromptTag = spTagData?.data?.tag;
+
+  // 프로젝트 정보 (project tagId 필요)
+  const { data: projectData } = useQuery(
+    ['project', projectId],
+    () => projectAPI.getById(projectId),
+    { enabled: !!projectId }
+  );
+  const projectTagId = projectData?.data?.data?.project?.tagId?._id || projectData?.data?.data?.project?.tagId;
+
+  // 프로젝트의 세계관 / 시스템 프롬프트 문서 목록 조회
+  const { data: contextDocsData } = useQuery(
+    ['projectContextDocs', projectId, projectTagId, worldviewTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTagId, worldviewTag._id].join(','), limit: 100 }),
+    { enabled: !!(projectTagId && worldviewTag?._id && open) }
+  );
+  const contextDocs = contextDocsData?.data?.data?.items || [];
+
+  const { data: spDocsData } = useQuery(
+    ['projectSystemPromptDocs', projectId, projectTagId, systemPromptTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTagId, systemPromptTag._id].join(','), limit: 100 }),
+    { enabled: !!(projectTagId && systemPromptTag?._id && open) }
+  );
+  const spDocs = spDocsData?.data?.data?.items || [];
+
+  React.useEffect(() => {
+    if (step) {
+      setContextDocIds(step.contextDocIds || []);
+      setSystemPromptDocId(step.systemPromptDocId || null);
+    }
+  }, [step]);
+
+  if (!step) return null;
+
+  const isLlmStep = step.workboard?.outputFormat === 'text';
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        단계 문서 연결
+        {step.workboard?.name && <Typography variant="caption" color="text.secondary" display="block">{step.workboard.name}</Typography>}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {!isLlmStep && (
+            <Alert severity="info">
+              이미지 / 영상 작업판 단계입니다. 문서 연결은 LLM 호출에만 적용되므로 현재 단계에는 영향 없습니다.
+              (저장은 가능하지만 실행에 사용되지 않습니다)
+            </Alert>
+          )}
+
+          {/* 사전 컨텍스트 문서 (다중) */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              사전 컨텍스트 문서 (다중 선택)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              system 메시지의 [배경 / 사전 컨텍스트] 섹션으로 concat 주입됩니다.
+            </Typography>
+            {contextDocs.length === 0 ? (
+              <Alert severity="warning" variant="outlined" size="small">
+                이 프로젝트에 세계관 문서가 없습니다. 프로젝트의 세계관 탭에서 추가하세요.
+              </Alert>
+            ) : (
+              <Stack spacing={0.5}>
+                {contextDocs.map((doc) => {
+                  const selected = contextDocIds.includes(doc._id);
+                  return (
+                    <Box
+                      key={doc._id}
+                      onClick={() => {
+                        if (selected) setContextDocIds(contextDocIds.filter((id) => id !== doc._id));
+                        else setContextDocIds([...contextDocIds, doc._id]);
+                      }}
+                      sx={{
+                        p: 1, border: 1, borderRadius: 1, cursor: 'pointer',
+                        borderColor: selected ? 'primary.main' : 'divider',
+                        bgcolor: selected ? 'action.selected' : 'background.paper',
+                        '&:hover': { borderColor: 'primary.main' }
+                      }}
+                    >
+                      <Box display="flex" alignItems="center" gap={1}>
+                        <Chip
+                          label={selected ? '선택' : ''}
+                          size="small"
+                          color={selected ? 'primary' : 'default'}
+                          variant={selected ? 'filled' : 'outlined'}
+                          sx={{ minWidth: 50 }}
+                        />
+                        <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                          <Typography variant="body2" noWrap sx={{ fontWeight: 500 }}>
+                            {doc.title || '(제목 없음)'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap display="block">
+                            {(doc.content || '').slice(0, 80)}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Stack>
+            )}
+          </Box>
+
+          {/* 시스템 프롬프트 문서 (단일) */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ mb: 1 }}>
+              시스템 프롬프트 문서 (단일 선택)
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              system 메시지의 [작업 지침] 으로 사용됩니다. 작업판의 system_prompt customField 보다 우선합니다.
+            </Typography>
+            <TextField
+              size="small"
+              fullWidth
+              select
+              SelectProps={{ native: true }}
+              InputLabelProps={{ shrink: true }}
+              label="시스템 프롬프트"
+              value={systemPromptDocId || ''}
+              onChange={(e) => setSystemPromptDocId(e.target.value || null)}
+            >
+              <option value="">— 선택 없음 (작업판 system_prompt 사용) —</option>
+              {spDocs.map((doc) => (
+                <option key={doc._id} value={doc._id}>
+                  {doc.title || '(제목 없음)'}
+                </option>
+              ))}
+            </TextField>
+            {spDocs.length === 0 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                시스템 프롬프트 문서가 없습니다. 프로젝트의 세계관 탭 → "시스템 프롬프트" chip 으로 전환해 작성하세요.
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>취소</Button>
+        <Button variant="contained" onClick={() => onSave({ contextDocIds, systemPromptDocId })}>저장</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 // 파이프라인 실행 (클라이언트 측 순차 오케스트레이션, #397)
 function PipelineRunner({ projectId, pipelineId, onClose }) {
   const { data: pipelineData, isLoading } = useQuery(
@@ -695,12 +880,15 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
     const inputData = buildStepInput(wb, prevOutput, step.inputs, stepIdx);
 
     if (wb.outputFormat === 'text') {
-      // 텍스트 작업판 — prompt-generate. 세계관은 첫 단계 + useWorldview ON 일 때만 주입.
+      // 텍스트 작업판 — prompt-generate. 단계별 doc IDs 전달 (#401):
+      //   - contextDocIds: 사전 컨텍스트 문서들 → [배경 / 사전 컨텍스트] 섹션
+      //   - systemPromptDocId: 시스템 프롬프트 문서 → [작업 지침] 섹션 (작업판 system_prompt 보다 우선)
       // projectId 는 모든 단계에 전달 — 백엔드가 ConversationJob.tags 에 프로젝트 태그 자동 주입.
       const response = await jobAPI.createPromptJob({
         workboardId: wb._id,
         projectId: projectId || undefined,
-        useWorldview: stepIdx === 0 && pipeline.useWorldview,
+        contextDocIds: step.contextDocIds || [],
+        systemPromptDocId: step.systemPromptDocId || undefined,
         inputData,
       });
       return { type: 'text', value: response.data.result, conversationId: response.data.conversationId };
@@ -792,7 +980,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
         <Alert severity="info">
           첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요. 각 단계가 순차로 실행되며,
           이전 단계의 결과가 다음 단계의 입력에 자동으로 매핑됩니다.
-          {pipeline.useWorldview && ' 첫 단계가 LLM 인 경우 프로젝트 세계관이 함께 주입됩니다.'}
+          {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
           {' '}이 페이지를 떠나면 실행이 중단됩니다.
         </Alert>
 
