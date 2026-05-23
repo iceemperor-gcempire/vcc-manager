@@ -8,6 +8,14 @@ const modelItemSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // ComfyUI 폴더 source (#410). 차후 workflow 노드 분기에 사용.
+  // 'checkpoints' (CheckpointLoaderSimple) | 'diffusion_models' (UNETLoader)
+  // SaaS provider 는 undefined.
+  source: {
+    type: String,
+    enum: ['checkpoints', 'diffusion_models'],
+    default: undefined,
+  },
   hash: {
     type: String,
     default: null

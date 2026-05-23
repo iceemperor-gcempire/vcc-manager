@@ -49,6 +49,28 @@ const getCheckpointFilenames = async (serverUrl) => {
 };
 
 /**
+ * ComfyUI 서버에서 diffusion model 파일명 목록 조회 (#410).
+ * `/object_info/UNETLoader` 의 unet_name 입력 후보. Wan / Flux 등 unet 단독 로드 모델.
+ * 엔드포인트 없으면 빈 배열 반환 (구 ComfyUI 호환).
+ */
+const getDiffusionModelFilenames = async (serverUrl) => {
+  try {
+    const response = await axios.get(`${serverUrl}/object_info/UNETLoader`, {
+      timeout: 30000,
+    });
+    const node = response.data?.UNETLoader;
+    if (node && node.input && node.input.required && node.input.required.unet_name) {
+      return node.input.required.unet_name[0] || [];
+    }
+    return [];
+  } catch (error) {
+    if (error.response?.status === 404) return [];
+    console.warn(`[ModelSync] UNETLoader unavailable: ${error.message}`);
+    return [];
+  }
+};
+
+/**
  * VCC File Hash 커스텀 노드 설치 여부 확인.
  * 신규 `/file-hash/ping` 우선, 실패 시 legacy `/lora-hash/ping` 으로 fallback
  * (사용자가 아직 노드 업데이트 전인 경우라도 LoRA 가 동작하도록).
@@ -94,14 +116,14 @@ const refreshFolderCache = async (serverUrl, folderType) => {
 };
 
 /**
- * 단일 checkpoint 파일의 SHA256 해시 조회.
- * 신규 노드 (file-hash/checkpoints/{filename}) 사용. 구 노드는 checkpoint 미지원.
+ * 단일 모델 파일의 SHA256 해시 조회. 폴더 종류는 source 로 결정 (#410).
+ * 신규 노드 (file-hash/{source}/{filename}) 사용.
  */
-const getCheckpointHash = async (serverUrl, filename) => {
+const getModelHash = async (serverUrl, filename, source = 'checkpoints') => {
   try {
     const encoded = encodeURIComponent(filename);
     const response = await axios.get(
-      `${serverUrl}/api/vcc/file-hash/checkpoints/${encoded}`,
+      `${serverUrl}/api/vcc/file-hash/${source}/${encoded}`,
       { timeout: HASH_REQUEST_TIMEOUT }
     );
     if (response.data?.success && response.data?.sha256) {
@@ -109,10 +131,13 @@ const getCheckpointHash = async (serverUrl, filename) => {
     }
     return null;
   } catch (error) {
-    console.error(`Failed to get checkpoint hash for ${filename}:`, error.message);
+    console.error(`Failed to get model hash for ${source}/${filename}:`, error.message);
     return null;
   }
 };
+
+// Backward-compat alias (#410)
+const getCheckpointHash = (serverUrl, filename) => getModelHash(serverUrl, filename, 'checkpoints');
 
 /**
  * Civitai API 로 해시 기반 모델 메타데이터 조회.
@@ -404,24 +429,35 @@ const syncServerCheckpoints = async (serverId, serverUrl, { progressCallback = n
     if (progressCallback) progressCallback('fetching_list', 0, 0);
     await cache.updateProgress(0, 0, 'fetching_list');
 
-    // ComfyUI folder_paths 캐시 강제 갱신 (삭제된 파일 즉시 반영, #349)
+    // ComfyUI folder_paths 캐시 강제 갱신 (삭제된 파일 즉시 반영, #349). 두 폴더 모두 (#410)
     await refreshFolderCache(serverUrl, 'checkpoints');
+    await refreshFolderCache(serverUrl, 'diffusion_models');
 
-    const filenames = await getCheckpointFilenames(serverUrl);
-    console.log(`[ModelSync] Got ${filenames.length} checkpoints from ComfyUI`);
+    const checkpointFilenames = await getCheckpointFilenames(serverUrl);
+    const diffusionFilenames = await getDiffusionModelFilenames(serverUrl);
+    console.log(`[ModelSync] Got ${checkpointFilenames.length} checkpoints + ${diffusionFilenames.length} diffusion_models from ComfyUI`);
 
-    if (filenames.length === 0) {
+    // 두 폴더 항목을 합쳐 처리. source 로 구분.
+    const sourceTaggedFiles = [
+      ...checkpointFilenames.map((f) => ({ filename: f, source: 'checkpoints' })),
+      ...diffusionFilenames.map((f) => ({ filename: f, source: 'diffusion_models' })),
+    ];
+    const filenames = sourceTaggedFiles.map((x) => x.filename);
+
+    if (sourceTaggedFiles.length === 0) {
       cache.models = [];
       await cache.completeSync();
       return cache;
     }
 
+    // 같은 filename 이 두 폴더에 동시 존재하는 충돌은 (filename, source) 키로 기존 항목 매칭
     const existingModels = {};
     for (const m of cache.models) {
-      existingModels[m.filename] = m;
+      const key = `${m.source || 'checkpoints'}:${m.filename}`;
+      existingModels[key] = m;
     }
 
-    const totalSteps = filenames.length;
+    const totalSteps = sourceTaggedFiles.length;
     if (progressCallback) progressCallback('fetching_metadata', 0, totalSteps);
     await cache.updateProgress(0, totalSteps, 'fetching_metadata');
 
@@ -429,34 +465,32 @@ const syncServerCheckpoints = async (serverId, serverUrl, { progressCallback = n
     let processedCount = 0;
     let civitaiCount = 0;
 
-    for (const filename of filenames) {
+    for (const { filename, source } of sourceTaggedFiles) {
       processedCount++;
 
       if (progressCallback) progressCallback('fetching_metadata', processedCount, totalSteps);
       await cache.updateProgress(processedCount, totalSteps, 'fetching_metadata');
 
-      const existing = existingModels[filename];
+      const existingKey = `${source}:${filename}`;
+      const existing = existingModels[existingKey];
 
       if (!forceRefresh && existing && existing.hash && existing.civitai?.fetchedAt) {
-        newModels.push(existing);
+        newModels.push({ ...existing, source });
         if (existing.civitai?.found) civitaiCount++;
         continue;
       }
 
-      // hash 재사용 정책 (#341):
-      // existing.hash 가 있으면 재계산하지 않고 civitai 메타만 새로 받음. 체크포인트 SHA256 은
-      // 파일당 수십 초~분 단위라 가장 큰 비용. 보통 파일 내용이 바뀌면 파일명도 같이 바뀌어 새 entry 로
-      // 처리되므로 기존 hash 를 신뢰해도 충돌 가능성 낮음. hash 자체를 다시 받고 싶으면 admin 의
-      // \"캐시 완전 삭제\" 버튼 (DELETE /api/servers/:id/models/cache) 으로 cache.models 를 비운 뒤 동기화.
+      // hash 재사용 정책 (#341): existing.hash 가 있으면 재계산 안 함. 캐시 완전 삭제 후 재동기화 시 강제 재계산.
       const item = {
         filename,
+        source,
         hash: existing?.hash || null,
         hashError: null,
         civitai: existing?.civitai || { found: false }
       };
 
       if (hashNodeAvailable && !item.hash) {
-        const hash = await getCheckpointHash(serverUrl, filename);
+        const hash = await getModelHash(serverUrl, filename, source);
         if (hash) {
           item.hash = hash;
         } else {
@@ -492,19 +526,19 @@ const syncServerCheckpoints = async (serverId, serverUrl, { progressCallback = n
 };
 
 /**
- * 서버의 checkpoint 캐시 조회 (없으면 기본 목록만 fetch).
+ * 서버의 모델 캐시 조회 (없으면 두 폴더의 기본 목록만 fetch — #410).
  */
 const getServerCheckpoints = async (serverId, serverUrl) => {
   let cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
     try {
-      const filenames = await getCheckpointFilenames(serverUrl);
-      const models = filenames.map(filename => ({
-        filename,
-        hash: null,
-        civitai: { found: false }
-      }));
+      const checkpointFilenames = await getCheckpointFilenames(serverUrl);
+      const diffusionFilenames = await getDiffusionModelFilenames(serverUrl);
+      const models = [
+        ...checkpointFilenames.map((filename) => ({ filename, source: 'checkpoints', hash: null, civitai: { found: false } })),
+        ...diffusionFilenames.map((filename) => ({ filename, source: 'diffusion_models', hash: null, civitai: { found: false } })),
+      ];
 
       const hashNodeAvailable = await checkVccFileHashNodeAvailable(serverUrl);
 
@@ -519,7 +553,7 @@ const getServerCheckpoints = async (serverId, serverUrl) => {
 
       await cache.save();
     } catch (error) {
-      throw new Error(`Failed to get checkpoint list: ${error.message}`);
+      throw new Error(`Failed to get model list: ${error.message}`);
     }
   }
 
@@ -686,6 +720,8 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
 
 module.exports = {
   getCheckpointFilenames,
+  getDiffusionModelFilenames,
+  getModelHash,
   checkVccFileHashNodeAvailable,
   getCheckpointHash,
   fetchCivitaiMetadataByHash,
