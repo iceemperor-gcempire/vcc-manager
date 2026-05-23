@@ -33,11 +33,16 @@ const conversationJobSchema = new mongoose.Schema({
   serverType: String,
   model: String,
   // 프로젝트 컨텍스트 (#396). 실행 시 사용자가 지정한 프로젝트 ID. null 가능.
-  // 프로젝트 작업 히스토리 / 사전 컨텍스트 표시에 사용.
+  // 프로젝트 작업 히스토리 / 사전 컨텍스트 표시에 사용. (#397 후속 — tags 와 함께 보존)
   projectId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
   },
+  // 태그 기반 필터링 (이미지 작업과 동일 메커니즘으로 통일). projectId 가 있으면 자동으로 프로젝트 태그 주입.
+  tags: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Tag',
+  }],
   // 합성 전 원본을 분리 저장해 display / audit 용도로 사용 (#396).
   // 실제 LLM 호출엔 둘을 합쳐 system 메시지 1개로 전송하지만, 보존은 분리.
   workboardSystemPrompt: String,

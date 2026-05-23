@@ -519,10 +519,17 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         messages.push({ role: 'system', content: composedSystem });
       }
       messages.push({ role: 'user', content: inputData.userPrompt });
+      // 프로젝트 작업 시 자동으로 프로젝트 태그 주입 (이미지 작업과 통일된 필터 메커니즘, #397 후속)
+      let projectTagIds = [];
+      if (projectId) {
+        const projectDoc = await Project.findOne({ _id: projectId, userId: req.user._id }).lean();
+        if (projectDoc?.tagId) projectTagIds = [projectDoc.tagId];
+      }
       conversation = await ConversationJob.create({
         userId: req.user._id,
         workboardId: workboard._id,
         projectId: projectId || undefined,
+        tags: projectTagIds,
         serverType: server.serverType,
         model,
         workboardSystemPrompt: systemPrompt || undefined,

@@ -269,6 +269,15 @@ export const projectAPI = {
   getConversations: (id, params) => api.get(`/projects/${id}/conversations`, { params }),
 };
 
+// 프로젝트 종속 파이프라인 (#397)
+export const pipelineAPI = {
+  list: (projectId) => api.get(`/projects/${projectId}/pipelines`),
+  get: (projectId, pipelineId) => api.get(`/projects/${projectId}/pipelines/${pipelineId}`),
+  create: (projectId, data) => api.post(`/projects/${projectId}/pipelines`, data),
+  update: (projectId, pipelineId, data) => api.patch(`/projects/${projectId}/pipelines/${pipelineId}`, data),
+  delete: (projectId, pipelineId) => api.delete(`/projects/${projectId}/pipelines/${pipelineId}`),
+};
+
 export const apiKeyAPI = {
   getAll: () => api.get('/apikeys'),
   create: (data) => api.post('/apikeys', data),

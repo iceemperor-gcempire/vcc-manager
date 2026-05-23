@@ -536,7 +536,15 @@ router.get('/:id/conversations', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
     const ConversationJob = require('../models/ConversationJob');
-    const filter = { userId: req.user._id, projectId: project._id };
+    // 통일된 태그 기반 필터 (#397 후속). projectId 또는 tags 가 매칭되는 항목.
+    // 기존 데이터 호환 위해 둘 다 OR 로 검색.
+    const filter = {
+      userId: req.user._id,
+      $or: [
+        { projectId: project._id },
+        { tags: project.tagId },
+      ],
+    };
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       ConversationJob.find(filter)
