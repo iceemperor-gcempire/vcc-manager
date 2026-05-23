@@ -278,6 +278,15 @@ export const pipelineAPI = {
   delete: (projectId, pipelineId) => api.delete(`/projects/${projectId}/pipelines/${pipelineId}`),
 };
 
+// 파이프라인 실행 영속 (#407)
+export const pipelineRunAPI = {
+  list: (projectId, params) => api.get(`/projects/${projectId}/pipeline-runs`, { params }),
+  get: (projectId, runId) => api.get(`/projects/${projectId}/pipeline-runs/${runId}`),
+  start: (projectId, data) => api.post(`/projects/${projectId}/pipeline-runs`, data),
+  retry: (projectId, runId, data) => api.post(`/projects/${projectId}/pipeline-runs/${runId}/retry`, data),
+  delete: (projectId, runId) => api.delete(`/projects/${projectId}/pipeline-runs/${runId}`),
+};
+
 export const apiKeyAPI = {
   getAll: () => api.get('/apikeys'),
   create: (data) => api.post('/apikeys', data),
