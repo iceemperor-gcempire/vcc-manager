@@ -277,7 +277,8 @@ router.get('/:id/workboards', requireAuth, async (req, res) => {
     const project = await Project.findOne({ _id: req.params.id, userId: req.user._id })
       .populate({
         path: 'workboardIds',
-        select: 'name description workboardType outputFormat isActive serverId',
+        // additionalInputFields 도 포함 — 파이프라인 빌더의 단계 추가 시 customField 정보 필요 (#400 후속)
+        select: 'name description workboardType outputFormat isActive serverId additionalInputFields',
         populate: { path: 'serverId', select: 'name serverType' }
       });
     if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
