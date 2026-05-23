@@ -45,6 +45,7 @@ import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI } fr
 import TextContentPanel from '../components/common/TextContentPanel';
 import ConversationHistoryPanel from '../components/common/ConversationHistoryPanel';
 import PipelinePanel from '../components/common/PipelinePanel';
+import { BUILTIN_TAG_NAMES } from '../constants/builtinTags';
 import MediaGrid from '../components/common/MediaGrid';
 import PromptDataPanel from '../components/common/PromptDataPanel';
 import PromptDataFormDialog from '../components/common/PromptDataFormDialog';
@@ -539,26 +540,56 @@ function PromptDataTab({ projectId }) {
   );
 }
 
-// 세계관 (사전 컨텍스트) 탭 (#396).
-// UploadedText 중 [projectTag, worldviewTag] 모두 포함하는 항목만 노출.
-// 새 항목 생성 시 두 태그 자동 부여 (TextContentPanel 의 defaultTags).
+// 세계관 (설정 문서) 탭 (#396 → #400 일반화).
+// 프로젝트 + 타입(세계관/시스템 프롬프트/등) 태그 조합으로 문서를 분류.
+// 상단 chip 필터로 타입 전환. 문서 생성 시 현재 타입 태그가 자동 부여됨.
 function WorldviewTab({ projectTag }) {
-  const { data: wvTagData, isLoading } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
   const worldviewTag = wvTagData?.data?.tag;
-  if (isLoading) return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
-  if (!worldviewTag || !projectTag) {
-    return <Alert severity="warning" sx={{ mt: 2 }}>세계관 태그 / 프로젝트 태그를 불러오지 못했습니다.</Alert>;
+  const systemPromptTag = spTagData?.data?.tag;
+
+  // 현재 선택된 타입 — 기본은 세계관
+  const [activeTypeName, setActiveTypeName] = useState(BUILTIN_TAG_NAMES.WORLDVIEW);
+
+  if (!projectTag) {
+    return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
   }
+  if (!worldviewTag || !systemPromptTag) {
+    return <Alert severity="warning" sx={{ mt: 2 }}>역할 태그 로딩 중...</Alert>;
+  }
+
+  const typeOptions = [
+    { name: BUILTIN_TAG_NAMES.WORLDVIEW, tag: worldviewTag, hint: '작업판 실행 시 [배경 / 사전 컨텍스트] 로 LLM 에 주입' },
+    { name: BUILTIN_TAG_NAMES.SYSTEM_PROMPT, tag: systemPromptTag, hint: 'LLM 의 역할 / 작업 방침 정의 — 파이프라인 / 작업판이 참조' },
+  ];
+  const activeOption = typeOptions.find((o) => o.name === activeTypeName) || typeOptions[0];
+  const activeTag = activeOption.tag;
+
   return (
     <Box sx={{ mt: 2 }}>
+      {/* 타입 chip 필터 */}
+      <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+        {typeOptions.map((opt) => (
+          <Chip
+            key={opt.name}
+            label={opt.name}
+            color={activeTypeName === opt.name ? 'primary' : 'default'}
+            variant={activeTypeName === opt.name ? 'filled' : 'outlined'}
+            onClick={() => setActiveTypeName(opt.name)}
+            sx={{ fontWeight: activeTypeName === opt.name ? 600 : 400 }}
+          />
+        ))}
+      </Stack>
+
       <Alert severity="info" sx={{ mb: 2 }}>
-        여기에 작성한 텍스트는 작업판 실행 시 <strong>[배경 / 사전 컨텍스트]</strong> 로 LLM 에 주입됩니다.
-        등장인물 / 배경 / 톤 등 작업판이 알아야 할 사실을 단편으로 나눠 보관하세요.
+        <strong>{activeOption.name}</strong> — {activeOption.hint}
       </Alert>
+
       <TextContentPanel
         kind="uploaded"
-        defaultTags={[projectTag, worldviewTag]}
-        filterTags={[projectTag, worldviewTag]}
+        defaultTags={[projectTag, activeTag]}
+        filterTags={[projectTag, activeTag]}
       />
     </Box>
   );

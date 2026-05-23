@@ -24,10 +24,8 @@ const tagSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
-  // 세계관 (사전 컨텍스트) 역할 태그 (#396).
-  // 사용자별 1개 — UploadedText.tags 가 [projectTag, worldviewTag] 두 개를 모두 포함하면
-  // 해당 프로젝트의 세계관 항목으로 인식해 LLM 호출 시 system 메시지의 [배경 / 사전 컨텍스트]
-  // 섹션으로 주입됨.
+  // @deprecated — #400 에서 일반화. 이제는 name 으로 builtin 태그를 식별 (`'세계관'`).
+  // 기존 데이터 호환 위해 필드 자체는 유지하되 새 코드에서 읽지 않음.
   isWorldviewTag: {
     type: Boolean,
     default: false

@@ -7,29 +7,56 @@ const PromptData = require('../models/PromptData');
 const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
-// 세계관 역할 태그 조회 — 없으면 자동 생성 (#396). 신규 사용자 대응.
+// Builtin (well-known name) 태그 조회 / 자동 생성 헬퍼 (#400 — flag-free).
+// 시스템은 특별한 flag 대신 NAME 으로 사용자의 태그를 찾고, 없으면 자동 생성한다.
+async function ensureBuiltinTag(userId, name, color = '#1976d2') {
+  let tag = await Tag.findOne({ userId, name });
+  if (!tag) {
+    tag = await Tag.create({
+      userId,
+      createdBy: userId,
+      name,
+      color,
+    });
+  }
+  return tag;
+}
+
+const { BUILTIN_TAG_NAMES, BUILTIN_TAG_META } = require('../constants/builtinTags');
+
+// 세계관 역할 태그 (#396) — 이제는 단순히 name="세계관" 인 태그 조회/생성 (#400 일반화)
 router.get('/worldview', requireAuth, async (req, res) => {
   try {
-    let tag = await Tag.findOne({ userId: req.user._id, isWorldviewTag: true });
-    if (!tag) {
-      const sameName = await Tag.findOne({ userId: req.user._id, name: '세계관' });
-      if (sameName) {
-        sameName.isWorldviewTag = true;
-        await sameName.save();
-        tag = sameName;
-      } else {
-        tag = await Tag.create({
-          userId: req.user._id,
-          createdBy: req.user._id,
-          name: '세계관',
-          color: '#9c27b0',
-          isWorldviewTag: true,
-        });
-      }
-    }
+    const meta = BUILTIN_TAG_META[BUILTIN_TAG_NAMES.WORLDVIEW];
+    const tag = await ensureBuiltinTag(req.user._id, BUILTIN_TAG_NAMES.WORLDVIEW, meta.color);
     res.json({ tag });
   } catch (error) {
     console.error('Worldview tag fetch error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 시스템 프롬프트 역할 태그 (#400)
+router.get('/system-prompt', requireAuth, async (req, res) => {
+  try {
+    const meta = BUILTIN_TAG_META[BUILTIN_TAG_NAMES.SYSTEM_PROMPT];
+    const tag = await ensureBuiltinTag(req.user._id, BUILTIN_TAG_NAMES.SYSTEM_PROMPT, meta.color);
+    res.json({ tag });
+  } catch (error) {
+    console.error('System prompt tag fetch error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 일반 — name 으로 builtin / custom 무관하게 찾거나 생성
+router.get('/by-name/:name', requireAuth, async (req, res) => {
+  try {
+    const name = req.params.name?.trim();
+    if (!name) return res.status(400).json({ message: 'name 필수' });
+    const tag = await ensureBuiltinTag(req.user._id, name);
+    res.json({ tag });
+  } catch (error) {
+    console.error('Tag by-name fetch error:', error);
     res.status(500).json({ message: error.message });
   }
 });

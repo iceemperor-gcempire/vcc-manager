@@ -293,6 +293,10 @@ export const tagAPI = {
   getMy: () => api.get('/tags/my'),
   // 세계관 역할 태그 — 없으면 자동 생성 (#396)
   getWorldview: () => api.get('/tags/worldview'),
+  // 시스템 프롬프트 역할 태그 — 없으면 자동 생성 (#400)
+  getSystemPrompt: () => api.get('/tags/system-prompt'),
+  // 임의 name 으로 lookup / 자동 생성 — builtin / custom 무관
+  getByName: (name) => api.get(`/tags/by-name/${encodeURIComponent(name)}`),
 };
 
 export default api;

@@ -37,12 +37,14 @@ function composeSystemPrompt(systemPrompt, worldviewTexts) {
   return parts.join('\n\n');
 }
 
-// 프로젝트의 세계관 UploadedText 들 로드 (#396).
+// 프로젝트의 세계관 UploadedText 들 로드 (#396 → #400 일반화).
+// 더 이상 flag (isWorldviewTag) 가 아닌 name 으로 세계관 태그를 조회 — 일반화된 태그 시스템.
+const { BUILTIN_TAG_NAMES } = require('../constants/builtinTags');
 async function getProjectWorldview(userId, projectId) {
   if (!projectId) return [];
   const project = await Project.findOne({ _id: projectId, userId }).lean();
   if (!project || !project.tagId) return [];
-  const worldviewTag = await Tag.findOne({ userId, isWorldviewTag: true }).lean();
+  const worldviewTag = await Tag.findOne({ userId, name: BUILTIN_TAG_NAMES.WORLDVIEW }).lean();
   if (!worldviewTag) return [];
   const texts = await UploadedText.find({
     userId,
