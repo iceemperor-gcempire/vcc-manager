@@ -393,17 +393,40 @@ function MyImages() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">내 컨텐츠</Typography>
-        {!bulkMode && !isTextTab ? (
-          <Button
-            variant="outlined"
-            startIcon={<CheckBoxIcon />}
-            onClick={() => setBulkMode(true)}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 4.5, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 700, letterSpacing: '-0.01em' }}
           >
-            선택
-          </Button>
-        ) : null}
+            내 컨텐츠
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환.
+          </Typography>
+        </Box>
+        {!bulkMode && !isTextTab && (
+          <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
+            {tab === 1 && (
+              <Button
+                variant="contained"
+                startIcon={<CloudUpload />}
+                onClick={() => setUploadOpen(true)}
+                sx={{ display: { xs: 'none', md: 'inline-flex' } }}
+              >
+                업로드
+              </Button>
+            )}
+            <Button
+              variant="outlined"
+              startIcon={<CheckBoxIcon />}
+              onClick={() => setBulkMode(true)}
+            >
+              선택
+            </Button>
+          </Box>
+        )}
       </Box>
 
       {/* Bulk mode 툴바 */}
@@ -472,11 +495,11 @@ function MyImages() {
       {tab === 3 && <TextContentPanel kind="uploaded" />}
       {tab === 4 && <TextContentPanel kind="generated" />}
 
-      {/* 업로드 FAB (업로드된 이미지 탭에서만) */}
+      {/* 업로드 FAB — 모바일에서만 (데스크탑은 상단 액션 버튼 사용) */}
       {tab === 1 && !bulkMode && (
         <Fab
           color="primary"
-          sx={{ position: 'fixed', bottom: 24, right: 24 }}
+          sx={{ position: 'fixed', bottom: 24, right: 24, display: { xs: 'flex', md: 'none' } }}
           onClick={() => setUploadOpen(true)}
         >
           <CloudUpload />
