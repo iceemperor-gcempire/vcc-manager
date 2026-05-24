@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Stack,
@@ -11,6 +12,7 @@ import {
   CardActions,
   Chip,
   CircularProgress,
+  LinearProgress,
   Alert,
   Dialog,
   DialogTitle,
@@ -918,20 +920,54 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
   const isFailed = run && run.status === 'failed';
   const firstFailedIdx = run ? (run.steps || []).findIndex((s) => s.status === 'failed') : -1;
 
+  // 실행 진행도 — 완료 단계 / 전체 단계 (Phase 5b)
+  const totalSteps = (pipeline.steps || []).length;
+  const completedSteps = run ? (run.steps || []).filter((s) => s.status === 'completed').length : 0;
+  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const runStatusLabel = run?.status === 'pending' ? '대기'
+    : run?.status === 'running' ? '진행 중'
+    : run?.status === 'completed' ? '완료'
+    : run?.status === 'failed' ? '실패' : run?.status;
+  const runStatusColor = run?.status === 'completed' ? 'success'
+    : run?.status === 'failed' ? 'error'
+    : run?.status === 'running' || run?.status === 'pending' ? 'info' : 'default';
+
   return (
     <Box sx={{ mt: 2 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <Typography variant="h6">{pipeline.name} 실행</Typography>
-        <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 2.5, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box display="flex" alignItems="center" gap={1.5} sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+              {pipeline.name}
+            </Typography>
+            {run && <Chip label={runStatusLabel} color={runStatusColor} />}
+          </Box>
+          {run && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, flexWrap: 'wrap', fontSize: 13, color: 'text.secondary' }}>
+              <span>실행 ID</span>
+              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 12, color: 'text.primary' }}>
+                {String(run._id).slice(-8)}
+              </Box>
+              {run.startedAt && (
+                <>
+                  <Box component="span" sx={{ color: 'divider' }}>·</Box>
+                  <span>시작 {new Date(run.startedAt).toLocaleString('ko-KR')}</span>
+                </>
+              )}
+            </Box>
+          )}
+        </Box>
         <Button onClick={onClose}>닫기</Button>
       </Box>
 
       <Stack spacing={2}>
-        <Alert severity="info">
-          첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
-          실행은 백엔드 백그라운드에서 진행되므로 페이지를 떠나도 계속됩니다 — 파이프라인 히스토리 탭에서 결과 / 재실행 가능.
-          {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
-        </Alert>
+        {!runId && (
+          <Alert severity="info">
+            첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
+            실행은 백엔드 백그라운드에서 진행되므로 페이지를 떠나도 계속됩니다 — 파이프라인 히스토리 탭에서 결과 / 재실행 가능.
+            {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
+          </Alert>
+        )}
 
         <TextField
           label="초기 입력 프롬프트"
@@ -974,13 +1010,37 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
               새 실행
             </Button>
           )}
-          {runId && (
-            <Chip
-              label={run?.status === 'pending' ? '대기' : run?.status === 'running' ? '진행 중' : run?.status === 'completed' ? '완료' : run?.status === 'failed' ? '실패' : run?.status}
-              color={run?.status === 'completed' ? 'success' : run?.status === 'failed' ? 'error' : 'default'}
-            />
-          )}
         </Box>
+
+        {run && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2.5,
+              p: 2,
+              borderRadius: 1,
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary', flexShrink: 0 }}>
+              {completedSteps} / {totalSteps} 단계
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={progressPct}
+                color={run.status === 'failed' ? 'error' : run.status === 'completed' ? 'success' : 'primary'}
+                sx={{ height: 6, borderRadius: 1 }}
+              />
+            </Box>
+            <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
+              {progressPct}%
+            </Typography>
+          </Box>
+        )}
 
         {run && (
           <Stepper activeStep={(run.steps || []).findIndex((s) => s.status === 'running')} orientation="vertical">
@@ -1018,18 +1078,20 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                       </Typography>
                     )}
                     {runStep.status === 'completed' && runStep.output && (
-                      <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      <Paper variant="outlined" sx={{ borderColor: (t) => alpha(t.palette.success.main, 0.35), bgcolor: (t) => alpha(t.palette.success.main, 0.06), overflow: 'hidden' }}>
+                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: '"JetBrains Mono", monospace' }}>
                           결과 ({runStep.output.type})
-                        </Typography>
-                        {runStep.output.type === 'text' && (
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
-                            {runStep.output.value}
-                          </Typography>
-                        )}
-                        {runStep.output.type === 'image' && (
-                          <StepImageThumbnails runStep={runStep} />
-                        )}
+                        </Box>
+                        <Box sx={{ p: 1.5 }}>
+                          {runStep.output.type === 'text' && (
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', lineHeight: 1.65 }}>
+                              {runStep.output.value}
+                            </Typography>
+                          )}
+                          {runStep.output.type === 'image' && (
+                            <StepImageThumbnails runStep={runStep} />
+                          )}
+                        </Box>
                       </Paper>
                     )}
                     {runStep.status === 'failed' && (
