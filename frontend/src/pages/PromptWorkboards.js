@@ -177,10 +177,10 @@ function PromptWorkboardCard({ workboard }) {
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 시스템 프롬프트
               </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ 
-                whiteSpace: 'pre-wrap', 
-                backgroundColor: '#f5f5f5', 
-                p: 2, 
+              <Typography variant="body2" color="textSecondary" sx={{
+                whiteSpace: 'pre-wrap',
+                bgcolor: 'action.hover',
+                p: 2,
                 borderRadius: 1,
                 maxHeight: 200,
                 overflow: 'auto'

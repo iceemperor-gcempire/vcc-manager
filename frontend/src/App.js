@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
-import { vccTheme } from './theme';
+import { buildVccTheme } from './theme';
+import { ColorSchemeProvider, useColorScheme } from './contexts/ColorSchemeContext';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 
@@ -54,19 +55,28 @@ export const queryClient = new QueryClient({
   },
 });
 
-// Design v1 — theme.js 의 vccTheme 적용 (#design-handoff Phase 1)
-const theme = createTheme(vccTheme);
+function ThemedApp({ children }) {
+  // ColorScheme 변화에 반응해 light/dark theme 재계산
+  const { effective } = useColorScheme();
+  const theme = useMemo(() => createTheme(buildVccTheme(effective)), [effective]);
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthProvider>
-          <Router>
-            <div className="App">
-              <Toaster position="top-right" />
-              <Routes>
+      <ColorSchemeProvider>
+        <ThemedApp>
+          <AuthProvider>
+            <Router>
+              <div className="App">
+                <Toaster position="top-right" />
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -83,8 +93,9 @@ function App() {
               </Routes>
             </div>
           </Router>
-        </AuthProvider>
-      </ThemeProvider>
+          </AuthProvider>
+        </ThemedApp>
+      </ColorSchemeProvider>
     </QueryClientProvider>
   );
 }
@@ -132,7 +143,7 @@ function MainLayout() {
           minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)
           overflowX: 'hidden',
           p: 3,
-          backgroundColor: '#f5f5f5',
+          bgcolor: 'background.default',
           minHeight: 'calc(100vh - 64px)'
         }}>
           <Routes>

@@ -269,7 +269,7 @@ function WorkboardCard({ workboard, projectId }) {
               </Typography>
               <Typography variant="body2" color="textSecondary" sx={{
                 whiteSpace: 'pre-wrap',
-                backgroundColor: '#f5f5f5',
+                bgcolor: 'action.hover',
                 p: 2,
                 borderRadius: 1,
                 maxHeight: 200,
