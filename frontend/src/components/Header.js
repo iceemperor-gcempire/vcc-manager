@@ -22,10 +22,15 @@ import {
   AdminPanelSettings,
   Dashboard,
   Menu as MenuIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
+  BrightnessAuto as SystemModeIcon,
+  Check as CheckIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useColorScheme } from '../contexts/ColorSchemeContext';
 import NotificationsPopover from './common/NotificationsPopover';
 
 function Header({ onMobileToggle, onOpenPalette }) {
@@ -33,6 +38,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { mode: colorMode, setMode: setColorMode } = useColorScheme();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -168,7 +174,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
                 </ListItemIcon>
                 <ListItemText>프로필 설정</ListItemText>
               </MenuItem>
-              
+
               {isAdmin && (
                 <MenuItem onClick={handleAdmin}>
                   <ListItemIcon>
@@ -177,9 +183,28 @@ function Header({ onMobileToggle, onOpenPalette }) {
                   <ListItemText>관리자 패널</ListItemText>
                 </MenuItem>
               )}
-              
+
               <Divider />
-              
+
+              {/* 다크모드 설정 (Phase 7) */}
+              {[
+                { v: 'system', label: '시스템 설정 따름', icon: <SystemModeIcon fontSize="small" /> },
+                { v: 'light',  label: '라이트',          icon: <LightModeIcon fontSize="small" /> },
+                { v: 'dark',   label: '다크',            icon: <DarkModeIcon fontSize="small" /> },
+              ].map((opt) => (
+                <MenuItem
+                  key={opt.v}
+                  onClick={(e) => { e.stopPropagation(); setColorMode(opt.v); }}
+                  selected={colorMode === opt.v}
+                >
+                  <ListItemIcon>{opt.icon}</ListItemIcon>
+                  <ListItemText>{opt.label}</ListItemText>
+                  {colorMode === opt.v && <CheckIcon fontSize="small" sx={{ color: 'primary.main' }} />}
+                </MenuItem>
+              ))}
+
+              <Divider />
+
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
                   <Logout fontSize="small" />

@@ -289,7 +289,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
             width: DRAWER_WIDTH,
             position: 'relative',
             height: '100%',
-            backgroundColor: '#2c3e50',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
+            bgcolor: 'navbar.main',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
           },
         }}
         open
