@@ -256,7 +256,12 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
   return (
     <Box
       component="nav"
-      sx={{ width: { md: DRAWER_WIDTH }, flexShrink: { md: 0 } }}
+      sx={{
+        width: { md: DRAWER_WIDTH },
+        flexShrink: { md: 0 },
+        // 사이드바 영역 자체의 배경색을 drawer paper 와 동일하게 — 컨텐츠 짧을 때 / 스크롤 시 흰 영역 노출 방지 (PC 도)
+        bgcolor: { md: '#2c3e50' },
+      }}
     >
       {/* 모바일용 temporary drawer */}
       <Drawer

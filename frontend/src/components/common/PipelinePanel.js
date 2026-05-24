@@ -37,9 +37,58 @@ import {
   Stop as StopIcon,
 } from '@mui/icons-material';
 import MetadataFieldInput from './MetadataFieldInput';
+import ImageViewerDialog from './ImageViewerDialog';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI } from '../../services/api';
+
+// 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
+// runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
+// 미 populate (e.g. 진행 중인 step) 시 fallback 으로 "이미지 N개 생성됨" 텍스트만.
+function StepImageThumbnails({ runStep }) {
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerIdx, setViewerIdx] = useState(0);
+  const images = runStep?.imageGenerationJobId?.resultImages || [];
+  if (images.length === 0) {
+    return (
+      <Typography variant="caption" color="text.secondary">
+        이미지 {runStep?.output?.imageIds?.length || 0}개 생성됨
+      </Typography>
+    );
+  }
+  return (
+    <>
+      <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+        {images.map((img, idx) => (
+          <Box
+            key={img._id || idx}
+            onClick={() => { setViewerIdx(idx); setViewerOpen(true); }}
+            sx={{
+              width: 72, height: 72, borderRadius: 1, overflow: 'hidden', cursor: 'pointer',
+              border: 1, borderColor: 'divider',
+              '&:hover': { borderColor: 'primary.main' },
+            }}
+          >
+            <Box
+              component="img"
+              src={img.url}
+              alt={img.originalName || `이미지 ${idx + 1}`}
+              loading="lazy"
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            />
+          </Box>
+        ))}
+      </Stack>
+      <ImageViewerDialog
+        open={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        images={images}
+        selectedIndex={viewerIdx}
+        title="파이프라인 결과"
+      />
+    </>
+  );
+}
 
 // 프로젝트 종속 작업판 파이프라인 (#397).
 // 단계: 목록 → 빌더 → 실행. 모두 한 패널에서.
@@ -995,9 +1044,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                           </Typography>
                         )}
                         {runStep.output.type === 'image' && (
-                          <Typography variant="caption" color="text.secondary">
-                            이미지 {runStep.output.imageIds?.length || 0}개 생성됨
-                          </Typography>
+                          <StepImageThumbnails runStep={runStep} />
                         )}
                       </Paper>
                     )}
@@ -1142,9 +1189,7 @@ export function PipelineHistoryPanel({ projectId }) {
                       </Typography>
                     )}
                     {runStep.output.type === 'image' && (
-                      <Typography variant="caption" color="text.secondary">
-                        이미지 {runStep.output.imageIds?.length || 0}개 생성됨
-                      </Typography>
+                      <StepImageThumbnails runStep={runStep} />
                     )}
                   </Paper>
                 )}

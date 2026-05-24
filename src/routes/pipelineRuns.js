@@ -58,6 +58,16 @@ router.get('/:runId', requireAuth, async (req, res) => {
     const run = await PipelineRun.findOne({ _id: req.params.runId, projectId: project._id, userId: req.user._id })
       .populate('pipelineId', 'name description steps')
       .populate('steps.workboardId', 'name description outputFormat')
+      // 이미지 썸네일 / 큰 보기 위해 resultImages 깊은 populate (#409)
+      .populate({
+        path: 'steps.imageGenerationJobId',
+        select: 'resultImages status errorMessage',
+        populate: { path: 'resultImages', select: 'url originalName fileSize width height tags' }
+      })
+      .populate({
+        path: 'steps.conversationJobId',
+        select: 'model usage costEstimate'
+      })
       .lean();
     if (!run) return res.status(404).json({ success: false, message: 'Run 을 찾을 수 없습니다' });
     res.json({ success: true, data: { run } });
