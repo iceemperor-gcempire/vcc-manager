@@ -43,7 +43,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI } from '../services/api';
+import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI, pipelineAPI, pipelineRunAPI } from '../services/api';
 import TextContentPanel from '../components/common/TextContentPanel';
 import ConversationHistoryPanel from '../components/common/ConversationHistoryPanel';
 import PipelinePanel, { PipelineHistoryPanel } from '../components/common/PipelinePanel';
@@ -567,9 +567,8 @@ function WorldviewTab({ projectTag }) {
   const activeTag = activeOption.tag;
 
   return (
-    <Box sx={{ mt: 2 }}>
-      {/* 타입 chip 필터 */}
-      <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+    <Box sx={{ mt: 3 }}>
+      <Stack direction="row" spacing={0} sx={{ mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
         {typeOptions.map((opt) => (
           <Chip
             key={opt.name}
@@ -582,7 +581,7 @@ function WorldviewTab({ projectTag }) {
         ))}
       </Stack>
 
-      <Alert severity="info" sx={{ mb: 2 }}>
+      <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
         <strong>{activeOption.name}</strong> — {activeOption.hint}
       </Alert>
 
@@ -930,6 +929,28 @@ function ProjectDetail() {
     () => projectAPI.getById(id)
   );
 
+  // 탭 라벨용 가벼운 count 조회 (Phase 5a 후속). staleTime 길게 — 새로고침 부담 회피.
+  const { data: pipelinesData } = useQuery(
+    ['pipelines', id],
+    () => pipelineAPI.list(id),
+    { enabled: !!id, staleTime: 60_000 }
+  );
+  const pipelinesCount = (pipelinesData?.data?.data?.pipelines || []).length;
+  const { data: runsData } = useQuery(
+    ['pipelineRuns', id],
+    () => pipelineRunAPI.list(id, { limit: 50 }),
+    { enabled: !!id, staleTime: 30_000 }
+  );
+  const runsCount = (runsData?.data?.data?.runs || []).length;
+  const { data: convData } = useQuery(
+    ['projectConversations', id, { limit: 1 }],
+    () => projectAPI.getConversations(id, { limit: 1, page: 1 }),
+    { enabled: !!id, staleTime: 60_000 }
+  );
+  // 백엔드가 pagination.total 을 반환하므로 그쪽이 진실. 없으면 fetch 한 개수 fallback.
+  const convCount = convData?.data?.data?.pagination?.total
+    ?? (convData?.data?.data?.conversations || []).length;
+
   const deleteMutation = useMutation(
     () => projectAPI.delete(id),
     {
@@ -1048,12 +1069,12 @@ function ProjectDetail() {
             '& .MuiTab-iconWrapper': { mr: 0.5 },
           }}
         >
-          <Tab label="파이프라인" />
+          <Tab label={<TabLabel label="파이프라인" count={pipelinesCount} />} />
           <Tab label="세계관" />
           <Tab icon={<TextSnippet fontSize="small" />} iconPosition="start" label={<TabLabel label="프롬프트 데이터" count={project.counts?.promptData} />} />
           <Tab icon={<ImageIcon fontSize="small" />} iconPosition="start" label={<TabLabel label="이미지" count={project.counts?.images} />} />
-          <Tab icon={<History fontSize="small" />} iconPosition="start" label="파이프라인 히스토리" />
-          <Tab label="대화 히스토리" />
+          <Tab icon={<History fontSize="small" />} iconPosition="start" label={<TabLabel label="파이프라인 히스토리" count={runsCount} />} />
+          <Tab label={<TabLabel label="대화 히스토리" count={convCount} />} />
         </Tabs>
       </Box>
 
