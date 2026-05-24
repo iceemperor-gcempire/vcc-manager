@@ -1151,12 +1151,24 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
 // "시작" → POST run → runId 받음 → polling 으로 상태 갱신. 페이지 떠나도 백엔드는 계속 실행.
 function PipelineRunner({ projectId, pipelineId, onClose }) {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const { data: pipelineData, isLoading } = useQuery(
     ['pipeline', projectId, pipelineId],
     () => pipelineAPI.get(projectId, pipelineId),
     { enabled: !!pipelineId }
   );
   const pipeline = pipelineData?.data?.data?.pipeline;
+
+  // 사이드 레일용 — 같은 프로젝트의 최근 run 들 (Phase 5b 후속). client 에서 same-pipeline filter.
+  const { data: recentRunsData } = useQuery(
+    ['pipelineRuns', projectId],
+    () => pipelineRunAPI.list(projectId, { limit: 20 }),
+    { enabled: !!projectId, staleTime: 30_000 }
+  );
+  const recentRuns = (recentRunsData?.data?.data?.runs || [])
+    .filter((r) => (r.pipelineId?._id || r.pipelineId) === pipelineId)
+    .slice(0, 6);
 
   const [initialPrompt, setInitialPrompt] = useState('');
   const [runId, setRunId] = useState(null);
@@ -1260,7 +1272,8 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
         <Button onClick={onClose}>닫기</Button>
       </Box>
 
-      <Stack spacing={2}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 280px' }, gap: 4, alignItems: 'start' }}>
+        <Stack spacing={2}>
         {!runId && (
           <Alert severity="info">
             첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
@@ -1409,8 +1422,121 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           </Stepper>
         )}
       </Stack>
+
+      {/* 우측 사이드 레일 (Phase 5b 후속) — 데스크탑에서만 sticky */}
+      {isDesktop && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'sticky', top: 12 }}>
+          <Paper variant="outlined">
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+                실행 정보
+              </Typography>
+            </Box>
+            <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <InfoRow label="파이프라인" value={pipeline.name} />
+              <InfoRow label="단계 수" value={`${totalSteps}단계`} />
+              {run?.startedAt && (
+                <InfoRow label="시작" value={new Date(run.startedAt).toLocaleString('ko-KR')} mono />
+              )}
+              {run?.completedAt && (
+                <InfoRow label="종료" value={new Date(run.completedAt).toLocaleString('ko-KR')} mono />
+              )}
+              {run?.startedAt && run?.completedAt && (
+                <InfoRow label="소요" value={formatDuration(run.startedAt, run.completedAt)} mono />
+              )}
+              {run?._id && (
+                <InfoRow label="실행 ID" value={String(run._id).slice(-8)} mono />
+              )}
+              {run?.triggerCount > 1 && (
+                <InfoRow label="재시도" value={`${run.triggerCount - 1}회`} />
+              )}
+            </Box>
+          </Paper>
+
+          {recentRuns.length > 0 && (
+            <Paper variant="outlined">
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+                  같은 파이프라인 최근 실행
+                </Typography>
+              </Box>
+              <Box>
+                {recentRuns.map((r, i) => {
+                  const dotColor = r.status === 'completed' ? 'success.main'
+                    : r.status === 'failed' ? 'error.main'
+                    : r.status === 'running' || r.status === 'pending' ? 'info.main'
+                    : 'text.disabled';
+                  const isCurrent = String(r._id) === String(runId);
+                  return (
+                    <Box
+                      key={r._id}
+                      onClick={() => !isCurrent && setRunId(r._id)}
+                      sx={{
+                        px: 2,
+                        py: 1.25,
+                        borderTop: i > 0 ? 1 : 0,
+                        borderColor: 'divider',
+                        cursor: isCurrent ? 'default' : 'pointer',
+                        bgcolor: isCurrent ? (t) => alpha(t.palette.primary.main, 0.08) : 'transparent',
+                        '&:hover': isCurrent ? {} : { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }} />
+                        <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: isCurrent ? 600 : 500 }}>
+                          {r.initialPrompt?.slice(0, 30) || '(빈 입력)'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', flexShrink: 0 }}>
+                          {formatRunTime(r.createdAt)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      )}
+      </Box>
     </Box>
   );
+}
+
+function InfoRow({ label, value, mono }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+      <Typography variant="caption" sx={{ width: 56, color: 'text.secondary', flexShrink: 0 }}>
+        {label}
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{ color: 'text.primary', fontFamily: mono ? '"JetBrains Mono", monospace' : undefined, wordBreak: 'break-word' }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function formatDuration(start, end) {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '-';
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}초`;
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return rem === 0 ? `${min}분` : `${min}분 ${rem}초`;
+}
+
+function formatRunTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    : `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // 파이프라인 히스토리 패널 (#407). 프로젝트 상세 탭에서 사용.
