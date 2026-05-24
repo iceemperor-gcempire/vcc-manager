@@ -64,7 +64,7 @@ function Header({ onMobileToggle }) {
   };
 
   return (
-    <AppBar position="static" sx={{ backgroundColor: '#34495e' }}>
+    <AppBar position="static" sx={{ bgcolor: 'navbar.main' }}>
       <Toolbar>
         {/* 모바일 메뉴 버튼 */}
         {isMobile && onMobileToggle && (

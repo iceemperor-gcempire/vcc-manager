@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
+import { vccTheme } from './theme';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 
@@ -52,16 +53,8 @@ export const queryClient = new QueryClient({
   },
 });
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+// Design v1 — theme.js 의 vccTheme 적용 (#design-handoff Phase 1)
+const theme = createTheme(vccTheme);
 
 function App() {
   return (

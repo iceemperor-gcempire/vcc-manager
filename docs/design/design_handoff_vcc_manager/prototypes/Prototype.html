@@ -1,0 +1,468 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>VCC Manager — Prototype</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="tokens.css"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  html, body, #root { height: 100%; margin: 0; }
+  body { background: var(--bg-canvas); overflow: hidden; }
+  /* Device-frame toggle */
+  .frame-toggle {
+    position: fixed; top: 10px; right: 12px; z-index: 50;
+    display: flex; padding: 3px; background: rgba(22,24,29,0.85);
+    border-radius: 8px; backdrop-filter: blur(8px);
+    color: white;
+  }
+  .frame-toggle button {
+    border: 0; background: transparent; color: rgba(255,255,255,0.6);
+    font: inherit; font-size: 11px; font-weight: 500; padding: 5px 10px;
+    border-radius: 5px; cursor: pointer;
+  }
+  .frame-toggle button.on { background: rgba(255,255,255,0.18); color: white; }
+  .mobile-frame {
+    width: 390px; height: 844px;
+    margin: 24px auto; border-radius: 36px;
+    overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 10px #1a1a1a;
+    border: 1px solid rgba(0,0,0,0.4);
+    background: var(--bg-canvas);
+    position: relative;
+  }
+  [data-theme="dark"] .mobile-stage { background: #050507; }
+  .desktop-frame { width: 100%; height: 100vh; }
+  .mobile-stage {
+    width: 100%; height: 100%;
+    background: #2a2a2a;
+    overflow: auto;
+    display: flex; align-items: flex-start; justify-content: center;
+  }
+
+  /* Density tweak */
+  .vcc-app.dense .btn { height: 26px; padding: 4px 9px; font-size: 12px; }
+  .vcc-app.dense .btn--sm { height: 22px; padding: 3px 7px; font-size: 11px; }
+  .vcc-app.dense .tab { padding: 8px 10px; font-size: 12px; }
+  .vcc-app.dense .input { padding: 5px 8px; font-size: 12px; }
+  .vcc-app.dense .vcc-body { padding: 16px 24px; }
+  .vcc-app.dense .card__header { padding: 10px 12px; }
+  .vcc-app.dense .card__body { padding: 12px; }
+
+  /* Sidebar tone variants */
+  .vcc-app.sidebar-light .vcc-side {
+    background: #FFFFFF;
+    color: #16181D;
+    border-right: 1px solid #E2E2DC;
+  }
+  .vcc-app.sidebar-light .vcc-side__brand { border-bottom-color: #ECECE7; }
+  .vcc-app.sidebar-light .vcc-side__section + .vcc-side__section { border-top-color: #ECECE7; }
+  .vcc-app.sidebar-light .vcc-side__label { color: #8A8F9A; }
+  .vcc-app.sidebar-light .vcc-nav-item { color: #16181D; }
+  .vcc-app.sidebar-light .vcc-nav-item__icon { color: #8A8F9A; }
+  .vcc-app.sidebar-light .vcc-nav-item:hover { background: #F1F1ED; }
+  .vcc-app.sidebar-light .vcc-nav-item.is-active { background: var(--accent-3); color: var(--accent-11); }
+  .vcc-app.sidebar-light .vcc-nav-item.is-active .vcc-nav-item__icon { color: var(--accent-11); }
+  .vcc-app.sidebar-light .vcc-side__user { border-top-color: #ECECE7; }
+  .vcc-app.sidebar-light .vcc-side__user-name { color: #16181D; }
+
+  .vcc-app.sidebar-tinted .vcc-side {
+    background: #1F1B33; /* slight violet tint */
+    border-right-color: #2A2548;
+  }
+  .vcc-app.sidebar-tinted .vcc-side__brand,
+  .vcc-app.sidebar-tinted .vcc-side__section + .vcc-side__section,
+  .vcc-app.sidebar-tinted .vcc-side__user { border-color: #2A2548; }
+  .vcc-app.sidebar-tinted .vcc-nav-item:hover { background: #2A2548; }
+  .vcc-app.sidebar-tinted .vcc-nav-item.is-active { background: #322B50; }
+</style>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="page-project-detail.jsx"></script>
+<script type="text/babel" src="page-pipeline-builder.jsx"></script>
+<script type="text/babel" src="page-pipeline-builder-graph.jsx"></script>
+<script type="text/babel" src="page-pipeline-run.jsx"></script>
+<script type="text/babel" src="page-content-library.jsx"></script>
+<script type="text/babel" src="page-dashboard.jsx"></script>
+<script type="text/babel" src="page-workboard-run.jsx"></script>
+<script type="text/babel" src="page-workboard-editor.jsx"></script>
+<script type="text/babel" src="page-admin-servers.jsx"></script>
+<script type="text/babel" src="page-admin-users.jsx"></script>
+<script type="text/babel" src="command-palette.jsx"></script>
+<script type="text/babel" src="notifications.jsx"></script>
+<script type="text/babel" src="page-auth.jsx"></script>
+
+<script type="text/babel">
+const { useState, useEffect } = React;
+
+// Accent presets — drives --accent-* vars at runtime
+const ACCENT_PRESETS = {
+  iris:   { 3: "#ECECFE", 4: "#E0E0FC", 7: "#A6A8E6", 9: "#5B5BD6", 10: "#4F4FC9", 11: "#4040AD" },
+  indigo: { 3: "#E0EAFF", 4: "#C7D7FE", 7: "#8DA3F2", 9: "#3D5AFE", 10: "#3247DC", 11: "#2532A0" },
+  teal:   { 3: "#D7F2EE", 4: "#B6E5DE", 7: "#5FBFB0", 9: "#0F9385", 10: "#0A7669", 11: "#08594F" },
+  mono:   { 3: "#E8E8E5", 4: "#D2D2CC", 7: "#8A8F9A", 9: "#2D3038", 10: "#1F2128", 11: "#16181D" },
+};
+
+function applyAccent(name) {
+  const p = ACCENT_PRESETS[name] || ACCENT_PRESETS.iris;
+  const r = document.documentElement;
+  r.style.setProperty("--accent-3",  p[3]);
+  r.style.setProperty("--accent-4",  p[4]);
+  r.style.setProperty("--accent-7",  p[7]);
+  r.style.setProperty("--accent-9",  p[9]);
+  r.style.setProperty("--accent-10", p[10]);
+  r.style.setProperty("--accent-11", p[11]);
+  // Focus ring follows accent
+  r.style.setProperty("--shadow-focus", `0 0 0 3px ${p[9]}33`);
+  r.style.setProperty("--border-focus", p[9]);
+}
+
+const TWK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "sidebarTone": "dark",
+  "density": "comfortable",
+  "accent": "iris",
+  "pipelineVariant": "lane",
+  "showDock": true,
+  "theme": "light"
+}/*EDITMODE-END*/;
+
+function Proto() {
+  const [page, setPage] = useState("detail");      // detail | builder | run | content | dashboard | wbrun | wbedit | servers | login | signup
+  const [device, setDevice] = useState("desktop"); // desktop | mobile
+  const [tw, setTw] = useTweaks(TWK_DEFAULTS);
+
+  const [cmdOpen, setCmdOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [bellRect, setBellRect] = useState(null);
+
+  // Global keyboard: Cmd/Ctrl+K opens command palette
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setCmdOpen((v) => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => { applyAccent(tw.accent); }, [tw.accent]);
+
+  // Apply theme to <html data-theme>
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", tw.theme);
+    document.body.style.background = tw.theme === "dark" ? "#0E1015" : "";
+  }, [tw.theme]);
+
+  // Cross-page intercept — ignores clicks within UI chrome marked data-no-intercept (dock, tweaks panel, toggle).
+  useEffect(() => {
+    const onClick = (e) => {
+      if (e.target.closest("[data-no-intercept]")) return;
+      const txt = (e.target.closest("button,a,.tab,.vcc-nav-item")?.innerText || "").trim();
+      if (!txt) return;
+      // Context-aware: 편집 means workboard editor on workboard pages, pipeline builder elsewhere.
+      if (txt === "편집") {
+        setPage((cur) => cur === "wbrun" ? "wbedit" : "builder");
+      }
+      else if (txt.includes("새 파이프라인")) setPage("builder");
+      else if (txt === "실행" || txt.startsWith("상세")) setPage("run");
+      else if (txt === "저장" || txt === "취소") setPage((cur) => cur === "wbedit" ? "wbrun" : "detail");
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+
+  const onNav = (key) => {
+    if (key === "projects")   setPage("detail");
+    if (key === "content")    setPage("content");
+    if (key === "history")    setPage("run");
+    if (key === "dashboard")  setPage("dashboard");
+    if (key === "workboards") setPage("wbrun");
+    if (key === "servers")    setPage("servers");
+    if (key === "users")      setPage("users");
+  };
+
+  const crumbs = page === "detail"    ? ["프로젝트", "Mages"]
+              :  page === "builder"   ? ["프로젝트", "Mages", "NPC 생성"]
+              :  page === "run"       ? ["Mages", "히스토리", "NPC 생성"]
+              :  page === "content"   ? ["내 컨텐츠"]
+              :  page === "dashboard" ? ["대시보드"]
+              :  page === "wbrun"     ? ["작업판", "SDXL T2I — LoRA"]
+              :  page === "wbedit"    ? ["관리자", "작업판 관리", "SDXL T2I"]
+              :  page === "servers"   ? ["관리자", "서버 관리"]
+              :  page === "users"     ? ["관리자", "사용자 / 그룹"]
+              :                          [];
+
+  const activeNav =
+      page === "content"   ? "content"
+    : page === "run"       ? "history"
+    : page === "dashboard" ? "dashboard"
+    : page === "wbrun" || page === "wbedit" ? "workboards"
+    : page === "servers"   ? "workboards"  // admin-side, mark workboards for now
+    : page === "users"     ? "workboards"
+    :                        "projects";
+
+  const pageEl = (
+    page === "detail"    ? <ProjectDetailPage mobile={device === "mobile"}/> :
+    page === "builder"   ? (
+      tw.pipelineVariant === "list"  ? <PipelineBuilderListPage  mobile={device === "mobile"}/> :
+      tw.pipelineVariant === "graph" ? <PipelineBuilderGraphPage mobile={device === "mobile"}/> :
+                                       <PipelineBuilderPage      mobile={device === "mobile"}/>
+    ) :
+    page === "run"       ? <PipelineRunPage mobile={device === "mobile"}/> :
+    page === "content"   ? <ContentLibraryPage mobile={device === "mobile"}/> :
+    page === "dashboard" ? <DashboardPage mobile={device === "mobile"}/> :
+    page === "wbrun"     ? <WorkboardRunPage mobile={device === "mobile"}/> :
+    page === "wbedit"    ? <WorkboardEditorPage mobile={device === "mobile"}/> :
+    page === "servers"   ? <AdminServersPage mobile={device === "mobile"}/> :
+    page === "users"     ? <AdminUsersPage mobile={device === "mobile"}/> :
+                           null
+  );
+
+  // ===== Auth pages: render full-bleed without Shell (Tweaks panel still mounts at bottom) =====
+  const isAuth = page === "login" || page === "signup";
+  if (isAuth) {
+    return (
+      <>
+        <DeviceToggle device={device} setDevice={setDevice}/>
+        <div className="desktop-frame">
+          {page === "login" ? <AuthLoginPage/> : <AuthSignupPage/>}
+        </div>
+        <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)}/>
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="글로벌 UX (데모)">
+            <TweakSelect
+              label="인증 상태"
+              value={page}
+              options={[
+                { value: "detail", label: "로그인됨" },
+                { value: "login",  label: "로그인 화면" },
+                { value: "signup", label: "가입 요청" },
+              ]}
+              onChange={(v) => setPage(v)}
+            />
+          </TweakSection>
+          <TweakSection label="테마">
+            <TweakRadio
+              label="모드"
+              value={tw.theme}
+              options={[
+                { value: "light", label: "Light" },
+                { value: "dark",  label: "Dark" },
+              ]}
+              onChange={(v) => setTw("theme", v)}
+            />
+          </TweakSection>
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  const appClasses =
+    "vcc-app" +
+    (device === "mobile" ? " mobile" : "") +
+    (tw.density === "compact" ? " dense" : "") +
+    (tw.sidebarTone === "light" ? " sidebar-light" : "") +
+    (tw.sidebarTone === "tinted" ? " sidebar-tinted" : "");
+
+  const dock = tw.showDock && (
+    <div data-no-intercept style={{
+      position: "fixed", bottom: device === "mobile" ? 100 : 16, right: 16, zIndex: 40,
+      display: "flex", gap: 4, padding: 4, flexWrap: "wrap", maxWidth: "calc(100vw - 32px)",
+      background: "rgba(22,24,29,0.94)", color: "white",
+      borderRadius: 10, boxShadow: "var(--shadow-3)",
+      backdropFilter: "blur(8px)",
+      fontFamily: "var(--font-sans)",
+    }}>
+      {[
+        { k: "dashboard", l: "대시",     icon: <Icon.Dashboard size={14}/> },
+        { k: "detail",    l: "프로젝트", icon: <Icon.Folder size={14}/> },
+        { k: "builder",   l: "빌더",     icon: <Icon.Pipe size={14}/> },
+        { k: "run",       l: "실행",     icon: <Icon.Play size={14}/> },
+        { k: "content",   l: "컨텐츠",   icon: <Icon.Image size={14}/> },
+        { k: "wbrun",     l: "작업판",   icon: <Icon.Cube size={14}/> },
+        { k: "wbedit",    l: "편집",     icon: <Icon.Edit size={14}/> },
+        { k: "servers",   l: "서버",     icon: <Icon.Server size={14}/> },
+      ].map((t) => (
+        <button key={t.k} onClick={() => setPage(t.k)} style={{
+          border: 0, padding: "7px 12px", borderRadius: 6, cursor: "pointer",
+          background: page === t.k ? "var(--accent-9)" : "transparent",
+          color: page === t.k ? "white" : "rgba(255,255,255,0.78)",
+          fontSize: 12, fontWeight: 500,
+          display: "inline-flex", alignItems: "center", gap: 6, transition: "all 120ms",
+        }}>{t.icon}{t.l}</button>
+      ))}
+    </div>
+  );
+
+  const desktopBody = (
+    <div className={appClasses}>
+      <Sidebar active={activeNav} onNav={onNav}/>
+      <main className="vcc-main">
+        <TopBar crumbs={crumbs}>
+          <span className="chip chip--accent">{
+            page === "detail"    ? "프로젝트 상세" :
+            page === "builder"   ? "파이프라인 빌더 · " + tw.pipelineVariant :
+            page === "run"       ? "파이프라인 실행" :
+            page === "content"   ? "내 컨텐츠" :
+            page === "dashboard" ? "대시보드" :
+            page === "wbrun"     ? "작업판 실행" :
+            page === "wbedit"    ? "작업판 정의 · admin" :
+            page === "servers"   ? "서버 관리 · admin" :
+            page === "users"     ? "사용자 / 그룹 · admin" : ""
+          }</span>
+          <button className="btn btn--ghost btn--icon btn--sm" onClick={() => setCmdOpen(true)} title="명령 팔레트 (⌘K)">
+            <Icon.Search />
+          </button>
+          <button
+            className="btn btn--ghost btn--icon btn--sm"
+            onClick={(e) => { setBellRect(e.currentTarget.getBoundingClientRect()); setNotifOpen(true); }}
+            style={{ position: "relative" }}
+          >
+            <Icon.Bell />
+            <span style={{
+              position: "absolute", top: 4, right: 4,
+              width: 7, height: 7, borderRadius: "50%",
+              background: "var(--danger-9)",
+              boxShadow: "0 0 0 2px var(--bg-surface)",
+            }}/>
+          </button>
+        </TopBar>
+        <div className="vcc-body">{pageEl}</div>
+      </main>
+      {dock}
+    </div>
+  );
+
+  const mobileBody = (
+    <div className="mobile-stage">
+      <div className="mobile-frame">
+        <div className={appClasses} style={{ gridTemplateRows: "1fr auto", gridTemplateColumns: "1fr" }}>
+          <main className="vcc-main">
+            <TopBar mobile crumbs={crumbs}>
+              <button className="btn btn--ghost btn--icon btn--sm"><Icon.Bell /></button>
+            </TopBar>
+            <div className="vcc-body">{pageEl}</div>
+            <MobileTabbar active={activeNav} onNav={onNav}/>
+          </main>
+        </div>
+        {dock}
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      <DeviceToggle device={device} setDevice={setDevice}/>
+      {device === "desktop" ? <div className="desktop-frame">{desktopBody}</div> : mobileBody}
+
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)}/>
+      <NotificationsPopover open={notifOpen} anchorRect={bellRect} onClose={() => setNotifOpen(false)}/>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="테마">
+          <TweakRadio
+            label="모드"
+            value={tw.theme}
+            options={[
+              { value: "light", label: "Light" },
+              { value: "dark",  label: "Dark" },
+            ]}
+            onChange={(v) => setTw("theme", v)}
+          />
+        </TweakSection>
+
+        <TweakSection label="레이아웃">
+          <TweakRadio
+            label="사이드바 톤"
+            value={tw.sidebarTone}
+            options={[
+              { value: "dark",   label: "Dark" },
+              { value: "tinted", label: "Tinted" },
+              { value: "light",  label: "Light" },
+            ]}
+            onChange={(v) => setTw("sidebarTone", v)}
+          />
+          <TweakRadio
+            label="밀도"
+            value={tw.density}
+            options={[
+              { value: "comfortable", label: "여유" },
+              { value: "compact",     label: "컴팩트" },
+            ]}
+            onChange={(v) => setTw("density", v)}
+          />
+          <TweakToggle
+            label="페이지 도크"
+            value={tw.showDock}
+            onChange={(v) => setTw("showDock", v)}
+          />
+        </TweakSection>
+
+        <TweakSection label="브랜드">
+          <TweakColor
+            label="액센트"
+            value={tw.accent}
+            options={[
+              { value: "iris",   color: "#5B5BD6", label: "Iris" },
+              { value: "indigo", color: "#3D5AFE", label: "Indigo" },
+              { value: "teal",   color: "#0F9385", label: "Teal" },
+              { value: "mono",   color: "#2D3038", label: "Mono" },
+            ]}
+            onChange={(v) => setTw("accent", v)}
+          />
+        </TweakSection>
+
+        <TweakSection label="글로벌 UX (데모)">
+          <TweakButton label={"⌘K 명령 팔레트 열기"} onClick={() => setCmdOpen(true)}/>
+          <TweakSelect
+            label="인증 상태"
+            value={page === "login" ? "login" : page === "signup" ? "signup" : "signed"}
+            options={[
+              { value: "signed", label: "로그인됨" },
+              { value: "login",  label: "로그인 화면" },
+              { value: "signup", label: "가입 요청" },
+            ]}
+            onChange={(v) => setPage(v === "signed" ? "detail" : v)}
+          />
+        </TweakSection>
+
+        <TweakSection label="파이프라인 빌더">
+          <TweakSelect
+            label="Variant"
+            value={tw.pipelineVariant}
+            options={[
+              { value: "lane",  label: "Lane (novel)" },
+              { value: "list",  label: "List (안전)" },
+              { value: "graph", label: "Graph (노드 에디터)" },
+            ]}
+            onChange={(v) => setTw("pipelineVariant", v)}
+          />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+function DeviceToggle({ device, setDevice }) {
+  return (
+    <div className="frame-toggle">
+      <button className={device === "desktop" ? "on" : ""} onClick={() => setDevice("desktop")}>Desktop</button>
+      <button className={device === "mobile"  ? "on" : ""} onClick={() => setDevice("mobile")}>Mobile</button>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Proto/>);
+</script>
+</body>
+</html>

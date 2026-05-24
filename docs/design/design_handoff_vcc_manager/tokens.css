@@ -1,0 +1,245 @@
+/* ============================================================
+   VCC Manager — Design Tokens (v1)
+   Tone: productivity, Linear/Notion-aligned. Light theme.
+   Single accent (Iris). Refined slate sidebar.
+   ============================================================ */
+
+:root {
+  /* ---- Surfaces (warm-neutral content) ---- */
+  --bg-canvas:    #F7F7F4;        /* app background */
+  --bg-surface:   #FFFFFF;        /* cards, panels */
+  --bg-subtle:    #F1F1ED;        /* sunken / striped rows */
+  --bg-sunken:    #EBEAE5;        /* deeper inset */
+  --bg-tint:      #FAFAF7;        /* hovered list rows */
+
+  /* ---- Sidebar (deep neutral slate, single token family) ---- */
+  --nav-bg:       #161A22;        /* sidebar canvas */
+  --nav-bg-hover: #20252F;
+  --nav-bg-active:#262C39;
+  --nav-border:   #232833;
+  --nav-text:     #E4E5E9;
+  --nav-text-dim: #8A8F9C;
+  --nav-text-faint:#5B616E;
+
+  /* ---- Borders ---- */
+  --border-subtle:  #ECECE7;
+  --border-default: #E2E2DC;
+  --border-strong:  #D2D2CA;
+  --border-focus:   #5B5BD6;
+
+  /* ---- Text ---- */
+  --text-primary:   #16181D;
+  --text-secondary: #5B616E;
+  --text-tertiary:  #8A8F9A;
+  --text-disabled:  #B6BAC2;
+  --text-on-accent: #FFFFFF;
+  --text-on-nav:    #E4E5E9;
+
+  /* ---- Accent (Iris) ---- */
+  --accent-1:  #FBFBFE;
+  --accent-2:  #F4F4FE;
+  --accent-3:  #ECECFE;
+  --accent-4:  #E0E0FC;
+  --accent-5:  #D2D2F7;
+  --accent-6:  #BFC0F0;
+  --accent-7:  #A6A8E6;
+  --accent-8:  #8688DA;
+  --accent-9:  #5B5BD6;            /* primary brand */
+  --accent-10: #4F4FC9;            /* hover */
+  --accent-11: #4040AD;            /* solid text on light */
+  --accent-12: #1F1F60;            /* deep contrast */
+  --accent-contrast: #FFFFFF;
+
+  /* ---- Status (matched chroma/lightness) ---- */
+  --success-1:  #F2FBF6;
+  --success-3:  #DCF4E5;
+  --success-9:  #1F9D55;
+  --success-11: #0F7A40;
+
+  --warning-1:  #FDF8EE;
+  --warning-3:  #FAEBC8;
+  --warning-9:  #BE7415;
+  --warning-11: #95580B;
+
+  --danger-1:   #FEF6F6;
+  --danger-3:   #FBE0E0;
+  --danger-9:   #D5383E;
+  --danger-11:  #A8222A;
+
+  --info-1:     #F2F8FE;
+  --info-3:     #DCEBFC;
+  --info-9:     #2F77E4;
+  --info-11:    #1955B0;
+
+  /* ---- Tag colors (used in builtin tags) ---- */
+  --tag-world:   #7B4DD8;          /* 세계관 */
+  --tag-system:  #2F77E4;          /* 시스템 프롬프트 */
+  --tag-project: #5B5BD6;          /* 일반 프로젝트 */
+
+  /* ---- Type scale ---- */
+  --font-sans: "Pretendard", "Pretendard Variable", -apple-system, BlinkMacSystemFont, system-ui, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", "Menlo", "Consolas", monospace;
+
+  --fs-display:  28px;  --lh-display:  36px;  /* page hero */
+  --fs-h1:       22px;  --lh-h1:       30px;
+  --fs-h2:       18px;  --lh-h2:       26px;
+  --fs-h3:       15px;  --lh-h3:       22px;
+  --fs-body:     14px;  --lh-body:     22px;
+  --fs-small:    13px;  --lh-small:    20px;
+  --fs-tiny:     12px;  --lh-tiny:     18px;
+  --fs-micro:    11px;  --lh-micro:    16px;
+
+  --fw-regular: 400;
+  --fw-medium:  500;
+  --fw-semibold:600;
+  --fw-bold:    700;
+
+  /* Korean tracking — looser */
+  --tracking-tight: -0.01em;
+  --tracking-base:  -0.005em;
+  --tracking-wide:   0.02em;
+
+  /* ---- Spacing (4-based) ---- */
+  --sp-0:  0;
+  --sp-1:  4px;
+  --sp-2:  8px;
+  --sp-3:  12px;
+  --sp-4:  16px;
+  --sp-5:  20px;
+  --sp-6:  24px;
+  --sp-7:  32px;
+  --sp-8:  40px;
+  --sp-9:  48px;
+  --sp-10: 64px;
+
+  /* ---- Radius ---- */
+  --r-1: 4px;     /* chips, tight elements */
+  --r-2: 6px;     /* default — buttons, inputs */
+  --r-3: 8px;     /* cards */
+  --r-4: 12px;    /* large surfaces */
+  --r-5: 16px;    /* hero / sheets */
+  --r-pill: 999px;
+
+  /* ---- Elevation ---- */
+  --shadow-1: 0 1px 2px rgba(15,18,28,0.05), 0 0 0 1px rgba(15,18,28,0.04);
+  --shadow-2: 0 2px 6px rgba(15,18,28,0.07), 0 1px 2px rgba(15,18,28,0.04);
+  --shadow-3: 0 8px 24px rgba(15,18,28,0.10), 0 2px 6px rgba(15,18,28,0.06);
+  --shadow-4: 0 20px 48px rgba(15,18,28,0.16), 0 4px 12px rgba(15,18,28,0.08);
+  --shadow-focus: 0 0 0 3px rgba(91,91,214,0.20);
+
+  /* ---- Misc ---- */
+  --easing: cubic-bezier(.2,.7,.3,1);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 240ms;
+
+  --sidebar-w-desktop: 240px;
+  --sidebar-w-collapsed: 60px;
+  --topbar-h: 52px;
+}
+
+/* Pretendard via cdn */
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap");
+
+/* ============================================================
+   DARK MODE — toggled via <html data-theme="dark"> or
+   <root data-theme="dark"> at any level. All overrides reuse
+   the same token names so components render unchanged.
+   ============================================================ */
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg-canvas:    #0E1015;
+  --bg-surface:   #161A22;
+  --bg-subtle:    #1C2029;
+  --bg-sunken:    #0A0C10;
+  --bg-tint:      #1A1E27;
+
+  /* Borders */
+  --border-subtle:  #20242E;
+  --border-default: #2A2F3B;
+  --border-strong:  #383E4D;
+
+  /* Sidebar — slightly darker than content for separation */
+  --nav-bg:       #0A0C10;
+  --nav-bg-hover: #1A1E27;
+  --nav-bg-active:#222732;
+  --nav-border:   #1B1F28;
+  --nav-text:     #E4E5E9;
+  --nav-text-dim: #8A8F9C;
+  --nav-text-faint:#5B616E;
+
+  /* Text */
+  --text-primary:   #E8E9EE;
+  --text-secondary: #A0A4AF;
+  --text-tertiary:  #717684;
+  --text-disabled:  #4A4E58;
+  --text-on-accent: #FFFFFF;
+
+  /* Accent — slightly brighter on dark for legibility */
+  --accent-1:  #14152A;
+  --accent-2:  #1A1B33;
+  --accent-3:  rgba(125, 125, 230, 0.16);
+  --accent-4:  rgba(125, 125, 230, 0.26);
+  --accent-7:  #8385E2;
+  --accent-9:  #7676E0;
+  --accent-10: #8888E8;
+  --accent-11: #B4B6FF;
+  --accent-12: #DEDFFF;
+
+  /* Status — slightly lifted for dark surface contrast */
+  --success-1:  rgba(31,157,85,0.08);
+  --success-3:  rgba(31,157,85,0.22);
+  --success-9:  #2EBA6B;
+  --success-11: #6FE0A0;
+
+  --warning-1:  rgba(190,116,21,0.08);
+  --warning-3:  rgba(190,116,21,0.24);
+  --warning-9:  #D69021;
+  --warning-11: #F3C171;
+
+  --danger-1:   rgba(213,56,62,0.08);
+  --danger-3:   rgba(213,56,62,0.24);
+  --danger-9:   #E84B52;
+  --danger-11:  #FDA0A4;
+
+  --info-1:     rgba(47,119,228,0.08);
+  --info-3:     rgba(47,119,228,0.24);
+  --info-9:     #4E8EE8;
+  --info-11:    #A6C5F4;
+
+  /* Shadows — softer on dark */
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-2: 0 2px 6px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-3: 0 8px 24px rgba(0,0,0,0.55), 0 2px 6px rgba(0,0,0,0.4);
+  --shadow-4: 0 20px 48px rgba(0,0,0,0.6), 0 4px 12px rgba(0,0,0,0.4);
+  --shadow-focus: 0 0 0 3px rgba(118,118,224,0.30);
+}
+
+/* Theme-aware striped placeholder. Components pass --h (hue 0..360). */
+.thumb-tile {
+  background:
+    repeating-linear-gradient(135deg,
+      oklch(var(--thumb-l1, 94%) var(--thumb-c1, 0.025) var(--h, 250)) 0 8px,
+      oklch(var(--thumb-l2, 88%) var(--thumb-c2, 0.05) var(--h, 250)) 8px 9px);
+  border: 1px solid oklch(var(--thumb-bl, 82%) 0.04 var(--h, 250));
+  color: oklch(var(--thumb-tl, 45%) 0.10 var(--h, 250));
+}
+[data-theme="dark"] .thumb-tile {
+  --thumb-l1: 22%;
+  --thumb-l2: 28%;
+  --thumb-bl: 35%;
+  --thumb-tl: 78%;
+  --thumb-c1: 0.04;
+  --thumb-c2: 0.08;
+}
+
+html, body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--text-primary);
+  background: var(--bg-canvas);
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "ss06" on, "ss07" on;
+}
+* { box-sizing: border-box; }
