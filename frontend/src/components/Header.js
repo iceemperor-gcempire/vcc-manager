@@ -21,12 +21,14 @@ import {
   Logout,
   AdminPanelSettings,
   Dashboard,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  Search as SearchIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import NotificationsPopover from './common/NotificationsPopover';
 
-function Header({ onMobileToggle }) {
+function Header({ onMobileToggle, onOpenPalette }) {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -89,7 +91,21 @@ function Header({ onMobileToggle }) {
         </Typography>
         
         {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {/* ⌘K 명령 팔레트 트리거 */}
+            {onOpenPalette && (
+              <IconButton
+                color="inherit"
+                onClick={onOpenPalette}
+                title="검색 (⌘K)"
+              >
+                <SearchIcon />
+              </IconButton>
+            )}
+
+            {/* 알림 popover */}
+            <NotificationsPopover />
+
             {isAdmin && (
               <Chip
                 label="Admin"
@@ -98,13 +114,12 @@ function Header({ onMobileToggle }) {
                 sx={{ color: 'white', borderColor: 'white' }}
               />
             )}
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
                 {user.nickname}
               </Typography>
               <IconButton
-                size="large"
                 onClick={handleMenuOpen}
                 color="inherit"
               >
