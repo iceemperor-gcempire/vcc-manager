@@ -34,10 +34,16 @@ import {
   Settings as SettingsIcon,
   ArrowUpward,
   ArrowDownward,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowDownward as ArrowDownwardIconConnector,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   Stop as StopIcon,
 } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import MetadataFieldInput from './MetadataFieldInput';
 import ImageViewerDialog from './ImageViewerDialog';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -253,6 +259,278 @@ function PipelinePanel({ projectId }) {
   );
 }
 
+// 파이프라인 빌더의 lane 레이아웃 (Phase 5d).
+// 데스크탑: 가로 스크롤 lane (카드 320px 고정 너비) + 카드 사이 화살표 connector.
+// 모바일: 세로 스택 (full-width) + 카드 사이 아래 방향 화살표.
+function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'stretch' : 'flex-start',
+        gap: 0,
+        overflowX: isMobile ? 'visible' : 'auto',
+        // 카드 그림자가 잘리지 않도록 padding
+        py: 1,
+        px: isMobile ? 0 : 0.5,
+      }}
+    >
+      {steps.map((s, idx) => (
+        <React.Fragment key={idx}>
+          {idx > 0 && (
+            <LaneConnector
+              isMobile={isMobile}
+              prevOutput={steps[idx - 1].workboard?.outputFormat}
+              autoInject={s.autoInject !== false}
+            />
+          )}
+          <StepLaneCard
+            step={s}
+            index={idx}
+            isLast={idx === steps.length - 1}
+            isMobile={isMobile}
+            onOpenInputs={() => onOpenInputs(idx)}
+            onOpenDocs={() => onOpenDocs(idx)}
+            onMovePrev={() => moveStep(idx, -1)}
+            onMoveNext={() => moveStep(idx, 1)}
+            onDelete={() => removeStep(idx)}
+            onChangeNote={(note) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], note };
+              setSteps(next);
+            }}
+            onToggleAutoInject={(checked) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], autoInject: checked };
+              setSteps(next);
+            }}
+          />
+        </React.Fragment>
+      ))}
+      <AddStepCard isMobile={isMobile} onAdd={onAdd} />
+    </Box>
+  );
+}
+
+function StepLaneCard({
+  step,
+  index,
+  isLast,
+  isMobile,
+  onOpenInputs,
+  onOpenDocs,
+  onMovePrev,
+  onMoveNext,
+  onDelete,
+  onChangeNote,
+  onToggleAutoInject,
+}) {
+  const inputsCount = Object.keys(step.inputs || {}).filter((k) => step.inputs[k] !== '' && step.inputs[k] != null).length;
+  const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
+  return (
+    <Paper
+      variant="outlined"
+      sx={{
+        width: isMobile ? '100%' : 320,
+        flex: isMobile ? '0 0 auto' : '0 0 320px',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 2,
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Box
+          sx={{
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            fontFamily: '"JetBrains Mono", monospace',
+          }}
+        >
+          {index + 1}
+        </Box>
+        {step.workboard?.outputFormat && (
+          <Chip
+            label={`out: ${step.workboard.outputFormat}`}
+            variant="outlined"
+            sx={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
+          />
+        )}
+        <Box sx={{ flex: 1 }} />
+        <IconButton
+          onClick={onMovePrev}
+          disabled={index === 0}
+          title={isMobile ? '위로 이동' : '앞으로 이동'}
+        >
+          {isMobile ? <ArrowUpward fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+        </IconButton>
+        <IconButton
+          onClick={onMoveNext}
+          disabled={isLast}
+          title={isMobile ? '아래로 이동' : '뒤로 이동'}
+        >
+          {isMobile ? <ArrowDownward fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+        </IconButton>
+      </Box>
+
+      <Box sx={{ px: 2, py: 1.5, flex: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+          {step.workboard?.name || '(이름 불러오는 중)'}
+        </Typography>
+        {step.workboard?.description && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, whiteSpace: 'pre-wrap' }}>
+            {step.workboard.description}
+          </Typography>
+        )}
+
+        {index > 0 && (
+          <FormControlLabel
+            sx={{ mt: 1, ml: 0 }}
+            control={
+              <Switch
+                size="small"
+                checked={step.autoInject !== false}
+                onChange={(e) => onToggleAutoInject(e.target.checked)}
+              />
+            }
+            label={<Typography variant="caption">이전 결과 자동 주입</Typography>}
+          />
+        )}
+
+        <TextField
+          fullWidth
+          placeholder="이 단계에 대한 메모 (선택)"
+          value={step.note || ''}
+          onChange={(e) => onChangeNote(e.target.value)}
+          multiline
+          maxRows={3}
+          inputProps={{ maxLength: 500 }}
+          sx={{ mt: 1.5 }}
+        />
+      </Box>
+
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1,
+          px: 2,
+          py: 1.5,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'action.hover',
+          borderBottomLeftRadius: 'inherit',
+          borderBottomRightRadius: 'inherit',
+        }}
+      >
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<SettingsIcon />}
+          onClick={onOpenInputs}
+          sx={{ justifyContent: 'flex-start', flex: 1 }}
+        >
+          입력 설정
+          {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
+        </Button>
+        <Button
+          fullWidth
+          variant="outlined"
+          onClick={onOpenDocs}
+          sx={{ justifyContent: 'flex-start', flex: 1 }}
+        >
+          문서
+          {docsCount > 0 && <Chip label={docsCount} sx={{ ml: 'auto', height: 18 }} />}
+        </Button>
+        <IconButton color="error" onClick={onDelete} title="단계 삭제">
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    </Paper>
+  );
+}
+
+function LaneConnector({ isMobile, prevOutput, autoInject }) {
+  const ConnectorIcon = isMobile ? ArrowDownwardIconConnector : ArrowForwardIcon;
+  return (
+    <Box
+      sx={{
+        flex: isMobile ? '0 0 auto' : '0 0 80px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 0.5,
+        py: isMobile ? 1.5 : 0,
+        minHeight: isMobile ? 0 : 120,
+        color: autoInject ? 'success.main' : 'text.disabled',
+      }}
+    >
+      <ConnectorIcon fontSize="small" />
+      {prevOutput && (
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+        >
+          {prevOutput}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function AddStepCard({ isMobile, onAdd }) {
+  return (
+    <Box
+      sx={{
+        ml: isMobile ? 0 : 2,
+        mt: isMobile ? 2 : 0,
+        width: isMobile ? '100%' : 200,
+        flex: isMobile ? '0 0 auto' : '0 0 200px',
+        minHeight: 120,
+        border: '1px dashed',
+        borderColor: 'divider',
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+        py: 2,
+        px: 2,
+        cursor: 'pointer',
+        color: 'text.secondary',
+        '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: 'action.hover' },
+      }}
+      onClick={onAdd}
+    >
+      <AddIcon />
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>새 단계 추가</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', lineHeight: 1.5 }}>
+        작업판을 골라 마지막 단계 출력에 연결
+      </Typography>
+    </Box>
+  );
+}
+
 // 파이프라인 빌더 — 단계 목록 편집 (#397)
 function PipelineBuilder({ projectId, pipelineId, onClose }) {
   const isNew = !pipelineId;
@@ -366,14 +644,25 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <Typography variant="h6">{isNew ? '새 파이프라인' : '파이프라인 편집'}</Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        <Button onClick={onClose}>취소</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saveMutation.isLoading}>저장</Button>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 4, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box display="flex" alignItems="center" gap={1.5} sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+              {isNew ? '새 파이프라인' : '파이프라인 편집'}
+            </Typography>
+            <Chip label={isNew ? '신규' : '편집 중'} color="primary" />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            작업판을 왼쪽에서 오른쪽으로 연결합니다. 다음 단계의 입력이 이전 출력 타입과 같으면 자동으로 주입됩니다.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
+          <Button onClick={onClose}>취소</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saveMutation.isLoading}>저장</Button>
+        </Box>
       </Box>
 
-      <Stack spacing={2}>
+      <Stack spacing={3}>
         <TextField
           label="이름"
           value={name}
@@ -390,16 +679,13 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           minRows={2}
           fullWidth
         />
-        {/* useWorldview 토글 제거 (#401) — 단계별 문서 선택으로 대체 */}
 
         <Box>
-          <Box display="flex" alignItems="center" mb={1}>
-            <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>단계 ({steps.length})</Typography>
-            <Button
-              startIcon={<AddIcon />}
-              variant="outlined"
-              onClick={() => setPickerOpen(true)}
-            >
+          <Box display="flex" alignItems="center" mb={2}>
+            <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600 }}>
+              단계 ({steps.length})
+            </Typography>
+            <Button startIcon={<AddIcon />} variant="outlined" onClick={() => setPickerOpen(true)}>
               단계 추가
             </Button>
           </Box>
@@ -409,93 +695,15 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
               먼저 프로젝트의 "작업판" 탭에서 사용할 작업판들을 추가해 두어야 합니다.
             </Alert>
           ) : (
-            <Stack spacing={1}>
-              {steps.map((s, idx) => (
-                <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Chip label={idx + 1} color="primary" />
-                    <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {s.workboard?.name || '(이름 불러오는 중)'}
-                      </Typography>
-                      {s.workboard?.description && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'pre-wrap' }}>
-                          {s.workboard.description}
-                        </Typography>
-                      )}
-                      <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                        {s.workboard?.outputFormat && (
-                          <Chip label={`out: ${s.workboard.outputFormat}`} variant="outlined" />
-                        )}
-                      </Stack>
-                    </Box>
-                    {idx > 0 && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={s.autoInject !== false}
-                            onChange={(e) => {
-                              const next = [...steps];
-                              next[idx] = { ...s, autoInject: e.target.checked };
-                              setSteps(next);
-                            }}
-                          />
-                        }
-                        label={<Typography variant="caption">이전 결과 자동 주입</Typography>}
-                      />
-                    )}
-                    <Button
-                      variant="outlined"
-                      startIcon={<SettingsIcon />}
-                      onClick={() => setInputsDialogStepIdx(idx)}
-                    >
-                      입력 설정
-                      {Object.keys(s.inputs || {}).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length > 0 && (
-                        <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} sx={{ ml: 0.5, height: 18 }} />
-                      )}
-                    </Button>
-                    {/* 단계별 문서 연결 (#401) — LLM 단계만 의미 있지만 UI 는 모든 단계에 노출 (간소화) */}
-                    <Button
-                      variant="outlined"
-                      onClick={() => setDocsDialogStepIdx(idx)}
-                    >
-                      문서
-                      {((s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)) > 0 && (
-                        <Chip
-                          label={(s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)}
-                          sx={{ ml: 0.5, height: 18 }}
-                        />
-                      )}
-                    </Button>
-                    <IconButton size="small" disabled={idx === 0} onClick={() => moveStep(idx, -1)}>
-                      <ArrowUpward fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" disabled={idx === steps.length - 1} onClick={() => moveStep(idx, 1)}>
-                      <ArrowDownward fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => removeStep(idx)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  {/* 단계별 메모 — 이 단계의 작업판 역할 / 사용자 가이드용 (#397 후속) */}
-                  <TextField
-                    fullWidth
-                    placeholder="이 단계에 대한 설명 / 메모 (선택)"
-                    value={s.note || ''}
-                    onChange={(e) => {
-                      const next = [...steps];
-                      next[idx] = { ...s, note: e.target.value };
-                      setSteps(next);
-                    }}
-                    multiline
-                    maxRows={3}
-                    inputProps={{ maxLength: 500 }}
-                    sx={{ mt: 1 }}
-                  />
-                </Paper>
-              ))}
-            </Stack>
+            <PipelineLane
+              steps={steps}
+              setSteps={setSteps}
+              moveStep={moveStep}
+              removeStep={removeStep}
+              onOpenInputs={setInputsDialogStepIdx}
+              onOpenDocs={setDocsDialogStepIdx}
+              onAdd={() => setPickerOpen(true)}
+            />
           )}
         </Box>
       </Stack>
