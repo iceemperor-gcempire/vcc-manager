@@ -337,7 +337,6 @@ function TagSearch() {
                               {img.tags?.map(tag => (
                                 <Chip
                                   key={tag._id}
-                                  size="small"
                                   label={tag.name}
                                   sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
                                 />
@@ -374,7 +373,6 @@ function TagSearch() {
                               {img.tags?.map(tag => (
                                 <Chip
                                   key={tag._id}
-                                  size="small"
                                   label={tag.name}
                                   sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
                                 />
@@ -432,7 +430,6 @@ function TagSearch() {
                                 {pd.tags?.map(tag => (
                                   <Chip
                                     key={tag._id}
-                                    size="small"
                                     label={tag.name}
                                     sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, fontSize: '0.7rem' }}
                                   />
@@ -463,7 +460,7 @@ function TagSearch() {
           ) : (
             <>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Chip label={`총 ${totalTags}개`} size="small" />
+                <Chip label={`총 ${totalTags}개`} />
                 <Button
                   variant="contained"
                   startIcon={<Add />}

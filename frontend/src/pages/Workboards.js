@@ -139,12 +139,10 @@ function WorkboardCard({ workboard, projectId }) {
           <Box display="flex" flexWrap="wrap" gap={0.5} mb={2}>
             <Chip
               label={getOutputFormatLabel(workboard.outputFormat || 'image')}
-              size="small"
               color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
             />
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
-              size="small"
               sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
             />
           </Box>
@@ -154,7 +152,6 @@ function WorkboardCard({ workboard, projectId }) {
               <Chip
                 key={index}
                 label={model.key}
-                size="small"
                 variant="outlined"
                 sx={{ maxWidth: '100%' }}
               />
@@ -162,7 +159,6 @@ function WorkboardCard({ workboard, projectId }) {
             {workboard.baseInputFields?.aiModel?.length > 3 && (
               <Chip
                 label={`+${workboard.baseInputFields.aiModel.length - 3}개`}
-                size="small"
                 variant="outlined"
               />
             )}
@@ -171,14 +167,12 @@ function WorkboardCard({ workboard, projectId }) {
 
         <CardActions>
           <Button
-            size="small"
             onClick={handleInfo}
             startIcon={<Info />}
           >
             상세정보
           </Button>
           <Button
-            size="small"
             variant="contained"
             color={isImageWorkboard ? 'primary' : 'secondary'}
             onClick={handleSelect}
@@ -210,12 +204,10 @@ function WorkboardCard({ workboard, projectId }) {
           <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
             <Chip
               label={getOutputFormatLabel(workboard.outputFormat || 'image')}
-              size="small"
               color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
             />
             <Chip
               label={getServerTypeLabel(workboard.serverId?.serverType)}
-              size="small"
               sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
             />
           </Box>
@@ -228,7 +220,6 @@ function WorkboardCard({ workboard, projectId }) {
               <Chip
                 key={index}
                 label={`${model.key}`}
-                size="small"
                 color="primary"
                 variant="outlined"
               />
@@ -245,7 +236,6 @@ function WorkboardCard({ workboard, projectId }) {
                   <Chip
                     key={index}
                     label={size.key}
-                    size="small"
                     color="secondary"
                     variant="outlined"
                   />
@@ -264,7 +254,6 @@ function WorkboardCard({ workboard, projectId }) {
                   <Chip
                     key={index}
                     label={method.key}
-                    size="small"
                     color="info"
                     variant="outlined"
                   />
@@ -504,7 +493,6 @@ function Workboards() {
                     key={pageNum}
                     variant={pageNum === page ? "contained" : "outlined"}
                     onClick={() => setPage(pageNum)}
-                    size="small"
                   >
                     {pageNum}
                   </Button>

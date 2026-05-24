@@ -104,7 +104,6 @@ function PromptWorkboardCard({ workboard }) {
               <Chip
                 key={index}
                 label={model.key}
-                size="small"
                 variant="outlined"
                 color="secondary"
                 sx={{ maxWidth: '100%' }}
@@ -113,7 +112,6 @@ function PromptWorkboardCard({ workboard }) {
             {workboard.baseInputFields?.aiModel?.length > 3 && (
               <Chip
                 label={`+${workboard.baseInputFields.aiModel.length - 3}개`}
-                size="small"
                 variant="outlined"
               />
             )}
@@ -122,14 +120,12 @@ function PromptWorkboardCard({ workboard }) {
 
         <CardActions>
           <Button
-            size="small"
             onClick={handleInfo}
             startIcon={<Info />}
           >
             상세정보
           </Button>
           <Button
-            size="small"
             variant="contained"
             color="secondary"
             onClick={handleSelect}
@@ -170,7 +166,6 @@ function PromptWorkboardCard({ workboard }) {
               <Chip
                 key={index}
                 label={`${model.key}`}
-                size="small"
                 color="secondary"
                 variant="outlined"
               />
@@ -205,7 +200,6 @@ function PromptWorkboardCard({ workboard }) {
                   <Chip
                     key={index}
                     label={ref.key}
-                    size="small"
                     color="info"
                     variant="outlined"
                   />
@@ -325,7 +319,6 @@ function PromptWorkboards() {
                     variant={pageNum === page ? "contained" : "outlined"}
                     color="secondary"
                     onClick={() => setPage(pageNum)}
-                    size="small"
                   >
                     {pageNum}
                   </Button>

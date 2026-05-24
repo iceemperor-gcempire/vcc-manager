@@ -99,7 +99,7 @@ function PromptGeneration() {
           <Chat color="secondary" />
           <Typography variant="h5">{workboard.name}</Typography>
         </Box>
-        <Chip label={conversationId ? '대화 이어가기' : '프롬프트 생성'} color="secondary" size="small" />
+        <Chip label={conversationId ? '대화 이어가기' : '프롬프트 생성'} color="secondary" />
       </Box>
 
       <Box display="flex" alignItems="center" gap={0.5} mb={2}>

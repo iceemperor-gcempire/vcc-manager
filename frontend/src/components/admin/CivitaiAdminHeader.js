@@ -126,11 +126,11 @@ function CivitaiAdminHeader({
             Civitai API 키:
           </Typography>
           {hasCivitaiApiKey ? (
-            <Chip label="등록됨" color="success" size="small" variant="outlined" />
+            <Chip label="등록됨" color="success" variant="outlined" />
           ) : (
-            <Chip label="미등록" size="small" variant="outlined" />
+            <Chip label="미등록" variant="outlined" />
           )}
-          <Button size="small" onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
+          <Button onClick={() => setShowApiKeyInput(!showApiKeyInput)}>
             {showApiKeyInput ? '취소' : hasCivitaiApiKey ? '변경' : '등록'}
           </Button>
         </Box>
@@ -181,7 +181,6 @@ function CivitaiAdminHeader({
       {showApiKeyInput && (
         <Box sx={{ display: 'flex', gap: 1, mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
-            size="small"
             type="password"
             placeholder={hasCivitaiApiKey ? '새 API 키 (빈칸=삭제)' : 'API 키 입력'}
             value={apiKeyInput}
@@ -191,7 +190,6 @@ function CivitaiAdminHeader({
           />
           <Button
             variant="contained"
-            size="small"
             onClick={handleSaveApiKey}
             disabled={savingKey}
             startIcon={savingKey ? <CircularProgress size={16} /> : <SaveIcon />}

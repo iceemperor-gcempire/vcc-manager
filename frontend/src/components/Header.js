@@ -94,7 +94,6 @@ function Header({ onMobileToggle }) {
               <Chip
                 label="Admin"
                 color="secondary"
-                size="small"
                 variant="outlined"
                 sx={{ color: 'white', borderColor: 'white' }}
               />

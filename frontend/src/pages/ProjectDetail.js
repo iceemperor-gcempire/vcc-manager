@@ -279,7 +279,6 @@ function ImagesTab({ projectId }) {
             variant="outlined"
             startIcon={<CheckBoxIcon />}
             onClick={() => setBulkMode(true)}
-            size="small"
           >
             선택
           </Button>
@@ -292,11 +291,11 @@ function ImagesTab({ projectId }) {
             bgcolor: 'action.hover', borderRadius: 1, flexWrap: 'wrap'
           }}
         >
-          <Button size="small" variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }}>
+          <Button variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }}>
             선택 모드 종료
           </Button>
           <Chip label={`${totalSelected}개 선택됨`} color="primary" variant="outlined" />
-          <Button size="small" startIcon={<SelectAll />} onClick={() => {
+          <Button startIcon={<SelectAll />} onClick={() => {
             const nextImg = new Set(imageSelectedIds);
             imageMediaState.items.forEach(item => nextImg.add(item._id));
             setImageSelectedIds(nextImg);
@@ -306,11 +305,10 @@ function ImagesTab({ projectId }) {
           }}>
             이 페이지 전체 선택
           </Button>
-          <Button size="small" startIcon={<Deselect />} onClick={() => { setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }} disabled={totalSelected === 0}>
+          <Button startIcon={<Deselect />} onClick={() => { setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }} disabled={totalSelected === 0}>
             선택 해제
           </Button>
           <Button
-            size="small"
             variant="contained"
             color="error"
             startIcon={<DeleteSweep />}
@@ -661,13 +659,12 @@ function WorkboardsTab({ projectId }) {
                   <Typography variant="caption" color="text.secondary" noWrap display="block">{wb.description}</Typography>
                 )}
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                  {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {wb.serverId?.name && <Chip label={wb.serverId.name} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {!wb.isActive && <Chip label="비활성" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
                 </Stack>
               </Box>
               <Button
-                size="small"
                 variant="contained"
                 color="success"
                 startIcon={<PlayArrow />}
@@ -721,7 +718,6 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
       <DialogTitle>작업판 추가</DialogTitle>
       <DialogContent dividers>
         <TextField
-          size="small"
           fullWidth
           placeholder="작업판 검색..."
           value={search}
@@ -750,7 +746,7 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
                 <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                   <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
                   </Stack>
                 </Box>
               </Box>
@@ -864,7 +860,6 @@ function ProjectDetail() {
       <Button
         startIcon={<ArrowBack />}
         onClick={() => navigate('/projects')}
-        size="small"
         sx={{ mb: 1 }}
       >
         프로젝트 목록
@@ -918,24 +913,20 @@ function ProjectDetail() {
           )}
           <Box display="flex" gap={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
             <Chip
-              size="small"
               label={project.tagId?.name}
               sx={{ bgcolor: project.tagId?.color || '#7c4dff', color: 'white' }}
             />
             <Chip
-              size="small"
               icon={<ImageIcon />}
               label={`이미지 ${project.counts?.images || 0}`}
               variant="outlined"
             />
             <Chip
-              size="small"
               icon={<TextSnippet />}
               label={`프롬프트 ${project.counts?.promptData || 0}`}
               variant="outlined"
             />
             <Chip
-              size="small"
               icon={<History />}
               label={`작업 ${project.counts?.jobs || 0}`}
               variant="outlined"
@@ -949,7 +940,6 @@ function ProjectDetail() {
               variant="contained"
               startIcon={<ViewModule />}
               onClick={() => navigate(`/workboards?projectId=${id}`)}
-              size="small"
               sx={{
                 whiteSpace: 'nowrap',
                 flexShrink: 0,

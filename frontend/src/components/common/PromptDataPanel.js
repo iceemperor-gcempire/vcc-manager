@@ -203,7 +203,6 @@ function PromptDataPanel({
                       {item.tags?.length > 3 && (
                         <Chip
                           label={`+${item.tags.length - 3}`}
-                          size="small"
                           variant="outlined"
                           sx={{ mb: 0.5 }}
                         />
@@ -214,7 +213,6 @@ function PromptDataPanel({
                     <CardActions>
                       {onQuickGenerate && (
                         <Button
-                          size="small"
                           startIcon={<PlayArrow />}
                           onClick={() => onQuickGenerate(item)}
                         >
@@ -223,7 +221,6 @@ function PromptDataPanel({
                       )}
                       {onEdit && (
                         <Button
-                          size="small"
                           startIcon={<Edit />}
                           onClick={() => onEdit(item)}
                         >

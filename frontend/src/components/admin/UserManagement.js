@@ -127,7 +127,6 @@ function UserManagement() {
           <Chip
             label="승인됨"
             color="success"
-            size="small"
             icon={<Check fontSize="small" />}
           />
         );
@@ -136,7 +135,6 @@ function UserManagement() {
           <Chip
             label="거절됨"
             color="error"
-            size="small"
             icon={<Close fontSize="small" />}
           />
         );
@@ -146,7 +144,6 @@ function UserManagement() {
           <Chip
             label="대기중"
             color="warning"
-            size="small"
             icon={<HourglassEmpty fontSize="small" />}
           />
         );
@@ -249,14 +246,12 @@ function UserManagement() {
                             <Chip
                               label="관리자"
                               color="secondary"
-                              size="small"
                               icon={<AdminPanelSettings fontSize="small" />}
                             />
                           ) : (
                             <Chip
                               label="일반 사용자"
                               color="default"
-                              size="small"
                               icon={<Person fontSize="small" />}
                             />
                           )}
@@ -265,7 +260,6 @@ function UserManagement() {
                           <Chip
                             label={user.isActive ? '활성' : '비활성'}
                             color={user.isActive ? 'success' : 'default'}
-                            size="small"
                             variant="outlined"
                           />
                         </TableCell>

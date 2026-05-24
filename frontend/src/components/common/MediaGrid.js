@@ -190,21 +190,21 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
               <ProjectTagChip key={tag._id || tag} tag={typeof tag === 'object' ? tag : { name: tag }} />
             ))}
             {image.tags.length > 2 && (
-              <Chip label={`+${image.tags.length - 2}`} size="small" variant="outlined" />
+              <Chip label={`+${image.tags.length - 2}`} variant="outlined" />
             )}
           </Box>
         )}
 
         {type === 'uploaded' && image.isReferenced && (
-          <Chip label="참조됨" color="primary" size="small" variant="outlined" sx={{ mt: 1 }} />
+          <Chip label="참조됨" color="primary" variant="outlined" sx={{ mt: 1 }} />
         )}
         {type === 'generated' && image.isPublic && (
-          <Chip label="공개" color="success" size="small" variant="outlined" sx={{ mt: 1 }} />
+          <Chip label="공개" color="success" variant="outlined" sx={{ mt: 1 }} />
         )}
       </CardContent>
       {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
-          <Button size="small" onClick={() => onView(image)} startIcon={<Info />}>상세보기</Button>
+          <Button onClick={() => onView(image)} startIcon={<Info />}>상세보기</Button>
           <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { onEdit(image); setAnchorEl(null); }}>
@@ -304,17 +304,17 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
               <ProjectTagChip key={tag._id || tag} tag={typeof tag === 'object' ? tag : { name: tag }} />
             ))}
             {video.tags.length > 2 && (
-              <Chip label={`+${video.tags.length - 2}`} size="small" variant="outlined" />
+              <Chip label={`+${video.tags.length - 2}`} variant="outlined" />
             )}
           </Box>
         )}
         {video.isPublic && (
-          <Chip label="공개" color="success" size="small" variant="outlined" sx={{ mt: 1 }} />
+          <Chip label="공개" color="success" variant="outlined" sx={{ mt: 1 }} />
         )}
       </CardContent>
       {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
-          <Button size="small" onClick={() => onView(video)} startIcon={<Info />}>상세보기</Button>
+          <Button onClick={() => onView(video)} startIcon={<Info />}>상세보기</Button>
           <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { onEdit(video); setAnchorEl(null); }}>

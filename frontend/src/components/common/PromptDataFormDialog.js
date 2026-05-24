@@ -107,13 +107,11 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                 {selectedImage && (
                   <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
                     <Button
-                      size="small"
                       onClick={() => setImageSelectOpen(true)}
                     >
                       이미지 변경
                     </Button>
                     <Button
-                      size="small"
                       color="error"
                       onClick={() => setSelectedImage(null)}
                     >

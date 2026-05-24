@@ -297,7 +297,6 @@ function JobStatusChip({ status }) {
     <Chip
       label={cfg.label}
       color={cfg.color}
-      size="small"
       icon={cfg.icon}
       variant="outlined"
     />
@@ -563,7 +562,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                 '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: { xs: 'auto', sm: 'auto' } }
               }}
             >
-              <Button size="small" onClick={() => onView(job)} startIcon={<Info />}
+              <Button onClick={() => onView(job)} startIcon={<Info />}
                 sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
               >
                 상세
@@ -571,19 +570,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
 
               {canContinue && (
                 <>
-                  <Button size="small" onClick={() => onContinue(job)} startIcon={<PlayArrow />} color="success" variant="contained"
+                  <Button onClick={() => onContinue(job)} startIcon={<PlayArrow />} color="success" variant="contained"
                     sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                   >
                     <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>계속하기</Box>
                     <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>계속</Box>
                   </Button>
-                  <Button size="small" onClick={() => onCrossWorkboard(job)} startIcon={<SwapHoriz />} color="info" variant="outlined"
+                  <Button onClick={() => onCrossWorkboard(job)} startIcon={<SwapHoriz />} color="info" variant="outlined"
                     sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                   >
                     <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>다른 작업</Box>
                     <Box component="span" sx={{ display: { xs: 'inline', sm: 'none' } }}>다른</Box>
                   </Button>
-                  <Button size="small" onClick={() => onSavePrompt(job)} startIcon={<Save />} color="secondary"
+                  <Button onClick={() => onSavePrompt(job)} startIcon={<Save />} color="secondary"
                     sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                   >
                     <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>프롬프트 저장</Box>
@@ -593,7 +592,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               )}
 
               {canRetry && (
-                <Button size="small" onClick={() => onRetry(job)} startIcon={<Refresh />} color="primary"
+                <Button onClick={() => onRetry(job)} startIcon={<Refresh />} color="primary"
                   sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                 >
                   재시도
@@ -601,14 +600,14 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               )}
 
               {canCancel && (
-                <Button size="small" onClick={() => onCancel(job)} startIcon={<Stop />} color="warning"
+                <Button onClick={() => onCancel(job)} startIcon={<Stop />} color="warning"
                   sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
                 >
                   취소
                 </Button>
               )}
 
-              <Button size="small" onClick={() => onDelete(job)} startIcon={<Delete />} color="error"
+              <Button onClick={() => onDelete(job)} startIcon={<Delete />} color="error"
                 sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
               >
                 삭제

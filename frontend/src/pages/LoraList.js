@@ -166,7 +166,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
           {lora.civitai?.baseModel && (
             <Chip
               label={lora.civitai.baseModel}
-              size="small"
               color={getBaseModelColor(lora.civitai.baseModel)}
               variant="outlined"
               disableRipple
@@ -176,7 +175,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
             <Chip
               icon={<InfoIcon />}
               label="메타데이터 없음"
-              size="small"
               variant="outlined"
               title={lora.hashError || '해시 정보 없음'}
               disableRipple
@@ -185,7 +183,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
           {lora.hash && !hasCivitai && (
             <Chip
               label="미등록"
-              size="small"
               variant="outlined"
               title="Civitai에서 찾을 수 없음"
               disableRipple
@@ -204,7 +201,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
                 <Chip
                   key={i}
                   label={word}
-                  size="small"
                   onClick={() => onCopyTriggerWord(word)}
                   sx={{ cursor: 'pointer' }}
                 />
@@ -212,7 +208,6 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
               {!expanded && trainedWords.length > 3 && (
                 <Chip
                   label={`+${trainedWords.length - 3}`}
-                  size="small"
                   variant="outlined"
                 />
               )}
@@ -400,7 +395,6 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
             {lora.civitai?.baseModel && (
               <Chip
                 label={lora.civitai.baseModel}
-                size="small"
                 color={getBaseModelColor(lora.civitai.baseModel)}
                 variant="outlined"
                 sx={{ height: 20, fontSize: '0.7rem' }}
@@ -408,7 +402,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
               />
             )}
             {!hasCivitai && (
-              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} disableRipple />
+              <Chip label={lora.hash ? "미등록" : "메타데이터 없음"} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} disableRipple />
             )}
           </Box>
 
@@ -419,7 +413,6 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
                 <Chip
                   key={i}
                   label={word}
-                  size="small"
                   onClick={() => onCopyTriggerWord(word)}
                   title={word}
                   sx={{
@@ -436,7 +429,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
                 />
               ))}
               {trainedWords.length > 5 && (
-                <Chip label={`+${trainedWords.length - 5}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                <Chip label={`+${trainedWords.length - 5}`} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
               )}
             </Box>
           )}
@@ -670,7 +663,6 @@ function LoraList() {
               placeholder="LoRA 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              size="small"
               fullWidth
               sx={{ mb: 2 }}
               InputProps={{

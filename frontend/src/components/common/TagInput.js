@@ -92,7 +92,6 @@ function TagInput({
             {...getTagProps({ index })}
             key={option._id || index}
             label={option.name}
-            size="small"
             sx={{ 
               bgcolor: option.color || '#1976d2',
               color: 'white',
@@ -125,7 +124,6 @@ function TagInput({
       renderOption={(props, option) => (
         <Box component="li" {...props}>
           <Chip
-            size="small"
             label={option.name}
             sx={{ 
               bgcolor: option.color || '#1976d2',
