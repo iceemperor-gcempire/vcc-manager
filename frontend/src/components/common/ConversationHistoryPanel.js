@@ -109,19 +109,17 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
             <Card key={conv._id} variant="outlined">
               <CardContent sx={{ pb: 1 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
-                  <Chip label={conv.workboardId?.name || '(작업판 없음)'} size="small" color="primary" variant="outlined" />
-                  {conv.model && <Chip label={conv.model} size="small" variant="outlined" />}
-                  {conv.serverType && <Chip label={conv.serverType} size="small" variant="outlined" />}
+                  <Chip label={conv.workboardId?.name || '(작업판 없음)'} color="primary" variant="outlined" />
+                  {conv.model && <Chip label={conv.model} variant="outlined" />}
+                  {conv.serverType && <Chip label={conv.serverType} variant="outlined" />}
                   <Chip
                     label={conv.status}
-                    size="small"
                     color={conv.status === 'completed' ? 'success' : conv.status === 'failed' ? 'error' : 'default'}
                     variant="outlined"
                   />
                   {(conv.messages?.filter((m) => m.role !== 'system').length || 0) > 2 && (
                     <Chip
                       label={`${conv.messages.filter((m) => m.role !== 'system').length}턴`}
-                      size="small"
                       variant="outlined"
                     />
                   )}
@@ -171,7 +169,6 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                 }}
               >
                 <Button
-                  size="small"
                   onClick={() => setDetailItem(conv)}
                   startIcon={<InfoIcon />}
                   sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
@@ -180,7 +177,6 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                 </Button>
                 {conv.workboardId?._id && (
                   <Button
-                    size="small"
                     color="success"
                     variant="contained"
                     onClick={() =>
@@ -229,9 +225,9 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
           {detailItem && (
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Chip label={detailItem.workboardId?.name || '(작업판 없음)'} size="small" color="primary" variant="outlined" />
-                {detailItem.model && <Chip label={detailItem.model} size="small" variant="outlined" />}
-                {detailItem.serverType && <Chip label={detailItem.serverType} size="small" variant="outlined" />}
+                <Chip label={detailItem.workboardId?.name || '(작업판 없음)'} color="primary" variant="outlined" />
+                {detailItem.model && <Chip label={detailItem.model} variant="outlined" />}
+                {detailItem.serverType && <Chip label={detailItem.serverType} variant="outlined" />}
                 <Box sx={{ flexGrow: 1 }} />
                 <Typography variant="caption" color="text.secondary">
                   {new Date(detailItem.createdAt).toLocaleString('ko-KR')}
@@ -265,7 +261,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   )}
                 </Stack>
               )}
-              <Divider><Chip label="대화" size="small" icon={<ArticleIcon fontSize="small" />} /></Divider>
+              <Divider><Chip label="대화" icon={<ArticleIcon fontSize="small" />} /></Divider>
               {(detailItem.messages || []).map((msg, idx) => {
                 // workboardSystemPrompt / worldviewContext 가 별도 섹션으로 표시되면 system 메시지는 중복이라 숨김
                 if (msg.role === 'system' && (detailItem.workboardSystemPrompt || detailItem.worldviewContext)) {

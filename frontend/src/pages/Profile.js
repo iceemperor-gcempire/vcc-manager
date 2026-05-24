@@ -343,7 +343,6 @@ function SecuritySettings() {
                 secondary={`외부 프로그램에서 API에 접근할 때 사용합니다 (${activeKeyCount}/10)`}
               />
               <Button
-                size="small"
                 variant="outlined"
                 startIcon={<Add />}
                 onClick={() => setCreateKeyDialogOpen(true)}
@@ -375,7 +374,7 @@ function SecuritySettings() {
                           {apiKey.name}
                         </Typography>
                         {apiKey.isRevoked && (
-                          <Chip label="파기됨" size="small" color="error" variant="outlined" />
+                          <Chip label="파기됨" color="error" variant="outlined" />
                         )}
                       </Box>
                       <Typography variant="caption" color="textSecondary" component="div">

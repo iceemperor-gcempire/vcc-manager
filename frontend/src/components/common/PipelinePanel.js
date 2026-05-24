@@ -165,7 +165,7 @@ function PipelinePanel({ projectId }) {
               <CardContent sx={{ pb: 1 }}>
                 <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
                   <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
-                  <Chip label={`${p.steps?.length || 0}단계`} size="small" variant="outlined" />
+                  <Chip label={`${p.steps?.length || 0}단계`} variant="outlined" />
                   {/* #401: useWorldview chip 제거 — 단계별 문서 연결로 표현 */}
                 </Box>
                 {p.description && (
@@ -179,7 +179,6 @@ function PipelinePanel({ projectId }) {
                     <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
                       <Chip
                         label={idx + 1}
-                        size="small"
                         color={s.workboardId?.isActive === false ? 'warning' : 'primary'}
                         sx={{ height: 22, minWidth: 22, '& .MuiChip-label': { px: 1 } }}
                       />
@@ -218,7 +217,6 @@ function PipelinePanel({ projectId }) {
               </CardContent>
               <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
                 <Button
-                  size="small"
                   color="success"
                   variant="contained"
                   startIcon={<PlayArrowIcon />}
@@ -228,7 +226,6 @@ function PipelinePanel({ projectId }) {
                   실행
                 </Button>
                 <Button
-                  size="small"
                   startIcon={<EditIcon />}
                   onClick={() => { setEditingPipelineId(p._id); setView('builder'); }}
                 >
@@ -376,7 +373,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
       <Stack spacing={2}>
         <TextField
-          size="small"
           label="이름"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -384,7 +380,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           fullWidth
         />
         <TextField
-          size="small"
           label="설명 (선택)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -399,7 +394,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           <Box display="flex" alignItems="center" mb={1}>
             <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>단계 ({steps.length})</Typography>
             <Button
-              size="small"
               startIcon={<AddIcon />}
               variant="outlined"
               onClick={() => setPickerOpen(true)}
@@ -417,7 +411,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
               {steps.map((s, idx) => (
                 <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
                   <Box display="flex" alignItems="center" gap={1}>
-                    <Chip label={idx + 1} size="small" color="primary" />
+                    <Chip label={idx + 1} color="primary" />
                     <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                       <Typography variant="subtitle2" noWrap>
                         {s.workboard?.name || '(이름 불러오는 중)'}
@@ -429,7 +423,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                       )}
                       <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
                         {s.workboard?.outputFormat && (
-                          <Chip label={`out: ${s.workboard.outputFormat}`} size="small" variant="outlined" />
+                          <Chip label={`out: ${s.workboard.outputFormat}`} variant="outlined" />
                         )}
                       </Stack>
                     </Box>
@@ -450,19 +444,17 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                       />
                     )}
                     <Button
-                      size="small"
                       variant="outlined"
                       startIcon={<SettingsIcon />}
                       onClick={() => setInputsDialogStepIdx(idx)}
                     >
                       입력 설정
                       {Object.keys(s.inputs || {}).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length > 0 && (
-                        <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} size="small" sx={{ ml: 0.5, height: 18 }} />
+                        <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} sx={{ ml: 0.5, height: 18 }} />
                       )}
                     </Button>
                     {/* 단계별 문서 연결 (#401) — LLM 단계만 의미 있지만 UI 는 모든 단계에 노출 (간소화) */}
                     <Button
-                      size="small"
                       variant="outlined"
                       onClick={() => setDocsDialogStepIdx(idx)}
                     >
@@ -470,7 +462,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                       {((s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)) > 0 && (
                         <Chip
                           label={(s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)}
-                          size="small"
                           sx={{ ml: 0.5, height: 18 }}
                         />
                       )}
@@ -487,7 +478,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                   </Box>
                   {/* 단계별 메모 — 이 단계의 작업판 역할 / 사용자 가이드용 (#397 후속) */}
                   <TextField
-                    size="small"
                     fullWidth
                     placeholder="이 단계에 대한 설명 / 메모 (선택)"
                     value={s.note || ''}
@@ -554,8 +544,8 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                 >
                   <Typography variant="subtitle2">{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" />}
-                    {wb.serverId?.name && <Chip label={wb.serverId.name} size="small" variant="outlined" />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" />}
+                    {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" />}
                   </Stack>
                 </Box>
               ))}
@@ -597,7 +587,6 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
     if (field.type === 'string') {
       return (
         <TextField
-          size="small"
           fullWidth
           label={field.label}
           placeholder={field.placeholder}
@@ -612,7 +601,6 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
     if (field.type === 'number') {
       return (
         <TextField
-          size="small"
           fullWidth
           type="number"
           label={field.label}
@@ -634,7 +622,6 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
       // native select 사용 시 label 이 placeholder 와 겹쳐 보이는 문제 해결 위해 InputLabelProps.shrink 고정
       return (
         <TextField
-          size="small"
           fullWidth
           select
           label={field.label}
@@ -797,7 +784,6 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={selected ? '선택' : ''}
-                          size="small"
                           color={selected ? 'primary' : 'default'}
                           variant={selected ? 'filled' : 'outlined'}
                           sx={{ minWidth: 50 }}
@@ -827,7 +813,6 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
               system 메시지의 [작업 지침] 으로 사용됩니다. 작업판의 system_prompt customField 보다 우선합니다.
             </Typography>
             <TextField
-              size="small"
               fullWidth
               select
               SelectProps={{ native: true }}
@@ -949,7 +934,6 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
         </Alert>
 
         <TextField
-          size="small"
           label="초기 입력 프롬프트"
           value={initialPrompt}
           onChange={(e) => setInitialPrompt(e.target.value)}
@@ -1010,7 +994,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                       : runStep.status === 'failed' ? <ErrorIcon color="error" />
                       : runStep.status === 'running' ? <CircularProgress size={20} />
                       : runStep.status === 'skipped' ? <StopIcon color="disabled" />
-                      : <Chip label={idx + 1} size="small" />
+                      : <Chip label={idx + 1} />
                     }
                   >
                     <Typography variant="subtitle2">
@@ -1165,7 +1149,7 @@ export function PipelineHistoryPanel({ projectId }) {
                   : runStep.status === 'failed' ? <ErrorIcon color="error" />
                   : runStep.status === 'running' ? <CircularProgress size={20} />
                   : runStep.status === 'skipped' ? <StopIcon color="disabled" />
-                  : <Chip label={idx + 1} size="small" />
+                  : <Chip label={idx + 1} />
                 }
               >
                 <Typography variant="subtitle2">
@@ -1228,11 +1212,10 @@ export function PipelineHistoryPanel({ projectId }) {
                   </Typography>
                   <Chip
                     label={r.status === 'pending' ? '대기' : r.status === 'running' ? '진행 중' : r.status === 'completed' ? '완료' : r.status === 'failed' ? '실패' : r.status}
-                    size="small"
                     color={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : r.status === 'running' ? 'primary' : 'default'}
                   />
                   {r.triggerCount > 1 && (
-                    <Chip label={`재시도 ${r.triggerCount - 1}회`} size="small" variant="outlined" />
+                    <Chip label={`재시도 ${r.triggerCount - 1}회`} variant="outlined" />
                   )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
@@ -1256,7 +1239,6 @@ export function PipelineHistoryPanel({ projectId }) {
                     <Chip
                       key={idx}
                       label={idx + 1}
-                      size="small"
                       color={
                         s.status === 'completed' ? 'success'
                         : s.status === 'failed' ? 'error'
@@ -1271,7 +1253,7 @@ export function PipelineHistoryPanel({ projectId }) {
                 </Stack>
               </CardContent>
               <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Button size="small" onClick={() => setSelectedRunId(r._id)}>상세</Button>
+                <Button onClick={() => setSelectedRunId(r._id)}>상세</Button>
                 <IconButton
                   size="small"
                   color="error"

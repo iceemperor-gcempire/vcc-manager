@@ -119,7 +119,7 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
       <Dialog open={open} onClose={handleBrowseCancel} maxWidth="md" fullWidth>
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
-            <Button size="small" startIcon={<ArrowBack />} onClick={handleBrowseCancel}>
+            <Button startIcon={<ArrowBack />} onClick={handleBrowseCancel}>
               돌아가기
             </Button>
             <Typography variant="h6">커버 이미지 선택</Typography>
@@ -201,7 +201,6 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
               }}
             />
             <Button
-              size="small"
               color="error"
               startIcon={<Close />}
               onClick={handleImageRemove}
@@ -210,7 +209,6 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
               이미지 제거
             </Button>
             <Button
-              size="small"
               startIcon={<ImageIcon />}
               onClick={() => setBrowseMode(true)}
               sx={{ mt: 1, ml: 1 }}
@@ -231,7 +229,7 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
 
         <Box>
           <Typography variant="body2" color="textSecondary">
-            태그명: <Chip size="small" label={project?.tagId?.name} sx={{ bgcolor: project?.tagId?.color, color: 'white' }} />
+            태그명: <Chip label={project?.tagId?.name} sx={{ bgcolor: project?.tagId?.color, color: 'white' }} />
           </Typography>
           <Typography variant="caption" color="textSecondary">
             태그명은 변경할 수 없습니다.

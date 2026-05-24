@@ -400,7 +400,6 @@ function MyImages() {
             variant="outlined"
             startIcon={<CheckBoxIcon />}
             onClick={() => setBulkMode(true)}
-            size="small"
           >
             선택
           </Button>
@@ -415,18 +414,17 @@ function MyImages() {
             bgcolor: 'action.hover', borderRadius: 1, flexWrap: 'wrap'
           }}
         >
-          <Button size="small" variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setSelectedIds(new Set()); }}>
+          <Button variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setSelectedIds(new Set()); }}>
             선택 모드 종료
           </Button>
           <Chip label={`${selectedIds.size}개 선택됨`} color="primary" variant="outlined" />
-          <Button size="small" startIcon={<SelectAll />} onClick={handleSelectAllPage}>
+          <Button startIcon={<SelectAll />} onClick={handleSelectAllPage}>
             이 페이지 전체 선택
           </Button>
-          <Button size="small" startIcon={<Deselect />} onClick={handleDeselectAll} disabled={selectedIds.size === 0}>
+          <Button startIcon={<Deselect />} onClick={handleDeselectAll} disabled={selectedIds.size === 0}>
             선택 해제
           </Button>
           <Button
-            size="small"
             variant="contained"
             color="error"
             startIcon={<DeleteSweep />}
@@ -437,7 +435,6 @@ function MyImages() {
           </Button>
           {mediaState.search && mediaState.pagination?.total > 0 && (
             <Button
-              size="small"
               variant="outlined"
               color="error"
               onClick={() => openConfirmDialog('allFiltered')}

@@ -108,7 +108,6 @@ function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, labe
       renderInput={(params) => (
         <TextField
           {...params}
-          size="small"
           fullWidth
           label={label}
           helperText={!serverId ? '서버 선택 후 사용 가능' : (isLoading ? '모델 목록 로딩 중...' : `${items.length}개 중 선택`)}
@@ -212,19 +211,16 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
             label={getWorkboardChipLabel(workboard)}
-            size="small"
             sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
           />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
             color={workboard.isActive ? 'success' : 'default'}
-            size="small"
             variant="outlined"
           />
           <Chip
             label={`v${workboard.version || 1}`}
             color="info"
-            size="small"
             variant="outlined"
           />
         </Box>
@@ -323,19 +319,17 @@ function WhitelistField({ name, control, kind, serverId, outputFormat, placehold
                       {...getTagProps({ index })}
                       key={option}
                       label={option}
-                      size="small"
                       variant="outlined"
                     />
                   ))
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" placeholder={placeholder} />
+                  <TextField {...params} placeholder={placeholder} />
                 )}
               />
               {showPicker && (
                 <Button
                   variant="outlined"
-                  size="small"
                   startIcon={<PlaylistAdd />}
                   onClick={() => setPickerOpen(true)}
                   disabled={!serverId}
@@ -399,7 +393,6 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
                         {...getTagProps({ index })}
                         key={option}
                         label={g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option}
-                        size="small"
                         color="primary"
                         variant="outlined"
                       />
@@ -409,7 +402,6 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    size="small"
                     placeholder={groups.length === 0 ? '그룹 없음 — 관리 메뉴에서 먼저 그룹 생성' : '그룹 선택'}
                   />
                 )}
@@ -831,7 +823,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           imageConfig: { maxImages: 1 }
                         }]);
                       }}
-                      size="small"
                     >
                       필드 추가
                     </Button>
@@ -867,7 +858,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="필드명 (영문)"
                                   placeholder="예: customField1"
-                                  size="small"
                                   sx={{ fontFamily: 'monospace' }}
                                 />
                               )}
@@ -883,7 +873,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="표시명"
                                   placeholder="예: 커스텀 옵션"
-                                  size="small"
                                 />
                               )}
                             />
@@ -898,7 +887,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   select
                                   label="입력 타입"
-                                  size="small"
                                 >
                                   <MenuItem value="string">텍스트</MenuItem>
                                   <MenuItem value="number">숫자</MenuItem>
@@ -921,7 +909,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="Workflow 형식 문자열"
                                   placeholder={`예: {{##${field.name || 'field_name'}##}}`}
-                                  size="small"
                                   sx={{ fontFamily: 'monospace' }}
                                 />
                               )}
@@ -962,7 +949,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                       fullWidth
                                       select
                                       label="기본값 (선택)"
-                                      size="small"
                                       SelectProps={{ displayEmpty: true }}
                                     >
                                       <MenuItem value="">선택 없음</MenuItem>
@@ -994,7 +980,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     type={field.type === 'number' ? 'number' : 'text'}
                                     label="기본값"
                                     placeholder="비워두면 기본값 없음"
-                                    size="small"
                                   />
                                 );
                               }}
@@ -1011,7 +996,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="플레이스홀더"
                                   placeholder="입력창 안내 문구"
-                                  size="small"
                                   disabled={['boolean', 'image', 'baseModel', 'lora'].includes(field.type)}
                                 />
                               )}
@@ -1028,7 +1012,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="설명"
                                   placeholder="필드 아래에 표시될 설명"
-                                  size="small"
                                 />
                               )}
                             />
@@ -1056,7 +1039,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     fullWidth
                                     select
                                     label="최대 이미지 수"
-                                    size="small"
                                     value={imageField.value || 1}
                                   >
                                     <MenuItem value={1}>1개</MenuItem>
@@ -1082,7 +1064,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
                                     setValue(`additionalCustomFields.${index}.options`, [...currentOptions, { key: '', value: '' }]);
                                   }}
-                                  size="small"
                                 >
                                   옵션 추가
                                 </Button>
@@ -1106,7 +1087,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                                   <TextField
                                                     {...optionField}
                                                     label="표시명"
-                                                    size="small"
                                                     sx={{ flex: 1 }}
                                                   />
                                                 )}
@@ -1118,7 +1098,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                                   <TextField
                                                     {...optionField}
                                                     label="실제 값"
-                                                    size="small"
                                                     sx={{ flex: 1 }}
                                                   />
                                                 )}
@@ -1284,7 +1263,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                 {...getTagProps({ index })}
                                 key={option}
                                 label={option}
-                                size="small"
                                 color="primary"
                                 variant="outlined"
                               />
@@ -1293,7 +1271,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              size="small"
                               placeholder={availableBaseModels.length === 0 ? '서버 모델 sync 후 baseModel 자동 채움' : '예: SDXL, Illustrious, Pony'}
                             />
                           )}

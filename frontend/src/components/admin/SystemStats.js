@@ -297,7 +297,6 @@ function SystemStats() {
                           <Chip
                             label={job.status}
                             color={getStatusColor(job.status)}
-                            size="small"
                             variant="outlined"
                           />
                         </TableCell>

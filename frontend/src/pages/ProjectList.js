@@ -273,7 +273,6 @@ function ProjectList() {
 
                     <Box mb={1.5}>
                       <Chip
-                        size="small"
                         label={project.tagId?.name}
                         sx={{
                           bgcolor: project.tagId?.color || '#7c4dff',

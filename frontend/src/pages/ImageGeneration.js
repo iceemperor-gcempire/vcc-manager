@@ -85,7 +85,6 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
             setSearch(e.target.value);
             setPage(1);
           }}
-          size="small"
           sx={{ mb: 2 }}
         />
 
@@ -258,7 +257,6 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
           variant="outlined"
           onClick={() => setDialogOpen(true)}
           startIcon={<ImageIcon />}
-          size="small"
         >
           갤러리에서 선택
         </Button>
@@ -828,7 +826,6 @@ function ImageGeneration() {
               label={`프로젝트: ${projectContext.name}`}
               color="primary"
               variant="outlined"
-              size="small"
               sx={{ mb: 1 }}
             />
           )}
@@ -859,14 +856,12 @@ function ImageGeneration() {
               {/* 프롬프트 */}
               <Box display="flex" justifyContent="flex-end" gap={1} mb={1}>
                 <Button
-                  size="small"
                   startIcon={<FolderOpen />}
                   onClick={() => setPromptDataDialogOpen(true)}
                 >
                   프롬프트 불러오기
                 </Button>
                 <Button
-                  size="small"
                   color="secondary"
                   variant="outlined"
                   startIcon={<AutoAwesome />}
@@ -905,7 +900,6 @@ function ImageGeneration() {
                 <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
                   <Button
                     variant="outlined"
-                    size="small"
                     onClick={handleLoraModalOpen}
                     startIcon={<AutoFixHigh />}
                   >

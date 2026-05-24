@@ -51,7 +51,6 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
                 )}
                 <Button
                   variant="text"
-                  size="small"
                   startIcon={<SearchIcon />}
                   onClick={() => setPickerOpen(true)}
                   disabled={!serverId && !workboardId}

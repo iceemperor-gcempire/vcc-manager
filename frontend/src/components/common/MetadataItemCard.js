@@ -137,26 +137,25 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
 
         {/* 배지: kind + baseModel + capabilities + 메타데이터 상태 */}
         <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-          <Chip label={getKindLabel(item.kind)} size="small" variant="outlined" />
+          <Chip label={getKindLabel(item.kind)} variant="outlined" />
           {item.baseModel && (
             <Chip
               label={item.baseModel}
-              size="small"
               color={baseModelColorFn(item.baseModel)}
               variant="outlined"
             />
           )}
           {item.capabilities.slice(0, 3).map((c) => (
-            <Chip key={c} label={c} size="small" variant="outlined" />
+            <Chip key={c} label={c} variant="outlined" />
           ))}
           {!item.hasMetadata && !item.hash && (
             <Tooltip title={item.hashError || '메타데이터 없음 — sync 가 아직 안 됐거나 Civitai/provider 미등록'}>
-              <Chip icon={<InfoIcon />} label="메타데이터 없음" size="small" variant="outlined" />
+              <Chip icon={<InfoIcon />} label="메타데이터 없음" variant="outlined" />
             </Tooltip>
           )}
           {item.hash && !item.hasMetadata && (
             <Tooltip title="Civitai 미등록 (custom merge / private 모델)">
-              <Chip label="미등록" size="small" variant="outlined" />
+              <Chip label="미등록" variant="outlined" />
             </Tooltip>
           )}
         </Box>
@@ -179,7 +178,6 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
                 <Chip
                   key={i}
                   label={word}
-                  size="small"
                   onClick={onTrainedWordClick ? (e) => {
                     e.stopPropagation();
                     onTrainedWordClick(word, item);
@@ -190,7 +188,7 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
                 />
               ))}
               {item.trainedWords.length > 3 && (
-                <Chip label={`+${item.trainedWords.length - 3}`} size="small" variant="outlined" />
+                <Chip label={`+${item.trainedWords.length - 3}`} variant="outlined" />
               )}
             </Box>
           </Box>
@@ -228,7 +226,6 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
         </Stack>
         {onPrimary && !cardClickable && (
           <Button
-            size="small"
             startIcon={primaryVariant === 'select' ? null : <AddIcon />}
             onClick={(e) => {
               e.stopPropagation();

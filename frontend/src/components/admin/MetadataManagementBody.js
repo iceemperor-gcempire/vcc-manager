@@ -295,7 +295,6 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           placeholder={adapter.searchPlaceholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          size="small"
           sx={{ flexGrow: 1, minWidth: 0 }}
           InputProps={{
             startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>
@@ -341,7 +340,6 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           <span>
             <Button
               variant="contained"
-              size="small"
               startIcon={syncing ? <CircularProgress size={16} /> : <RefreshIcon />}
               onClick={handleSync}
               disabled={!selectedServerId || syncing}
@@ -352,7 +350,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
         </Tooltip>
         {syncStatus?.status === 'failed' && (
           <Tooltip title={`강제 리셋 — 오류: ${syncStatus.errorMessage || '알 수 없음'}`}>
-            <Button variant="outlined" color="warning" size="small" startIcon={<RestartAltIcon />} onClick={handleResetSync}>
+            <Button variant="outlined" color="warning" startIcon={<RestartAltIcon />} onClick={handleResetSync}>
               리셋
             </Button>
           </Tooltip>
@@ -362,7 +360,6 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
             <Button
               variant="outlined"
               color="error"
-              size="small"
               startIcon={<DeleteSweepIcon />}
               onClick={() => setClearCacheConfirmOpen(true)}
               disabled={!selectedServerId || syncing || clearingCache}
@@ -485,7 +482,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                       {item.hash ? '미등록' : '메타 없음'}
                     </Typography>
                   )}
-                  <Button size="small" onClick={() => setDetailItem(item)} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
+                  <Button onClick={() => setDetailItem(item)} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
                 </Box>
               ))}
             </Box>

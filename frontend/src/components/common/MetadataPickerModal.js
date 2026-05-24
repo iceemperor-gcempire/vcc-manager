@@ -322,7 +322,6 @@ function MetadataPickerModal({
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }}>
           <TextField
             placeholder="이름 / 파일명 / 트리거워드 검색"
-            size="small"
             fullWidth
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -374,7 +373,6 @@ function MetadataPickerModal({
           <Box sx={{ mb: 1.5 }}>
             <Chip
               label={`${selectedItems.length}개 선택됨`}
-              size="small"
               color={selectedItems.length > 0 ? 'primary' : 'default'}
               variant="outlined"
             />
@@ -427,7 +425,7 @@ function MetadataPickerModal({
               작업판 허용 타입:
             </Typography>
             {allowedModelTypes.map((t) => (
-              <Chip key={t} label={t} size="small" color="primary" variant="outlined" />
+              <Chip key={t} label={t} color="primary" variant="outlined" />
             ))}
           </Box>
         )}
@@ -576,9 +574,9 @@ function MetadataPickerModal({
                           {item.baseModel}
                         </Typography>
                       )}
-                      <Button size="small" onClick={(e) => { e.stopPropagation(); setDetailItem(item); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
+                      <Button onClick={(e) => { e.stopPropagation(); setDetailItem(item); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>상세</Button>
                       {!cardClickable && (
-                        <Button size="small" variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>
+                        <Button variant={mode === 'prompt-insert' ? 'contained' : 'text'} onClick={(e) => { e.stopPropagation(); handlePrimary(rawItem); }} sx={{ flexShrink: 0, minWidth: 'auto' }}>
                           {mode === 'prompt-insert' ? '추가' : mode === 'multi-add' ? (isSelected ? '제거' : '추가') : '선택'}
                         </Button>
                       )}

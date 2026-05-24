@@ -65,17 +65,16 @@ function MetadataDetailDialog({ open, onClose, item, nsfwImageFilter = true, bas
       <DialogContent dividers>
         {/* 배지 */}
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 2 }}>
-          <Chip label={getKindLabel(item.kind)} size="small" variant="outlined" />
+          <Chip label={getKindLabel(item.kind)} variant="outlined" />
           {item.baseModel && (
             <Chip
               label={item.baseModel}
-              size="small"
               color={baseModelColorFn(item.baseModel)}
               variant="outlined"
             />
           )}
           {item.capabilities?.map((c) => (
-            <Chip key={c} label={c} size="small" variant="outlined" />
+            <Chip key={c} label={c} variant="outlined" />
           ))}
         </Box>
 
@@ -130,7 +129,7 @@ function MetadataDetailDialog({ open, onClose, item, nsfwImageFilter = true, bas
             </Typography>
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
               {item.trainedWords.map((word, i) => (
-                <Chip key={i} label={word} size="small" />
+                <Chip key={i} label={word} />
               ))}
             </Box>
           </Box>
