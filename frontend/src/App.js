@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import CommandPalette from './components/common/CommandPalette';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -90,6 +91,7 @@ function App() {
 
 function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const queryClient = useQueryClient();
 
@@ -103,13 +105,26 @@ function MainLayout() {
     }
   }, [location.pathname, queryClient]);
 
+  // ⌘K / Ctrl+K 로 명령 팔레트 열기 (Phase 6)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const handleMobileToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header onMobileToggle={handleMobileToggle} />
+      <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <Box sx={{ display: 'flex', flex: 1 }}>
         <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
         <Box component="main" sx={{
