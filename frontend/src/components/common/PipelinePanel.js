@@ -719,8 +719,9 @@ function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc 
     () => textAPI.getUploaded({ tags: [projectTag?._id, systemPromptTag?._id].filter(Boolean).join(','), limit: 50 }),
     { enabled: !!projectTag && !!systemPromptTag, staleTime: 60_000 }
   );
-  const wvDocs = wvDocsData?.data?.data?.uploadedTexts || wvDocsData?.data?.uploadedTexts || [];
-  const spDocs = spDocsData?.data?.data?.uploadedTexts || spDocsData?.data?.uploadedTexts || [];
+  // 백엔드 texts 라우트는 { success, data: { items, pagination } } shape
+  const wvDocs = wvDocsData?.data?.data?.items || [];
+  const spDocs = spDocsData?.data?.data?.items || [];
 
   const ctxIds = new Set(selectedStep?.contextDocIds || []);
   const spId = selectedStep?.systemPromptDocId;
