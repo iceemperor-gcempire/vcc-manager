@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -14,8 +14,11 @@ import {
   Chip,
   Alert,
   FormControlLabel,
-  Checkbox
+  Checkbox,
+  useMediaQuery,
+  Stack,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   CloudUpload,
   Videocam,
@@ -28,10 +31,139 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { imageAPI, userAPI } from '../services/api';
+import { imageAPI, userAPI, textAPI, projectAPI, tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
+
+// 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
+// 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
+function FilterRail({ projects, tags, selectedTagIds, onToggle, onClear }) {
+  const hasSelection = selectedTagIds.size > 0;
+  return (
+    <Box sx={{ position: 'sticky', top: 12 }}>
+      <FilterGroup title="프로젝트">
+        <FilterRow label="모두" active={!hasSelection} onClick={onClear} />
+        {projects.map((p) => {
+          const tagId = p.tagId?._id || p.tagId;
+          const color = p.tagId?.color;
+          return (
+            <FilterRow
+              key={p._id}
+              label={p.name}
+              color={color}
+              active={selectedTagIds.has(tagId)}
+              onClick={() => onToggle(tagId)}
+            />
+          );
+        })}
+      </FilterGroup>
+      {tags.length > 0 && (
+        <FilterGroup title="태그">
+          {tags.map((t) => (
+            <FilterRow
+              key={t._id}
+              label={t.name}
+              color={t.color}
+              active={selectedTagIds.has(t._id)}
+              onClick={() => onToggle(t._id)}
+            />
+          ))}
+        </FilterGroup>
+      )}
+    </Box>
+  );
+}
+
+function FilterGroup({ title, children }) {
+  return (
+    <Box sx={{ borderBottom: 1, borderColor: 'divider', py: 2, '&:first-of-type': { pt: 0 }, '&:last-child': { borderBottom: 0 } }}>
+      <Typography
+        variant="caption"
+        sx={{
+          display: 'block',
+          mb: 1,
+          fontWeight: 600,
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+          color: 'text.secondary',
+          fontSize: 11,
+        }}
+      >
+        {title}
+      </Typography>
+      <Stack spacing={0.25}>{children}</Stack>
+    </Box>
+  );
+}
+
+function FilterRow({ label, color, active, onClick }) {
+  return (
+    <Box
+      onClick={onClick}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1,
+        px: 1,
+        py: 0.5,
+        borderRadius: 1,
+        cursor: 'pointer',
+        bgcolor: active ? 'action.selected' : 'transparent',
+        color: active ? 'primary.main' : 'text.primary',
+        fontSize: 13,
+        fontWeight: active ? 600 : 400,
+        '&:hover': active ? {} : { bgcolor: 'action.hover' },
+      }}
+    >
+      {color && (
+        <Box sx={{ width: 8, height: 8, borderRadius: 0.5, bgcolor: color, flexShrink: 0 }} />
+      )}
+      <Typography
+        variant="body2"
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+          fontWeight: 'inherit',
+          color: 'inherit',
+        }}
+        title={label}
+      >
+        {label}
+      </Typography>
+    </Box>
+  );
+}
+
+// 탭 라벨 + 우측 카운트 badge (5c 후속) — count null 이면 라벨만.
+function ContentTabLabel({ label, count }) {
+  if (count == null) return label;
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+      {label}
+      <Box
+        component="span"
+        sx={{
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          px: 0.75,
+          py: 0.125,
+          borderRadius: 1,
+          bgcolor: 'action.selected',
+          color: 'text.secondary',
+          lineHeight: 1.4,
+          minWidth: 18,
+          textAlign: 'center',
+        }}
+      >
+        {count}
+      </Box>
+    </Box>
+  );
+}
 
 function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = false }) {
   const [tags, setTags] = useState([]);
@@ -214,6 +346,9 @@ function MyImages() {
   const [editOpen, setEditOpen] = useState(false);
   const [editImage, setEditImage] = useState(null);
 
+  // 5c 후속 — 필터 레일 선택 태그 (프로젝트 tag + 일반 tag 통합). Set<tagId>.
+  const [selectedTagIds, setSelectedTagIds] = useState(() => new Set());
+
   // Bulk delete 상태
   const [bulkMode, setBulkMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -390,6 +525,46 @@ function MyImages() {
   };
 
   const isBulkDeleting = bulkDeleteMutation.isLoading || bulkDeleteByFilterMutation.isLoading;
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
+
+  // 5c 후속 — 필터 레일 source. 프로젝트 목록 + 사용자 태그.
+  const { data: projectsData } = useQuery(['filterRail', 'projects'], () => projectAPI.getAll({ limit: 200 }), { staleTime: 60_000 });
+  const { data: myTagsData }   = useQuery(['filterRail', 'tags'],     () => tagAPI.getMy(),                   { staleTime: 60_000 });
+  const filterProjects = (projectsData?.data?.data?.projects || projectsData?.data?.projects || []).filter((p) => !!p.tagId);
+  const filterTags = (myTagsData?.data?.data?.tags || myTagsData?.data?.tags || []).filter((t) => !t.isProjectTag);
+
+  const toggleTagFilter = (tagId) => {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(tagId)) next.delete(tagId);
+      else next.add(tagId);
+      return next;
+    });
+  };
+  const clearTagFilter = () => setSelectedTagIds(new Set());
+
+  // MediaGrid 로 넘기는 extraQuery — 선택 태그 CSV.
+  const extraQuery = useMemo(() => {
+    if (selectedTagIds.size === 0) return null;
+    return { tags: Array.from(selectedTagIds).join(',') };
+  }, [selectedTagIds]);
+
+  // 탭 count badge 용 — 각 탭 limit:1 query (Phase 5c 후속).
+  // staleTime 60s 로 페이지 진입 시 1회만 fetch. mediaState 와는 독립 — 사용자가 검색
+  // 입력하면 mediaState.pagination.total 로 그쪽이 보여줌.
+  const { data: genImagesCountData } = useQuery(['contentCount', 'generated'], () => imageAPI.getGenerated({ limit: 1, page: 1 }), { staleTime: 60_000 });
+  const { data: upImagesCountData }  = useQuery(['contentCount', 'uploaded'],  () => imageAPI.getUploaded({ limit: 1, page: 1 }),  { staleTime: 60_000 });
+  const { data: videosCountData }    = useQuery(['contentCount', 'video'],     () => imageAPI.getVideos({ limit: 1, page: 1 }),    { staleTime: 60_000 });
+  const { data: upTextsCountData }   = useQuery(['contentCount', 'textUp'],    () => textAPI.getUploaded({ limit: 1, page: 1 }),   { staleTime: 60_000 });
+  const { data: genTextsCountData }  = useQuery(['contentCount', 'textGen'],   () => textAPI.getGenerated({ limit: 1, page: 1 }),  { staleTime: 60_000 });
+  const counts = [
+    genImagesCountData?.data?.data?.pagination?.total,
+    upImagesCountData?.data?.data?.pagination?.total,
+    videosCountData?.data?.data?.pagination?.total,
+    upTextsCountData?.data?.data?.pagination?.total,
+    genTextsCountData?.data?.data?.pagination?.total,
+  ];
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
@@ -470,30 +645,55 @@ function MyImages() {
 
       <Box mb={3}>
         <Tabs value={tab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label="생성된 이미지" />
-          <Tab label="업로드된 이미지" />
-          <Tab icon={<Videocam />} label="생성된 동영상" iconPosition="start" />
-          <Tab label="직접 작성 텍스트" />
-          <Tab label="생성된 텍스트" />
+          <Tab label={<ContentTabLabel label="생성된 이미지" count={counts[0]} />} />
+          <Tab label={<ContentTabLabel label="업로드된 이미지" count={counts[1]} />} />
+          <Tab icon={<Videocam />} iconPosition="start" label={<ContentTabLabel label="생성된 동영상" count={counts[2]} />} />
+          <Tab label={<ContentTabLabel label="직접 작성 텍스트" count={counts[3]} />} />
+          <Tab label={<ContentTabLabel label="생성된 텍스트" count={counts[4]} />} />
         </Tabs>
       </Box>
 
-      {!isTextTab && (
-        <MediaGrid
-          key={currentType}
-          type={currentType}
-          queryKey={getQueryKeyForTab()}
-          pageSize={12}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          bulkMode={bulkMode}
-          bulkSelectedIds={selectedIds}
-          onBulkToggle={handleBulkToggle}
-          onStateChange={setMediaState}
-        />
-      )}
-      {tab === 3 && <TextContentPanel kind="uploaded" />}
-      {tab === 4 && <TextContentPanel kind="generated" />}
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '200px 1fr' }, gap: 4.5, alignItems: 'start' }}>
+        {/* 필터 레일 — 미디어 탭 (텍스트 탭 제외), 데스크탑만 */}
+        {!isTextTab && isDesktop && (
+          <FilterRail
+            projects={filterProjects}
+            tags={filterTags}
+            selectedTagIds={selectedTagIds}
+            onToggle={toggleTagFilter}
+            onClear={clearTagFilter}
+          />
+        )}
+        {/* 텍스트 탭 또는 모바일 — 필터 레일 미사용. column 자리 비움 */}
+        {(isTextTab || !isDesktop) && <Box />}
+
+        <Box sx={{ minWidth: 0 }}>
+          {selectedTagIds.size > 0 && !isTextTab && (
+            <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+              <Typography variant="caption" color="text.secondary">필터:</Typography>
+              <Chip label={`태그 ${selectedTagIds.size}개`} variant="outlined" />
+              <Button onClick={clearTagFilter}>모두 해제</Button>
+            </Box>
+          )}
+          {!isTextTab && (
+            <MediaGrid
+              key={currentType}
+              type={currentType}
+              queryKey={getQueryKeyForTab()}
+              pageSize={12}
+              onEdit={handleEdit}
+              onDelete={handleDelete}
+              bulkMode={bulkMode}
+              bulkSelectedIds={selectedIds}
+              onBulkToggle={handleBulkToggle}
+              onStateChange={setMediaState}
+              extraQuery={extraQuery}
+            />
+          )}
+          {tab === 3 && <TextContentPanel kind="uploaded" />}
+          {tab === 4 && <TextContentPanel kind="generated" />}
+        </Box>
+      </Box>
 
       {/* 업로드 FAB — 모바일에서만 (데스크탑은 상단 액션 버튼 사용) */}
       {tab === 1 && !bulkMode && (
