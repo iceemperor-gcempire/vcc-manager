@@ -706,6 +706,8 @@ function PreviewField({ field }) {
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
 function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
+  // 5e-3 — 입력 양식 탭의 선택 필드 (인스펙터 패턴)
+  const [selectedFieldIdx, setSelectedFieldIdx] = useState(-1);
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copiedVariable, setCopiedVariable] = useState('');
@@ -1059,15 +1061,39 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     <Draggable key={index} draggableId={`customField-${index}`} index={index}>
                       {(draggableProvided) => (
                         <Box ref={draggableProvided.innerRef} {...draggableProvided.draggableProps}>
-                          <Accordion sx={{ mb: 2 }}>
+                          {/* 5e-3 — Accordion controlled expansion + 선택 시 primary 테두리 */}
+                          <Accordion
+                            sx={{
+                              mb: 2,
+                              border: 1,
+                              borderColor: selectedFieldIdx === index ? 'primary.main' : 'transparent',
+                              transition: 'border-color 120ms',
+                            }}
+                            expanded={selectedFieldIdx === index}
+                            onChange={(_, expanded) => setSelectedFieldIdx(expanded ? index : -1)}
+                          >
                             <AccordionSummary expandIcon={<ExpandMore />}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                                 <Box {...draggableProvided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }} onClick={(e) => e.stopPropagation()}>
                                   <DragIndicator />
                                 </Box>
-                                <Typography>
+                                <Chip
+                                  label={field.type}
+                                  variant="outlined"
+                                  sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
+                                />
+                                <Typography sx={{ fontWeight: selectedFieldIdx === index ? 600 : 500 }}>
                                   {field.label || `커스텀 필드 ${index + 1}`}
                                 </Typography>
+                                {field.name && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+                                    {field.name}
+                                  </Typography>
+                                )}
+                                <Box sx={{ flex: 1 }} />
+                                {field.required && (
+                                  <Chip label="required" color="error" variant="outlined" />
+                                )}
                               </Box>
                             </AccordionSummary>
                       <AccordionDetails>
