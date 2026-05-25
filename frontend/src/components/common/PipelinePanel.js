@@ -385,7 +385,7 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
             isLast={idx === steps.length - 1}
             isMobile={isMobile}
             isSelected={selectedStepIdx === idx}
-            onSelect={() => onSelectStep && onSelectStep(idx)}
+            onSelect={() => onSelectStep && onSelectStep(selectedStepIdx === idx ? -1 : idx)}
             onOpenInputs={() => onOpenInputs(idx)}
             onOpenDocs={() => onOpenDocs(idx)}
             onMovePrev={() => moveStep(idx, -1)}
@@ -394,6 +394,11 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
             onChangeNote={(note) => {
               const next = [...steps];
               next[idx] = { ...steps[idx], note };
+              setSteps(next);
+            }}
+            onChangeInputs={(inputs) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], inputs };
               setSteps(next);
             }}
             onToggleAutoInject={(checked) => {
@@ -422,10 +427,12 @@ function StepLaneCard({
   onMoveNext,
   onDelete,
   onChangeNote,
+  onChangeInputs,
   onToggleAutoInject,
 }) {
   const inputsCount = Object.keys(step.inputs || {}).filter((k) => step.inputs[k] !== '' && step.inputs[k] != null).length;
   const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
+  const inputFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
   return (
     <Paper
       variant="outlined"
@@ -532,6 +539,44 @@ function StepLaneCard({
         />
       </Box>
 
+      {/* 인라인 expand 패널 (Phase 5d 후속 #430) — 카드 선택 시 표시 */}
+      {isSelected && (
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          sx={{ px: 2, py: 2, borderTop: '1px dashed', borderColor: 'divider', bgcolor: (t) => alpha(t.palette.primary.main, 0.03) }}
+        >
+          {inputFieldCount > 0 ? (
+            <>
+              <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                사전 입력
+              </Typography>
+              <StepInputsForm
+                workboard={step.workboard}
+                values={step.inputs || {}}
+                onChange={onChangeInputs}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
+                자동 주입 ON 인 경우 매칭 필드는 runtime 에 덮어쓰임됩니다.
+              </Typography>
+            </>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              이 단계는 사전 입력 필드가 없습니다.
+            </Typography>
+          )}
+          <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              컨텍스트 문서
+            </Typography>
+            <Chip label={`${step.contextDocIds?.length || 0}개`} variant="outlined" />
+            {step.systemPromptDocId && <Chip label="시스템 프롬프트 1" color="info" />}
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            {isMobile ? '하단 "문서" 버튼으로 편집' : '좌측 팔레트에서 문서 클릭으로 추가 / 제거'}
+          </Typography>
+        </Box>
+      )}
+
       <Box
         onClick={(e) => e.stopPropagation()}
         sx={{
@@ -546,25 +591,38 @@ function StepLaneCard({
           borderBottomRightRadius: 'inherit',
         }}
       >
-        <Button
-          fullWidth
-          variant="outlined"
-          startIcon={<SettingsIcon />}
-          onClick={onOpenInputs}
-          sx={{ justifyContent: 'flex-start', flex: 1 }}
-        >
-          입력 설정
-          {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
-        </Button>
-        <Button
-          fullWidth
-          variant="outlined"
-          onClick={onOpenDocs}
-          sx={{ justifyContent: 'flex-start', flex: 1 }}
-        >
-          문서
-          {docsCount > 0 && <Chip label={docsCount} sx={{ ml: 'auto', height: 18 }} />}
-        </Button>
+        {/* 입력 설정 button: 선택 안 됐을 때만 (선택 시 form 이 인라인 노출) */}
+        {!isSelected && (
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+            onClick={onOpenInputs}
+            sx={{ justifyContent: 'flex-start', flex: 1 }}
+          >
+            입력 설정
+            {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
+          </Button>
+        )}
+        {/* 문서 button: 모바일 (팔레트 미사용) 에서만 — 데스크탑은 팔레트로 통일 */}
+        {(isMobile || !isSelected) && (
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={onOpenDocs}
+            sx={{ justifyContent: 'flex-start', flex: 1 }}
+          >
+            문서
+            {docsCount > 0 && <Chip label={docsCount} sx={{ ml: 'auto', height: 18 }} />}
+          </Button>
+        )}
+        {isSelected && !isMobile && (
+          <Box sx={{ flex: 1, alignSelf: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              다른 카드 클릭으로 선택 해제
+            </Typography>
+          </Box>
+        )}
         <IconButton color="error" onClick={onDelete} title="단계 삭제">
           <DeleteIcon fontSize="small" />
         </IconButton>
@@ -1120,10 +1178,92 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   );
 }
 
-// 파이프라인 단계의 사전 입력 설정 다이얼로그 (#397 후속).
-// 작업판의 customField 들을 렌더링해 admin 이 미리 값을 채울 수 있게 함.
-// 자동 주입 대상 (prompt/userPrompt, image 입력) 도 여기서 미리 설정 가능하나,
-// 자동 주입이 ON 이면 runtime 에 덮어쓰임.
+// StepInputsForm — workboard customField 들을 form 으로 렌더 (Phase 5d 후속, 인라인 expand 용).
+// values 는 controlled — 부모가 onChange 마다 통째로 받음. 자동 주입 매칭 필드는
+// runtime 에 덮어쓰일 수 있다는 안내 alert 포함.
+function StepInputsForm({ workboard, values, onChange }) {
+  if (!workboard) return null;
+  const fields = (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');
+  const updateValue = (name, v) => onChange({ ...values, [name]: v });
+
+  const renderField = (field) => {
+    const value = values[field.name] ?? field.defaultValue ?? '';
+    if (field.type === 'string') {
+      return (
+        <TextField
+          fullWidth label={field.label} placeholder={field.placeholder}
+          value={value} onChange={(e) => updateValue(field.name, e.target.value)}
+          multiline={field.name.includes('prompt')} rows={field.name.includes('prompt') ? 2 : 1}
+          helperText={field.description}
+        />
+      );
+    }
+    if (field.type === 'number') {
+      return (
+        <TextField fullWidth type="number" label={field.label} value={value}
+          onChange={(e) => updateValue(field.name, e.target.value)} helperText={field.description}
+        />
+      );
+    }
+    if (field.type === 'boolean') {
+      return (
+        <FormControlLabel
+          control={<Switch checked={!!value} onChange={(e) => updateValue(field.name, e.target.checked)} />}
+          label={field.label}
+        />
+      );
+    }
+    if (field.type === 'select') {
+      return (
+        <TextField
+          fullWidth select label={field.label} value={value || ''}
+          onChange={(e) => updateValue(field.name, e.target.value)}
+          SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} helperText={field.description}
+        >
+          <option value="">— 선택 없음 —</option>
+          {(field.options || []).map((opt, i) => (
+            <option key={i} value={opt.value}>{opt.key || opt.value}</option>
+          ))}
+        </TextField>
+      );
+    }
+    if (field.type === 'baseModel' || field.type === 'lora') {
+      return (
+        <MetadataFieldInput
+          kind={field.type === 'baseModel' ? 'model' : 'lora'}
+          field={field}
+          value={value || ''}
+          onChange={(v) => updateValue(field.name, v)}
+          workboardId={workboard._id}
+          serverId={workboard?.serverId?._id || workboard?.serverId}
+        />
+      );
+    }
+    if (field.type === 'image') {
+      return (
+        <Alert severity="info">
+          이미지 필드 (`{field.name}`) — 자동 주입 또는 단계 실행 시 입력. 사전 설정 미지원.
+        </Alert>
+      );
+    }
+    return null;
+  };
+
+  if (fields.length === 0) {
+    return <Alert severity="info">설정 가능한 입력 필드가 없습니다.</Alert>;
+  }
+
+  return (
+    <Stack spacing={2}>
+      {fields.map((field) => (
+        <Box key={field.name}>{renderField(field)}</Box>
+      ))}
+    </Stack>
+  );
+}
+
+// 파이프라인 단계의 사전 입력 설정 다이얼로그 (#397 후속). 인라인 expand 도입 후
+// 거의 사용 안 됨 — 호환성 위해 유지. StepInputsForm 을 내부에 사용.
 function StepInputsDialog({ open, step, onClose, onSave }) {
   const wb = step?.workboard;
   const [values, setValues] = useState({});
@@ -1136,11 +1276,12 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
 
   if (!wb) return null;
 
-  // conversation_mode 같은 admin-only customField 는 사전 입력에서 숨김
+  // conversation_mode 같은 admin-only customField 는 사전 입력에서 숨김 (old fallback path)
   const fields = (wb.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');
 
   const updateValue = (name, v) => setValues({ ...values, [name]: v });
 
+  // 호환성 fallback 용 — 사용자가 dialog 통해 들어왔을 때만 호출됨
   const renderField = (field) => {
     const value = values[field.name] ?? field.defaultValue ?? '';
 
