@@ -27,7 +27,8 @@ import {
   AccordionDetails,
   FormControlLabel,
   Switch,
-  Autocomplete
+  Autocomplete,
+  Stack,
 } from '@mui/material';
 import {
   Add,
@@ -497,6 +498,148 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
   );
 }
 
+// 라이브 프리뷰 (Phase 5e 1차) — admin 이 추가한 customField 들이 사용자에게
+// 어떻게 보일지 실시간 미리보기. 입력 양식 탭 우측에 sticky 패널.
+function CustomFieldsPreview({ fields }) {
+  const safeFields = (fields || []).filter((f) => f && f.name);
+  return (
+    <Box
+      sx={{
+        position: 'sticky',
+        top: 12,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        bgcolor: 'background.paper',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 'calc(100vh - 220px)',
+      }}
+    >
+      <Box sx={{ px: 2, py: 1.25, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Visibility fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+          라이브 프리뷰
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        <Chip label="사용자 시점" variant="outlined" />
+      </Box>
+      <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
+        {safeFields.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">
+            customField 가 없습니다. 왼쪽에서 "필드 추가" 로 정의하면 여기에 실시간 표시됩니다.
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            {safeFields.map((f, i) => <PreviewField key={f.name || i} field={f} />)}
+          </Stack>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function PreviewField({ field }) {
+  const label = (
+    <Typography variant="caption" sx={{ display: 'block', fontWeight: 500, mb: 0.5 }}>
+      {field.label || field.name}
+      {field.required && <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>*</Box>}
+    </Typography>
+  );
+
+  if (field.type === 'string') {
+    const multi = field.name?.includes('prompt');
+    return (
+      <Box>
+        {label}
+        <TextField
+          fullWidth disabled placeholder={field.placeholder}
+          multiline={multi} rows={multi ? 2 : 1}
+          defaultValue={field.defaultValue || ''}
+        />
+        {field.description && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+            {field.description}
+          </Typography>
+        )}
+      </Box>
+    );
+  }
+  if (field.type === 'number') {
+    return (
+      <Box>
+        {label}
+        <TextField fullWidth disabled type="number" defaultValue={field.defaultValue || ''} />
+      </Box>
+    );
+  }
+  if (field.type === 'boolean') {
+    return (
+      <FormControlLabel
+        disabled
+        control={<Switch defaultChecked={!!field.defaultValue} />}
+        label={field.label || field.name}
+      />
+    );
+  }
+  if (field.type === 'select') {
+    return (
+      <Box>
+        {label}
+        <TextField
+          fullWidth disabled select SelectProps={{ native: true }}
+          defaultValue={field.defaultValue || ''}
+          InputLabelProps={{ shrink: true }}
+        >
+          <option value="">— 선택 없음 —</option>
+          {(field.options || []).map((opt, i) => (
+            <option key={i} value={opt.value}>{opt.key || opt.value}</option>
+          ))}
+        </TextField>
+      </Box>
+    );
+  }
+  if (field.type === 'baseModel') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: 'linear-gradient(135deg, #7B4DD8, #5B5BD6)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
+            M
+          </Box>
+          <Typography variant="caption" sx={{ flex: 1 }}>모델 선택…</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  if (field.type === 'lora') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: 'action.hover', minHeight: 40, display: 'flex', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">LoRA 슬롯 — 사용자가 추가</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  if (field.type === 'image') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 2.5, textAlign: 'center', bgcolor: 'action.hover' }}>
+          <Typography variant="caption" color="text.secondary">이미지를 드래그하거나 클릭해서 선택</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      {label}
+      <Typography variant="caption" color="text.secondary">(타입 {field.type} preview 미지원)</Typography>
+    </Box>
+  );
+}
+
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
 function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
@@ -804,7 +947,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
           {/* 입력 양식 탭 */}
           {tabValue === 1 && (
-            <Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 320px' }, gap: 3, alignItems: 'start' }}>
+              <Box sx={{ minWidth: 0 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="body2" color="textSecondary">
                   작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
@@ -1151,6 +1295,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       )}
                     </Droppable>
                   </DragDropContext>
+              </Box>
+              {/* 우측 라이브 프리뷰 (Phase 5e 1차) — 데스크탑만 */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <CustomFieldsPreview fields={watch('additionalCustomFields')} />
+              </Box>
             </Box>
           )}
 
