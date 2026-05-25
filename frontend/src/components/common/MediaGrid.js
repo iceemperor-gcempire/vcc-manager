@@ -352,7 +352,8 @@ function MediaGrid({
   bulkMode = false,
   bulkSelectedIds = new Set(),
   onBulkToggle,
-  onStateChange
+  onStateChange,
+  extraQuery = null,  // 추가 query params (e.g. tags 필터) — Phase 5c 후속
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -369,9 +370,12 @@ function MediaGrid({
   const actualFetchFn = fetchFn || defaultFetchFn;
   const actualQueryKey = queryKey || `media-${type}`;
 
+  // extraQuery 변화 시 자동으로 새 쿼리 — queryKey 에 직렬화 포함
+  const extraQueryKey = extraQuery ? JSON.stringify(extraQuery) : '';
+  useEffect(() => { setPage(1); }, [extraQueryKey]);
   const { data, isLoading } = useQuery(
-    [actualQueryKey, search, page, pageSize],
-    () => actualFetchFn({ search: search || undefined, page, limit: pageSize }),
+    [actualQueryKey, search, page, pageSize, extraQueryKey],
+    () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }),
     { keepPreviousData: true }
   );
 
