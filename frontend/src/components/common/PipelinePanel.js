@@ -354,7 +354,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
 // 파이프라인 빌더의 lane 레이아웃 (Phase 5d).
 // 데스크탑: 가로 스크롤 lane (카드 320px 고정 너비) + 카드 사이 화살표 connector.
 // 모바일: 세로 스택 (full-width) + 카드 사이 아래 방향 화살표.
-function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd }) {
+function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd, selectedStepIdx = -1, onSelectStep }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   return (
@@ -384,6 +384,8 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
             index={idx}
             isLast={idx === steps.length - 1}
             isMobile={isMobile}
+            isSelected={selectedStepIdx === idx}
+            onSelect={() => onSelectStep && onSelectStep(idx)}
             onOpenInputs={() => onOpenInputs(idx)}
             onOpenDocs={() => onOpenDocs(idx)}
             onMovePrev={() => moveStep(idx, -1)}
@@ -412,6 +414,8 @@ function StepLaneCard({
   index,
   isLast,
   isMobile,
+  isSelected,
+  onSelect,
   onOpenInputs,
   onOpenDocs,
   onMovePrev,
@@ -425,12 +429,18 @@ function StepLaneCard({
   return (
     <Paper
       variant="outlined"
+      onClick={onSelect}
       sx={{
         width: isMobile ? '100%' : 320,
         flex: isMobile ? '0 0 auto' : '0 0 320px',
         display: 'flex',
         flexDirection: 'column',
         borderRadius: 2,
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        borderWidth: isSelected ? 2 : 1,
+        bgcolor: isSelected ? (t) => alpha(t.palette.primary.main, 0.04) : 'background.paper',
+        cursor: onSelect ? 'pointer' : 'default',
+        transition: 'border-color 120ms, background-color 120ms',
       }}
     >
       <Box
@@ -469,14 +479,14 @@ function StepLaneCard({
         )}
         <Box sx={{ flex: 1 }} />
         <IconButton
-          onClick={onMovePrev}
+          onClick={(e) => { e.stopPropagation(); onMovePrev(); }}
           disabled={index === 0}
           title={isMobile ? '위로 이동' : '앞으로 이동'}
         >
           {isMobile ? <ArrowUpward fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
         </IconButton>
         <IconButton
-          onClick={onMoveNext}
+          onClick={(e) => { e.stopPropagation(); onMoveNext(); }}
           disabled={isLast}
           title={isMobile ? '아래로 이동' : '뒤로 이동'}
         >
@@ -497,6 +507,7 @@ function StepLaneCard({
         {index > 0 && (
           <FormControlLabel
             sx={{ mt: 1, ml: 0 }}
+            onClick={(e) => e.stopPropagation()}
             control={
               <Switch
                 size="small"
@@ -513,6 +524,7 @@ function StepLaneCard({
           placeholder="이 단계에 대한 메모 (선택)"
           value={step.note || ''}
           onChange={(e) => onChangeNote(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
           multiline
           maxRows={3}
           inputProps={{ maxLength: 500 }}
@@ -521,6 +533,7 @@ function StepLaneCard({
       </Box>
 
       <Box
+        onClick={(e) => e.stopPropagation()}
         sx={{
           display: 'flex',
           gap: 1,
@@ -623,6 +636,206 @@ function AddStepCard({ isMobile, onAdd }) {
   );
 }
 
+// 컨텍스트 문서 팔레트 (Phase 5d 후속) — 좌측 사이드, 데스크탑만.
+// 프로젝트의 worldview / system prompt 태그 docs 를 보여주고, 클릭으로
+// 현재 선택된 단계에 add/toggle. drag-drop 라이브러리 없이 click-to-add 패턴.
+function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc }) {
+  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const { data: projectData } = useQuery(
+    ['project', projectId],
+    () => projectAPI.getById(projectId),
+    { enabled: !!projectId, staleTime: 60_000 }
+  );
+  const worldviewTag = wvTagData?.data?.tag;
+  const systemPromptTag = spTagData?.data?.tag;
+  const projectTag = projectData?.data?.data?.project?.tagId;
+
+  const { data: wvDocsData } = useQuery(
+    ['paletteWvDocs', projectId, worldviewTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTag?._id, worldviewTag?._id].filter(Boolean).join(','), limit: 50 }),
+    { enabled: !!projectTag && !!worldviewTag, staleTime: 60_000 }
+  );
+  const { data: spDocsData } = useQuery(
+    ['paletteSpDocs', projectId, systemPromptTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTag?._id, systemPromptTag?._id].filter(Boolean).join(','), limit: 50 }),
+    { enabled: !!projectTag && !!systemPromptTag, staleTime: 60_000 }
+  );
+  const wvDocs = wvDocsData?.data?.data?.uploadedTexts || wvDocsData?.data?.uploadedTexts || [];
+  const spDocs = spDocsData?.data?.data?.uploadedTexts || spDocsData?.data?.uploadedTexts || [];
+
+  const ctxIds = new Set(selectedStep?.contextDocIds || []);
+  const spId = selectedStep?.systemPromptDocId;
+  const helpText = selectedStepIdx < 0
+    ? '단계 카드를 클릭해 선택한 뒤 문서를 추가하세요.'
+    : '클릭하면 선택 단계에 추가/해제.';
+
+  return (
+    <Box sx={{ position: 'sticky', top: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Paper variant="outlined">
+        <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+            세계관 문서 ({wvDocs.length})
+          </Typography>
+        </Box>
+        {wvDocs.length === 0 ? (
+          <Box sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              세계관 탭에서 문서를 추가하면 여기에 표시됩니다.
+            </Typography>
+          </Box>
+        ) : (
+          <PaletteDocList docs={wvDocs} selectedIds={ctxIds} disabled={selectedStepIdx < 0} onClickDoc={(id) => onAddDoc(selectedStepIdx, id, false)} />
+        )}
+      </Paper>
+
+      <Paper variant="outlined">
+        <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+            시스템 프롬프트 ({spDocs.length})
+          </Typography>
+        </Box>
+        {spDocs.length === 0 ? (
+          <Box sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              세계관 탭에서 \"시스템 프롬프트\" 타입 문서를 추가하면 표시됩니다.
+            </Typography>
+          </Box>
+        ) : (
+          <PaletteDocList
+            docs={spDocs}
+            selectedIds={spId ? new Set([spId]) : new Set()}
+            disabled={selectedStepIdx < 0}
+            onClickDoc={(id) => onAddDoc(selectedStepIdx, id, true)}
+            singleSelect
+          />
+        )}
+      </Paper>
+
+      <Typography variant="caption" color="text.secondary" sx={{ px: 0.5, lineHeight: 1.5 }}>
+        {helpText}
+      </Typography>
+    </Box>
+  );
+}
+
+function PaletteDocList({ docs, selectedIds, disabled, onClickDoc, singleSelect }) {
+  return (
+    <Box sx={{ maxHeight: 280, overflow: 'auto' }}>
+      {docs.map((d) => {
+        const active = selectedIds.has(d._id);
+        return (
+          <Box
+            key={d._id}
+            onClick={() => !disabled && onClickDoc(d._id)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
+              bgcolor: active ? (t) => alpha(t.palette.primary.main, 0.08) : 'transparent',
+              '&:hover': disabled ? {} : { bgcolor: 'action.hover' },
+              '&:last-child': { borderBottom: 0 },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: active ? 600 : 500 }}>
+                {d.title || '(제목 없음)'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, display: 'block' }}>
+                {(d.content || '').length.toLocaleString()}자
+              </Typography>
+            </Box>
+            {active && (
+              <Box component="span" sx={{ fontSize: 10, color: 'primary.main', fontWeight: 700, flexShrink: 0 }}>
+                {singleSelect ? '✓' : '추가됨'}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+// 파이프라인 진단 strip (Phase 5d 후속) — lane 하단에 배치.
+// 단계 수 + 자동 주입 / 비활성 작업판 / 메모 누락 등 사용자 인지가 도움되는 상태를 한 줄로.
+// 실제 type 호환 체크는 workboard 가 inputFormat 명시 안 해서 보류 — 현재는 autoInject 토글 / 비활성 / 메모 누락만 점검.
+function PipelineDiagnosticStrip({ steps }) {
+  const total = steps.length;
+  const inactiveCount = steps.filter((s) => s.workboard?.isActive === false).length;
+  const autoOffCount = steps.slice(1).filter((s) => s.autoInject === false).length;
+  const flow = steps
+    .map((s) => s.workboard?.outputFormat || '?')
+    .filter(Boolean);
+  const summaryPath = flow.length > 0 ? flow.join(' → ') : '';
+
+  let severity = 'info';
+  let icon = <CheckCircleIcon fontSize="small" />;
+  let parts = [];
+
+  if (inactiveCount > 0) {
+    severity = 'warning';
+    icon = <ErrorIcon fontSize="small" />;
+    parts.push(<><strong>{inactiveCount}</strong>개 단계가 비활성 작업판</>);
+  } else if (autoOffCount > 0) {
+    severity = 'info';
+    parts.push(<><strong>{autoOffCount}</strong>개 단계는 자동 주입 꺼짐 — 사전 입력 / 메모 확인 필요</>);
+  } else {
+    parts.push(<><strong>{total}개 단계</strong> · 모두 자동 주입 활성</>);
+  }
+
+  const palette = severity === 'warning' ? 'warning' : 'info';
+
+  return (
+    <Box
+      sx={{
+        mt: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1.25,
+        borderRadius: 1,
+        border: 1,
+        borderColor: (t) => alpha(t.palette[palette].main, 0.4),
+        bgcolor: (t) => alpha(t.palette[palette].main, 0.06),
+        color: `${palette}.dark`,
+        fontSize: 13,
+        flexWrap: 'wrap',
+      }}
+    >
+      <Box sx={{ color: `${palette}.main`, display: 'flex', alignItems: 'center' }}>{icon}</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {parts.map((p, i) => (
+          <Typography key={i} component="span" variant="body2" sx={{ color: 'inherit' }}>
+            {i > 0 && ' · '}
+            {p}
+          </Typography>
+        ))}
+      </Box>
+      {summaryPath && (
+        <Typography
+          variant="caption"
+          sx={{
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 11,
+            color: 'text.secondary',
+            flexShrink: 0,
+          }}
+        >
+          {summaryPath}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
 // 파이프라인 빌더 — 단계 목록 편집 (#397)
 function PipelineBuilder({ projectId, pipelineId, onClose }) {
   const isNew = !pipelineId;
@@ -648,6 +861,10 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [inputsDialogStepIdx, setInputsDialogStepIdx] = useState(-1);
   const [docsDialogStepIdx, setDocsDialogStepIdx] = useState(-1);
+  // 5d 후속 — 컨텍스트 문서 팔레트의 클릭 타겟
+  const [selectedStepIdx, setSelectedStepIdx] = useState(-1);
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   // 로드 시 폼 초기화
   React.useEffect(() => {
@@ -717,6 +934,32 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
   const removeStep = (idx) => {
     setSteps(steps.filter((_, i) => i !== idx));
+    if (selectedStepIdx === idx) setSelectedStepIdx(-1);
+    else if (selectedStepIdx > idx) setSelectedStepIdx(selectedStepIdx - 1);
+  };
+
+  // 5d 후속 — 팔레트에서 클릭한 문서를 현재 선택 단계에 추가
+  const addDocToStep = (stepIdx, docId, isSystemPrompt) => {
+    if (stepIdx < 0 || stepIdx >= steps.length) {
+      toast.error('먼저 단계를 선택하세요.');
+      return;
+    }
+    const next = [...steps];
+    const s = { ...next[stepIdx] };
+    if (isSystemPrompt) {
+      if (s.systemPromptDocId === docId) {
+        s.systemPromptDocId = null;
+      } else {
+        s.systemPromptDocId = docId;
+      }
+    } else {
+      const ids = new Set(s.contextDocIds || []);
+      if (ids.has(docId)) ids.delete(docId);
+      else ids.add(docId);
+      s.contextDocIds = Array.from(ids);
+    }
+    next[stepIdx] = s;
+    setSteps(next);
   };
 
   const addStep = (wb) => {
@@ -787,15 +1030,30 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
               먼저 프로젝트의 "작업판" 탭에서 사용할 작업판들을 추가해 두어야 합니다.
             </Alert>
           ) : (
-            <PipelineLane
-              steps={steps}
-              setSteps={setSteps}
-              moveStep={moveStep}
-              removeStep={removeStep}
-              onOpenInputs={setInputsDialogStepIdx}
-              onOpenDocs={setDocsDialogStepIdx}
-              onAdd={() => setPickerOpen(true)}
-            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '240px 1fr' }, gap: 3, alignItems: 'start' }}>
+              {isDesktop ? (
+                <ContextDocPalette
+                  projectId={projectId}
+                  selectedStepIdx={selectedStepIdx}
+                  selectedStep={selectedStepIdx >= 0 ? steps[selectedStepIdx] : null}
+                  onAddDoc={addDocToStep}
+                />
+              ) : <Box />}
+              <Box sx={{ minWidth: 0 }}>
+                <PipelineLane
+                  steps={steps}
+                  setSteps={setSteps}
+                  moveStep={moveStep}
+                  removeStep={removeStep}
+                  onOpenInputs={setInputsDialogStepIdx}
+                  onOpenDocs={setDocsDialogStepIdx}
+                  onAdd={() => setPickerOpen(true)}
+                  selectedStepIdx={selectedStepIdx}
+                  onSelectStep={setSelectedStepIdx}
+                />
+                <PipelineDiagnosticStrip steps={steps} />
+              </Box>
+            </Box>
           )}
         </Box>
       </Stack>
