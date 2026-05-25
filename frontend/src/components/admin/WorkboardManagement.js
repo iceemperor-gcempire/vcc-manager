@@ -498,6 +498,69 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
   );
 }
 
+// 필드 타입 팔레트 (Phase 5e 2차) — 입력 양식 탭 좌측. 클릭으로 해당 타입의
+// 신규 customField 를 form 에 추가.
+const FIELD_TYPE_PALETTE = [
+  { type: 'string',    label: '텍스트',      hint: '한 줄 또는 다중 라인 입력' },
+  { type: 'number',    label: '숫자',        hint: '정수/실수' },
+  { type: 'select',    label: '선택',        hint: '선택지 중 하나' },
+  { type: 'boolean',   label: '체크박스',    hint: 'on/off 토글' },
+  { type: 'image',     label: '이미지',      hint: '드래그 드롭 업로드' },
+  { type: 'baseModel', label: '베이스 모델', hint: '서버 모델 선택' },
+  { type: 'lora',      label: 'LoRA',        hint: 'LoRA 슬롯' },
+];
+
+function FieldTypePalette({ onAdd }) {
+  return (
+    <Box
+      sx={{
+        position: 'sticky',
+        top: 12,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        bgcolor: 'background.paper',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 'calc(100vh - 220px)',
+      }}
+    >
+      <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+          필드 타입
+        </Typography>
+      </Box>
+      <Box sx={{ p: 1, overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {FIELD_TYPE_PALETTE.map((ft) => (
+          <Box
+            key={ft.type}
+            onClick={() => onAdd(ft.type)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              p: 1.25,
+              borderRadius: 1,
+              cursor: 'pointer',
+              border: 1,
+              borderColor: 'transparent',
+              '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{ft.label}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {ft.hint}
+              </Typography>
+            </Box>
+            <Add sx={{ fontSize: 16, color: 'text.tertiary' }} />
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
 // 라이브 프리뷰 (Phase 5e 1차) — admin 이 추가한 customField 들이 사용자에게
 // 어떻게 보일지 실시간 미리보기. 입력 양식 탭 우측에 sticky 패널.
 function CustomFieldsPreview({ fields }) {
@@ -897,7 +960,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
       <DialogTitle>
         작업판 상세 편집 - {workboard?.name}
       </DialogTitle>
@@ -947,7 +1010,22 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
           {/* 입력 양식 탭 */}
           {tabValue === 1 && (
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 320px' }, gap: 3, alignItems: 'start' }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '180px 1fr 320px' }, gap: 3, alignItems: 'start' }}>
+              {/* 좌측 필드 타입 팔레트 (Phase 5e 2차) — 데스크탑만 */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <FieldTypePalette onAdd={(type) => {
+                  const current = watch('additionalCustomFields') || [];
+                  setValue('additionalCustomFields', [...current, {
+                    name: '',
+                    label: '',
+                    type,
+                    required: false,
+                    formatString: '',
+                    options: [],
+                    imageConfig: { maxImages: 1 },
+                  }]);
+                }} />
+              </Box>
               <Box sx={{ minWidth: 0 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="body2" color="textSecondary">
@@ -955,6 +1033,8 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                 </Typography>
                 <Button
                   startIcon={<Add />}
+                  // 모바일에서는 팔레트가 hide 되므로 기존 string default add 버튼 유지
+                  sx={{ display: { xs: 'inline-flex', md: 'none' } }}
                   onClick={() => {
                         const current = watch('additionalCustomFields') || [];
                         setValue('additionalCustomFields', [...current, {
