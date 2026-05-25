@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>VCC Manager — Design System & Mockups</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<link rel="stylesheet" href="tokens.css"/>
+<link rel="stylesheet" href="app.css"/>
+<style>
+  /* Make the design canvas backdrop match our system */
+  html, body { background: #F0EEE9; }
+</style>
+
+<!-- React / Babel -->
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="shell.jsx"></script>
+<script type="text/babel" src="page-project-detail.jsx"></script>
+<script type="text/babel" src="page-pipeline-builder.jsx"></script>
+<script type="text/babel" src="page-pipeline-builder-graph.jsx"></script>
+<script type="text/babel" src="page-pipeline-run.jsx"></script>
+<script type="text/babel" src="page-content-library.jsx"></script>
+<script type="text/babel" src="page-dashboard.jsx"></script>
+<script type="text/babel" src="page-workboard-run.jsx"></script>
+<script type="text/babel" src="page-workboard-editor.jsx"></script>
+<script type="text/babel" src="page-admin-servers.jsx"></script>
+<script type="text/babel" src="page-admin-users.jsx"></script>
+<script type="text/babel" src="command-palette.jsx"></script>
+<script type="text/babel" src="notifications.jsx"></script>
+<script type="text/babel" src="page-auth.jsx"></script>
+<script type="text/babel" src="canvas-sections.jsx"></script>
+<script type="text/babel" src="extras.jsx"></script>
+
+<script type="text/babel">
+const {
+  DesignCanvas, DCSection, DCArtboard, DCPostIt,
+  TokensSwatchesCard, TypeCard, SpaceRadiusShadowCard, ComponentsCard, PrincipleCard,
+  StateMatrixCard, KoreanStressCard, PatternsCard, MuiThemeCard, BeforeAfterCard,
+  ProjectDetailPage, PipelineBuilderPage, PipelineBuilderListPage, PipelineBuilderGraphPage, PipelineRunPage,
+  ContentLibraryPage,
+  DashboardPage, WorkboardRunPage, WorkboardEditorPage, AdminServersPage, AdminUsersPage,
+  CommandPalette, NotificationsPopover, AuthLoginPage, AuthSignupPage,
+} = window;
+
+// Static inline demos for canvas artboards. The "real" CommandPalette/Notifications
+// use position:fixed so don't render inside an artboard — these mirror the design
+// statically.
+function CommandPaletteDemo() {
+  const groups = [
+    { label: "프로젝트", items: [
+      { name: "Mages",       hint: "124 이미지 · 4 파이프라인", active: true },
+      { name: "Cryo",        hint: "88 이미지 · 2 파이프라인" },
+    ]},
+    { label: "작업판", items: [
+      { name: "SDXL T2I — LoRA",    hint: "comfy-01 · 412회 사용" },
+      { name: "GPT Image — 1024",   hint: "openai · 187회" },
+    ]},
+    { label: "명령", items: [
+      { name: "새 프로젝트 만들기", hint: "" },
+      { name: "다크 모드 토글",    hint: "" },
+    ]},
+  ];
+  return (
+    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.4)", display: "grid", placeItems: "center", padding: 40 }}>
+      <div style={{ width: 600, background: "var(--bg-surface)", border: "1px solid var(--border-default)", borderRadius: 12, boxShadow: "var(--shadow-4)", overflow: "hidden", fontFamily: "var(--font-sans)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <Icon.Search style={{ color: "var(--text-tertiary)" }}/>
+          <span style={{ flex: 1, fontSize: 16, color: "var(--text-tertiary)" }}>프로젝트 · 작업판 · 명령 검색…</span>
+          <span className="kbd">ESC</span>
+        </div>
+        <div style={{ padding: 6 }}>
+          {groups.map((g) => (
+            <div key={g.label}>
+              <div style={{ padding: "8px 12px 4px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)" }}>{g.label}</div>
+              {g.items.map((it) => (
+                <div key={it.name} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px", borderRadius: 6,
+                  background: it.active ? "var(--accent-3)" : "transparent",
+                  color: it.active ? "var(--accent-11)" : "var(--text-primary)",
+                }}>
+                  <div style={{ width: 22, height: 22, borderRadius: 4, background: it.active ? "var(--accent-9)" : "var(--bg-subtle)", color: it.active ? "white" : "var(--text-secondary)", display: "grid", placeItems: "center" }}>
+                    {g.label === "프로젝트" ? <Icon.Folder size={14}/> : g.label === "작업판" ? <Icon.Cube size={14}/> : <Icon.Plus size={14}/>}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500 }}>{it.name}</div>
+                    {it.hint && <div style={{ fontSize: 11, color: it.active ? "var(--accent-11)" : "var(--text-tertiary)", opacity: 0.85, marginTop: 1 }}>{it.hint}</div>}
+                  </div>
+                  {it.active && <Icon.ArrowRight size={14}/>}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 14px", borderTop: "1px solid var(--border-subtle)", background: "var(--bg-tint)", fontSize: 11, color: "var(--text-tertiary)" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span className="kbd">↑</span><span className="kbd">↓</span> 이동</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><span className="kbd">↵</span> 선택</span>
+          <span style={{ flex: 1 }}/>
+          <span style={{ fontFamily: "var(--font-mono)" }}>6개 결과</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NotificationsDemo() {
+  const sample = [
+    { tone: "success", time: "방금", title: "파이프라인 'NPC 생성' 완료", body: "Mages · 4장 생성 · 2분 35초", action: "결과 보기" },
+    { tone: "warning", time: "5분 전", title: "local-llama 서버 응답 지연", body: "5건 큐 누적 · GPU 100%", action: "서버 확인" },
+    { tone: "info",    time: "12분 전", title: "파이프라인 '배경 시리즈 v3' 시작", body: "Cryo · 4단계 · 백그라운드 실행" },
+  ];
+  return (
+    <div style={{
+      width: 380, margin: "auto",
+      background: "var(--bg-surface)",
+      border: "1px solid var(--border-default)",
+      borderRadius: 10,
+      boxShadow: "var(--shadow-3)",
+      overflow: "hidden",
+      fontFamily: "var(--font-sans)",
+    }}>
+      <div style={{ padding: "12px 14px", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon.Bell/>
+        <span style={{ fontSize: 14, fontWeight: 600 }}>알림</span>
+        <span className="chip chip--accent chip--tag">3 new</span>
+        <span style={{ flex: 1 }}/>
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>모두 읽음</span>
+      </div>
+      <div style={{ padding: "8px 14px 4px", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.08em", color: "var(--text-tertiary)" }}>새 알림</div>
+      {sample.map((n, i) => (
+        <div key={i} style={{ padding: "12px 14px", borderBottom: "1px solid var(--border-subtle)", display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, background: `var(--${n.tone}-3)`, color: `var(--${n.tone}-11)`, display: "grid", placeItems: "center", flex: "0 0 auto" }}>
+            {n.tone === "success" ? <Icon.Check/> : n.tone === "warning" ? <Icon.Info/> : <Icon.Spinner/>}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <span style={{ fontSize: 12.5, fontWeight: 600, flex: 1, textWrap: "pretty" }}>{n.title}</span>
+              <span style={{ fontSize: 10.5, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", flex: "0 0 auto" }}>{n.time}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text-secondary)", marginTop: 2, lineHeight: 1.55 }}>{n.body}</div>
+            {n.action && <a href="#" style={{ display: "inline-block", marginTop: 6, fontSize: 11.5, color: "var(--accent-11)", textDecoration: "none", fontWeight: 500 }}>{n.action} →</a>}
+          </div>
+        </div>
+      ))}
+      <div style={{ padding: "8px 14px", background: "var(--bg-tint)", fontSize: 12, textAlign: "center" }}>
+        <span style={{ color: "var(--accent-11)", fontWeight: 500 }}>모든 알림 보기 →</span>
+      </div>
+    </div>
+  );
+}
+
+// Page artboard wrapper — fixed pixel size scrollless surface
+function PageArtboard({ children, mobile }) {
+  return (
+    <div style={{
+      width: "100%", height: "100%",
+      background: "var(--bg-canvas)",
+      fontFamily: "var(--font-sans)",
+      color: "var(--text-primary)",
+      overflow: "hidden",
+    }}>
+      {children}
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <DesignCanvas>
+      <DCSection id="intro" title="VCC Manager — Design System v1" subtitle="Pretendard · Iris accent · slate sidebar · Linear/Notion productivity tone">
+
+        <DCArtboard id="hero" label="00 · 시스템 한 장 요약" width={1100} height={520}>
+          <div style={{
+            background: "white", height: "100%", padding: 48,
+            display: "flex", flexDirection: "column", justifyContent: "space-between",
+            fontFamily: "var(--font-sans)", border: "1px solid #E2E2DC", borderRadius: 8,
+          }}>
+            <div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "#8A8F9A", textTransform: "uppercase", letterSpacing: "0.1em" }}>
+                VCC MANAGER · DESIGN SYSTEM v1
+              </div>
+              <h1 style={{ fontSize: 56, lineHeight: "62px", fontWeight: 700, letterSpacing: "-0.02em", margin: "10px 0 16px", maxWidth: 920 }}>
+                명확한 internal tool — <span style={{ color: "#5B5BD6" }}>화려함보다 정보 위계</span>.
+              </h1>
+              <p style={{ fontSize: 18, lineHeight: 1.55, color: "#5B616E", maxWidth: 760, margin: 0 }}>
+                ComfyUI / OpenAI / Gemini 위에 이미지·텍스트·영상 생성 워크플로우를 관리. 단일 Iris 액센트,
+                정돈된 회색 슬레이트 사이드바, Pretendard 한글 가독성, 그리고 정보 밀도와 여백의 균형을
+                전제로 정리한 토큰 + 컴포넌트 + 핵심 3개 페이지 mockup.
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: 28, alignItems: "flex-end" }}>
+              <div style={{ flex: 1, display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 18 }}>
+                <PrincipleCard
+                  title="단일 액센트"
+                  body="Iris 인디고 1개로 액션·강조·진행 모두 표현. 컬러 혼란 제거."
+                />
+                <PrincipleCard
+                  title="2-축 반응형"
+                  body="모바일(xs) / 데스크탑(md) 2단계로 단순화. sm/lg/xl 미사용 정식화."
+                />
+                <PrincipleCard
+                  title="정돈된 어두운 사이드바"
+                  body="현재 hex hardcode 6종을 nav/* 토큰 패밀리로 통합."
+                />
+                <PrincipleCard
+                  title="타입 흐름 가시화"
+                  body="파이프라인은 단계 간 입력/출력 타입을 시각적으로 연결."
+                />
+              </div>
+            </div>
+          </div>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          Phase 1 산출물:{"\n"}토큰 + 컴포넌트 + 3 페이지{"\n"}× (desktop / mobile){"\n"}{"\n"}Linear / Notion 톤,{"\n"}한국 internal tool 가독성.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ TOKENS ============ */}
+      <DCSection id="tokens" title="01 · Tokens" subtitle="MUI ThemeOptions 으로 그대로 옮길 수 있는 형식. Iris accent, warm-neutral surfaces.">
+        <DCArtboard id="t-color" label="컬러 팔레트" width={1100} height={760}>
+          <TokensSwatchesCard/>
+        </DCArtboard>
+        <DCArtboard id="t-type" label="타이포그래피" width={1100} height={580}>
+          <TypeCard/>
+        </DCArtboard>
+        <DCArtboard id="t-space" label="간격 · 둥글기 · 그림자" width={1100} height={520}>
+          <SpaceRadiusShadowCard/>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          왜 Iris?{"\n"}MUI blue(#1976d2)는{"\n"}태그 #2196f3과 거의 동일.{"\n"}구분이 안 됨.{"\n"}{"\n"}Iris(#5B5BD6)는{"\n"}태그-system blue와 명확히{"\n"}구별되면서 AI 도구 톤과 부합.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ COMPONENTS ============ */}
+      <DCSection id="components" title="02 · Components" subtitle="defaultProps 기본값: Button small, Chip small+outlined.">
+        <DCArtboard id="c-base" label="기본 컴포넌트" width={1100} height={620}>
+          <ComponentsCard/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ PAGE MOCKUPS — DESKTOP ============ */}
+      <DCSection id="pages-desktop" title="03 · Pages — Desktop (1440 wide)" subtitle="실제 동작하는 React mockup. 탭 클릭, 단계 토글, mode 전환 가능.">
+        <DCArtboard id="p1-d" label="A · 프로젝트 상세 — 파이프라인 탭" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages"]}>
+              <ProjectDetailPage defaultTab="pipelines"/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p1-d-h" label="A2 · 프로젝트 상세 — 히스토리 탭" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages"]}>
+              <ProjectDetailPage defaultTab="history"/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p2-d" label="B · 파이프라인 빌더 (novel)" width={1440} height={1100}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages", "NPC 생성"]}>
+              <PipelineBuilderPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p3-d-run" label="C · 파이프라인 실행 (running)" width={1440} height={1100}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["Mages", "히스토리", "NPC 생성"]}>
+              <PipelineRunPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p4-d" label="D · 내 컨텐츠 (라이브러리)" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="content" crumbs={["내 컨텐츠"]}>
+              <ContentLibraryPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p2-d-list" label="B-alt · 파이프라인 빌더 — 수직 list variant" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages", "NPC 생성"]}>
+              <PipelineBuilderListPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p2-d-graph" label="B-alt2 · 파이프라인 빌더 — graph node editor (most novel)" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages", "NPC 생성"]}>
+              <PipelineBuilderGraphPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          파이프라인 빌더는{"\n"}horizontal flow lane.{"\n"}{"\n"}- 단계 카드 inline 펼침{"\n"}- 사이 'rail'이 타입{"\n"}  자동 주입 가능 여부 표시{"\n"}- 문서 드래그-드롭{"\n"}{"\n"}모달 0개 — 모든 편집{"\n"}한 화면에서.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ PAGE MOCKUPS — MOBILE ============ */}
+      <DCSection id="pages-mobile" title="04 · Pages — Mobile (390 wide · iPhone 15)" subtitle="xs 브레이크포인트. 사이드바 → 햄버거 + 하단 탭바.">
+        <DCArtboard id="p1-m" label="A · 프로젝트 상세" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["Mages"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Search /></button>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Bell /></button>
+                </TopBar>
+                <div className="vcc-body">
+                  <ProjectDetailPage mobile defaultTab="pipelines"/>
+                </div>
+                <MobileTabbar active="projects"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="p2-m" label="B · 파이프라인 빌더" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["NPC 생성"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Check /></button>
+                </TopBar>
+                <div className="vcc-body">
+                  <PipelineBuilderPage mobile/>
+                </div>
+                <MobileTabbar active="projects"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="p3-m" label="C · 파이프라인 실행" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["NPC 생성"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Refresh /></button>
+                </TopBar>
+                <div className="vcc-body">
+                  <PipelineRunPage mobile/>
+                </div>
+                <MobileTabbar active="history"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p4-m" label="D · 내 컨텐츠" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["내 컨텐츠"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Search /></button>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Plus /></button>
+                </TopBar>
+                <div className="vcc-body">
+                  <ContentLibraryPage mobile/>
+                </div>
+                <MobileTabbar active="content"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ STATE MATRICES ============ */}
+      <DCSection id="states" title="05 · State Matrices" subtitle="default · hover · active/focus · disabled · loading — 모든 variant에 일관 적용. 한국어 라벨 스트레스 테스트 포함.">
+        <DCArtboard id="s-matrix" label="버튼 · 칩 · 입력 상태" width={1100} height={780}>
+          <StateMatrixCard/>
+        </DCArtboard>
+        <DCArtboard id="s-kor" label="한국어 긴 라벨 — wrap / ellipsis / scroll" width={1100} height={620}>
+          <KoreanStressCard/>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          왜 중요?{"\n"}{"\n"}현재 코드:{"\n"}- Button 호버 일관성 X{"\n"}- loading 상태 패턴 부재{"\n"}- 한국어 wrap 처리 임의{"\n"}{"\n"}5상태 × 5 variant{"\n"}매트릭스로 명문화.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ INFORMATION STATES ============ */}
+      <DCSection id="patterns" title="06 · Information States" subtitle="Empty / Loading / Error / Toast — 모든 데이터 비어 있을 때, 로딩 중일 때, 실패했을 때의 일관 패턴.">
+        <DCArtboard id="patterns" label="Empty · Loading · Error · Toast" width={1100} height={560}>
+          <PatternsCard/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ MUI THEME EXPORT ============ */}
+      <DCSection id="theme-export" title="07 · MUI Theme Export" subtitle="theme.ts 파일로 다운로드 → frontend/src/theme.ts에 그대로 저장 → createTheme(vccTheme) 호출.">
+        <DCArtboard id="mui-theme" label="theme.ts — MUI ThemeOptions" width={1100} height={620}>
+          <MuiThemeCard/>
+        </DCArtboard>
+        <DCArtboard id="ba" label="Before / After — 시스템 적용 효과" width={1100} height={420}>
+          <BeforeAfterCard/>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          적용 순서:{"\n"}1. theme.ts 교체{"\n"}2. Sidebar.js → {"\n"}   theme.palette.navbar 참조{"\n"}3. 흩어진 hex 삭제{"\n"}4. size='small' prop{"\n"}   매번 명시 제거{"\n"}{"\n"}점진 적용 가능.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ DARK MODE ============ */}
+      <DCSection id="dark" title="09 · Dark Mode" subtitle="동일 토큰 시스템 · data-theme=&quot;dark&quot; 한 줄. Pretendard·간격·radius는 그대로, 모든 컬러 토큰만 재매핑.">
+        <DCArtboard id="d-tokens" label="컬러 — 다크 팔레트" width={1100} height={620}>
+          <div data-theme="dark" style={{
+            width: "100%", height: "100%",
+            background: "#0E1015", padding: 24,
+            display: "flex", flexDirection: "column", gap: 22,
+            border: "1px solid #2A2F3B", borderRadius: 8,
+            fontFamily: "var(--font-sans)",
+          }}>
+            {[
+              { label: "Surface", items: [
+                { name: "bg/canvas",  value: "#0E1015" },
+                { name: "bg/surface", value: "#161A22" },
+                { name: "bg/subtle",  value: "#1C2029" },
+                { name: "bg/sunken",  value: "#0A0C10" },
+                { name: "bg/tint",    value: "#1A1E27" },
+                { name: "border",     value: "#2A2F3B" },
+                { name: "border/strong", value: "#383E4D" },
+              ]},
+              { label: "Sidebar (한 단계 더 깊음)", items: [
+                { name: "nav/bg",       value: "#0A0C10" },
+                { name: "nav/hover",    value: "#1A1E27" },
+                { name: "nav/active",   value: "#222732" },
+                { name: "nav/border",   value: "#1B1F28" },
+              ]},
+              { label: "Accent (dark에서 살짝 밝게)", items: [
+                { name: "accent/9",  value: "#7676E0" },
+                { name: "accent/10", value: "#8888E8" },
+                { name: "accent/11", value: "#B4B6FF" },
+                { name: "accent/12", value: "#DEDFFF" },
+              ]},
+              { label: "Status (lift)", items: [
+                { name: "success/9", value: "#2EBA6B" },
+                { name: "warning/9", value: "#D69021" },
+                { name: "danger/9",  value: "#E84B52" },
+                { name: "info/9",    value: "#4E8EE8" },
+              ]},
+              { label: "Text", items: [
+                { name: "text/primary",   value: "#E8E9EE" },
+                { name: "text/secondary", value: "#A0A4AF" },
+                { name: "text/tertiary",  value: "#717684" },
+                { name: "text/disabled",  value: "#4A4E58" },
+              ]},
+            ].map((row, ri) => (
+              <div key={ri}>
+                <div style={{ fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "#A0A4AF", marginBottom: 8 }}>{row.label}</div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {row.items.map((it) => (
+                    <div key={it.name} style={{ display: "flex", flexDirection: "column", gap: 4, width: 110 }}>
+                      <div style={{ height: 50, background: it.value, borderRadius: 6, border: "1px solid rgba(255,255,255,0.08)" }}/>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: "#E8E9EE" }}>{it.name}</div>
+                      <div style={{ fontSize: 10, fontFamily: "var(--font-mono)", color: "#717684" }}>{it.value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="d-detail" label="A · 프로젝트 상세 · dark" width={1440} height={900}>
+          <div data-theme="dark" style={{ width: "100%", height: "100%", background: "#0E1015" }}>
+            <PageArtboard>
+              <Shell active="projects" crumbs={["프로젝트", "Mages"]}>
+                <ProjectDetailPage defaultTab="pipelines"/>
+              </Shell>
+            </PageArtboard>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="d-builder" label="B · 파이프라인 빌더 · dark" width={1440} height={1100}>
+          <div data-theme="dark" style={{ width: "100%", height: "100%", background: "#0E1015" }}>
+            <PageArtboard>
+              <Shell active="projects" crumbs={["Mages", "NPC 생성"]}>
+                <PipelineBuilderPage/>
+              </Shell>
+            </PageArtboard>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="d-run" label="C · 파이프라인 실행 · dark" width={1440} height={1100}>
+          <div data-theme="dark" style={{ width: "100%", height: "100%", background: "#0E1015" }}>
+            <PageArtboard>
+              <Shell active="projects" crumbs={["Mages", "히스토리", "NPC 생성"]}>
+                <PipelineRunPage/>
+              </Shell>
+            </PageArtboard>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="d-content" label="D · 내 컨텐츠 · dark" width={1440} height={1000}>
+          <div data-theme="dark" style={{ width: "100%", height: "100%", background: "#0E1015" }}>
+            <PageArtboard>
+              <Shell active="content" crumbs={["내 컨텐츠"]}>
+                <ContentLibraryPage/>
+              </Shell>
+            </PageArtboard>
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="d-mobile" label="모바일 · dark" width={390} height={844}>
+          <div data-theme="dark" style={{ width: "100%", height: "100%", background: "#0E1015" }}>
+            <PageArtboard mobile>
+              <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+                <main className="vcc-main">
+                  <TopBar mobile crumbs={["Mages"]}>
+                    <button className="btn btn--ghost btn--icon btn--sm"><Icon.Bell /></button>
+                  </TopBar>
+                  <div className="vcc-body">
+                    <ProjectDetailPage mobile defaultTab="pipelines"/>
+                  </div>
+                  <MobileTabbar active="projects"/>
+                </main>
+              </div>
+            </PageArtboard>
+          </div>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          dark 모드 설계 원칙:{"\n"}{"\n"}- 사이드바를 본문보다{"\n"}  한 단계 더 깊게{"\n"}  (#0A0C10 vs #161A22){"\n"}{"\n"}- Iris를 살짝 밝게{"\n"}  (#5B5BD6 → #7676E0){"\n"}{"\n"}- 상태색 lift +5~8%{"\n"}{"\n"}- thumbnail placeholder는{"\n"}  L: 94% → 22%로 자동 dim
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ DASHBOARD + WORKBOARD + ADMIN ============ */}
+      <DCSection id="more-pages" title="10 · More Pages — 이번 라운드" subtitle="대시보드(랜딩) · 단발 작업판 실행(여정 B) · 작업판 정의 customField 디자이너(novel admin) · 서버 관리(admin).">
+        <DCArtboard id="dashboard-d" label="E · 대시보드 — 랜딩" width={1440} height={1100}>
+          <PageArtboard>
+            <Shell active="dashboard" crumbs={["대시보드"]}>
+              <DashboardPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="wb-run-d" label="F · 작업판 실행 — 단발 (여정 B)" width={1440} height={1100}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["작업판", "SDXL T2I — LoRA"]}>
+              <WorkboardRunPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="wb-edit-d" label="G · 작업판 정의 — customField 디자이너 (admin, novel)" width={1600} height={1100}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "작업판 관리", "SDXL T2I"]}>
+              <WorkboardEditorPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="admin-srv-d" label="H · 서버 관리 (admin)" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "서버 관리"]}>
+              <AdminServersPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="admin-users-d" label="I · 사용자 / 그룹 관리 (admin)" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "사용자 / 그룹"]}>
+              <AdminUsersPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        {/* Mobile variants */}
+        <DCArtboard id="dashboard-m" label="E · 대시보드 · 모바일" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["대시보드"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Bell /></button>
+                </TopBar>
+                <div className="vcc-body"><DashboardPage mobile/></div>
+                <MobileTabbar active="dashboard"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="wb-run-m" label="F · 작업판 실행 · 모바일" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["SDXL T2I"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Play /></button>
+                </TopBar>
+                <div className="vcc-body"><WorkboardRunPage mobile/></div>
+                <MobileTabbar active="workboards"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          작업판 정의(G)의 novelty:{"\n"}{"\n"}- 3 pane: 팔레트 →{"\n"}  필드 list → 라이브{"\n"}  프리뷰{"\n"}{"\n"}- 필드 선택 시{"\n"}  프리뷰에서{"\n"}  해당 필드 하이라이트{"\n"}{"\n"}- 모달 없이{"\n"}  인라인 편집
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ GLOBAL UX + AUTH ============ */}
+      <DCSection id="global-ux" title="11 · Global UX — 명령 팔레트 · 알림 · 인증" subtitle="모든 페이지에 적용되는 소테이션 + Tweaks에서 ⌘K로 키워드 시연.">
+        <DCArtboard id="cmd" label="⌘K 명령 팔레트 — 프로젝트/작업판/단축어 상호작용" width={720} height={560}>
+          <CommandPaletteDemo/>
+        </DCArtboard>
+        <DCArtboard id="notif" label="알림 팝오버 (벨 아이콘 기준)" width={480} height={620}>
+          <NotificationsDemo/>
+        </DCArtboard>
+        <DCArtboard id="login" label="로그인 화면" width={1280} height={780}>
+          <PageArtboard><AuthLoginPage/></PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="signup" label="가입 요청" width={1280} height={780}>
+          <PageArtboard><AuthSignupPage/></PageArtboard>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          ⌘K의 설계 원칙:{"\n"}{"\n"}- 결과 그룹: 프로젝트 →{"\n"}  작업판 → 파이프라인{"\n"}  → 문서 → 명령{"\n"}{"\n"}- 단축키: ↑/↓ 이동{"\n"}  ↵ 선택 · ⎋ 닫기{"\n"}{"\n"}- Linear/Raycast 패턴
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ MIGRATION GUIDE LINK ============ */}
+      <DCSection id="migration" title="12 · Migration Guide — 실제 코드 적용" subtitle="현재 코드베이스 → 새 디자인 8단계 PR 분해. 독립 PR · 머지 순서 권장 · 즉시 롬백 가능.">
+        <DCArtboard id="mig" label="마이그레이션 가이드 열기" width={1100} height={360}>
+          <div style={{
+            width: "100%", height: "100%",
+            background: "linear-gradient(135deg, #1F1F60 0%, #4040AD 50%, #5B5BD6 100%)",
+            color: "white",
+            display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+            padding: 40, borderRadius: 8, gap: 18, fontFamily: "var(--font-sans)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.18) 1px, transparent 1px)", backgroundSize: "24px 24px", opacity: 0.4 }}/>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.8, position: "relative" }}>
+              MIGRATION GUIDE · v1
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.015em", textAlign: "center", maxWidth: 720, lineHeight: 1.2, position: "relative" }}>
+              현재 코드에 새 디자인 적용 — 8단계 PR 분해
+            </div>
+            <div style={{ fontSize: 14, opacity: 0.85, position: "relative", textAlign: "center", maxWidth: 580 }}>
+              Phase 0–7 · 각 단계 독립 PR · 즉시 롬백 가능 · 최소 파괴적 변경 0
+            </div>
+            <a href="VCC Manager Migration Guide.html" target="_blank" rel="noopener" style={{
+              padding: "12px 24px", borderRadius: 8,
+              background: "white", color: "#4040AD",
+              textDecoration: "none", fontWeight: 600, fontSize: 15,
+              display: "inline-flex", alignItems: "center", gap: 8,
+              boxShadow: "0 8px 20px rgba(0,0,0,0.2)", position: "relative",
+            }}>
+              가이드 열기 <Icon.ArrowRight />
+            </a>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ PROTOTYPE LINK ============ */}
+      <DCSection id="prototype" title="13 · Clickable Prototype" subtitle="새 창에서 풀스크린으로 실제 네비게이션 — 9개 페이지 + 전역 ⌘K/알림/인증 + Tweaks.">
+        <DCArtboard id="proto" label="프로토타입 열기" width={1100} height={300}>
+          <div style={{
+            width: "100%", height: "100%",
+            background: "linear-gradient(135deg, #5B5BD6 0%, #7B4DD8 50%, #2F77E4 100%)",
+            color: "white",
+            display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center",
+            padding: 40, borderRadius: 8, gap: 20, fontFamily: "var(--font-sans)",
+            position: "relative", overflow: "hidden",
+          }}>
+            <div style={{
+              position: "absolute", inset: 0,
+              background: "radial-gradient(circle at 1px 1px, rgba(255,255,255,0.18) 1px, transparent 1px)",
+              backgroundSize: "24px 24px", opacity: 0.4,
+            }}/>
+            <div style={{ fontFamily: "var(--font-mono)", fontSize: 12, textTransform: "uppercase", letterSpacing: "0.12em", opacity: 0.8, position: "relative" }}>
+              CLICKABLE PROTOTYPE
+            </div>
+            <div style={{ fontSize: 32, fontWeight: 700, letterSpacing: "-0.015em", textAlign: "center", maxWidth: 700, lineHeight: 1.2, position: "relative" }}>
+              사이드바, 탭, 파이프라인 빌더, 실행 화면 — 실제로 클릭해 보기
+            </div>
+            <a href="Prototype.html" target="_blank" rel="noopener" style={{
+              padding: "12px 24px", borderRadius: 8,
+              background: "white", color: "#4040AD",
+              textDecoration: "none", fontWeight: 600, fontSize: 15,
+              display: "inline-flex", alignItems: "center", gap: 8,
+              boxShadow: "0 8px 20px rgba(0,0,0,0.2)", position: "relative",
+            }}>
+              풀스크린 프로토타입 열기 <Icon.ArrowRight />
+            </a>
+          </div>
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

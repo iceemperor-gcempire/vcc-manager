@@ -146,7 +146,6 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
     <Box>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ mb: 2 }} alignItems={{ sm: 'center' }}>
         <TextField
-          size="small"
           placeholder={isUploaded ? '제목 / 본문 검색...' : '본문 검색...'}
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
@@ -155,7 +154,6 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
         {isUploaded && (
           <Button
             variant="outlined"
-            size="small"
             startIcon={<UploadFileIcon />}
             onClick={() => setUploadOpen(true)}
             sx={{ alignSelf: { xs: 'flex-start', sm: 'auto' } }}
@@ -190,12 +188,11 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                     <Chip
                       key={t._id || t}
                       label={t.name || t}
-                      size="small"
                       sx={{ backgroundColor: t.color, color: '#fff' }}
                     />
                   ))}
                   {!isUploaded && item.model && (
-                    <Chip label={item.model} size="small" variant="outlined" />
+                    <Chip label={item.model} variant="outlined" />
                   )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
@@ -287,7 +284,6 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
             <Stack spacing={2} sx={{ mt: 1 }}>
               <TextField
                 label="제목 (선택)"
-                size="small"
                 value={editingItem.title || ''}
                 onChange={(e) => setEditingItem({ ...editingItem, title: e.target.value })}
                 inputProps={{ maxLength: 200 }}
@@ -333,12 +329,11 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                   <Chip
                     key={t._id || t}
                     label={t.name || t}
-                    size="small"
                     sx={{ backgroundColor: t.color, color: '#fff' }}
                   />
                 ))}
                 {!isUploaded && viewerItem.model && (
-                  <Chip label={viewerItem.model} size="small" variant="outlined" />
+                  <Chip label={viewerItem.model} variant="outlined" />
                 )}
                 <Box sx={{ flexGrow: 1 }} />
                 <Typography variant="caption" color="text.secondary">

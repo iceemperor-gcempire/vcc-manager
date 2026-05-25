@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
+import { buildVccTheme } from './theme';
+import { ColorSchemeProvider, useColorScheme } from './contexts/ColorSchemeContext';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 
@@ -11,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import CommandPalette from './components/common/CommandPalette';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -52,27 +55,28 @@ export const queryClient = new QueryClient({
   },
 });
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#1976d2',
-    },
-    secondary: {
-      main: '#dc004e',
-    },
-  },
-});
+function ThemedApp({ children }) {
+  // ColorScheme 변화에 반응해 light/dark theme 재계산
+  const { effective } = useColorScheme();
+  const theme = useMemo(() => createTheme(buildVccTheme(effective)), [effective]);
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {children}
+    </ThemeProvider>
+  );
+}
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <AuthProvider>
-          <Router>
-            <div className="App">
-              <Toaster position="top-right" />
-              <Routes>
+      <ColorSchemeProvider>
+        <ThemedApp>
+          <AuthProvider>
+            <Router>
+              <div className="App">
+                <Toaster position="top-right" />
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -89,14 +93,16 @@ function App() {
               </Routes>
             </div>
           </Router>
-        </AuthProvider>
-      </ThemeProvider>
+          </AuthProvider>
+        </ThemedApp>
+      </ColorSchemeProvider>
     </QueryClientProvider>
   );
 }
 
 function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const location = useLocation();
   const queryClient = useQueryClient();
 
@@ -110,13 +116,26 @@ function MainLayout() {
     }
   }, [location.pathname, queryClient]);
 
+  // ⌘K / Ctrl+K 로 명령 팔레트 열기 (Phase 6)
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const handleMobileToggle = () => {
     setMobileOpen(!mobileOpen);
   };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header onMobileToggle={handleMobileToggle} />
+      <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
       <Box sx={{ display: 'flex', flex: 1 }}>
         <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
         <Box component="main" sx={{
@@ -124,7 +143,7 @@ function MainLayout() {
           minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)
           overflowX: 'hidden',
           p: 3,
-          backgroundColor: '#f5f5f5',
+          bgcolor: 'background.default',
           minHeight: 'calc(100vh - 64px)'
         }}>
           <Routes>

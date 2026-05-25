@@ -147,11 +147,10 @@ function ServerCard({
             </Typography>
           </Box>
           <Box display="flex" alignItems="center" gap={1}>
-            {!server.isActive && <Chip label="비활성" size="small" color="default" />}
+            {!server.isActive && <Chip label="비활성" color="default" />}
             <Chip 
               icon={getStatusIcon(server.healthCheck?.status)}
               label={server.healthCheck?.status || 'unknown'}
-              size="small"
               color={getStatusColor(server.healthCheck?.status)}
             />
           </Box>

@@ -27,7 +27,8 @@ import {
   AccordionDetails,
   FormControlLabel,
   Switch,
-  Autocomplete
+  Autocomplete,
+  Stack,
 } from '@mui/material';
 import {
   Add,
@@ -108,7 +109,6 @@ function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, labe
       renderInput={(params) => (
         <TextField
           {...params}
-          size="small"
           fullWidth
           label={label}
           helperText={!serverId ? '서버 선택 후 사용 가능' : (isLoading ? '모델 목록 로딩 중...' : `${items.length}개 중 선택`)}
@@ -212,19 +212,16 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
           <Chip
             label={getWorkboardChipLabel(workboard)}
-            size="small"
             sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
           />
           <Chip
             label={workboard.isActive ? '활성' : '비활성'}
             color={workboard.isActive ? 'success' : 'default'}
-            size="small"
             variant="outlined"
           />
           <Chip
             label={`v${workboard.version || 1}`}
             color="info"
-            size="small"
             variant="outlined"
           />
         </Box>
@@ -323,19 +320,17 @@ function WhitelistField({ name, control, kind, serverId, outputFormat, placehold
                       {...getTagProps({ index })}
                       key={option}
                       label={option}
-                      size="small"
                       variant="outlined"
                     />
                   ))
                 }
                 renderInput={(params) => (
-                  <TextField {...params} size="small" placeholder={placeholder} />
+                  <TextField {...params} placeholder={placeholder} />
                 )}
               />
               {showPicker && (
                 <Button
                   variant="outlined"
-                  size="small"
                   startIcon={<PlaylistAdd />}
                   onClick={() => setPickerOpen(true)}
                   disabled={!serverId}
@@ -399,7 +394,6 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
                         {...getTagProps({ index })}
                         key={option}
                         label={g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : option}
-                        size="small"
                         color="primary"
                         variant="outlined"
                       />
@@ -409,7 +403,6 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
                 renderInput={(params) => (
                   <TextField
                     {...params}
-                    size="small"
                     placeholder={groups.length === 0 ? '그룹 없음 — 관리 메뉴에서 먼저 그룹 생성' : '그룹 선택'}
                   />
                 )}
@@ -505,9 +498,216 @@ function PermissionsAndExposurePanel({ control, isComfyUI, serverId, outputForma
   );
 }
 
+// 필드 타입 팔레트 (Phase 5e 2차) — 입력 양식 탭 좌측. 클릭으로 해당 타입의
+// 신규 customField 를 form 에 추가.
+const FIELD_TYPE_PALETTE = [
+  { type: 'string',    label: '텍스트',      hint: '한 줄 또는 다중 라인 입력' },
+  { type: 'number',    label: '숫자',        hint: '정수/실수' },
+  { type: 'select',    label: '선택',        hint: '선택지 중 하나' },
+  { type: 'boolean',   label: '체크박스',    hint: 'on/off 토글' },
+  { type: 'image',     label: '이미지',      hint: '드래그 드롭 업로드' },
+  { type: 'baseModel', label: '베이스 모델', hint: '서버 모델 선택' },
+  { type: 'lora',      label: 'LoRA',        hint: 'LoRA 슬롯' },
+];
+
+function FieldTypePalette({ onAdd }) {
+  return (
+    <Box
+      sx={{
+        position: 'sticky',
+        top: 12,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        bgcolor: 'background.paper',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 'calc(100vh - 220px)',
+      }}
+    >
+      <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+          필드 타입
+        </Typography>
+      </Box>
+      <Box sx={{ p: 1, overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {FIELD_TYPE_PALETTE.map((ft) => (
+          <Box
+            key={ft.type}
+            onClick={() => onAdd(ft.type)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1.25,
+              p: 1.25,
+              borderRadius: 1,
+              cursor: 'pointer',
+              border: 1,
+              borderColor: 'transparent',
+              '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600 }}>{ft.label}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                {ft.hint}
+              </Typography>
+            </Box>
+            <Add sx={{ fontSize: 16, color: 'text.tertiary' }} />
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+// 라이브 프리뷰 (Phase 5e 1차) — admin 이 추가한 customField 들이 사용자에게
+// 어떻게 보일지 실시간 미리보기. 입력 양식 탭 우측에 sticky 패널.
+function CustomFieldsPreview({ fields }) {
+  const safeFields = (fields || []).filter((f) => f && f.name);
+  return (
+    <Box
+      sx={{
+        position: 'sticky',
+        top: 12,
+        border: 1,
+        borderColor: 'divider',
+        borderRadius: 1.5,
+        bgcolor: 'background.paper',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: 'calc(100vh - 220px)',
+      }}
+    >
+      <Box sx={{ px: 2, py: 1.25, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Visibility fontSize="small" sx={{ color: 'text.secondary' }} />
+        <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+          라이브 프리뷰
+        </Typography>
+        <Box sx={{ flex: 1 }} />
+        <Chip label="사용자 시점" variant="outlined" />
+      </Box>
+      <Box sx={{ p: 2, overflow: 'auto', flex: 1 }}>
+        {safeFields.length === 0 ? (
+          <Typography variant="caption" color="text.secondary">
+            customField 가 없습니다. 왼쪽에서 "필드 추가" 로 정의하면 여기에 실시간 표시됩니다.
+          </Typography>
+        ) : (
+          <Stack spacing={2}>
+            {safeFields.map((f, i) => <PreviewField key={f.name || i} field={f} />)}
+          </Stack>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+function PreviewField({ field }) {
+  const label = (
+    <Typography variant="caption" sx={{ display: 'block', fontWeight: 500, mb: 0.5 }}>
+      {field.label || field.name}
+      {field.required && <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>*</Box>}
+    </Typography>
+  );
+
+  if (field.type === 'string') {
+    const multi = field.name?.includes('prompt');
+    return (
+      <Box>
+        {label}
+        <TextField
+          fullWidth disabled placeholder={field.placeholder}
+          multiline={multi} rows={multi ? 2 : 1}
+          defaultValue={field.defaultValue || ''}
+        />
+        {field.description && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+            {field.description}
+          </Typography>
+        )}
+      </Box>
+    );
+  }
+  if (field.type === 'number') {
+    return (
+      <Box>
+        {label}
+        <TextField fullWidth disabled type="number" defaultValue={field.defaultValue || ''} />
+      </Box>
+    );
+  }
+  if (field.type === 'boolean') {
+    return (
+      <FormControlLabel
+        disabled
+        control={<Switch defaultChecked={!!field.defaultValue} />}
+        label={field.label || field.name}
+      />
+    );
+  }
+  if (field.type === 'select') {
+    return (
+      <Box>
+        {label}
+        <TextField
+          fullWidth disabled select SelectProps={{ native: true }}
+          defaultValue={field.defaultValue || ''}
+          InputLabelProps={{ shrink: true }}
+        >
+          <option value="">— 선택 없음 —</option>
+          {(field.options || []).map((opt, i) => (
+            <option key={i} value={opt.value}>{opt.key || opt.value}</option>
+          ))}
+        </TextField>
+      </Box>
+    );
+  }
+  if (field.type === 'baseModel') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
+          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: 'linear-gradient(135deg, #7B4DD8, #5B5BD6)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
+            M
+          </Box>
+          <Typography variant="caption" sx={{ flex: 1 }}>모델 선택…</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  if (field.type === 'lora') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: 'action.hover', minHeight: 40, display: 'flex', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">LoRA 슬롯 — 사용자가 추가</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  if (field.type === 'image') {
+    return (
+      <Box>
+        {label}
+        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 2.5, textAlign: 'center', bgcolor: 'action.hover' }}>
+          <Typography variant="caption" color="text.secondary">이미지를 드래그하거나 클릭해서 선택</Typography>
+        </Box>
+      </Box>
+    );
+  }
+  return (
+    <Box>
+      {label}
+      <Typography variant="caption" color="text.secondary">(타입 {field.type} preview 미지원)</Typography>
+    </Box>
+  );
+}
+
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
 function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   const [tabValue, setTabValue] = useState(0);
+  // 5e-3 — 입력 양식 탭의 선택 필드 (인스펙터 패턴)
+  const [selectedFieldIdx, setSelectedFieldIdx] = useState(-1);
   const [fullWorkboard, setFullWorkboard] = useState(null);
   const [loading, setLoading] = useState(false);
   const [copiedVariable, setCopiedVariable] = useState('');
@@ -762,7 +962,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
       <DialogTitle>
         작업판 상세 편집 - {workboard?.name}
       </DialogTitle>
@@ -812,13 +1012,31 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
           {/* 입력 양식 탭 */}
           {tabValue === 1 && (
-            <Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '180px 1fr 320px' }, gap: 3, alignItems: 'start' }}>
+              {/* 좌측 필드 타입 팔레트 (Phase 5e 2차) — 데스크탑만 */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <FieldTypePalette onAdd={(type) => {
+                  const current = watch('additionalCustomFields') || [];
+                  setValue('additionalCustomFields', [...current, {
+                    name: '',
+                    label: '',
+                    type,
+                    required: false,
+                    formatString: '',
+                    options: [],
+                    imageConfig: { maxImages: 1 },
+                  }]);
+                }} />
+              </Box>
+              <Box sx={{ minWidth: 0 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant="body2" color="textSecondary">
                   작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
                 </Typography>
                 <Button
                   startIcon={<Add />}
+                  // 모바일에서는 팔레트가 hide 되므로 기존 string default add 버튼 유지
+                  sx={{ display: { xs: 'inline-flex', md: 'none' } }}
                   onClick={() => {
                         const current = watch('additionalCustomFields') || [];
                         setValue('additionalCustomFields', [...current, {
@@ -831,7 +1049,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           imageConfig: { maxImages: 1 }
                         }]);
                       }}
-                      size="small"
                     >
                       필드 추가
                     </Button>
@@ -844,15 +1061,39 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                     <Draggable key={index} draggableId={`customField-${index}`} index={index}>
                       {(draggableProvided) => (
                         <Box ref={draggableProvided.innerRef} {...draggableProvided.draggableProps}>
-                          <Accordion sx={{ mb: 2 }}>
+                          {/* 5e-3 — Accordion controlled expansion + 선택 시 primary 테두리 */}
+                          <Accordion
+                            sx={{
+                              mb: 2,
+                              border: 1,
+                              borderColor: selectedFieldIdx === index ? 'primary.main' : 'transparent',
+                              transition: 'border-color 120ms',
+                            }}
+                            expanded={selectedFieldIdx === index}
+                            onChange={(_, expanded) => setSelectedFieldIdx(expanded ? index : -1)}
+                          >
                             <AccordionSummary expandIcon={<ExpandMore />}>
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                                 <Box {...draggableProvided.dragHandleProps} sx={{ display: 'flex', alignItems: 'center', cursor: 'grab', color: 'text.secondary' }} onClick={(e) => e.stopPropagation()}>
                                   <DragIndicator />
                                 </Box>
-                                <Typography>
+                                <Chip
+                                  label={field.type}
+                                  variant="outlined"
+                                  sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
+                                />
+                                <Typography sx={{ fontWeight: selectedFieldIdx === index ? 600 : 500 }}>
                                   {field.label || `커스텀 필드 ${index + 1}`}
                                 </Typography>
+                                {field.name && (
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+                                    {field.name}
+                                  </Typography>
+                                )}
+                                <Box sx={{ flex: 1 }} />
+                                {field.required && (
+                                  <Chip label="required" color="error" variant="outlined" />
+                                )}
                               </Box>
                             </AccordionSummary>
                       <AccordionDetails>
@@ -867,7 +1108,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="필드명 (영문)"
                                   placeholder="예: customField1"
-                                  size="small"
                                   sx={{ fontFamily: 'monospace' }}
                                 />
                               )}
@@ -883,7 +1123,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="표시명"
                                   placeholder="예: 커스텀 옵션"
-                                  size="small"
                                 />
                               )}
                             />
@@ -898,7 +1137,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   select
                                   label="입력 타입"
-                                  size="small"
                                 >
                                   <MenuItem value="string">텍스트</MenuItem>
                                   <MenuItem value="number">숫자</MenuItem>
@@ -921,7 +1159,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="Workflow 형식 문자열"
                                   placeholder={`예: {{##${field.name || 'field_name'}##}}`}
-                                  size="small"
                                   sx={{ fontFamily: 'monospace' }}
                                 />
                               )}
@@ -962,7 +1199,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                       fullWidth
                                       select
                                       label="기본값 (선택)"
-                                      size="small"
                                       SelectProps={{ displayEmpty: true }}
                                     >
                                       <MenuItem value="">선택 없음</MenuItem>
@@ -994,7 +1230,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     type={field.type === 'number' ? 'number' : 'text'}
                                     label="기본값"
                                     placeholder="비워두면 기본값 없음"
-                                    size="small"
                                   />
                                 );
                               }}
@@ -1011,7 +1246,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="플레이스홀더"
                                   placeholder="입력창 안내 문구"
-                                  size="small"
                                   disabled={['boolean', 'image', 'baseModel', 'lora'].includes(field.type)}
                                 />
                               )}
@@ -1028,7 +1262,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                   fullWidth
                                   label="설명"
                                   placeholder="필드 아래에 표시될 설명"
-                                  size="small"
                                 />
                               )}
                             />
@@ -1056,7 +1289,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     fullWidth
                                     select
                                     label="최대 이미지 수"
-                                    size="small"
                                     value={imageField.value || 1}
                                   >
                                     <MenuItem value={1}>1개</MenuItem>
@@ -1082,7 +1314,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                     const currentOptions = watch(`additionalCustomFields.${index}.options`) || [];
                                     setValue(`additionalCustomFields.${index}.options`, [...currentOptions, { key: '', value: '' }]);
                                   }}
-                                  size="small"
                                 >
                                   옵션 추가
                                 </Button>
@@ -1106,7 +1337,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                                   <TextField
                                                     {...optionField}
                                                     label="표시명"
-                                                    size="small"
                                                     sx={{ flex: 1 }}
                                                   />
                                                 )}
@@ -1118,7 +1348,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                                   <TextField
                                                     {...optionField}
                                                     label="실제 값"
-                                                    size="small"
                                                     sx={{ flex: 1 }}
                                                   />
                                                 )}
@@ -1172,6 +1401,11 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                       )}
                     </Droppable>
                   </DragDropContext>
+              </Box>
+              {/* 우측 라이브 프리뷰 (Phase 5e 1차) — 데스크탑만 */}
+              <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+                <CustomFieldsPreview fields={watch('additionalCustomFields')} />
+              </Box>
             </Box>
           )}
 
@@ -1284,7 +1518,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                                 {...getTagProps({ index })}
                                 key={option}
                                 label={option}
-                                size="small"
                                 color="primary"
                                 variant="outlined"
                               />
@@ -1293,7 +1526,6 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              size="small"
                               placeholder={availableBaseModels.length === 0 ? '서버 모델 sync 후 baseModel 자동 채움' : '예: SDXL, Illustrious, Pony'}
                             />
                           )}

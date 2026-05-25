@@ -104,7 +104,6 @@ function PromptWorkboardCard({ workboard }) {
               <Chip
                 key={index}
                 label={model.key}
-                size="small"
                 variant="outlined"
                 color="secondary"
                 sx={{ maxWidth: '100%' }}
@@ -113,7 +112,6 @@ function PromptWorkboardCard({ workboard }) {
             {workboard.baseInputFields?.aiModel?.length > 3 && (
               <Chip
                 label={`+${workboard.baseInputFields.aiModel.length - 3}개`}
-                size="small"
                 variant="outlined"
               />
             )}
@@ -122,14 +120,12 @@ function PromptWorkboardCard({ workboard }) {
 
         <CardActions>
           <Button
-            size="small"
             onClick={handleInfo}
             startIcon={<Info />}
           >
             상세정보
           </Button>
           <Button
-            size="small"
             variant="contained"
             color="secondary"
             onClick={handleSelect}
@@ -170,7 +166,6 @@ function PromptWorkboardCard({ workboard }) {
               <Chip
                 key={index}
                 label={`${model.key}`}
-                size="small"
                 color="secondary"
                 variant="outlined"
               />
@@ -182,10 +177,10 @@ function PromptWorkboardCard({ workboard }) {
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 시스템 프롬프트
               </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{ 
-                whiteSpace: 'pre-wrap', 
-                backgroundColor: '#f5f5f5', 
-                p: 2, 
+              <Typography variant="body2" color="textSecondary" sx={{
+                whiteSpace: 'pre-wrap',
+                bgcolor: 'action.hover',
+                p: 2,
                 borderRadius: 1,
                 maxHeight: 200,
                 overflow: 'auto'
@@ -205,7 +200,6 @@ function PromptWorkboardCard({ workboard }) {
                   <Chip
                     key={index}
                     label={ref.key}
-                    size="small"
                     color="info"
                     variant="outlined"
                   />
@@ -325,7 +319,6 @@ function PromptWorkboards() {
                     variant={pageNum === page ? "contained" : "outlined"}
                     color="secondary"
                     onClick={() => setPage(pageNum)}
-                    size="small"
                   >
                     {pageNum}
                   </Button>

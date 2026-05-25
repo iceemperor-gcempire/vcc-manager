@@ -165,15 +165,15 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
   };
 
   const drawer = (
-    <Box sx={{ height: '100%', backgroundColor: '#2c3e50', color: 'white' }}>
+    <Box sx={{ height: '100%', bgcolor: 'navbar.main', color: 'navbar.contrastText' }}>
       <Box sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ color: '#ecf0f1', fontWeight: 'bold' }}>
+        <Typography variant="h6" sx={{ color: 'navbar.contrastText', fontWeight: 'bold' }}>
           메뉴
         </Typography>
       </Box>
-      
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
-      
+
+      <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+
       <List sx={{ px: 1 }}>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
@@ -182,23 +182,21 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
               sx={{
                 borderRadius: 1,
                 mb: 0.5,
-                py: isMobile ? 1.5 : 1, // 모바일에서 터치하기 더 쉽게
-                backgroundColor: isPathActive(item.path) ? '#34495e' : 'transparent',
-                '&:hover': {
-                  backgroundColor: '#34495e'
-                }
+                py: isMobile ? 1.5 : 1,
+                bgcolor: isPathActive(item.path) ? 'navbar.light' : 'transparent',
+                '&:hover': { bgcolor: 'navbar.light' },
               }}
             >
-              <ListItemIcon sx={{ color: '#ecf0f1', minWidth: 40 }}>
+              <ListItemIcon sx={{ color: 'navbar.contrastText', minWidth: 40 }}>
                 {item.icon}
               </ListItemIcon>
-              <ListItemText 
+              <ListItemText
                 primary={item.text}
-                sx={{ 
+                sx={{
                   '& .MuiListItemText-primary': {
-                    fontSize: isMobile ? '1rem' : '0.9rem', // 모바일에서 더 큰 텍스트
-                    fontWeight: isMobile ? 500 : 400
-                  }
+                    fontSize: isMobile ? '1rem' : '0.9rem',
+                    fontWeight: isMobile ? 500 : 400,
+                  },
                 }}
               />
             </ListItemButton>
@@ -208,14 +206,14 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
 
       {isAdmin && (
         <>
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)', my: 1 }} />
-          
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', my: 1 }} />
+
           <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" sx={{ color: '#bdc3c7' }}>
+            <Typography variant="caption" sx={{ color: 'grey.500' }}>
               관리자 메뉴
             </Typography>
           </Box>
-          
+
           <List sx={{ px: 1 }}>
             {adminMenuItems.map((item) => (
               <ListItem key={item.text} disablePadding>
@@ -224,24 +222,22 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                   sx={{
                     borderRadius: 1,
                     mb: 0.5,
-                    py: isMobile ? 1.5 : 1, // 모바일에서 터치하기 더 쉽게
-                    backgroundColor: isPathActive(item.path) ? '#34495e' : 'transparent',
-                    '&:hover': {
-                      backgroundColor: '#34495e'
-                    }
+                    py: isMobile ? 1.5 : 1,
+                    bgcolor: isPathActive(item.path) ? 'navbar.light' : 'transparent',
+                    '&:hover': { bgcolor: 'navbar.light' },
                   }}
                 >
-                  <ListItemIcon sx={{ color: '#e74c3c', minWidth: 40 }}>
+                  <ListItemIcon sx={{ color: 'error.main', minWidth: 40 }}>
                     {item.icon}
                   </ListItemIcon>
-                  <ListItemText 
+                  <ListItemText
                     primary={item.text}
-                    sx={{ 
+                    sx={{
                       '& .MuiListItemText-primary': {
-                        fontSize: isMobile ? '1rem' : '0.9rem', // 모바일에서 더 큰 텍스트
+                        fontSize: isMobile ? '1rem' : '0.9rem',
                         fontWeight: isMobile ? 500 : 400,
-                        color: '#e74c3c'
-                      }
+                        color: 'error.main',
+                      },
                     }}
                   />
                 </ListItemButton>
@@ -260,7 +256,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
         width: { md: DRAWER_WIDTH },
         flexShrink: { md: 0 },
         // 사이드바 영역 자체의 배경색을 drawer paper 와 동일하게 — 컨텐츠 짧을 때 / 스크롤 시 흰 영역 노출 방지 (PC 도)
-        bgcolor: { md: '#2c3e50' },
+        bgcolor: { md: 'navbar.main' },
       }}
     >
       {/* 모바일용 temporary drawer */}
@@ -276,7 +272,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
             width: DRAWER_WIDTH,
-            backgroundColor: '#2c3e50',  // 컨텐츠가 Paper 높이를 초과할 때 (관리자 메뉴) 하단 흰색 노출 방지 (#327)
+            bgcolor: 'navbar.main',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
           },
         }}
       >
@@ -293,7 +289,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
             width: DRAWER_WIDTH,
             position: 'relative',
             height: '100%',
-            backgroundColor: '#2c3e50',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
+            bgcolor: 'navbar.main',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
           },
         }}
         open

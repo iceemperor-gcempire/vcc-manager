@@ -18,8 +18,10 @@ import {
   FormControlLabel,
   Checkbox,
   Stack,
-  TextField
+  TextField,
+  useMediaQuery
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   ArrowBack,
   Star,
@@ -41,7 +43,7 @@ import {
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI } from '../services/api';
+import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI, pipelineAPI, pipelineRunAPI } from '../services/api';
 import TextContentPanel from '../components/common/TextContentPanel';
 import ConversationHistoryPanel from '../components/common/ConversationHistoryPanel';
 import PipelinePanel, { PipelineHistoryPanel } from '../components/common/PipelinePanel';
@@ -279,7 +281,6 @@ function ImagesTab({ projectId }) {
             variant="outlined"
             startIcon={<CheckBoxIcon />}
             onClick={() => setBulkMode(true)}
-            size="small"
           >
             선택
           </Button>
@@ -292,11 +293,11 @@ function ImagesTab({ projectId }) {
             bgcolor: 'action.hover', borderRadius: 1, flexWrap: 'wrap'
           }}
         >
-          <Button size="small" variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }}>
+          <Button variant="outlined" startIcon={<Close />} onClick={() => { setBulkMode(false); setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }}>
             선택 모드 종료
           </Button>
           <Chip label={`${totalSelected}개 선택됨`} color="primary" variant="outlined" />
-          <Button size="small" startIcon={<SelectAll />} onClick={() => {
+          <Button startIcon={<SelectAll />} onClick={() => {
             const nextImg = new Set(imageSelectedIds);
             imageMediaState.items.forEach(item => nextImg.add(item._id));
             setImageSelectedIds(nextImg);
@@ -306,11 +307,10 @@ function ImagesTab({ projectId }) {
           }}>
             이 페이지 전체 선택
           </Button>
-          <Button size="small" startIcon={<Deselect />} onClick={() => { setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }} disabled={totalSelected === 0}>
+          <Button startIcon={<Deselect />} onClick={() => { setImageSelectedIds(new Set()); setVideoSelectedIds(new Set()); }} disabled={totalSelected === 0}>
             선택 해제
           </Button>
           <Button
-            size="small"
             variant="contained"
             color="error"
             startIcon={<DeleteSweep />}
@@ -567,9 +567,8 @@ function WorldviewTab({ projectTag }) {
   const activeTag = activeOption.tag;
 
   return (
-    <Box sx={{ mt: 2 }}>
-      {/* 타입 chip 필터 */}
-      <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: 'wrap', gap: 1 }}>
+    <Box sx={{ mt: 3 }}>
+      <Stack direction="row" spacing={0} sx={{ mb: 2.5, flexWrap: 'wrap', gap: 1.5 }}>
         {typeOptions.map((opt) => (
           <Chip
             key={opt.name}
@@ -582,7 +581,7 @@ function WorldviewTab({ projectTag }) {
         ))}
       </Stack>
 
-      <Alert severity="info" sx={{ mb: 2 }}>
+      <Alert severity="info" variant="outlined" sx={{ mb: 3 }}>
         <strong>{activeOption.name}</strong> — {activeOption.hint}
       </Alert>
 
@@ -661,13 +660,12 @@ function WorkboardsTab({ projectId }) {
                   <Typography variant="caption" color="text.secondary" noWrap display="block">{wb.description}</Typography>
                 )}
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                  {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {wb.serverId?.name && <Chip label={wb.serverId.name} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {!wb.isActive && <Chip label="비활성" size="small" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
                 </Stack>
               </Box>
               <Button
-                size="small"
                 variant="contained"
                 color="success"
                 startIcon={<PlayArrow />}
@@ -721,7 +719,6 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
       <DialogTitle>작업판 추가</DialogTitle>
       <DialogContent dividers>
         <TextField
-          size="small"
           fullWidth
           placeholder="작업판 검색..."
           value={search}
@@ -750,7 +747,7 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
                 <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                   <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
                   </Stack>
                 </Box>
               </Box>
@@ -779,10 +776,137 @@ function JobsTab({ projectId }) {
   );
 }
 
+// 프로젝트 헤더 — gradient avatar tile + 제목/설명/메타 / 데스크탑 액션 버튼 (Phase 5a).
+function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, onViewWorkboards }) {
+  const initial = (project.name?.trim()?.[0] || '?').toUpperCase();
+  const isFav = project.isFavorite;
+  const hasCover = !!project.coverImage?.url;
+
+  return (
+    // 간격은 mockup px 그대로 — theme.spacing(4) = 16px 이므로 gap=4 가 16px
+    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: { xs: 3, md: 4 }, mb: { xs: 3.5, md: 4.5 } }}>
+      <Box
+        sx={{
+          width: { xs: 56, md: 72 },
+          height: { xs: 56, md: 72 },
+          flexShrink: 0,
+          borderRadius: 2,
+          display: 'grid',
+          placeItems: 'center',
+          color: 'white',
+          fontWeight: 700,
+          fontSize: { xs: 22, md: 26 },
+          letterSpacing: '-0.02em',
+          overflow: 'hidden',
+          backgroundImage: hasCover
+            ? `url(${project.coverImage.url})`
+            : 'linear-gradient(135deg, #7B4DD8 0%, #5B5BD6 50%, #2F77E4 100%)',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          boxShadow: 1,
+          '&::after': hasCover ? undefined : {
+            content: '""',
+            position: 'absolute',
+            inset: 0,
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)',
+            borderRadius: 'inherit',
+            pointerEvents: 'none',
+          },
+          position: 'relative',
+        }}
+      >
+        {!hasCover && initial}
+      </Box>
+
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Box display="flex" alignItems="center" gap={0.5} sx={{ flexWrap: 'wrap' }}>
+          <Typography
+            variant="h4"
+            component="h1"
+            sx={{
+              fontSize: { xs: '1.25rem', md: '1.5rem' },
+              fontWeight: 700,
+              letterSpacing: '-0.01em',
+              wordBreak: 'break-word',
+              mr: 1,
+            }}
+          >
+            {project.name}
+          </Typography>
+          <Tooltip title={isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}>
+            <IconButton onClick={onToggleFavorite} color={isFav ? 'warning' : 'default'}>
+              {isFav ? <Star /> : <StarBorder />}
+            </IconButton>
+          </Tooltip>
+        </Box>
+        {project.description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, wordBreak: 'break-word' }}>
+            {project.description}
+          </Typography>
+        )}
+        <Box display="flex" gap={1.5} alignItems="center" sx={{ flexWrap: 'wrap', mt: 2.5 }}>
+          {project.tagId?.name && (
+            <Chip
+              label={project.tagId.name}
+              sx={{ bgcolor: project.tagId?.color || 'primary.main', color: 'white' }}
+            />
+          )}
+          <Chip icon={<ImageIcon />} label={`이미지 ${project.counts?.images || 0}`} variant="outlined" />
+          <Chip icon={<TextSnippet />} label={`프롬프트 ${project.counts?.promptData || 0}`} variant="outlined" />
+          <Chip icon={<History />} label={`작업 ${project.counts?.jobs || 0}`} variant="outlined" />
+        </Box>
+      </Box>
+
+      {!isMobile && (
+        <Box display="flex" gap={1.5} sx={{ flexShrink: 0 }}>
+          <Button variant="outlined" startIcon={<Edit />} onClick={onEdit}>
+            편집
+          </Button>
+          <Button variant="outlined" startIcon={<ViewModule />} onClick={onViewWorkboards}>
+            작업판 보기
+          </Button>
+          <Tooltip title="삭제">
+            <IconButton color="error" onClick={onDelete}><Delete /></IconButton>
+          </Tooltip>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+// 탭 라벨 + count badge — count 가 0/null 이면 그냥 라벨만.
+function TabLabel({ label, count }) {
+  if (!count) return label;
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+      {label}
+      <Box
+        component="span"
+        sx={{
+          fontSize: '0.7rem',
+          fontWeight: 600,
+          px: 0.75,
+          py: 0.125,
+          borderRadius: 1,
+          bgcolor: 'action.selected',
+          color: 'text.secondary',
+          lineHeight: 1.4,
+          minWidth: 18,
+          textAlign: 'center',
+        }}
+      >
+        {count}
+      </Box>
+    </Box>
+  );
+}
+
 function ProjectDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   // 탭 위치는 프로젝트별로 localStorage 영속화 (#396 후속) — 다른 프로젝트엔 영향 없음.
   const TAB_KEY = id ? `vcc.projectDetail.tab.${id}` : '';
   const TAB_COUNT = 6;
@@ -804,6 +928,28 @@ function ProjectDetail() {
     ['project', id],
     () => projectAPI.getById(id)
   );
+
+  // 탭 라벨용 가벼운 count 조회 (Phase 5a 후속). staleTime 길게 — 새로고침 부담 회피.
+  const { data: pipelinesData } = useQuery(
+    ['pipelines', id],
+    () => pipelineAPI.list(id),
+    { enabled: !!id, staleTime: 60_000 }
+  );
+  const pipelinesCount = (pipelinesData?.data?.data?.pipelines || []).length;
+  const { data: runsData } = useQuery(
+    ['pipelineRuns', id],
+    () => pipelineRunAPI.list(id, { limit: 50 }),
+    { enabled: !!id, staleTime: 30_000 }
+  );
+  const runsCount = (runsData?.data?.data?.runs || []).length;
+  const { data: convData } = useQuery(
+    ['projectConversations', id, { limit: 1 }],
+    () => projectAPI.getConversations(id, { limit: 1, page: 1 }),
+    { enabled: !!id, staleTime: 60_000 }
+  );
+  // 백엔드가 pagination.total 을 반환하므로 그쪽이 진실. 없으면 fetch 한 개수 fallback.
+  const convCount = convData?.data?.data?.pagination?.total
+    ?? (convData?.data?.data?.conversations || []).length;
 
   const deleteMutation = useMutation(
     () => projectAPI.delete(id),
@@ -864,112 +1010,39 @@ function ProjectDetail() {
       <Button
         startIcon={<ArrowBack />}
         onClick={() => navigate('/projects')}
-        size="small"
         sx={{ mb: 1 }}
       >
         프로젝트 목록
       </Button>
 
-      {/* 프로젝트 헤더 */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          gap: 1,
-          mb: { xs: 1.5, md: 3 },
-          borderRadius: 2,
-          p: { xs: 1.5, md: 3 },
-          position: 'relative',
-          ...(project.coverImage?.url && {
-            backgroundImage: `url(${project.coverImage.url})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            '&::before': {
-              content: '""',
-              position: 'absolute',
-              inset: 0,
-              bgcolor: 'rgba(255,255,255,0.85)',
-              borderRadius: 2
-            },
-            '& > *': { position: 'relative', zIndex: 1 }
-          })
-        }}
-      >
-        <Box sx={{ minWidth: 0, flex: '1 1 0' }}>
-          <Box display="flex" alignItems="center" gap={0.5} mb={0.5} sx={{ flexWrap: 'wrap' }}>
-            <Typography variant="h5" sx={{ fontSize: { xs: '1.25rem', md: '2rem' }, fontWeight: 600, wordBreak: 'break-word' }}>
-              {project.name}
-            </Typography>
-            <Tooltip title={project.isFavorite ? '즐겨찾기 해제' : '즐겨찾기 추가'}>
-              <IconButton
-                size="small"
-                onClick={() => favoriteMutation.mutate()}
-                color={project.isFavorite ? 'warning' : 'default'}
-              >
-                {project.isFavorite ? <Star /> : <StarBorder />}
-              </IconButton>
-            </Tooltip>
-          </Box>
-          {project.description && (
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 1, wordBreak: 'break-word' }}>
-              {project.description}
-            </Typography>
-          )}
-          <Box display="flex" gap={0.75} alignItems="center" sx={{ flexWrap: 'wrap' }}>
-            <Chip
-              size="small"
-              label={project.tagId?.name}
-              sx={{ bgcolor: project.tagId?.color || '#7c4dff', color: 'white' }}
-            />
-            <Chip
-              size="small"
-              icon={<ImageIcon />}
-              label={`이미지 ${project.counts?.images || 0}`}
-              variant="outlined"
-            />
-            <Chip
-              size="small"
-              icon={<TextSnippet />}
-              label={`프롬프트 ${project.counts?.promptData || 0}`}
-              variant="outlined"
-            />
-            <Chip
-              size="small"
-              icon={<History />}
-              label={`작업 ${project.counts?.jobs || 0}`}
-              variant="outlined"
-            />
-          </Box>
-        </Box>
+      <ProjectHero
+        project={project}
+        isMobile={isMobile}
+        onEdit={() => setEditOpen(true)}
+        onDelete={() => setDeleteOpen(true)}
+        onToggleFavorite={() => favoriteMutation.mutate()}
+        onViewWorkboards={() => navigate(`/workboards?projectId=${id}`)}
+      />
 
-        <Box display="flex" gap={1} sx={{ flexShrink: 0 }}>
-          <Tooltip title="작업판 목록으로 이동">
-            <Button
-              variant="contained"
-              startIcon={<ViewModule />}
-              onClick={() => navigate(`/workboards?projectId=${id}`)}
-              size="small"
-              sx={{
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-                minWidth: 'auto',
-                '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0, sm: 1 } }
-              }}
-            >
-              <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>작업판 보기</Box>
-            </Button>
-          </Tooltip>
-          <IconButton onClick={() => setEditOpen(true)}>
+      {isMobile && (
+        <Box sx={{ display: 'flex', gap: 0.75, mb: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<ViewModule />}
+            onClick={() => navigate(`/workboards?projectId=${id}`)}
+            sx={{ flex: 1 }}
+          >
+            작업판 보기
+          </Button>
+          <IconButton onClick={() => setEditOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Edit />
           </IconButton>
-          <IconButton color="error" onClick={() => setDeleteOpen(true)}>
+          <IconButton color="error" onClick={() => setDeleteOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Delete />
           </IconButton>
         </Box>
-      </Box>
+      )}
 
-      {/* 탭 — 모바일에서 붕 뜨지 않도록 bgcolor 로 묶고, 컴팩트하게 (#396 후속) */}
       <Box
         sx={{
           borderBottom: 1,
@@ -996,12 +1069,12 @@ function ProjectDetail() {
             '& .MuiTab-iconWrapper': { mr: 0.5 },
           }}
         >
-          <Tab label="파이프라인" />
+          <Tab label={<TabLabel label="파이프라인" count={pipelinesCount} />} />
           <Tab label="세계관" />
-          <Tab icon={<TextSnippet fontSize="small" />} label="프롬프트 데이터" iconPosition="start" />
-          <Tab icon={<ImageIcon fontSize="small" />} label="이미지" iconPosition="start" />
-          <Tab icon={<History fontSize="small" />} label="파이프라인 히스토리" iconPosition="start" />
-          <Tab label="대화 히스토리" />
+          <Tab icon={<TextSnippet fontSize="small" />} iconPosition="start" label={<TabLabel label="프롬프트 데이터" count={project.counts?.promptData} />} />
+          <Tab icon={<ImageIcon fontSize="small" />} iconPosition="start" label={<TabLabel label="이미지" count={project.counts?.images} />} />
+          <Tab icon={<History fontSize="small" />} iconPosition="start" label={<TabLabel label="파이프라인 히스토리" count={runsCount} />} />
+          <Tab label={<TabLabel label="대화 히스토리" count={convCount} />} />
         </Tabs>
       </Box>
 

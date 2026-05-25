@@ -106,13 +106,12 @@ function ConversationChatPanel({ workboard, conversationId }) {
   return (
     <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
-        <Chip label="대화 이어가기" color="secondary" size="small" />
-        {conversation.model && <Chip label={conversation.model} size="small" variant="outlined" />}
-        {conversation.serverType && <Chip label={conversation.serverType} size="small" variant="outlined" />}
+        <Chip label="대화 이어가기" color="secondary" />
+        {conversation.model && <Chip label={conversation.model} variant="outlined" />}
+        {conversation.serverType && <Chip label={conversation.serverType} variant="outlined" />}
         {conversation.costEstimate?.amount != null && (
           <Chip
             label={`누적 $${conversation.costEstimate.amount.toFixed(6)}`}
-            size="small"
             variant="outlined"
             color="info"
           />

@@ -1,0 +1,2 @@
+# 원본 zip 은 redundant — 추출본 (design_handoff_vcc_manager/) 만 git 에 보존
+*.zip

@@ -100,21 +100,20 @@ function MetadataImageListItem({
 
         {/* chip 들 */}
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-          <Chip label={getKindLabel(item.kind)} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+          <Chip label={getKindLabel(item.kind)} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
           {item.baseModel && (
             <Chip
               label={item.baseModel}
-              size="small"
               color={baseModelColorFn(item.baseModel)}
               variant="outlined"
               sx={{ height: 20, fontSize: '0.7rem' }}
             />
           )}
           {item.capabilities?.slice(0, 2).map((c) => (
-            <Chip key={c} label={c} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+            <Chip key={c} label={c} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
           ))}
           {!item.hasMetadata && (
-            <Chip label={item.hash ? '미등록' : '메타데이터 없음'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+            <Chip label={item.hash ? '미등록' : '메타데이터 없음'} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
           )}
         </Box>
 
@@ -125,7 +124,6 @@ function MetadataImageListItem({
               <Chip
                 key={i}
                 label={w}
-                size="small"
                 onClick={onTrainedWordClick ? (e) => { e.stopPropagation(); onTrainedWordClick(w, item); } : undefined}
                 color={trainedWordInsertMode ? 'primary' : 'default'}
                 variant={trainedWordInsertMode ? 'outlined' : 'filled'}
@@ -133,7 +131,7 @@ function MetadataImageListItem({
               />
             ))}
             {item.trainedWords.length > 4 && (
-              <Chip label={`+${item.trainedWords.length - 4}`} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+              <Chip label={`+${item.trainedWords.length - 4}`} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
             )}
           </Box>
         ) : (
@@ -161,7 +159,6 @@ function MetadataImageListItem({
         )}
         {onPrimary && !cardClickable && (
           <Button
-            size="small"
             startIcon={primaryVariant === 'select' ? null : <AddIcon />}
             onClick={(e) => { e.stopPropagation(); onPrimary(item); }}
             variant={primaryVariant === 'insert' ? 'contained' : 'text'}

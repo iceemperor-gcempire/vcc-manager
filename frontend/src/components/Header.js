@@ -21,16 +21,24 @@ import {
   Logout,
   AdminPanelSettings,
   Dashboard,
-  Menu as MenuIcon
+  Menu as MenuIcon,
+  Search as SearchIcon,
+  LightMode as LightModeIcon,
+  DarkMode as DarkModeIcon,
+  BrightnessAuto as SystemModeIcon,
+  Check as CheckIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useColorScheme } from '../contexts/ColorSchemeContext';
+import NotificationsPopover from './common/NotificationsPopover';
 
-function Header({ onMobileToggle }) {
+function Header({ onMobileToggle, onOpenPalette }) {
   const { user, logout, isAdmin } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { mode: colorMode, setMode: setColorMode } = useColorScheme();
   const [anchorEl, setAnchorEl] = useState(null);
   const open = Boolean(anchorEl);
 
@@ -64,7 +72,7 @@ function Header({ onMobileToggle }) {
   };
 
   return (
-    <AppBar position="static" sx={{ backgroundColor: '#34495e' }}>
+    <AppBar position="static" sx={{ bgcolor: 'navbar.main' }}>
       <Toolbar>
         {/* 모바일 메뉴 버튼 */}
         {isMobile && onMobileToggle && (
@@ -89,23 +97,35 @@ function Header({ onMobileToggle }) {
         </Typography>
         
         {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {/* ⌘K 명령 팔레트 트리거 */}
+            {onOpenPalette && (
+              <IconButton
+                color="inherit"
+                onClick={onOpenPalette}
+                title="검색 (⌘K)"
+              >
+                <SearchIcon />
+              </IconButton>
+            )}
+
+            {/* 알림 popover */}
+            <NotificationsPopover />
+
             {isAdmin && (
               <Chip
                 label="Admin"
                 color="secondary"
-                size="small"
                 variant="outlined"
                 sx={{ color: 'white', borderColor: 'white' }}
               />
             )}
-            
+
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
                 {user.nickname}
               </Typography>
               <IconButton
-                size="large"
                 onClick={handleMenuOpen}
                 color="inherit"
               >
@@ -154,7 +174,7 @@ function Header({ onMobileToggle }) {
                 </ListItemIcon>
                 <ListItemText>프로필 설정</ListItemText>
               </MenuItem>
-              
+
               {isAdmin && (
                 <MenuItem onClick={handleAdmin}>
                   <ListItemIcon>
@@ -163,9 +183,28 @@ function Header({ onMobileToggle }) {
                   <ListItemText>관리자 패널</ListItemText>
                 </MenuItem>
               )}
-              
+
               <Divider />
-              
+
+              {/* 다크모드 설정 (Phase 7) */}
+              {[
+                { v: 'system', label: '시스템 설정 따름', icon: <SystemModeIcon fontSize="small" /> },
+                { v: 'light',  label: '라이트',          icon: <LightModeIcon fontSize="small" /> },
+                { v: 'dark',   label: '다크',            icon: <DarkModeIcon fontSize="small" /> },
+              ].map((opt) => (
+                <MenuItem
+                  key={opt.v}
+                  onClick={(e) => { e.stopPropagation(); setColorMode(opt.v); }}
+                  selected={colorMode === opt.v}
+                >
+                  <ListItemIcon>{opt.icon}</ListItemIcon>
+                  <ListItemText>{opt.label}</ListItemText>
+                  {colorMode === opt.v && <CheckIcon fontSize="small" sx={{ color: 'primary.main' }} />}
+                </MenuItem>
+              ))}
+
+              <Divider />
+
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>
                   <Logout fontSize="small" />

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Stack,
@@ -11,6 +12,7 @@ import {
   CardActions,
   Chip,
   CircularProgress,
+  LinearProgress,
   Alert,
   Dialog,
   DialogTitle,
@@ -32,10 +34,17 @@ import {
   Settings as SettingsIcon,
   ArrowUpward,
   ArrowDownward,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  ArrowForward as ArrowForwardIcon,
+  ArrowDownward as ArrowDownwardIconConnector,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
   Stop as StopIcon,
+  AccountTree as PipelineIcon,
 } from '@mui/icons-material';
+import { useTheme } from '@mui/material/styles';
+import useMediaQuery from '@mui/material/useMediaQuery';
 import MetadataFieldInput from './MetadataFieldInput';
 import ImageViewerDialog from './ImageViewerDialog';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
@@ -137,12 +146,12 @@ function PipelinePanel({ projectId }) {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="subtitle1" color="text.secondary">
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 3, mb: 3.5, flexWrap: 'wrap' }}>
+        <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 560 }}>
           작업판 A → B → C 직선 실행. 단계의 출력 타입이 다음 단계의 입력 타입과 일치하면 자동 주입됩니다.
         </Typography>
         <Button
-          variant="outlined"
+          variant="contained"
           startIcon={<AddIcon />}
           onClick={() => { setEditingPipelineId(null); setView('builder'); }}
         >
@@ -153,102 +162,734 @@ function PipelinePanel({ projectId }) {
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
       ) : pipelines.length === 0 ? (
-        <Box textAlign="center" py={4}>
-          <Typography variant="body2" color="text.secondary">
-            등록된 파이프라인이 없습니다. "새 파이프라인" 으로 작성하세요.
+        <Box
+          onClick={() => { setEditingPipelineId(null); setView('builder'); }}
+          sx={{
+            border: '1px dashed',
+            borderColor: 'divider',
+            borderRadius: 2,
+            p: 4,
+            textAlign: 'center',
+            color: 'text.secondary',
+            cursor: 'pointer',
+            '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: 'action.hover' },
+          }}
+        >
+          <AddIcon sx={{ fontSize: 28, mb: 1 }} />
+          <Typography variant="body2">
+            새 파이프라인을 추가해 작업판을 순서대로 실행하세요.
           </Typography>
         </Box>
       ) : (
-        <Stack spacing={1.5}>
+        <Stack spacing={2}>
           {pipelines.map((p) => (
-            <Card key={p._id} variant="outlined">
-              <CardContent sx={{ pb: 1 }}>
-                <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{p.name}</Typography>
-                  <Chip label={`${p.steps?.length || 0}단계`} size="small" variant="outlined" />
-                  {/* #401: useWorldview chip 제거 — 단계별 문서 연결로 표현 */}
-                </Box>
-                {p.description && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    {p.description}
-                  </Typography>
-                )}
-                {/* 단계 미리보기 — 작업판 이름 + description (작업판/단계). 모바일에선 description 숨김. */}
-                <Stack spacing={0.75} sx={{ mt: 0.5 }}>
-                  {(p.steps || []).map((s, idx) => (
-                    <Box key={idx} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
-                      <Chip
-                        label={idx + 1}
-                        size="small"
-                        color={s.workboardId?.isActive === false ? 'warning' : 'primary'}
-                        sx={{ height: 22, minWidth: 22, '& .MuiChip-label': { px: 1 } }}
-                      />
-                      <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }} noWrap>
-                          {s.workboardId?.name || '(삭제됨)'}
-                        </Typography>
-                        {s.workboardId?.description && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{
-                              display: { xs: 'none', sm: '-webkit-box' },
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                              whiteSpace: 'pre-wrap',
-                            }}
-                          >
-                            {s.workboardId.description}
-                          </Typography>
-                        )}
-                        {s.note && (
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ display: 'block', fontStyle: 'italic', whiteSpace: 'pre-wrap' }}
-                          >
-                            {s.note}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Button
-                  size="small"
-                  color="success"
-                  variant="contained"
-                  startIcon={<PlayArrowIcon />}
-                  onClick={() => { setRunningPipelineId(p._id); setView('runner'); }}
-                  disabled={(p.steps || []).length === 0}
-                >
-                  실행
-                </Button>
-                <Button
-                  size="small"
-                  startIcon={<EditIcon />}
-                  onClick={() => { setEditingPipelineId(p._id); setView('builder'); }}
-                >
-                  편집
-                </Button>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => {
-                    if (window.confirm(`"${p.name}" 파이프라인을 삭제하시겠습니까?`)) {
-                      deleteMutation.mutate(p._id);
-                    }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </CardActions>
-            </Card>
+            <PipelineCard
+              key={p._id}
+              pipeline={p}
+              onRun={() => { setRunningPipelineId(p._id); setView('runner'); }}
+              onEdit={() => { setEditingPipelineId(p._id); setView('builder'); }}
+              onDelete={() => {
+                if (window.confirm(`"${p.name}" 파이프라인을 삭제하시겠습니까?`)) {
+                  deleteMutation.mutate(p._id);
+                }
+              }}
+            />
           ))}
         </Stack>
+      )}
+    </Box>
+  );
+}
+
+// 파이프라인 카드 (Phase 5a 후속) — mockup PipelinesTabContent 의 카드 패턴.
+// 헤더: 아이콘 + 이름 + 단계 chip + 단계 path (mono) + 데스크탑 액션
+// 본문: 단계 horizontal pill 행 (작업판명 위주, 간결)
+function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const steps = pipeline.steps || [];
+  const stepNames = steps.map((s) => s.workboardId?.name || '?');
+  const pathText = stepNames.length > 0 ? stepNames.join(' → ') : '단계 없음';
+
+  return (
+    <Card variant="outlined">
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider', flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            width: 28,
+            height: 28,
+            borderRadius: 1,
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.12),
+            color: 'primary.main',
+            display: 'grid',
+            placeItems: 'center',
+            flexShrink: 0,
+          }}
+        >
+          <PipelineIcon fontSize="small" />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{pipeline.name}</Typography>
+            <Chip label={`${steps.length}단계`} variant="outlined" />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              noWrap
+              sx={{
+                fontFamily: '"JetBrains Mono", monospace',
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                display: { xs: 'none', sm: 'inline' },
+                flexShrink: 1,
+              }}
+              title={pathText}
+            >
+              {pathText}
+            </Typography>
+          </Box>
+          {pipeline.description && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              {pipeline.description}
+            </Typography>
+          )}
+        </Box>
+        {!isMobile && (
+          <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
+            <Button
+              variant="contained"
+              color="success"
+              startIcon={<PlayArrowIcon />}
+              onClick={onRun}
+              disabled={steps.length === 0}
+            >
+              실행
+            </Button>
+            <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
+            <IconButton color="error" onClick={onDelete} title="삭제">
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
+      </Box>
+
+      {/* 단계 horizontal pill 행 */}
+      {steps.length > 0 && (
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1, overflowX: 'auto' }}>
+          {steps.map((s, i) => (
+            <React.Fragment key={i}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 1.5,
+                  py: 0.75,
+                  border: 1,
+                  borderColor: 'divider',
+                  borderRadius: 1.5,
+                  bgcolor: 'action.hover',
+                  flexShrink: 0,
+                  minWidth: 0,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 20,
+                    height: 20,
+                    borderRadius: '50%',
+                    bgcolor: s.workboardId?.isActive === false ? 'warning.main' : 'primary.main',
+                    color: 'primary.contrastText',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    fontFamily: '"JetBrains Mono", monospace',
+                    flexShrink: 0,
+                  }}
+                >
+                  {i + 1}
+                </Box>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', whiteSpace: 'nowrap' }}>
+                    {s.workboardId?.name || '(삭제됨)'}
+                  </Typography>
+                  {s.workboardId?.outputFormat && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10, fontFamily: '"JetBrains Mono", monospace' }}>
+                      out: {s.workboardId.outputFormat}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+              {i < steps.length - 1 && (
+                <ArrowForwardIcon sx={{ color: 'text.tertiary', flexShrink: 0 }} fontSize="small" />
+              )}
+            </React.Fragment>
+          ))}
+        </Box>
+      )}
+
+      {isMobile && (
+        <CardActions sx={{ pt: 0, justifyContent: 'flex-end', borderTop: 1, borderColor: 'divider' }}>
+          <Button
+            color="success"
+            variant="contained"
+            startIcon={<PlayArrowIcon />}
+            onClick={onRun}
+            disabled={steps.length === 0}
+          >
+            실행
+          </Button>
+          <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
+          <IconButton color="error" onClick={onDelete} title="삭제">
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </CardActions>
+      )}
+    </Card>
+  );
+}
+
+// 파이프라인 빌더의 lane 레이아웃 (Phase 5d).
+// 데스크탑: 가로 스크롤 lane (카드 320px 고정 너비) + 카드 사이 화살표 connector.
+// 모바일: 세로 스택 (full-width) + 카드 사이 아래 방향 화살표.
+function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd, selectedStepIdx = -1, onSelectStep }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: isMobile ? 'column' : 'row',
+        alignItems: isMobile ? 'stretch' : 'flex-start',
+        gap: 0,
+        overflowX: isMobile ? 'visible' : 'auto',
+        // 카드 그림자가 잘리지 않도록 padding
+        py: 1,
+        px: isMobile ? 0 : 0.5,
+      }}
+    >
+      {steps.map((s, idx) => (
+        <React.Fragment key={idx}>
+          {idx > 0 && (
+            <LaneConnector
+              isMobile={isMobile}
+              prevOutput={steps[idx - 1].workboard?.outputFormat}
+              autoInject={s.autoInject !== false}
+            />
+          )}
+          <StepLaneCard
+            step={s}
+            index={idx}
+            isLast={idx === steps.length - 1}
+            isMobile={isMobile}
+            isSelected={selectedStepIdx === idx}
+            onSelect={() => onSelectStep && onSelectStep(selectedStepIdx === idx ? -1 : idx)}
+            onOpenInputs={() => onOpenInputs(idx)}
+            onOpenDocs={() => onOpenDocs(idx)}
+            onMovePrev={() => moveStep(idx, -1)}
+            onMoveNext={() => moveStep(idx, 1)}
+            onDelete={() => removeStep(idx)}
+            onChangeNote={(note) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], note };
+              setSteps(next);
+            }}
+            onChangeInputs={(inputs) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], inputs };
+              setSteps(next);
+            }}
+            onToggleAutoInject={(checked) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], autoInject: checked };
+              setSteps(next);
+            }}
+          />
+        </React.Fragment>
+      ))}
+      <AddStepCard isMobile={isMobile} onAdd={onAdd} />
+    </Box>
+  );
+}
+
+function StepLaneCard({
+  step,
+  index,
+  isLast,
+  isMobile,
+  isSelected,
+  onSelect,
+  onOpenInputs,
+  onOpenDocs,
+  onMovePrev,
+  onMoveNext,
+  onDelete,
+  onChangeNote,
+  onChangeInputs,
+  onToggleAutoInject,
+}) {
+  const inputsCount = Object.keys(step.inputs || {}).filter((k) => step.inputs[k] !== '' && step.inputs[k] != null).length;
+  const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
+  const inputFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
+  return (
+    <Paper
+      variant="outlined"
+      onClick={onSelect}
+      sx={{
+        width: isMobile ? '100%' : 320,
+        flex: isMobile ? '0 0 auto' : '0 0 320px',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: 2,
+        borderColor: isSelected ? 'primary.main' : 'divider',
+        borderWidth: isSelected ? 2 : 1,
+        bgcolor: isSelected ? (t) => alpha(t.palette.primary.main, 0.04) : 'background.paper',
+        cursor: onSelect ? 'pointer' : 'default',
+        transition: 'border-color 120ms, background-color 120ms',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1.5,
+          px: 2,
+          py: 1.5,
+          borderBottom: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Box
+          sx={{
+            width: 24,
+            height: 24,
+            borderRadius: '50%',
+            bgcolor: 'primary.main',
+            color: 'primary.contrastText',
+            display: 'grid',
+            placeItems: 'center',
+            fontSize: 12,
+            fontWeight: 700,
+            fontFamily: '"JetBrains Mono", monospace',
+          }}
+        >
+          {index + 1}
+        </Box>
+        {step.workboard?.outputFormat && (
+          <Chip
+            label={`out: ${step.workboard.outputFormat}`}
+            variant="outlined"
+            sx={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
+          />
+        )}
+        <Box sx={{ flex: 1 }} />
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onMovePrev(); }}
+          disabled={index === 0}
+          title={isMobile ? '위로 이동' : '앞으로 이동'}
+        >
+          {isMobile ? <ArrowUpward fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+        </IconButton>
+        <IconButton
+          onClick={(e) => { e.stopPropagation(); onMoveNext(); }}
+          disabled={isLast}
+          title={isMobile ? '아래로 이동' : '뒤로 이동'}
+        >
+          {isMobile ? <ArrowDownward fontSize="small" /> : <ChevronRightIcon fontSize="small" />}
+        </IconButton>
+      </Box>
+
+      <Box sx={{ px: 2, py: 1.5, flex: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
+          {step.workboard?.name || '(이름 불러오는 중)'}
+        </Typography>
+        {step.workboard?.description && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5, whiteSpace: 'pre-wrap' }}>
+            {step.workboard.description}
+          </Typography>
+        )}
+
+        {index > 0 && (
+          <FormControlLabel
+            sx={{ mt: 1, ml: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            control={
+              <Switch
+                size="small"
+                checked={step.autoInject !== false}
+                onChange={(e) => onToggleAutoInject(e.target.checked)}
+              />
+            }
+            label={<Typography variant="caption">이전 결과 자동 주입</Typography>}
+          />
+        )}
+
+        <TextField
+          fullWidth
+          placeholder="이 단계에 대한 메모 (선택)"
+          value={step.note || ''}
+          onChange={(e) => onChangeNote(e.target.value)}
+          onClick={(e) => e.stopPropagation()}
+          multiline
+          maxRows={3}
+          inputProps={{ maxLength: 500 }}
+          sx={{ mt: 1.5 }}
+        />
+      </Box>
+
+      {/* 인라인 expand 패널 (Phase 5d 후속 #430) — 카드 선택 시 표시 */}
+      {isSelected && (
+        <Box
+          onClick={(e) => e.stopPropagation()}
+          sx={{ px: 2, py: 2, borderTop: '1px dashed', borderColor: 'divider', bgcolor: (t) => alpha(t.palette.primary.main, 0.03) }}
+        >
+          {inputFieldCount > 0 ? (
+            <>
+              <Typography variant="caption" sx={{ display: 'block', mb: 1, fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                사전 입력
+              </Typography>
+              <StepInputsForm
+                workboard={step.workboard}
+                values={step.inputs || {}}
+                onChange={onChangeInputs}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
+                자동 주입 ON 인 경우 매칭 필드는 runtime 에 덮어쓰임됩니다.
+              </Typography>
+            </>
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              이 단계는 사전 입력 필드가 없습니다.
+            </Typography>
+          )}
+          <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              컨텍스트 문서
+            </Typography>
+            <Chip label={`${step.contextDocIds?.length || 0}개`} variant="outlined" />
+            {step.systemPromptDocId && <Chip label="시스템 프롬프트 1" color="info" />}
+          </Box>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            {isMobile ? '하단 "문서" 버튼으로 편집' : '좌측 팔레트에서 문서 클릭으로 추가 / 제거'}
+          </Typography>
+        </Box>
+      )}
+
+      <Box
+        onClick={(e) => e.stopPropagation()}
+        sx={{
+          display: 'flex',
+          gap: 1,
+          px: 2,
+          py: 1.5,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'action.hover',
+          borderBottomLeftRadius: 'inherit',
+          borderBottomRightRadius: 'inherit',
+        }}
+      >
+        {/* 입력 설정 button: 선택 안 됐을 때만 (선택 시 form 이 인라인 노출) */}
+        {!isSelected && (
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<SettingsIcon />}
+            onClick={onOpenInputs}
+            sx={{ justifyContent: 'flex-start', flex: 1 }}
+          >
+            입력 설정
+            {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
+          </Button>
+        )}
+        {/* 문서 button: 모바일 (팔레트 미사용) 에서만 — 데스크탑은 팔레트로 통일 */}
+        {(isMobile || !isSelected) && (
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={onOpenDocs}
+            sx={{ justifyContent: 'flex-start', flex: 1 }}
+          >
+            문서
+            {docsCount > 0 && <Chip label={docsCount} sx={{ ml: 'auto', height: 18 }} />}
+          </Button>
+        )}
+        {isSelected && !isMobile && (
+          <Box sx={{ flex: 1, alignSelf: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              다른 카드 클릭으로 선택 해제
+            </Typography>
+          </Box>
+        )}
+        <IconButton color="error" onClick={onDelete} title="단계 삭제">
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </Box>
+    </Paper>
+  );
+}
+
+function LaneConnector({ isMobile, prevOutput, autoInject }) {
+  const ConnectorIcon = isMobile ? ArrowDownwardIconConnector : ArrowForwardIcon;
+  return (
+    <Box
+      sx={{
+        flex: isMobile ? '0 0 auto' : '0 0 80px',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 0.5,
+        py: isMobile ? 1.5 : 0,
+        minHeight: isMobile ? 0 : 120,
+        color: autoInject ? 'success.main' : 'text.disabled',
+      }}
+    >
+      <ConnectorIcon fontSize="small" />
+      {prevOutput && (
+        <Typography
+          variant="caption"
+          sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+        >
+          {prevOutput}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function AddStepCard({ isMobile, onAdd }) {
+  return (
+    <Box
+      sx={{
+        ml: isMobile ? 0 : 2,
+        mt: isMobile ? 2 : 0,
+        width: isMobile ? '100%' : 200,
+        flex: isMobile ? '0 0 auto' : '0 0 200px',
+        minHeight: 120,
+        border: '1px dashed',
+        borderColor: 'divider',
+        borderRadius: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 1,
+        py: 2,
+        px: 2,
+        cursor: 'pointer',
+        color: 'text.secondary',
+        '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: 'action.hover' },
+      }}
+      onClick={onAdd}
+    >
+      <AddIcon />
+      <Typography variant="body2" sx={{ fontWeight: 500 }}>새 단계 추가</Typography>
+      <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', lineHeight: 1.5 }}>
+        작업판을 골라 마지막 단계 출력에 연결
+      </Typography>
+    </Box>
+  );
+}
+
+// 컨텍스트 문서 팔레트 (Phase 5d 후속) — 좌측 사이드, 데스크탑만.
+// 프로젝트의 worldview / system prompt 태그 docs 를 보여주고, 클릭으로
+// 현재 선택된 단계에 add/toggle. drag-drop 라이브러리 없이 click-to-add 패턴.
+function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc }) {
+  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
+  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const { data: projectData } = useQuery(
+    ['project', projectId],
+    () => projectAPI.getById(projectId),
+    { enabled: !!projectId, staleTime: 60_000 }
+  );
+  const worldviewTag = wvTagData?.data?.tag;
+  const systemPromptTag = spTagData?.data?.tag;
+  const projectTag = projectData?.data?.data?.project?.tagId;
+
+  const { data: wvDocsData } = useQuery(
+    ['paletteWvDocs', projectId, worldviewTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTag?._id, worldviewTag?._id].filter(Boolean).join(','), limit: 50 }),
+    { enabled: !!projectTag && !!worldviewTag, staleTime: 60_000 }
+  );
+  const { data: spDocsData } = useQuery(
+    ['paletteSpDocs', projectId, systemPromptTag?._id],
+    () => textAPI.getUploaded({ tags: [projectTag?._id, systemPromptTag?._id].filter(Boolean).join(','), limit: 50 }),
+    { enabled: !!projectTag && !!systemPromptTag, staleTime: 60_000 }
+  );
+  // 백엔드 texts 라우트는 { success, data: { items, pagination } } shape
+  const wvDocs = wvDocsData?.data?.data?.items || [];
+  const spDocs = spDocsData?.data?.data?.items || [];
+
+  const ctxIds = new Set(selectedStep?.contextDocIds || []);
+  const spId = selectedStep?.systemPromptDocId;
+  const helpText = selectedStepIdx < 0
+    ? '단계 카드를 클릭해 선택한 뒤 문서를 추가하세요.'
+    : '클릭하면 선택 단계에 추가/해제.';
+
+  return (
+    <Box sx={{ position: 'sticky', top: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <Paper variant="outlined">
+        <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+            세계관 문서 ({wvDocs.length})
+          </Typography>
+        </Box>
+        {wvDocs.length === 0 ? (
+          <Box sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              세계관 탭에서 문서를 추가하면 여기에 표시됩니다.
+            </Typography>
+          </Box>
+        ) : (
+          <PaletteDocList docs={wvDocs} selectedIds={ctxIds} disabled={selectedStepIdx < 0} onClickDoc={(id) => onAddDoc(selectedStepIdx, id, false)} />
+        )}
+      </Paper>
+
+      <Paper variant="outlined">
+        <Box sx={{ px: 1.5, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+            시스템 프롬프트 ({spDocs.length})
+          </Typography>
+        </Box>
+        {spDocs.length === 0 ? (
+          <Box sx={{ p: 1.5 }}>
+            <Typography variant="caption" color="text.secondary">
+              세계관 탭에서 \"시스템 프롬프트\" 타입 문서를 추가하면 표시됩니다.
+            </Typography>
+          </Box>
+        ) : (
+          <PaletteDocList
+            docs={spDocs}
+            selectedIds={spId ? new Set([spId]) : new Set()}
+            disabled={selectedStepIdx < 0}
+            onClickDoc={(id) => onAddDoc(selectedStepIdx, id, true)}
+            singleSelect
+          />
+        )}
+      </Paper>
+
+      <Typography variant="caption" color="text.secondary" sx={{ px: 0.5, lineHeight: 1.5 }}>
+        {helpText}
+      </Typography>
+    </Box>
+  );
+}
+
+function PaletteDocList({ docs, selectedIds, disabled, onClickDoc, singleSelect }) {
+  return (
+    <Box sx={{ maxHeight: 280, overflow: 'auto' }}>
+      {docs.map((d) => {
+        const active = selectedIds.has(d._id);
+        return (
+          <Box
+            key={d._id}
+            onClick={() => !disabled && onClickDoc(d._id)}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              px: 1.5,
+              py: 1,
+              borderBottom: 1,
+              borderColor: 'divider',
+              cursor: disabled ? 'not-allowed' : 'pointer',
+              opacity: disabled ? 0.5 : 1,
+              bgcolor: active ? (t) => alpha(t.palette.primary.main, 0.08) : 'transparent',
+              '&:hover': disabled ? {} : { bgcolor: 'action.hover' },
+              '&:last-child': { borderBottom: 0 },
+            }}
+          >
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" noWrap sx={{ fontWeight: active ? 600 : 500 }}>
+                {d.title || '(제목 없음)'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, display: 'block' }}>
+                {(d.content || '').length.toLocaleString()}자
+              </Typography>
+            </Box>
+            {active && (
+              <Box component="span" sx={{ fontSize: 10, color: 'primary.main', fontWeight: 700, flexShrink: 0 }}>
+                {singleSelect ? '✓' : '추가됨'}
+              </Box>
+            )}
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
+// 파이프라인 진단 strip (Phase 5d 후속) — lane 하단에 배치.
+// 단계 수 + 자동 주입 / 비활성 작업판 / 메모 누락 등 사용자 인지가 도움되는 상태를 한 줄로.
+// 실제 type 호환 체크는 workboard 가 inputFormat 명시 안 해서 보류 — 현재는 autoInject 토글 / 비활성 / 메모 누락만 점검.
+function PipelineDiagnosticStrip({ steps }) {
+  const total = steps.length;
+  const inactiveCount = steps.filter((s) => s.workboard?.isActive === false).length;
+  const autoOffCount = steps.slice(1).filter((s) => s.autoInject === false).length;
+  const flow = steps
+    .map((s) => s.workboard?.outputFormat || '?')
+    .filter(Boolean);
+  const summaryPath = flow.length > 0 ? flow.join(' → ') : '';
+
+  let severity = 'info';
+  let icon = <CheckCircleIcon fontSize="small" />;
+  let parts = [];
+
+  if (inactiveCount > 0) {
+    severity = 'warning';
+    icon = <ErrorIcon fontSize="small" />;
+    parts.push(<><strong>{inactiveCount}</strong>개 단계가 비활성 작업판</>);
+  } else if (autoOffCount > 0) {
+    severity = 'info';
+    parts.push(<><strong>{autoOffCount}</strong>개 단계는 자동 주입 꺼짐 — 사전 입력 / 메모 확인 필요</>);
+  } else {
+    parts.push(<><strong>{total}개 단계</strong> · 모두 자동 주입 활성</>);
+  }
+
+  const palette = severity === 'warning' ? 'warning' : 'info';
+
+  return (
+    <Box
+      sx={{
+        mt: 1.5,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2,
+        py: 1.25,
+        borderRadius: 1,
+        border: 1,
+        borderColor: (t) => alpha(t.palette[palette].main, 0.4),
+        bgcolor: (t) => alpha(t.palette[palette].main, 0.06),
+        color: `${palette}.dark`,
+        fontSize: 13,
+        flexWrap: 'wrap',
+      }}
+    >
+      <Box sx={{ color: `${palette}.main`, display: 'flex', alignItems: 'center' }}>{icon}</Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        {parts.map((p, i) => (
+          <Typography key={i} component="span" variant="body2" sx={{ color: 'inherit' }}>
+            {i > 0 && ' · '}
+            {p}
+          </Typography>
+        ))}
+      </Box>
+      {summaryPath && (
+        <Typography
+          variant="caption"
+          sx={{
+            fontFamily: '"JetBrains Mono", monospace',
+            fontSize: 11,
+            color: 'text.secondary',
+            flexShrink: 0,
+          }}
+        >
+          {summaryPath}
+        </Typography>
       )}
     </Box>
   );
@@ -279,6 +920,10 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [inputsDialogStepIdx, setInputsDialogStepIdx] = useState(-1);
   const [docsDialogStepIdx, setDocsDialogStepIdx] = useState(-1);
+  // 5d 후속 — 컨텍스트 문서 팔레트의 클릭 타겟
+  const [selectedStepIdx, setSelectedStepIdx] = useState(-1);
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   // 로드 시 폼 초기화
   React.useEffect(() => {
@@ -348,6 +993,32 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
   const removeStep = (idx) => {
     setSteps(steps.filter((_, i) => i !== idx));
+    if (selectedStepIdx === idx) setSelectedStepIdx(-1);
+    else if (selectedStepIdx > idx) setSelectedStepIdx(selectedStepIdx - 1);
+  };
+
+  // 5d 후속 — 팔레트에서 클릭한 문서를 현재 선택 단계에 추가
+  const addDocToStep = (stepIdx, docId, isSystemPrompt) => {
+    if (stepIdx < 0 || stepIdx >= steps.length) {
+      toast.error('먼저 단계를 선택하세요.');
+      return;
+    }
+    const next = [...steps];
+    const s = { ...next[stepIdx] };
+    if (isSystemPrompt) {
+      if (s.systemPromptDocId === docId) {
+        s.systemPromptDocId = null;
+      } else {
+        s.systemPromptDocId = docId;
+      }
+    } else {
+      const ids = new Set(s.contextDocIds || []);
+      if (ids.has(docId)) ids.delete(docId);
+      else ids.add(docId);
+      s.contextDocIds = Array.from(ids);
+    }
+    next[stepIdx] = s;
+    setSteps(next);
   };
 
   const addStep = (wb) => {
@@ -367,16 +1038,26 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 
   return (
     <Box sx={{ mt: 2 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <Typography variant="h6">{isNew ? '새 파이프라인' : '파이프라인 편집'}</Typography>
-        <Box sx={{ flexGrow: 1 }} />
-        <Button onClick={onClose}>취소</Button>
-        <Button variant="contained" onClick={handleSave} disabled={saveMutation.isLoading}>저장</Button>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 4, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box display="flex" alignItems="center" gap={1.5} sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+              {isNew ? '새 파이프라인' : '파이프라인 편집'}
+            </Typography>
+            <Chip label={isNew ? '신규' : '편집 중'} color="primary" />
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            작업판을 왼쪽에서 오른쪽으로 연결합니다. 다음 단계의 입력이 이전 출력 타입과 같으면 자동으로 주입됩니다.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
+          <Button onClick={onClose}>취소</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saveMutation.isLoading}>저장</Button>
+        </Box>
       </Box>
 
-      <Stack spacing={2}>
+      <Stack spacing={3}>
         <TextField
-          size="small"
           label="이름"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -384,7 +1065,6 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           fullWidth
         />
         <TextField
-          size="small"
           label="설명 (선택)"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -393,17 +1073,13 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
           minRows={2}
           fullWidth
         />
-        {/* useWorldview 토글 제거 (#401) — 단계별 문서 선택으로 대체 */}
 
         <Box>
-          <Box display="flex" alignItems="center" mb={1}>
-            <Typography variant="subtitle2" sx={{ flexGrow: 1 }}>단계 ({steps.length})</Typography>
-            <Button
-              size="small"
-              startIcon={<AddIcon />}
-              variant="outlined"
-              onClick={() => setPickerOpen(true)}
-            >
+          <Box display="flex" alignItems="center" mb={2}>
+            <Typography variant="subtitle1" sx={{ flexGrow: 1, fontWeight: 600 }}>
+              단계 ({steps.length})
+            </Typography>
+            <Button startIcon={<AddIcon />} variant="outlined" onClick={() => setPickerOpen(true)}>
               단계 추가
             </Button>
           </Box>
@@ -413,97 +1089,30 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
               먼저 프로젝트의 "작업판" 탭에서 사용할 작업판들을 추가해 두어야 합니다.
             </Alert>
           ) : (
-            <Stack spacing={1}>
-              {steps.map((s, idx) => (
-                <Paper key={idx} variant="outlined" sx={{ p: 1.5 }}>
-                  <Box display="flex" alignItems="center" gap={1}>
-                    <Chip label={idx + 1} size="small" color="primary" />
-                    <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                      <Typography variant="subtitle2" noWrap>
-                        {s.workboard?.name || '(이름 불러오는 중)'}
-                      </Typography>
-                      {s.workboard?.description && (
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'pre-wrap' }}>
-                          {s.workboard.description}
-                        </Typography>
-                      )}
-                      <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                        {s.workboard?.outputFormat && (
-                          <Chip label={`out: ${s.workboard.outputFormat}`} size="small" variant="outlined" />
-                        )}
-                      </Stack>
-                    </Box>
-                    {idx > 0 && (
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            size="small"
-                            checked={s.autoInject !== false}
-                            onChange={(e) => {
-                              const next = [...steps];
-                              next[idx] = { ...s, autoInject: e.target.checked };
-                              setSteps(next);
-                            }}
-                          />
-                        }
-                        label={<Typography variant="caption">이전 결과 자동 주입</Typography>}
-                      />
-                    )}
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<SettingsIcon />}
-                      onClick={() => setInputsDialogStepIdx(idx)}
-                    >
-                      입력 설정
-                      {Object.keys(s.inputs || {}).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length > 0 && (
-                        <Chip label={Object.keys(s.inputs).filter((k) => s.inputs[k] !== '' && s.inputs[k] != null).length} size="small" sx={{ ml: 0.5, height: 18 }} />
-                      )}
-                    </Button>
-                    {/* 단계별 문서 연결 (#401) — LLM 단계만 의미 있지만 UI 는 모든 단계에 노출 (간소화) */}
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      onClick={() => setDocsDialogStepIdx(idx)}
-                    >
-                      문서
-                      {((s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)) > 0 && (
-                        <Chip
-                          label={(s.contextDocIds?.length || 0) + (s.systemPromptDocId ? 1 : 0)}
-                          size="small"
-                          sx={{ ml: 0.5, height: 18 }}
-                        />
-                      )}
-                    </Button>
-                    <IconButton size="small" disabled={idx === 0} onClick={() => moveStep(idx, -1)}>
-                      <ArrowUpward fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" disabled={idx === steps.length - 1} onClick={() => moveStep(idx, 1)}>
-                      <ArrowDownward fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" color="error" onClick={() => removeStep(idx)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                  {/* 단계별 메모 — 이 단계의 작업판 역할 / 사용자 가이드용 (#397 후속) */}
-                  <TextField
-                    size="small"
-                    fullWidth
-                    placeholder="이 단계에 대한 설명 / 메모 (선택)"
-                    value={s.note || ''}
-                    onChange={(e) => {
-                      const next = [...steps];
-                      next[idx] = { ...s, note: e.target.value };
-                      setSteps(next);
-                    }}
-                    multiline
-                    maxRows={3}
-                    inputProps={{ maxLength: 500 }}
-                    sx={{ mt: 1 }}
-                  />
-                </Paper>
-              ))}
-            </Stack>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '240px 1fr' }, gap: 3, alignItems: 'start' }}>
+              {isDesktop ? (
+                <ContextDocPalette
+                  projectId={projectId}
+                  selectedStepIdx={selectedStepIdx}
+                  selectedStep={selectedStepIdx >= 0 ? steps[selectedStepIdx] : null}
+                  onAddDoc={addDocToStep}
+                />
+              ) : <Box />}
+              <Box sx={{ minWidth: 0 }}>
+                <PipelineLane
+                  steps={steps}
+                  setSteps={setSteps}
+                  moveStep={moveStep}
+                  removeStep={removeStep}
+                  onOpenInputs={setInputsDialogStepIdx}
+                  onOpenDocs={setDocsDialogStepIdx}
+                  onAdd={() => setPickerOpen(true)}
+                  selectedStepIdx={selectedStepIdx}
+                  onSelectStep={setSelectedStepIdx}
+                />
+                <PipelineDiagnosticStrip steps={steps} />
+              </Box>
+            </Box>
           )}
         </Box>
       </Stack>
@@ -554,8 +1163,8 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                 >
                   <Typography variant="subtitle2">{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} size="small" variant="outlined" />}
-                    {wb.serverId?.name && <Chip label={wb.serverId.name} size="small" variant="outlined" />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" />}
+                    {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" />}
                   </Stack>
                 </Box>
               ))}
@@ -570,10 +1179,92 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   );
 }
 
-// 파이프라인 단계의 사전 입력 설정 다이얼로그 (#397 후속).
-// 작업판의 customField 들을 렌더링해 admin 이 미리 값을 채울 수 있게 함.
-// 자동 주입 대상 (prompt/userPrompt, image 입력) 도 여기서 미리 설정 가능하나,
-// 자동 주입이 ON 이면 runtime 에 덮어쓰임.
+// StepInputsForm — workboard customField 들을 form 으로 렌더 (Phase 5d 후속, 인라인 expand 용).
+// values 는 controlled — 부모가 onChange 마다 통째로 받음. 자동 주입 매칭 필드는
+// runtime 에 덮어쓰일 수 있다는 안내 alert 포함.
+function StepInputsForm({ workboard, values, onChange }) {
+  if (!workboard) return null;
+  const fields = (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');
+  const updateValue = (name, v) => onChange({ ...values, [name]: v });
+
+  const renderField = (field) => {
+    const value = values[field.name] ?? field.defaultValue ?? '';
+    if (field.type === 'string') {
+      return (
+        <TextField
+          fullWidth label={field.label} placeholder={field.placeholder}
+          value={value} onChange={(e) => updateValue(field.name, e.target.value)}
+          multiline={field.name.includes('prompt')} rows={field.name.includes('prompt') ? 2 : 1}
+          helperText={field.description}
+        />
+      );
+    }
+    if (field.type === 'number') {
+      return (
+        <TextField fullWidth type="number" label={field.label} value={value}
+          onChange={(e) => updateValue(field.name, e.target.value)} helperText={field.description}
+        />
+      );
+    }
+    if (field.type === 'boolean') {
+      return (
+        <FormControlLabel
+          control={<Switch checked={!!value} onChange={(e) => updateValue(field.name, e.target.checked)} />}
+          label={field.label}
+        />
+      );
+    }
+    if (field.type === 'select') {
+      return (
+        <TextField
+          fullWidth select label={field.label} value={value || ''}
+          onChange={(e) => updateValue(field.name, e.target.value)}
+          SelectProps={{ native: true }} InputLabelProps={{ shrink: true }} helperText={field.description}
+        >
+          <option value="">— 선택 없음 —</option>
+          {(field.options || []).map((opt, i) => (
+            <option key={i} value={opt.value}>{opt.key || opt.value}</option>
+          ))}
+        </TextField>
+      );
+    }
+    if (field.type === 'baseModel' || field.type === 'lora') {
+      return (
+        <MetadataFieldInput
+          kind={field.type === 'baseModel' ? 'model' : 'lora'}
+          field={field}
+          value={value || ''}
+          onChange={(v) => updateValue(field.name, v)}
+          workboardId={workboard._id}
+          serverId={workboard?.serverId?._id || workboard?.serverId}
+        />
+      );
+    }
+    if (field.type === 'image') {
+      return (
+        <Alert severity="info">
+          이미지 필드 (`{field.name}`) — 자동 주입 또는 단계 실행 시 입력. 사전 설정 미지원.
+        </Alert>
+      );
+    }
+    return null;
+  };
+
+  if (fields.length === 0) {
+    return <Alert severity="info">설정 가능한 입력 필드가 없습니다.</Alert>;
+  }
+
+  return (
+    <Stack spacing={2}>
+      {fields.map((field) => (
+        <Box key={field.name}>{renderField(field)}</Box>
+      ))}
+    </Stack>
+  );
+}
+
+// 파이프라인 단계의 사전 입력 설정 다이얼로그 (#397 후속). 인라인 expand 도입 후
+// 거의 사용 안 됨 — 호환성 위해 유지. StepInputsForm 을 내부에 사용.
 function StepInputsDialog({ open, step, onClose, onSave }) {
   const wb = step?.workboard;
   const [values, setValues] = useState({});
@@ -586,18 +1277,18 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
 
   if (!wb) return null;
 
-  // conversation_mode 같은 admin-only customField 는 사전 입력에서 숨김
+  // conversation_mode 같은 admin-only customField 는 사전 입력에서 숨김 (old fallback path)
   const fields = (wb.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');
 
   const updateValue = (name, v) => setValues({ ...values, [name]: v });
 
+  // 호환성 fallback 용 — 사용자가 dialog 통해 들어왔을 때만 호출됨
   const renderField = (field) => {
     const value = values[field.name] ?? field.defaultValue ?? '';
 
     if (field.type === 'string') {
       return (
         <TextField
-          size="small"
           fullWidth
           label={field.label}
           placeholder={field.placeholder}
@@ -612,7 +1303,6 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
     if (field.type === 'number') {
       return (
         <TextField
-          size="small"
           fullWidth
           type="number"
           label={field.label}
@@ -634,7 +1324,6 @@ function StepInputsDialog({ open, step, onClose, onSave }) {
       // native select 사용 시 label 이 placeholder 와 겹쳐 보이는 문제 해결 위해 InputLabelProps.shrink 고정
       return (
         <TextField
-          size="small"
           fullWidth
           select
           label={field.label}
@@ -797,7 +1486,6 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
                       <Box display="flex" alignItems="center" gap={1}>
                         <Chip
                           label={selected ? '선택' : ''}
-                          size="small"
                           color={selected ? 'primary' : 'default'}
                           variant={selected ? 'filled' : 'outlined'}
                           sx={{ minWidth: 50 }}
@@ -827,7 +1515,6 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
               system 메시지의 [작업 지침] 으로 사용됩니다. 작업판의 system_prompt customField 보다 우선합니다.
             </Typography>
             <TextField
-              size="small"
               fullWidth
               select
               SelectProps={{ native: true }}
@@ -864,12 +1551,24 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
 // "시작" → POST run → runId 받음 → polling 으로 상태 갱신. 페이지 떠나도 백엔드는 계속 실행.
 function PipelineRunner({ projectId, pipelineId, onClose }) {
   const queryClient = useQueryClient();
+  const theme = useTheme();
+  const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const { data: pipelineData, isLoading } = useQuery(
     ['pipeline', projectId, pipelineId],
     () => pipelineAPI.get(projectId, pipelineId),
     { enabled: !!pipelineId }
   );
   const pipeline = pipelineData?.data?.data?.pipeline;
+
+  // 사이드 레일용 — 같은 프로젝트의 최근 run 들 (Phase 5b 후속). client 에서 same-pipeline filter.
+  const { data: recentRunsData } = useQuery(
+    ['pipelineRuns', projectId],
+    () => pipelineRunAPI.list(projectId, { limit: 20 }),
+    { enabled: !!projectId, staleTime: 30_000 }
+  );
+  const recentRuns = (recentRunsData?.data?.data?.runs || [])
+    .filter((r) => (r.pipelineId?._id || r.pipelineId) === pipelineId)
+    .slice(0, 6);
 
   const [initialPrompt, setInitialPrompt] = useState('');
   const [runId, setRunId] = useState(null);
@@ -933,23 +1632,57 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
   const isFailed = run && run.status === 'failed';
   const firstFailedIdx = run ? (run.steps || []).findIndex((s) => s.status === 'failed') : -1;
 
+  // 실행 진행도 — 완료 단계 / 전체 단계 (Phase 5b)
+  const totalSteps = (pipeline.steps || []).length;
+  const completedSteps = run ? (run.steps || []).filter((s) => s.status === 'completed').length : 0;
+  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+  const runStatusLabel = run?.status === 'pending' ? '대기'
+    : run?.status === 'running' ? '진행 중'
+    : run?.status === 'completed' ? '완료'
+    : run?.status === 'failed' ? '실패' : run?.status;
+  const runStatusColor = run?.status === 'completed' ? 'success'
+    : run?.status === 'failed' ? 'error'
+    : run?.status === 'running' || run?.status === 'pending' ? 'info' : 'default';
+
   return (
     <Box sx={{ mt: 2 }}>
-      <Box display="flex" alignItems="center" gap={1} mb={2}>
-        <Typography variant="h6">{pipeline.name} 실행</Typography>
-        <Box sx={{ flexGrow: 1 }} />
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 2.5, flexWrap: 'wrap' }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box display="flex" alignItems="center" gap={1.5} sx={{ flexWrap: 'wrap' }}>
+            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, letterSpacing: '-0.01em' }}>
+              {pipeline.name}
+            </Typography>
+            {run && <Chip label={runStatusLabel} color={runStatusColor} />}
+          </Box>
+          {run && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, flexWrap: 'wrap', fontSize: 13, color: 'text.secondary' }}>
+              <span>실행 ID</span>
+              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 12, color: 'text.primary' }}>
+                {String(run._id).slice(-8)}
+              </Box>
+              {run.startedAt && (
+                <>
+                  <Box component="span" sx={{ color: 'divider' }}>·</Box>
+                  <span>시작 {new Date(run.startedAt).toLocaleString('ko-KR')}</span>
+                </>
+              )}
+            </Box>
+          )}
+        </Box>
         <Button onClick={onClose}>닫기</Button>
       </Box>
 
-      <Stack spacing={2}>
-        <Alert severity="info">
-          첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
-          실행은 백엔드 백그라운드에서 진행되므로 페이지를 떠나도 계속됩니다 — 파이프라인 히스토리 탭에서 결과 / 재실행 가능.
-          {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
-        </Alert>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 280px' }, gap: 4, alignItems: 'start' }}>
+        <Stack spacing={2}>
+        {!runId && (
+          <Alert severity="info">
+            첫 단계의 입력 프롬프트를 입력하고 "시작" 을 누르세요.
+            실행은 백엔드 백그라운드에서 진행되므로 페이지를 떠나도 계속됩니다 — 파이프라인 히스토리 탭에서 결과 / 재실행 가능.
+            {' 각 LLM 단계는 빌더에서 연결한 사전 컨텍스트 / 시스템 프롬프트 문서를 사용합니다.'}
+          </Alert>
+        )}
 
         <TextField
-          size="small"
           label="초기 입력 프롬프트"
           value={initialPrompt}
           onChange={(e) => setInitialPrompt(e.target.value)}
@@ -990,13 +1723,37 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
               새 실행
             </Button>
           )}
-          {runId && (
-            <Chip
-              label={run?.status === 'pending' ? '대기' : run?.status === 'running' ? '진행 중' : run?.status === 'completed' ? '완료' : run?.status === 'failed' ? '실패' : run?.status}
-              color={run?.status === 'completed' ? 'success' : run?.status === 'failed' ? 'error' : 'default'}
-            />
-          )}
         </Box>
+
+        {run && (
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2.5,
+              p: 2,
+              borderRadius: 1,
+              border: 1,
+              borderColor: 'divider',
+              bgcolor: 'background.paper',
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary', flexShrink: 0 }}>
+              {completedSteps} / {totalSteps} 단계
+            </Typography>
+            <Box sx={{ flex: 1 }}>
+              <LinearProgress
+                variant="determinate"
+                value={progressPct}
+                color={run.status === 'failed' ? 'error' : run.status === 'completed' ? 'success' : 'primary'}
+                sx={{ height: 6, borderRadius: 1 }}
+              />
+            </Box>
+            <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
+              {progressPct}%
+            </Typography>
+          </Box>
+        )}
 
         {run && (
           <Stepper activeStep={(run.steps || []).findIndex((s) => s.status === 'running')} orientation="vertical">
@@ -1010,7 +1767,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                       : runStep.status === 'failed' ? <ErrorIcon color="error" />
                       : runStep.status === 'running' ? <CircularProgress size={20} />
                       : runStep.status === 'skipped' ? <StopIcon color="disabled" />
-                      : <Chip label={idx + 1} size="small" />
+                      : <Chip label={idx + 1} />
                     }
                   >
                     <Typography variant="subtitle2">
@@ -1034,18 +1791,20 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                       </Typography>
                     )}
                     {runStep.status === 'completed' && runStep.output && (
-                      <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      <Paper variant="outlined" sx={{ borderColor: (t) => alpha(t.palette.success.main, 0.35), bgcolor: (t) => alpha(t.palette.success.main, 0.06), overflow: 'hidden' }}>
+                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: '"JetBrains Mono", monospace' }}>
                           결과 ({runStep.output.type})
-                        </Typography>
-                        {runStep.output.type === 'text' && (
-                          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto' }}>
-                            {runStep.output.value}
-                          </Typography>
-                        )}
-                        {runStep.output.type === 'image' && (
-                          <StepImageThumbnails runStep={runStep} />
-                        )}
+                        </Box>
+                        <Box sx={{ p: 1.5 }}>
+                          {runStep.output.type === 'text' && (
+                            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', maxHeight: 200, overflow: 'auto', lineHeight: 1.65 }}>
+                              {runStep.output.value}
+                            </Typography>
+                          )}
+                          {runStep.output.type === 'image' && (
+                            <StepImageThumbnails runStep={runStep} />
+                          )}
+                        </Box>
                       </Paper>
                     )}
                     {runStep.status === 'failed' && (
@@ -1063,8 +1822,121 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           </Stepper>
         )}
       </Stack>
+
+      {/* 우측 사이드 레일 (Phase 5b 후속) — 데스크탑에서만 sticky */}
+      {isDesktop && (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, position: 'sticky', top: 12 }}>
+          <Paper variant="outlined">
+            <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+                실행 정보
+              </Typography>
+            </Box>
+            <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <InfoRow label="파이프라인" value={pipeline.name} />
+              <InfoRow label="단계 수" value={`${totalSteps}단계`} />
+              {run?.startedAt && (
+                <InfoRow label="시작" value={new Date(run.startedAt).toLocaleString('ko-KR')} mono />
+              )}
+              {run?.completedAt && (
+                <InfoRow label="종료" value={new Date(run.completedAt).toLocaleString('ko-KR')} mono />
+              )}
+              {run?.startedAt && run?.completedAt && (
+                <InfoRow label="소요" value={formatDuration(run.startedAt, run.completedAt)} mono />
+              )}
+              {run?._id && (
+                <InfoRow label="실행 ID" value={String(run._id).slice(-8)} mono />
+              )}
+              {run?.triggerCount > 1 && (
+                <InfoRow label="재시도" value={`${run.triggerCount - 1}회`} />
+              )}
+            </Box>
+          </Paper>
+
+          {recentRuns.length > 0 && (
+            <Paper variant="outlined">
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
+                  같은 파이프라인 최근 실행
+                </Typography>
+              </Box>
+              <Box>
+                {recentRuns.map((r, i) => {
+                  const dotColor = r.status === 'completed' ? 'success.main'
+                    : r.status === 'failed' ? 'error.main'
+                    : r.status === 'running' || r.status === 'pending' ? 'info.main'
+                    : 'text.disabled';
+                  const isCurrent = String(r._id) === String(runId);
+                  return (
+                    <Box
+                      key={r._id}
+                      onClick={() => !isCurrent && setRunId(r._id)}
+                      sx={{
+                        px: 2,
+                        py: 1.25,
+                        borderTop: i > 0 ? 1 : 0,
+                        borderColor: 'divider',
+                        cursor: isCurrent ? 'default' : 'pointer',
+                        bgcolor: isCurrent ? (t) => alpha(t.palette.primary.main, 0.08) : 'transparent',
+                        '&:hover': isCurrent ? {} : { bgcolor: 'action.hover' },
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: dotColor, flexShrink: 0 }} />
+                        <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: isCurrent ? 600 : 500 }}>
+                          {r.initialPrompt?.slice(0, 30) || '(빈 입력)'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', flexShrink: 0 }}>
+                          {formatRunTime(r.createdAt)}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Paper>
+          )}
+        </Box>
+      )}
+      </Box>
     </Box>
   );
+}
+
+function InfoRow({ label, value, mono }) {
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1.5 }}>
+      <Typography variant="caption" sx={{ width: 56, color: 'text.secondary', flexShrink: 0 }}>
+        {label}
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{ color: 'text.primary', fontFamily: mono ? '"JetBrains Mono", monospace' : undefined, wordBreak: 'break-word' }}
+      >
+        {value}
+      </Typography>
+    </Box>
+  );
+}
+
+function formatDuration(start, end) {
+  const ms = new Date(end).getTime() - new Date(start).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return '-';
+  const sec = Math.floor(ms / 1000);
+  if (sec < 60) return `${sec}초`;
+  const min = Math.floor(sec / 60);
+  const rem = sec % 60;
+  return rem === 0 ? `${min}분` : `${min}분 ${rem}초`;
+}
+
+function formatRunTime(iso) {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const today = new Date();
+  const sameDay = d.toDateString() === today.toDateString();
+  return sameDay
+    ? d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    : `${d.getMonth() + 1}/${d.getDate()}`;
 }
 
 // 파이프라인 히스토리 패널 (#407). 프로젝트 상세 탭에서 사용.
@@ -1165,7 +2037,7 @@ export function PipelineHistoryPanel({ projectId }) {
                   : runStep.status === 'failed' ? <ErrorIcon color="error" />
                   : runStep.status === 'running' ? <CircularProgress size={20} />
                   : runStep.status === 'skipped' ? <StopIcon color="disabled" />
-                  : <Chip label={idx + 1} size="small" />
+                  : <Chip label={idx + 1} />
                 }
               >
                 <Typography variant="subtitle2">
@@ -1218,75 +2090,129 @@ export function PipelineHistoryPanel({ projectId }) {
           </Typography>
         </Box>
       ) : (
-        <Stack spacing={1}>
+        <Stack spacing={2}>
           {runs.map((r) => (
-            <Card key={r._id} variant="outlined">
-              <CardContent sx={{ pb: 1 }}>
-                <Box display="flex" alignItems="center" gap={1} sx={{ mb: 0.5, flexWrap: 'wrap' }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                    {r.pipelineId?.name || '(파이프라인)'}
-                  </Typography>
-                  <Chip
-                    label={r.status === 'pending' ? '대기' : r.status === 'running' ? '진행 중' : r.status === 'completed' ? '완료' : r.status === 'failed' ? '실패' : r.status}
-                    size="small"
-                    color={r.status === 'completed' ? 'success' : r.status === 'failed' ? 'error' : r.status === 'running' ? 'primary' : 'default'}
-                  />
-                  {r.triggerCount > 1 && (
-                    <Chip label={`재시도 ${r.triggerCount - 1}회`} size="small" variant="outlined" />
-                  )}
-                  <Box sx={{ flexGrow: 1 }} />
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(r.createdAt).toLocaleString('ko-KR')}
-                  </Typography>
-                </Box>
-                {r.initialPrompt && (
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    sx={{
-                      overflow: 'hidden', textOverflow: 'ellipsis',
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
-                    }}
-                  >
-                    {r.initialPrompt}
-                  </Typography>
-                )}
-                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                  {(r.steps || []).map((s, idx) => (
-                    <Chip
-                      key={idx}
-                      label={idx + 1}
-                      size="small"
-                      color={
-                        s.status === 'completed' ? 'success'
-                        : s.status === 'failed' ? 'error'
-                        : s.status === 'running' ? 'primary'
-                        : s.status === 'skipped' ? 'default'
-                        : 'default'
-                      }
-                      variant={s.status === 'pending' ? 'outlined' : 'filled'}
-                      sx={{ height: 22, minWidth: 22 }}
-                    />
-                  ))}
-                </Stack>
-              </CardContent>
-              <CardActions sx={{ pt: 0, justifyContent: 'flex-end' }}>
-                <Button size="small" onClick={() => setSelectedRunId(r._id)}>상세</Button>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => {
-                    if (window.confirm('이 실행 기록을 삭제하시겠어요?')) deleteMutation.mutate(r._id);
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </CardActions>
-            </Card>
+            <PipelineRunCard
+              key={r._id}
+              run={r}
+              onSelect={() => setSelectedRunId(r._id)}
+              onDelete={() => {
+                if (window.confirm('이 실행 기록을 삭제하시겠어요?')) deleteMutation.mutate(r._id);
+              }}
+            />
           ))}
         </Stack>
       )}
     </Box>
+  );
+}
+
+// 파이프라인 실행 히스토리 카드 (Phase 5a 후속) — mockup PipelineHistoryTabContent.
+// 헤더: 이름 + status chip + 시각
+// 본문: input 프롬프트 한 줄 + step 원형 진행 + (running) LinearProgress + "상세 →"
+function PipelineRunCard({ run, onSelect, onDelete }) {
+  const statusLabel = run.status === 'pending' ? '대기'
+    : run.status === 'running' ? '진행 중'
+    : run.status === 'completed' ? '완료'
+    : run.status === 'failed' ? '실패' : run.status;
+  const statusColor = run.status === 'completed' ? 'success'
+    : run.status === 'failed' ? 'error'
+    : run.status === 'running' ? 'info'
+    : run.status === 'pending' ? 'info' : 'default';
+  const totalSteps = (run.steps || []).length;
+  const completedSteps = (run.steps || []).filter((s) => s.status === 'completed').length;
+  const progressPct = totalSteps > 0 ? Math.round((completedSteps / totalSteps) * 100) : 0;
+
+  return (
+    <Card variant="outlined" onClick={onSelect} sx={{ cursor: 'pointer', '&:hover': { borderColor: 'primary.main' } }}>
+      <CardContent sx={{ pb: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5, flexWrap: 'wrap' }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+            {run.pipelineId?.name || '(파이프라인)'}
+          </Typography>
+          <Chip label={statusLabel} color={statusColor} />
+          {run.triggerCount > 1 && (
+            <Chip label={`재시도 ${run.triggerCount - 1}회`} variant="outlined" />
+          )}
+          <Box sx={{ flex: 1 }} />
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+            {new Date(run.createdAt).toLocaleString('ko-KR')}
+          </Typography>
+        </Box>
+
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          {run.initialPrompt && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                flex: 1,
+                minWidth: 0,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={run.initialPrompt}
+            >
+              {run.initialPrompt}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
+            {(run.steps || []).map((s, idx) => {
+              const isDone = s.status === 'completed';
+              const isFail = s.status === 'failed';
+              const isRunning = s.status === 'running';
+              const bg = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'transparent';
+              const fg = isDone || isFail || isRunning ? '#FFFFFF' : 'text.secondary';
+              const border = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'divider';
+              return (
+                <Box
+                  key={idx}
+                  sx={{
+                    width: 22,
+                    height: 22,
+                    borderRadius: '50%',
+                    border: 1,
+                    borderColor: border,
+                    bgcolor: bg,
+                    color: fg,
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontSize: 10,
+                    fontWeight: 700,
+                    fontFamily: '"JetBrains Mono", monospace',
+                  }}
+                >
+                  {isDone ? <CheckCircleIcon sx={{ fontSize: 12 }} /> : idx + 1}
+                </Box>
+              );
+            })}
+          </Box>
+          {run.status === 'running' && totalSteps > 0 && (
+            <Box sx={{ width: 80, flexShrink: 0 }}>
+              <LinearProgress
+                variant="determinate"
+                value={progressPct}
+                sx={{ height: 4, borderRadius: 1 }}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', fontFamily: '"JetBrains Mono", monospace', fontSize: 10, mt: 0.25 }}>
+                {progressPct}%
+              </Typography>
+            </Box>
+          )}
+          <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 500, flexShrink: 0 }}>
+            상세 →
+          </Typography>
+          <IconButton
+            color="error"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="삭제"
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </CardContent>
+    </Card>
   );
 }
 

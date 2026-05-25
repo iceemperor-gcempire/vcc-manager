@@ -1,15 +1,16 @@
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: 'Pretendard', 'Pretendard Variable', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Roboto', 'Noto Sans KR', 'Helvetica Neue', sans-serif;
+  /* Pretendard 스타일 셋: ss06 (한글 자간), ss07 (라틴 자간 보정) */
+  font-feature-settings: "ss06" on, "ss07" on;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+  font-family: 'JetBrains Mono', source-code-pro, Menlo, Monaco, Consolas,
+    'Courier New', monospace;
 }
 
 * {
@@ -18,4 +19,10 @@ code {
 
 html, body, #root {
   height: 100%;
+}
+
+/* 한국어 본문 줄바꿈 — 마지막 단어가 한 줄 차지하는 미관 회피 (Phase 4). */
+.MuiTypography-body1,
+.MuiTypography-body2 {
+  text-wrap: pretty;
 }

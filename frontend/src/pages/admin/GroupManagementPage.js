@@ -70,7 +70,6 @@ function GroupFormDialog({ open, onClose, group, onSave }) {
             onChange={(e) => setName(e.target.value)}
             fullWidth
             required
-            size="small"
           />
           <TextField
             label="설명"
@@ -79,7 +78,6 @@ function GroupFormDialog({ open, onClose, group, onSave }) {
             fullWidth
             multiline
             rows={2}
-            size="small"
           />
           <FormControlLabel
             control={
@@ -155,7 +153,6 @@ function GroupMembersDialog({ open, onClose, group }) {
         <TextField
           placeholder="이메일 / 닉네임 검색"
           fullWidth
-          size="small"
           value={memberFilter}
           onChange={(e) => setMemberFilter(e.target.value)}
           sx={{ mb: 2 }}
@@ -177,7 +174,6 @@ function GroupMembersDialog({ open, onClose, group }) {
                   <ListItemSecondaryAction>
                     {member ? (
                       <Button
-                        size="small"
                         color="warning"
                         startIcon={<PersonRemoveIcon />}
                         onClick={() => memberMutation.mutate({ userId: u._id, action: 'remove' })}
@@ -187,7 +183,6 @@ function GroupMembersDialog({ open, onClose, group }) {
                       </Button>
                     ) : (
                       <Button
-                        size="small"
                         startIcon={<PersonAddIcon />}
                         onClick={() => memberMutation.mutate({ userId: u._id, action: 'add' })}
                         disabled={memberMutation.isLoading}
@@ -337,11 +332,10 @@ function GroupManagementPage() {
                       {group.name}
                     </Typography>
                     {group.isDefault && (
-                      <Chip label="기본" size="small" color="primary" variant="outlined" />
+                      <Chip label="기본" color="primary" variant="outlined" />
                     )}
                     <Chip
                       label={`${group.memberCount || 0}명`}
-                      size="small"
                       variant="outlined"
                     />
                   </Stack>
@@ -353,7 +347,7 @@ function GroupManagementPage() {
                   {group.permissions && group.permissions.length > 0 && (
                     <Box sx={{ mt: 1, display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                       {group.permissions.map((p) => (
-                        <Chip key={p} label={p} size="small" variant="outlined" />
+                        <Chip key={p} label={p} variant="outlined" />
                       ))}
                     </Box>
                   )}

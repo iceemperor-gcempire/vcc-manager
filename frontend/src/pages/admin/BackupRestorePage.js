@@ -74,7 +74,6 @@ function getStatusChip(status) {
   const config = statusConfig[status] || statusConfig.pending;
   return (
     <Chip
-      size="small"
       label={config.label}
       color={config.color}
       icon={config.icon}
@@ -440,13 +439,13 @@ function BackupRestorePage() {
                             {restore.options && (
                               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                 {restore.options.overwriteExisting && (
-                                  <Chip size="small" label="덮어쓰기" />
+                                  <Chip label="덮어쓰기" />
                                 )}
                                 {restore.options.skipFiles && (
-                                  <Chip size="small" label="파일 제외" />
+                                  <Chip label="파일 제외" />
                                 )}
                                 {restore.options.skipDatabase && (
-                                  <Chip size="small" label="DB 제외" />
+                                  <Chip label="DB 제외" />
                                 )}
                               </Box>
                             )}
