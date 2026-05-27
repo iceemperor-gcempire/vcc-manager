@@ -141,10 +141,6 @@ function Signup() {
             toast('관리자의 승인이 완료된 후 로그인을 진행하실 수 있습니다. 승인까지 다소 시간이 소요될 수 있으니 양해 부탁드립니다.', {
               icon: '📋',
               duration: 8000,
-              style: {
-                background: '#e3f2fd',
-                color: '#1565c0',
-              },
             });
           }, 1000);
         }

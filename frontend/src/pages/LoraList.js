@@ -724,7 +724,7 @@ function LoraList() {
                 <Typography variant="body2">
                   {pagination.total || 0}개
                   {nsfwLoraFilter && loraModels.length !== filteredLoraModels.length && (
-                    <span style={{ color: '#666' }}> (NSFW {loraModels.length - filteredLoraModels.length}개 숨김)</span>
+                    <Box component="span" sx={{ color: 'text.secondary' }}> (NSFW {loraModels.length - filteredLoraModels.length}개 숨김)</Box>
                   )}
                 </Typography>
               </Grid>

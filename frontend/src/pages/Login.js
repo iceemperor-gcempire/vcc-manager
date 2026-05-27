@@ -49,10 +49,6 @@ function Login() {
       toast.error('가입이 거절되었습니다. 관리자에게 문의하시기 바랍니다.', {
         duration: 6000,
         icon: '❌',
-        style: {
-          background: '#ffebee',
-          color: '#c62828',
-        },
       });
     } else if (error === 'auth_failed') {
       toast.error('인증 처리 중 오류가 발생했습니다.');
