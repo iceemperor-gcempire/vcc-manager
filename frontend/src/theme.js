@@ -38,9 +38,12 @@ const DARK = {
   background:{ default: '#0E1015', paper: '#161A22' },
   text:      { primary: '#E8E9EE', secondary: '#A0A4AF', disabled: '#4A4E58' },
   divider:   '#2A2F3B',
+  // 다크 grey 스케일 — bgcolor: 'grey.50/100/...' 가 다크모드에서 어두운 surface 로 동작하도록
+  // 50~400 은 paper 주변의 다크 톤, 500~700 은 mid → light text/icon 톤, 800~900 은 near-white.
+  // (#442 — 종전 50~400 이 LIGHT 값을 그대로 써서 다크모드에서 흰 패치가 보였던 버그 수정)
   grey: {
-    50:  '#F7F7F4', 100: '#F1F1ED', 200: '#EBEAE5', 300: '#E2E2DC',
-    400: '#D2D2CA', 500: '#717684', 600: '#A0A4AF', 700: '#E8E9EE',
+    50:  '#11141B', 100: '#161A22', 200: '#1A1E27', 300: '#262C39',
+    400: '#3A4051', 500: '#717684', 600: '#A0A4AF', 700: '#E8E9EE',
     800: '#F1F1ED', 900: '#FFFFFF',
   },
 };

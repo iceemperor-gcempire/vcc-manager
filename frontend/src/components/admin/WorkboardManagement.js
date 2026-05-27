@@ -1474,7 +1474,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                     return (
                       <React.Fragment key={catKey}>
                         <Typography variant="subtitle2" fontWeight="bold" gutterBottom>{catLabel}</Typography>
-                        <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                        <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: 1, borderColor: 'divider' } }}>
                           <tbody>
                             {vars.map((v) => renderVariableRow(
                               v.key,
@@ -1495,7 +1495,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
 
                   <Typography variant="subtitle2" fontWeight="bold" gutterBottom>사용자 정의 변수</Typography>
                   {watch('additionalCustomFields')?.length > 0 ? (
-                    <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: '1px solid #eee' } }}>
+                    <Box component="table" sx={{ width: '100%', mb: 2, '& td, & th': { p: 1, borderBottom: 1, borderColor: 'divider' } }}>
                       <tbody>
                         {watch('additionalCustomFields').map((field, idx) => (
                           field.name && (
