@@ -31,7 +31,12 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 3. `main` 브랜치에서 버전 태그 생성
 4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
-**기타 개발과 관련 없는 작업 시:**
+**사용자 비가시 변경 시** (CLAUDE.md, `docs/`, `e2e/`, 내부 스크립트, CI 설정 등 배포 산출물에 영향 없는 변경):
+1. 일반 개발 작업과 동일하게 issue → feature/fix 브랜치 → PR → `dev` 머지
+2. **release tag / GitHub Release 절차 면제** — dev 머지로 종료
+3. updatelog 에 기록 안 함 (사용자가 체감 못함)
+
+**사용자 가시 product 변경인데 버전 릴리스 사이클이 아닌 경우** (긴급 hotfix, 운영상 즉시 반영 필요 등 예외 케이스):
 1. 작업 진행
 2. `dev` → `main` PR 생성 및 머지
 3. `main` 브랜치에서 버전 태그 생성
