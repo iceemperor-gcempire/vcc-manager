@@ -54,11 +54,11 @@ import {
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import MetadataPickerModal from '../common/MetadataPickerModal';
-import { getWorkboardTemplate } from '../../templates';
 import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
 import {
   getServerTypeLabel,
@@ -704,7 +704,11 @@ function PreviewField({ field }) {
 }
 
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
-function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
+// asPage 모드 (#437 Phase A) — Dialog 대신 페이지 안에 인라인 렌더. 데이터 fetch 게이트는
+// open 또는 asPage 가 true 일 때 열림. 페이지 경로는 WorkboardEditorPage 가 wrap.
+export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage = false, onCancel }) {
+  const isOpen = asPage || open;
+  const handleCancel = onCancel || onClose;
   const [tabValue, setTabValue] = useState(0);
   // 5e-3 — 입력 양식 탭의 선택 필드 (인스펙터 패턴)
   const [selectedFieldIdx, setSelectedFieldIdx] = useState(-1);
@@ -745,7 +749,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
   // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀.
   // ServerModelCache 의 detailed endpoint 에서 derived (limit 1 로 가벼운 호출).
   useEffect(() => {
-    if (!open || !isComfyUI || !watchedServerId) {
+    if (!isOpen || !isComfyUI || !watchedServerId) {
       setAvailableBaseModels([]);
       return;
     }
@@ -754,15 +758,15 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
         setAvailableBaseModels(res.data?.data?.availableBaseModels || []);
       })
       .catch(() => setAvailableBaseModels([]));
-  }, [open, isComfyUI, watchedServerId]);
+  }, [isOpen, isComfyUI, watchedServerId]);
 
   // 그룹 목록 fetch (#198) — 모달 open 시 1회
   useEffect(() => {
-    if (!open) return;
+    if (!isOpen) return;
     groupAPI.getAll()
       .then((res) => setAvailableGroups(res.data?.data?.groups || []))
       .catch(() => setAvailableGroups([]));
-  }, [open]);
+  }, [isOpen]);
 
   useEffect(() => {
     return () => {
@@ -808,7 +812,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
 
   // 관리자 전용 API로 완전한 데이터 로딩
   useEffect(() => {
-    if (workboard && workboard._id && open) {
+    if (workboard && workboard._id && isOpen) {
       setLoading(true);
       console.log('Fetching full workboard data with ID:', workboard._id);
       
@@ -854,7 +858,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
           setLoading(false);
         });
     }
-  }, [workboard?._id, open, reset]);
+  }, [workboard?._id, isOpen, reset]);
 
   const addArrayItem = (fieldName, defaultItem = { key: '', value: '' }) => {
     const currentItems = watch(fieldName) || [];
@@ -961,12 +965,39 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
     onSave(updateData);
   };
 
+  // asPage (#437 Phase A) — Dialog wrapper 대신 React.Fragment 로 감싸 페이지 안에 그대로 렌더.
+  // 사용자가 외부에서 form submit 할 수 있도록 form 에 id 부여 + sticky header 의 저장 버튼은
+  // form="wbEditForm" 으로 연결.
+  const Wrapper = asPage ? React.Fragment : Dialog;
+  const wrapperProps = asPage ? {} : { open, onClose: handleCancel, maxWidth: 'xl', fullWidth: true };
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth>
-      <DialogTitle>
-        작업판 상세 편집 - {workboard?.name}
-      </DialogTitle>
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <Wrapper {...wrapperProps}>
+      {asPage ? (
+        <Box sx={{
+          position: 'sticky', top: 0, zIndex: 10,
+          bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider',
+          py: 2, mb: 2,
+          display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+        }}>
+          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Typography variant="h6" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
+            {workboard?.name || '작업판 편집'}
+          </Typography>
+          <Chip
+            label={watch('isActive') ? '활성' : '비활성'}
+            color={watch('isActive') ? 'success' : 'default'}
+            variant="outlined"
+          />
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={handleCancel}>취소</Button>
+          <Button form="wbEditForm" type="submit" variant="contained" disabled={loading}>저장</Button>
+        </Box>
+      ) : (
+        <DialogTitle>
+          작업판 상세 편집 - {workboard?.name}
+        </DialogTitle>
+      )}
+      <form id="wbEditForm" onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           {loading ? (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
@@ -1005,7 +1036,7 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
               errors={errors}
               showActiveSwitch={true}
               showTypeSelector={true}
-              isDialogOpen={open}
+              isDialogOpen={isOpen}
             />
           )}
 
@@ -1572,18 +1603,22 @@ function WorkboardDetailDialog({ open, onClose, workboard, onSave }) {
             </>
           )}
       </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>취소</Button>
-          <Button type="submit" variant="contained" disabled={loading}>
-            저장
-          </Button>
-        </DialogActions>
+        {!asPage && (
+          <DialogActions>
+            <Button onClick={handleCancel}>취소</Button>
+            <Button type="submit" variant="contained" disabled={loading}>
+              저장
+            </Button>
+          </DialogActions>
+        )}
       </form>
-    </Dialog>
+    </Wrapper>
   );
 }
 
-function WorkboardCreateDialog({ open, onClose, onSave }) {
+export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, onCancel }) {
+  const isOpen = asPage || open;
+  const handleCancel = onCancel || onClose;
   const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
@@ -1596,7 +1631,7 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
   });
 
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       reset({
         name: '',
         description: '',
@@ -1606,16 +1641,33 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
         isActive: true
       });
     }
-  }, [open, reset]);
+  }, [isOpen, reset]);
 
   const onSubmit = (data) => {
     onSave(data);
   };
 
+  const Wrapper = asPage ? React.Fragment : Dialog;
+  const wrapperProps = asPage ? {} : { open, onClose: handleCancel, maxWidth: 'md', fullWidth: true };
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>새 작업판 생성</DialogTitle>
-      <form onSubmit={handleSubmit(onSubmit)}>
+    <Wrapper {...wrapperProps}>
+      {asPage ? (
+        <Box sx={{
+          position: 'sticky', top: 0, zIndex: 10,
+          bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider',
+          py: 2, mb: 2,
+          display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+        }}>
+          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Typography variant="h6" sx={{ fontWeight: 700 }}>새 작업판</Typography>
+          <Box sx={{ flex: 1 }} />
+          <Button onClick={handleCancel}>취소</Button>
+          <Button form="wbCreateForm" type="submit" variant="contained">생성</Button>
+        </Box>
+      ) : (
+        <DialogTitle>새 작업판 생성</DialogTitle>
+      )}
+      <form id="wbCreateForm" onSubmit={handleSubmit(onSubmit)}>
         <DialogContent>
           <WorkboardBasicInfoForm
             control={control}
@@ -1623,7 +1675,7 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
             errors={errors}
             showActiveSwitch={false}
             showTypeSelector={true}
-            isDialogOpen={open}
+            isDialogOpen={isOpen}
           />
 
           <Alert severity="info" sx={{ mt: 2 }}>
@@ -1631,12 +1683,14 @@ function WorkboardCreateDialog({ open, onClose, onSave }) {
             생성 후 편집에서 추가할 수 있습니다.
           </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={onClose}>취소</Button>
-          <Button type="submit" variant="contained">생성</Button>
-        </DialogActions>
+        {!asPage && (
+          <DialogActions>
+            <Button onClick={handleCancel}>취소</Button>
+            <Button type="submit" variant="contained">생성</Button>
+          </DialogActions>
+        )}
       </form>
-    </Dialog>
+    </Wrapper>
   );
 }
 
@@ -1870,6 +1924,7 @@ const ADMIN_WB_SERVER_KEY = 'vcc.adminWorkboards.serverType';
 const ADMIN_WB_OUTPUT_KEY = 'vcc.adminWorkboards.outputFormat';
 
 function WorkboardManagement() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState(() => localStorage.getItem(ADMIN_WB_SEARCH_KEY) || '');
   const [serverTypeFilter, setServerTypeFilter] = useState(() => localStorage.getItem(ADMIN_WB_SERVER_KEY) || '');
   const [outputFormatFilter, setOutputFormatFilter] = useState(() => localStorage.getItem(ADMIN_WB_OUTPUT_KEY) || '');
@@ -1887,10 +1942,10 @@ function WorkboardManagement() {
     if (outputFormatFilter) localStorage.setItem(ADMIN_WB_OUTPUT_KEY, outputFormatFilter);
     else localStorage.removeItem(ADMIN_WB_OUTPUT_KEY);
   }, [outputFormatFilter]);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  // create / update / 편집 dialog 상태는 #437 Phase A 에서 페이지로 이전됨
+  // (WorkboardEditorPage / WorkboardCreatePage 가 own mutation + 페이지 라우팅).
+  // 본 컴포넌트는 목록 / 가져오기 / delete / duplicate / toggleActive / export 만 담당.
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [selectedWorkboard, setSelectedWorkboard] = useState(null);
 
   const queryClient = useQueryClient();
 
@@ -1898,86 +1953,6 @@ function WorkboardManagement() {
     ['adminWorkboards', { search, serverTypeFilter, outputFormatFilter }],
     () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, serverType: serverTypeFilter || undefined, outputFormat: outputFormatFilter || undefined }),
     { keepPreviousData: true }
-  );
-
-  const createMutation = useMutation(
-    workboardAPI.create,
-    {
-      onSuccess: (response) => {
-        console.log('✨ New workboard created, updating cache immediately');
-        toast.success('작업판이 생성되었습니다');
-        
-        // 즉시 캐시 업데이트 - 새 작업판을 목록에 추가
-        queryClient.setQueryData('adminWorkboards', (oldData) => {
-          if (!oldData?.data?.workboards || !response.data?.workboard) {
-            queryClient.refetchQueries('adminWorkboards');
-            return oldData;
-          }
-          
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              workboards: [response.data.workboard, ...oldData.data.workboards],
-              pagination: {
-                ...oldData.data.pagination,
-                total: oldData.data.pagination.total + 1
-              }
-            }
-          };
-        });
-        
-        // 강제 리패치로 정확한 데이터 보장
-        queryClient.refetchQueries('adminWorkboards');
-        setDialogOpen(false);
-      },
-      onError: (error) => {
-        console.error('❌ Workboard creation failed:', error);
-        toast.error('생성 실패: ' + error.message);
-      }
-    }
-  );
-
-  const updateMutation = useMutation(
-    ({ id, data }) => workboardAPI.update(id, data),
-    {
-      onSuccess: (response) => {
-        console.log('🔄 Workboard update success, immediately updating cache');
-        toast.success('작업판이 수정되었습니다');
-        
-        // 즉시 캐시 업데이트 - 기존 데이터를 새 데이터로 교체
-        queryClient.setQueryData('adminWorkboards', (oldData) => {
-          if (!oldData?.data?.workboards || !response.data?.workboard) return oldData;
-          
-          const updatedWorkboards = oldData.data.workboards.map(wb => 
-            wb._id === response.data.workboard._id ? response.data.workboard : wb
-          );
-          
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              workboards: updatedWorkboards
-            }
-          };
-        });
-        
-        // 강제 리패치도 수행하여 확실히 최신 데이터 보장
-        queryClient.refetchQueries('adminWorkboards');
-        
-        // 상세 편집 다이얼로그가 열려있으면 선택된 작업판 데이터를 업데이트
-        if (detailDialogOpen && response.data?.workboard) {
-          setSelectedWorkboard(response.data.workboard);
-        }
-        setDialogOpen(false);
-        
-        console.log('✅ Cache updated immediately with new workboard data');
-      },
-      onError: (error) => {
-        console.error('❌ Workboard update failed:', error);
-        toast.error('수정 실패: ' + error.message);
-      }
-    }
   );
 
   const deleteMutation = useMutation(
@@ -2076,17 +2051,11 @@ function WorkboardManagement() {
   const workboards = data?.data?.workboards || [];
 
   const handleCreate = () => {
-    setSelectedWorkboard(null);
-    setDialogOpen(true);
+    navigate('/admin/workboards/new');
   };
 
-  const handleEdit = (workboard, editType = 'basic') => {
-    setSelectedWorkboard(workboard);
-    if (editType === 'detailed') {
-      setDetailDialogOpen(true);
-    } else {
-      setDialogOpen(true);
-    }
+  const handleEdit = (workboard /* editType ignored — 단일 편집 페이지로 통합 (#437 Phase A) */) => {
+    navigate(`/admin/workboards/${workboard._id}/edit`);
   };
 
   const handleDelete = (workboard) => {
@@ -2134,33 +2103,6 @@ function WorkboardManagement() {
   const handleView = (workboard) => {
     // 상세 보기 구현
     console.log('View workboard:', workboard);
-  };
-
-  const handleSave = (data) => {
-    if (selectedWorkboard) {
-      const { serverType: _omit, ...normalizedData } = data;
-      updateMutation.mutate({ id: selectedWorkboard._id, data: normalizedData });
-    } else {
-      // 생성: serverType + outputFormat → 템플릿 적용
-      const serverType = data.serverType || 'ComfyUI';
-      const outputFormat = data.outputFormat || 'image';
-      const template = getWorkboardTemplate(serverType, outputFormat);
-
-      const { serverType: _omit, ...rest } = data;
-      const workboardData = {
-        ...rest,
-        outputFormat,
-        ...template,
-      };
-      createMutation.mutate(workboardData);
-    }
-  };
-
-  const handleDetailSave = (data) => {
-    if (selectedWorkboard) {
-      updateMutation.mutate({ id: selectedWorkboard._id, data });
-      // 다이얼로그는 닫지 않고 데이터만 업데이트 - updateMutation의 onSuccess에서 처리
-    }
   };
 
   return (
@@ -2246,19 +2188,6 @@ function WorkboardManagement() {
           ))}
         </Grid>
       )}
-
-      <WorkboardCreateDialog
-        open={dialogOpen}
-        onClose={() => setDialogOpen(false)}
-        onSave={handleSave}
-      />
-
-      <WorkboardDetailDialog
-        open={detailDialogOpen}
-        onClose={() => setDetailDialogOpen(false)}
-        workboard={selectedWorkboard}
-        onSave={handleDetailSave}
-      />
 
       <WorkboardImportDialog
         open={importDialogOpen}
