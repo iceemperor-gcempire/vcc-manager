@@ -288,19 +288,37 @@ npm run test:e2e:headed
 
 ## 업데이트 내역 관리
 
-### 버전 태그 시 업데이트 내역 작성 절차
+### 작성 대상 / Tone
+- **사용자 시각으로 작성**. 무엇이 보이고, 무엇이 달라지고, 무엇을 새로 할 수 있는지 중심
+- 신규 기능 / UX 개선 / 동작 변화 / 데이터 보존·유실 안내가 핵심
+- 친근하고 명확한 한국어. 사용자가 한 번 읽고 "아 이렇게 바뀌었구나" 가 잡혀야 함
 
-새로운 버전 태그를 생성할 때 아래 절차를 따른다:
+### 제외 / 최소화
+- Phase 번호, hex 값, 토큰 이름, 파일 경로, defaultProps 등 내부 용어
+- 리팩토링 / 의존성 업그레이드 / 코드 정리 — 사용자가 체감 못하면 적지 않음
+- 이슈 / PR 번호 인라인 인용 — 사용자 흐름이 GitHub 로 새는 걸 회피
 
-1. `docs/updatelogs/v{major}.md` 파일 확인 (없으면 `# v{major} 업데이트 내역` 제목으로 생성)
-2. 파일 상단(제목 바로 아래)에 `## v{version}` 섹션 추가 (최신이 상단)
-3. 이전 태그 이후 커밋을 분석하여 변경사항을 한국어로 요약 작성
-4. `frontend/src/config.js`의 `version.major` 값이 현재 메이저 버전과 일치하는지 확인
+### 예외 — 버그 수정
+사용자가 직접 보고한 버그 수정 시 해당 이슈 번호 인라인 참조해도 OK ("이 버그를 알고 있었고, 이렇게 해결했다" 의 closure 효과). 일반 개선 / 신규 기능은 이슈 번호 인용 자제.
+
+### 자세한 개발 내역
+updatelog 가 아니라 **GitHub 이슈의 version label 검색** 으로 확인.
+- release 전 / 직후, 포함된 이슈 / PR 에 `v{version}` label 일괄 부여 (예: `v3.1.0`)
+- updatelog 본문 끝에 "자세한 개발 변경 목록은 GitHub issues 의 `v{version}` label 검색 참고" 한 줄 안내
+
+### 작성 절차
+1. `dev → main` PR 직전, 이전 태그 이후 머지된 PR 들의 **사용자 가시 결과** 만 추려 정리
+2. `docs/updatelogs/v{major}.md` 파일 확인 (없으면 `# v{major} 업데이트 내역` 제목으로 생성). 최상단에 `## v{version}` 섹션 추가 (최신이 상단)
+3. release 직전 또는 직후, 포함된 이슈 / PR 에 `v{version}` label 일괄 부여
+4. `frontend/src/config.js` 의 `version.major` 값이 현재 메이저 버전과 일치하는지 확인
 
 ### 파일 위치
 - 업데이트 내역: `docs/updatelogs/v{major}.md`
 - 프론트엔드 버전 설정: `frontend/src/config.js` → `config.version.major`
 - 백엔드 API: `GET /api/updatelog/:majorVersion`
+
+### 적용 시점
+- **v3.1.0 부터 본 정책 적용**. v3.0.0 까지 (v1/v2/v3.0.0) 는 보존 (백필 안 함)
 
 ---
 
