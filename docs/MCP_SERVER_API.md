@@ -274,3 +274,152 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 2. generate(workboardId, prompt, aiModel, additionalParams: { "referenceImage": "abc123" })
    → 이미지 타입 필드가 자동으로 { imageId: "abc123" } 형식으로 변환됨
 ```
+
+---
+
+## Projects (프로젝트)
+
+### `list_projects`
+
+사용자의 프로젝트 목록 조회. 파이프라인 호출 전에 `projectId` 를 얻기 위해 가장 먼저 호출.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `search` | string | - | 이름/설명 검색 |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `projects[].id` | 프로젝트 ID |
+| `projects[].name` | 프로젝트 이름 |
+| `projects[].description` | 설명 |
+| `projects[].isFavorite` | 즐겨찾기 여부 |
+| `projects[].createdAt` | 생성 시각 |
+| `projects[].counts` | (있을 때만) 콘텐츠 카운트 |
+
+---
+
+## Pipelines (파이프라인)
+
+### `list_pipelines`
+
+프로젝트에 속한 파이프라인 목록.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `projectId` | string | **필수** | 프로젝트 ID (`list_projects` 로 획득) |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `pipelines[].id` | 파이프라인 ID |
+| `pipelines[].name` | 이름 |
+| `pipelines[].description` | 설명 |
+| `pipelines[].stepCount` | 단계 수 |
+| `pipelines[].createdAt` / `updatedAt` | 생성 / 수정 시각 |
+
+---
+
+### `get_pipeline`
+
+파이프라인 상세 — 단계 구성, 자동 주입 여부, 사전 입력, 연결 문서.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `projectId` | string | **필수** | 프로젝트 ID |
+| `pipelineId` | string | **필수** | 파이프라인 ID |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `id`, `name`, `description` | 파이프라인 메타 |
+| `steps[].index` | 단계 순서 |
+| `steps[].workboardId` / `workboardName` / `outputFormat` | 단계의 작업판 |
+| `steps[].autoInject` | 이전 결과 자동 주입 여부 |
+| `steps[].inputs` | 사전 입력 (customField name → value 매핑) |
+| `steps[].contextDocIds` | 컨텍스트 문서 ID 들 |
+| `steps[].systemPromptDocId` | 시스템 프롬프트 문서 ID |
+| `steps[].note` | 사용자 메모 |
+
+---
+
+### `run_pipeline`
+
+새 파이프라인 실행 시작. `runId` 를 반환하므로 `get_pipeline_run` 로 폴링.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `projectId` | string | **필수** | 프로젝트 ID |
+| `pipelineId` | string | **필수** | 파이프라인 ID |
+| `initialPrompt` | string | - | 첫 단계의 초기 프롬프트 (기본: 빈 문자열) |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `runId` | 실행 ID (이후 `get_pipeline_run` 인자) |
+| `status` | 초기 상태 (`pending`) |
+| `startedAt` | 시작 시각 |
+| `stepCount` | 단계 수 |
+
+---
+
+### `get_pipeline_run`
+
+파이프라인 실행 상태 + 단계별 출력. 완료 / 실패까지 폴링.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `projectId` | string | **필수** | 프로젝트 ID |
+| `runId` | string | **필수** | 실행 ID |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `runId`, `pipelineName` | 실행 메타 |
+| `status` | `pending` / `running` / `completed` / `failed` |
+| `startedAt` / `completedAt` / `errorMessage` | 시각 / 오류 |
+| `initialPrompt` | 시작 prompt |
+| `steps[].index` | 단계 순서 |
+| `steps[].workboardName` / `outputFormat` | 단계의 작업판 |
+| `steps[].status` | 단계 상태 |
+| `steps[].imageGenerationJobId` | 이미지 step 의 job ID (`download_result` 인자) |
+| `steps[].conversationJobId` | 텍스트 step 의 conversation ID |
+| `steps[].textOutput` | 텍스트 step 의 직접 출력 |
+| `steps[].imageIds` | 이미지 step 의 결과 image ID 들 |
+
+**사용 패턴:**
+```
+1. list_projects → projectId
+2. list_pipelines(projectId) → pipelineId
+3. run_pipeline(projectId, pipelineId, initialPrompt) → runId
+4. get_pipeline_run(projectId, runId) — status 가 completed 될 때까지 폴링
+5. download_result(imageGenerationJobId) — 이미지 step 결과 회수
+```
+
+---
+
+### `list_pipeline_runs`
+
+프로젝트의 최근 실행 목록 (최신순).
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `projectId` | string | **필수** | 프로젝트 ID |
+| `pipelineId` | string | - | 특정 파이프라인만 필터 |
+| `limit` | number (max 50) | - | 페이지당 항목 수 (기본 20) |
+| `page` | number | - | 페이지 번호 (기본 1) |
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `runs[].runId` / `pipelineId` / `pipelineName` | 실행 / 파이프라인 메타 |
+| `runs[].status` | 실행 상태 |
+| `runs[].startedAt` / `completedAt` | 시각 |
+| `runs[].stepCount` | 단계 수 |
+| `pagination` | 페이지네이션 |
