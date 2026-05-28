@@ -3,6 +3,8 @@ import { createApiClient } from './utils/apiClient.js';
 import { registerWorkboardTools } from './tools/workboards.js';
 import { registerJobTools } from './tools/jobs.js';
 import { registerMediaTools } from './tools/media.js';
+import { registerProjectTools } from './tools/projects.js';
+import { registerPipelineTools } from './tools/pipelines.js';
 
 /**
  * Create and configure an McpServer instance with all tools registered.
@@ -26,6 +28,8 @@ export function createServer(options = {}) {
   registerWorkboardTools(server, api);
   registerJobTools(server, api);
   registerMediaTools(server, api, options);
+  registerProjectTools(server, api);
+  registerPipelineTools(server, api);
 
   return server;
 }

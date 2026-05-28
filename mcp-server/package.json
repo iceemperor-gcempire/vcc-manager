@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "start:http": "MCP_TRANSPORT=http node index.js",
+    "test:integration": "node test/integration.mjs",
     "inspect": "npx @modelcontextprotocol/inspector node index.js",
     "inspect:http": "MCP_TRANSPORT=http node index.js & sleep 2 && npx @modelcontextprotocol/inspector --url http://localhost:${MCP_PORT:-3100}/mcp"
   },
