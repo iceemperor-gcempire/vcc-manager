@@ -35,6 +35,8 @@ import {
   AdminDashboardPage,
   UserManagementPage,
   WorkboardManagementPage,
+  WorkboardEditorPage,
+  WorkboardCreatePage,
   ServerManagementPage,
   SystemStatsPage,
   BackupRestorePage,
@@ -184,6 +186,22 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <WorkboardManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/workboards/new"
+              element={
+                <AdminRoute>
+                  <WorkboardCreatePage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/workboards/:id/edit"
+              element={
+                <AdminRoute>
+                  <WorkboardEditorPage />
                 </AdminRoute>
               }
             />

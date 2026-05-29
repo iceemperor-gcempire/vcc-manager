@@ -47,9 +47,10 @@ import { useTheme } from '@mui/material/styles';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import MetadataFieldInput from './MetadataFieldInput';
 import ImageViewerDialog from './ImageViewerDialog';
+import PromptDataPickerDialog from './PromptDataPickerDialog';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI } from '../../services/api';
+import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI, promptDataAPI } from '../../services/api';
 
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
@@ -354,7 +355,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
 // 파이프라인 빌더의 lane 레이아웃 (Phase 5d).
 // 데스크탑: 가로 스크롤 lane (카드 320px 고정 너비) + 카드 사이 화살표 connector.
 // 모바일: 세로 스택 (full-width) + 카드 사이 아래 방향 화살표.
-function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd, selectedStepIdx = -1, onSelectStep }) {
+function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onOpenDocs, onAdd, selectedStepIdx = -1, onSelectStep, projectId }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   return (
@@ -385,6 +386,7 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
             isLast={idx === steps.length - 1}
             isMobile={isMobile}
             isSelected={selectedStepIdx === idx}
+            projectId={projectId}
             onSelect={() => onSelectStep && onSelectStep(selectedStepIdx === idx ? -1 : idx)}
             onOpenInputs={() => onOpenInputs(idx)}
             onOpenDocs={() => onOpenDocs(idx)}
@@ -429,10 +431,14 @@ function StepLaneCard({
   onChangeNote,
   onChangeInputs,
   onToggleAutoInject,
+  projectId,
 }) {
   const inputsCount = Object.keys(step.inputs || {}).filter((k) => step.inputs[k] !== '' && step.inputs[k] != null).length;
   const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
-  const inputFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
+  const customFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
+  const isImageOrVideoStep = step.workboard?.outputFormat === 'image' || step.workboard?.outputFormat === 'video';
+  // image/video step 은 customField 가 없더라도 explicit prompt/negativePrompt/seed 폼을 보여줘야 함 (#431)
+  const inputFieldCount = customFieldCount + (isImageOrVideoStep ? 3 : 0);
   return (
     <Paper
       variant="outlined"
@@ -554,6 +560,7 @@ function StepLaneCard({
                 workboard={step.workboard}
                 values={step.inputs || {}}
                 onChange={onChangeInputs}
+                projectId={projectId}
               />
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1.5, fontStyle: 'italic' }}>
                 자동 주입 ON 인 경우 매칭 필드는 runtime 에 덮어쓰임됩니다.
@@ -1109,6 +1116,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
                   onAdd={() => setPickerOpen(true)}
                   selectedStepIdx={selectedStepIdx}
                   onSelectStep={setSelectedStepIdx}
+                  projectId={projectId}
                 />
                 <PipelineDiagnosticStrip steps={steps} />
               </Box>
@@ -1182,10 +1190,33 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 // StepInputsForm — workboard customField 들을 form 으로 렌더 (Phase 5d 후속, 인라인 expand 용).
 // values 는 controlled — 부모가 onChange 마다 통째로 받음. 자동 주입 매칭 필드는
 // runtime 에 덮어쓰일 수 있다는 안내 alert 포함.
-function StepInputsForm({ workboard, values, onChange }) {
+// projectId 가 주어지면 "프롬프트 데이터 불러오기" 버튼 노출 (#431) — 작업판 PromptData
+// 연계. customField 에 prompt / negativePrompt / seed 중 하나라도 있을 때만 활성화.
+function StepInputsForm({ workboard, values, onChange, projectId }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   if (!workboard) return null;
   const fields = (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');
   const updateValue = (name, v) => onChange({ ...values, [name]: v });
+
+  // PromptData prefill 가능 여부 — 작업판 outputFormat 기준.
+  // 이미지/비디오 단계는 runImageStep 이 inputData.prompt / negativePrompt / seed 를 직접 읽음
+  // (customField 가 아니라 implicit key). 텍스트 단계는 inputData.userPrompt 만 의미가 있고
+  // 그마저도 step 0 에서는 initialPrompt 로, 이후는 prevOutput 으로 덮어쓰이므로 비활성.
+  const isImageOrVideo = workboard.outputFormat === 'image' || workboard.outputFormat === 'video';
+  const canLoadPromptData = !!projectId && isImageOrVideo;
+
+  const handlePickPromptData = (promptData) => {
+    const next = { ...values };
+    ['prompt', 'negativePrompt', 'seed'].forEach((k) => {
+      const v = promptData[k];
+      if (v !== undefined && v !== null && v !== '') {
+        next[k] = v;
+      }
+    });
+    onChange(next);
+    promptDataAPI.use(promptData._id).catch(() => {});
+    toast.success(`"${promptData.name}" 불러옴`);
+  };
 
   const renderField = (field) => {
     const value = values[field.name] ?? field.defaultValue ?? '';
@@ -1250,15 +1281,67 @@ function StepInputsForm({ workboard, values, onChange }) {
     return null;
   };
 
-  if (fields.length === 0) {
+  const hasNothingToShow = fields.length === 0 && !isImageOrVideo;
+  if (hasNothingToShow) {
     return <Alert severity="info">설정 가능한 입력 필드가 없습니다.</Alert>;
   }
 
   return (
     <Stack spacing={2}>
+      {projectId && (
+        <Box>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setPickerOpen(true)}
+            disabled={!canLoadPromptData}
+            title={canLoadPromptData
+              ? '저장된 프롬프트 데이터에서 prompt / negativePrompt / seed 값을 가져옵니다'
+              : '이미지 / 영상 작업판에서만 프롬프트 데이터를 불러올 수 있습니다'}
+          >
+            프롬프트 데이터 불러오기
+          </Button>
+        </Box>
+      )}
+      {/* image/video step 은 prompt/negativePrompt/seed 가 runtime implicit key 라
+          customField 와 별개로 명시 렌더 (#431). 첫 step 의 prompt 는 실행 시 initialPrompt 로,
+          이후 step 은 autoInject ON 이면 이전 결과로 덮어쓰임. seed / negativePrompt 는 보존. */}
+      {isImageOrVideo && (
+        <>
+          <Box>
+            <TextField
+              fullWidth label="prompt" multiline rows={3}
+              value={values.prompt ?? ''}
+              onChange={(e) => updateValue('prompt', e.target.value)}
+              helperText="첫 단계는 실행 시 initialPrompt 로, 이후 단계는 자동 주입 ON 이면 이전 결과로 덮어쓰입니다"
+            />
+          </Box>
+          <Box>
+            <TextField
+              fullWidth label="negativePrompt" multiline rows={2}
+              value={values.negativePrompt ?? ''}
+              onChange={(e) => updateValue('negativePrompt', e.target.value)}
+            />
+          </Box>
+          <Box>
+            <TextField
+              fullWidth type="number" label="seed"
+              value={values.seed ?? ''}
+              onChange={(e) => updateValue('seed', e.target.value === '' ? '' : Number(e.target.value))}
+              helperText="비우면 매 실행마다 random"
+            />
+          </Box>
+        </>
+      )}
       {fields.map((field) => (
         <Box key={field.name}>{renderField(field)}</Box>
       ))}
+      <PromptDataPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        projectId={projectId}
+        onSelect={handlePickPromptData}
+      />
     </Stack>
   );
 }

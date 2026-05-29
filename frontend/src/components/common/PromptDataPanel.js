@@ -45,8 +45,12 @@ function PromptDataPanel({
   onDelete,
   onQuickGenerate,
   onCopyPrompt,
-  onCreate
+  onCreate,
+  onSelect
 }) {
+  // onSelect 가 주어지면 picker 모드 — 카드별 액션을 "선택" 한 개로 대체하고
+  // 점 메뉴 / 편집 / 삭제 UI 를 숨김. (PromptDataPickerDialog 에서 사용)
+  const pickerMode = !!onSelect;
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [anchorEl, setAnchorEl] = useState(null);
@@ -172,7 +176,7 @@ function PromptDataPanel({
                       <Typography variant="h6" gutterBottom noWrap sx={{ flex: 1 }}>
                         {item.name}
                       </Typography>
-                      {!readOnly && (
+                      {!readOnly && !pickerMode && (
                         <IconButton
                           size="small"
                           onClick={(e) => handleMenuOpen(e, item)}
@@ -209,7 +213,17 @@ function PromptDataPanel({
                       )}
                     </Box>
                   </CardContent>
-                  {!readOnly && (
+                  {pickerMode ? (
+                    <CardActions>
+                      <Button
+                        fullWidth
+                        variant="contained"
+                        onClick={() => onSelect(item)}
+                      >
+                        선택
+                      </Button>
+                    </CardActions>
+                  ) : !readOnly && (
                     <CardActions>
                       {onQuickGenerate && (
                         <Button
@@ -247,7 +261,7 @@ function PromptDataPanel({
         </>
       )}
 
-      {!readOnly && (
+      {!readOnly && !pickerMode && (
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
