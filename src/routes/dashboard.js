@@ -11,6 +11,28 @@ const Workboard = require('../models/Workboard');
 
 const TZ = 'Asia/Seoul'; // 한국어 사용자 기준 — 일 경계를 KST 로 맞춘다
 
+// PipelineRun 문서를 대시보드/히스토리 행 형태로 정규화. 단계 완료비율로 progress 계산.
+function mapRun(run) {
+  const steps = run.steps || [];
+  const total = steps.length;
+  const done = steps.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
+  const progress = total > 0 ? Math.round((done / total) * 100) : 0;
+  return {
+    _id: run._id,
+    projectId: run.projectId?._id || null,
+    projectName: run.projectId?.name || '',
+    pipelineName: run.pipelineId?.name || '파이프라인',
+    status: run.status,
+    progress,
+    stepTotal: total,
+    stepDone: done,
+    stepStatuses: steps.map((s) => s.status),
+    initialPrompt: run.initialPrompt || '',
+    startedAt: run.startedAt || run.createdAt,
+    createdAt: run.createdAt,
+  };
+}
+
 // 1) 실행 중 파이프라인 — 요청 사용자의 전 프로젝트에서 pending/running 인 런.
 //    단계 완료 비율로 progress 를 계산해 함께 반환. 대시보드에서 polling.
 router.get('/active-pipeline-runs', requireAuth, async (req, res) => {
@@ -25,28 +47,40 @@ router.get('/active-pipeline-runs', requireAuth, async (req, res) => {
       .limit(10)
       .lean();
 
-    const data = runs.map((run) => {
-      const steps = run.steps || [];
-      const total = steps.length;
-      const done = steps.filter((s) => s.status === 'completed' || s.status === 'skipped').length;
-      const progress = total > 0 ? Math.round((done / total) * 100) : 0;
-      return {
-        _id: run._id,
-        projectId: run.projectId?._id || null,
-        projectName: run.projectId?.name || '',
-        pipelineName: run.pipelineId?.name || '파이프라인',
-        status: run.status,
-        progress,
-        stepTotal: total,
-        stepDone: done,
-        initialPrompt: run.initialPrompt || '',
-        startedAt: run.startedAt || run.createdAt,
-      };
-    });
-
-    res.json({ success: true, data: { runs: data } });
+    res.json({ success: true, data: { runs: runs.map(mapRun) } });
   } catch (error) {
     console.error('대시보드 active-pipeline-runs 오류:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 1b) 전역 파이프라인 런 — 작업 히스토리 통합 피드용. 모든 상태, 전 프로젝트, 페이지네이션.
+router.get('/pipeline-runs', requireAuth, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const filter = { userId: req.user._id };
+
+    const [total, runs] = await Promise.all([
+      PipelineRun.countDocuments(filter),
+      PipelineRun.find(filter)
+        .populate('pipelineId', 'name')
+        .populate('projectId', 'name')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean(),
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        runs: runs.map(mapRun),
+        pagination: { current: page, pages: Math.ceil(total / limit), total },
+      },
+    });
+  } catch (error) {
+    console.error('대시보드 pipeline-runs 오류:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
