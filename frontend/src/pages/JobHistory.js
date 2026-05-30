@@ -34,7 +34,7 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
   jobAPI,
@@ -363,8 +363,21 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
 function JobHistory() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [seg, setSeg] = useState('all');
-  const [search, setSearch] = useState('');
+
+  // 세그먼트/검색은 URL query 에 보관 — 계속하기/다른 작업 등으로 이동 후
+  // 뒤로가기로 돌아와도 선택이 유지됨 (#458). replace 로 히스토리 오염 방지.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const seg = searchParams.get('seg') || 'all';
+  const search = searchParams.get('q') || '';
+  const setParam = (key, val) => {
+    const p = new URLSearchParams(searchParams);
+    if (val) p.set(key, val);
+    else p.delete(key);
+    setSearchParams(p, { replace: true });
+  };
+  const setSeg = (v) => setParam('seg', v === 'all' ? '' : v);
+  const setSearch = (v) => setParam('q', v);
+
   const [limit, setLimit] = useState(20);
 
   // 데이터
