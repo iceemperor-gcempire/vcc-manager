@@ -287,6 +287,13 @@ export const pipelineRunAPI = {
   delete: (projectId, runId) => api.delete(`/projects/${projectId}/pipeline-runs/${runId}`),
 };
 
+// 대시보드 위젯 전용 집계 (#453)
+export const dashboardAPI = {
+  getActivePipelineRuns: () => api.get('/dashboard/active-pipeline-runs'),
+  getImageTrend: (days = 7) => api.get('/dashboard/image-trend', { params: { days } }),
+  getWorkboardUsage: (limit = 4) => api.get('/dashboard/workboard-usage', { params: { limit } }),
+};
+
 export const apiKeyAPI = {
   getAll: () => api.get('/apikeys'),
   create: (data) => api.post('/apikeys', data),
