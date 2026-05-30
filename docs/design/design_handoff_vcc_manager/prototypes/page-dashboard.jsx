@@ -123,14 +123,6 @@ function DashboardPage({ mobile }) {
         )}
       </div>
 
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12, marginBottom: 22 }}>
-        <StatCard label="총 이미지" value="1,247" delta="+18%" hint="이번 주 247장 생성"/>
-        <StatCard label="실행 시간" value="14h 22m" delta="+5%" hint="GPU 평균 점유 62%"/>
-        <StatCard label="프로젝트" value="4" hint="활성 2 · 보관 2"/>
-        <StatCard label="작업판" value="12" delta="+2" hint="이번 주 2개 신규"/>
-      </div>
-
       {/* Main two-column */}
       <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1.4fr 1fr", gap: 16, alignItems: "start" }}>
         {/* Left column */}
