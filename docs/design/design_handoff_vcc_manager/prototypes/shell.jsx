@@ -58,18 +58,18 @@ function Sidebar({ active = "projects", onNav, mobile }) {
 
       <div className="vcc-side__section">
         <div className="vcc-side__label">관리자</div>
-        <NavItem icon={<I.Shield />} label="관리자 대시보드" danger onClick={() => onNav && onNav("dashboard")}/>
+        <NavItem icon={<I.Shield />} label="관리자 대시보드" danger onClick={() => onNav && onNav("stats")}/>
         <NavItem icon={<I.Users />} label="사용자 관리" danger onClick={() => onNav && onNav("users")}/>
-        <NavItem icon={<I.Grid />} label="작업판 관리" danger onClick={() => onNav && onNav("workboards")}/>
+        <NavItem icon={<I.Grid />} label="작업판 관리" danger onClick={() => onNav && onNav("wbedit")}/>
         <NavItem icon={<I.Server />} label="서버 관리" danger onClick={() => onNav && onNav("servers")}/>
-        <NavItem icon={<I.Cube />} label="모델 관리" danger onClick={() => onNav && onNav("servers")}/>
-        <NavItem icon={<I.Stats />} label="시스템 통계" danger />
-        <NavItem icon={<I.Backup />} label="백업 / 복구" danger />
+        <NavItem icon={<I.Cube />} label="모델 관리" danger onClick={() => onNav && onNav("models")}/>
+        <NavItem icon={<I.Stats />} label="시스템 통계" danger onClick={() => onNav && onNav("stats")}/>
+        <NavItem icon={<I.Backup />} label="백업 / 복구" danger onClick={() => onNav && onNav("backup")}/>
       </div>
 
       <div className="vcc-side__spacer" />
 
-      <div className="vcc-side__user">
+      <div className="vcc-side__user" onClick={() => onNav && onNav("profile")} style={{ cursor: "pointer" }}>
         <div className="vcc-side__avatar">셀</div>
         <div className="vcc-side__user-meta">
           <span className="vcc-side__user-name">쎌렘황제</span>

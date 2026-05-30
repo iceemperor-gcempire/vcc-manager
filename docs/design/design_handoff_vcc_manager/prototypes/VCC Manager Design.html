@@ -28,6 +28,7 @@
 <script type="text/babel" src="page-pipeline-run.jsx"></script>
 <script type="text/babel" src="page-content-library.jsx"></script>
 <script type="text/babel" src="page-dashboard.jsx"></script>
+<script type="text/babel" src="page-history.jsx"></script>
 <script type="text/babel" src="page-workboard-run.jsx"></script>
 <script type="text/babel" src="page-workboard-editor.jsx"></script>
 <script type="text/babel" src="page-admin-servers.jsx"></script>
@@ -35,6 +36,19 @@
 <script type="text/babel" src="command-palette.jsx"></script>
 <script type="text/babel" src="notifications.jsx"></script>
 <script type="text/babel" src="page-auth.jsx"></script>
+<script type="text/babel" src="page-project-list.jsx"></script>
+<script type="text/babel" src="page-workboard-list.jsx"></script>
+<script type="text/babel" src="page-document-editor.jsx"></script>
+<script type="text/babel" src="image-lightbox.jsx"></script>
+<script type="text/babel" src="empty-states.jsx"></script>
+<script type="text/babel" src="system-docs.jsx"></script>
+<script type="text/babel" src="page-admin-models.jsx"></script>
+<script type="text/babel" src="page-admin-stats.jsx"></script>
+<script type="text/babel" src="page-admin-backup.jsx"></script>
+<script type="text/babel" src="page-admin-audit.jsx"></script>
+<script type="text/babel" src="page-profile.jsx"></script>
+<script type="text/babel" src="page-onboarding.jsx"></script>
+<script type="text/babel" src="page-error.jsx"></script>
 <script type="text/babel" src="canvas-sections.jsx"></script>
 <script type="text/babel" src="extras.jsx"></script>
 
@@ -46,7 +60,14 @@ const {
   ProjectDetailPage, PipelineBuilderPage, PipelineBuilderListPage, PipelineBuilderGraphPage, PipelineRunPage,
   ContentLibraryPage,
   DashboardPage, WorkboardRunPage, WorkboardEditorPage, AdminServersPage, AdminUsersPage,
+  WorkHistoryPage,
   CommandPalette, NotificationsPopover, AuthLoginPage, AuthSignupPage,
+  ProjectListPage, WorkboardListPage, DocumentEditorPage, ImageLightbox,
+  EmptyProjects, EmptyImages, EmptyPipelines, EmptyDocs,
+  EmptyHistory, EmptyServers, EmptySearch, EmptyNotifications, EmptyError,
+  GridSystemCard, DataTableCard, FormPatternsCard, PopoverPatternsCard, ViewToggleCard,
+  AdminModelsPage, AdminStatsPage, AdminBackupPage, AdminAuditPage,
+  ProfilePage, OnboardingPage, Error404, Error500, Error403,
 } = window;
 
 // Static inline demos for canvas artboards. The "real" CommandPalette/Notifications
@@ -284,6 +305,13 @@ function App() {
             </Shell>
           </PageArtboard>
         </DCArtboard>
+        <DCArtboard id="p5-d-hist" label="E · 작업 히스토리 — 파이프라인·이미지·영상·텍스트 통합 피드" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="history" crumbs={["작업 히스토리"]}>
+              <WorkHistoryPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
         <DCArtboard id="p2-d-list" label="B-alt · 파이프라인 빌더 — 수직 list variant" width={1440} height={900}>
           <PageArtboard>
             <Shell active="projects" crumbs={["프로젝트", "Mages", "NPC 생성"]}>
@@ -366,6 +394,21 @@ function App() {
                   <ContentLibraryPage mobile/>
                 </div>
                 <MobileTabbar active="content"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="p5-m-hist" label="E · 작업 히스토리" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["작업 히스토리"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Search /></button>
+                </TopBar>
+                <div className="vcc-body">
+                  <WorkHistoryPage mobile/>
+                </div>
+                <MobileTabbar active="history"/>
               </main>
             </div>
           </PageArtboard>
@@ -627,8 +670,188 @@ function App() {
         </DCPostIt>
       </DCSection>
 
+      {/* ============ ROUND A: LISTS + EDITORS + LIGHTBOX ============ */}
+      <DCSection id="lists" title="13 · Lists & Editors" subtitle="프로젝트 카탈로그 · 작업판 카탈로그 · 문서 에디터 · 이미지 라이트박스 — 핵심 페이지 사이를 채움">
+        <DCArtboard id="projects-list-d" label="프로젝트 리스트" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트"]}>
+              <ProjectListPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="wblist-d" label="작업판 카탈로그" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["작업판"]}>
+              <WorkboardListPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="docedit-d" label="문서 에디터 (세계관/프롬프트)" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["프로젝트", "Mages", "세계관 개요"]}>
+              <DocumentEditorPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="lightbox" label="이미지 라이트박스 (오버레이)" width={1440} height={900}>
+          <div style={{ position: "relative", width: "100%", height: "100%", background: "var(--bg-canvas)" }}>
+            <ImageLightbox
+              open={true}
+              image={{ label: "frontier-engineer", hue: 30, meta: "Mages · 1024×1024 · 4시간 전", favorite: true }}
+              onClose={() => {}}
+              onPrev={() => {}}
+              onNext={() => {}}
+            />
+          </div>
+        </DCArtboard>
+
+        <DCArtboard id="projects-list-m" label="프로젝트 리스트 · 모바일" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["프로젝트"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Plus /></button>
+                </TopBar>
+                <div className="vcc-body"><ProjectListPage mobile/></div>
+                <MobileTabbar active="projects"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCArtboard id="wblist-m" label="작업판 카탈로그 · 모바일" width={390} height={844}>
+          <PageArtboard mobile>
+            <div className="vcc-app mobile" style={{ gridTemplateRows: "1fr auto" }}>
+              <main className="vcc-main">
+                <TopBar mobile crumbs={["작업판"]}>
+                  <button className="btn btn--ghost btn--icon btn--sm"><Icon.Search /></button>
+                </TopBar>
+                <div className="vcc-body"><WorkboardListPage mobile/></div>
+                <MobileTabbar active="workboards"/>
+              </main>
+            </div>
+          </PageArtboard>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ EMPTY STATES ============ */}
+      <DCSection id="empty-states" title="14 · Empty States" subtitle="각 페이지가 데이터 없을 때 보일 화면. 무엇을 해야 할지 명확한 CTA 포함.">
+        <DCArtboard id="e-projects" label="프로젝트 0개" width={600} height={420}>
+          <EmptyProjects/>
+        </DCArtboard>
+        <DCArtboard id="e-images" label="이미지 0장" width={600} height={420}>
+          <EmptyImages/>
+        </DCArtboard>
+        <DCArtboard id="e-pipelines" label="파이프라인 0개" width={600} height={420}>
+          <EmptyPipelines/>
+        </DCArtboard>
+        <DCArtboard id="e-docs" label="세계관 문서 0개" width={600} height={420}>
+          <EmptyDocs/>
+        </DCArtboard>
+        <DCArtboard id="e-history" label="실행 히스토리 0건" width={600} height={420}>
+          <EmptyHistory/>
+        </DCArtboard>
+        <DCArtboard id="e-servers" label="서버 0개" width={600} height={420}>
+          <EmptyServers/>
+        </DCArtboard>
+        <DCArtboard id="e-search" label="검색 결과 0건" width={600} height={420}>
+          <EmptySearch query="rusty"/>
+        </DCArtboard>
+        <DCArtboard id="e-notif" label="알림 모두 확인" width={600} height={420}>
+          <EmptyNotifications/>
+        </DCArtboard>
+        <DCArtboard id="e-error" label="불러오기 실패" width={600} height={420}>
+          <EmptyError/>
+        </DCArtboard>
+      </DCSection>
+
+      {/* ============ ROUND B: SYSTEM DOCS ============ */}
+      <DCSection id="system-docs" title="15 · System Docs — 그리드 · 테이블 · 폼 · 팝오버" subtitle="디자인 시스템 표준 패턴 문서. Claude Code가 구현 시 가이드로 사용.">
+        <DCArtboard id="grid" label="그리드 시스템 — Breakpoint · Container · 12-col" width={1100} height={1000}>
+          <GridSystemCard/>
+        </DCArtboard>
+        <DCArtboard id="table" label="Data Table — 정렬 · 선택 · 필터 · 페이지" width={1100} height={700}>
+          <DataTableCard/>
+        </DCArtboard>
+        <DCArtboard id="forms" label="Form Patterns — 명명 · 상태 · 검증" width={1100} height={920}>
+          <FormPatternsCard/>
+        </DCArtboard>
+        <DCArtboard id="popovers" label="Dropdowns · Popovers — anchor overlay 4종" width={1100} height={700}>
+          <PopoverPatternsCard/>
+        </DCArtboard>
+        <DCArtboard id="view-toggle" label="View Toggle — 그리드 + 리스트 공통 패턴 (모든 카탈로그 적용)" width={1100} height={620}>
+          <ViewToggleCard/>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          Round B — 시스템 문서:{"\n"}{"\n"}- 2축 변경: mobile{"\n"}  / desktop only{"\n"}{"\n"}- 12-col grid +{"\n"}  7개 표준 레이아웃{"\n"}{"\n"}- Data Table 6{"\n"}  함수적 패턴{"\n"}{"\n"}- Form 6 상태{"\n"}  (default → focus{"\n"}  → error → success{"\n"}  → disabled → loading){"\n"}{"\n"}- Popover 4변형{"\n"}  (select/menu/tooltip/{"\n"}  date picker)
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ ROUND C: ADMIN PAGES ============ */}
+      <DCSection id="admin-c" title="16 · Admin 완성 — 모델 · 통계 · 백업 · 감사 로그" subtitle="관리자 메뉴의 나머지 4개 페이지.">
+        <DCArtboard id="admin-models-d" label="모델 관리 — 카탈로그 + 화이트리스트" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "모델 관리"]}>
+              <AdminModelsPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="admin-stats-d" label="시스템 통계 — 생성량 · GPU · 사용자" width={1440} height={1000}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "시스템 통계"]}>
+              <AdminStatsPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="admin-backup-d" label="백업 / 복구 — 자동 + 수동 · 인라인 복구" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "백업 / 복구"]}>
+              <AdminBackupPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="admin-audit-d" label="감사 로그 — 타임라인 · 종류 필터" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "감사 로그"]}>
+              <AdminAuditPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+
+        <DCPostIt x={20} y={20}>
+          관리자 메뉴 4/4{"\n"}완성 — 브리프의{"\n"}여정 D 사이드바{"\n"}항목 100%{"\n"}커버됨.
+        </DCPostIt>
+      </DCSection>
+
+      {/* ============ ROUND D: PROFILE · ONBOARDING · ERROR ============ */}
+      <DCSection id="round-d" title="17 · Profile · Onboarding · Errors" subtitle="개인 설정 · 첫 가입 wizard · 404/500/403">
+        <DCArtboard id="profile-d" label="설정 — 프로필 · 외관 · 알림 · 단축키 · API · 위험" width={1440} height={1100}>
+          <PageArtboard>
+            <Shell active="projects" crumbs={["설정"]}>
+              <ProfilePage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="onboard" label="온보딩 wizard — 4단계 (환영 · 프로젝트 · 세계관 · 완료)" width={1100} height={780}>
+          <OnboardingPage/>
+        </DCArtboard>
+        <DCArtboard id="err404" label="404 — 페이지 없음" width={1100} height={560}>
+          <Error404/>
+        </DCArtboard>
+        <DCArtboard id="err500" label="500 — 서버 오류" width={1100} height={560}>
+          <Error500/>
+        </DCArtboard>
+        <DCArtboard id="err403" label="403 — 권한 없음" width={1100} height={560}>
+          <Error403/>
+        </DCArtboard>
+      </DCSection>
+
       {/* ============ MIGRATION GUIDE LINK ============ */}
-      <DCSection id="migration" title="12 · Migration Guide — 실제 코드 적용" subtitle="현재 코드베이스 → 새 디자인 8단계 PR 분해. 독립 PR · 머지 순서 권장 · 즉시 롬백 가능.">
+      <DCSection id="migration" title="18 · Migration Guide — 실제 코드 적용" subtitle="현재 코드베이스 → 새 디자인 8단계 PR 분해. 독립 PR · 머지 순서 권장 · 즉시 롤백 가능.">
         <DCArtboard id="mig" label="마이그레이션 가이드 열기" width={1100} height={360}>
           <div style={{
             width: "100%", height: "100%",
@@ -662,7 +885,7 @@ function App() {
       </DCSection>
 
       {/* ============ PROTOTYPE LINK ============ */}
-      <DCSection id="prototype" title="13 · Clickable Prototype" subtitle="새 창에서 풀스크린으로 실제 네비게이션 — 9개 페이지 + 전역 ⌘K/알림/인증 + Tweaks.">
+      <DCSection id="prototype" title="19 · Clickable Prototype" subtitle="새 창에서 풀스크린으로 실제 네비게이션 — 12개 페이지 + 라이트박스/문서 에디터 + 전역 ⌘K/알림/인증 + Tweaks.">
         <DCArtboard id="proto" label="프로토타입 열기" width={1100} height={300}>
           <div style={{
             width: "100%", height: "100%",
