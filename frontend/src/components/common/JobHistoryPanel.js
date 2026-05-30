@@ -58,7 +58,7 @@ import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 
-function SavePromptDialog({ open, onClose, job, onSave }) {
+export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
 
@@ -620,7 +620,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
   );
 }
 
-function JobDetailDialog({ job, open, onClose, onImageView }) {
+export function JobDetailDialog({ job, open, onClose, onImageView }) {
   const [showWorkflow, setShowWorkflow] = useState(false);
 
   React.useEffect(() => {
