@@ -171,7 +171,7 @@ function PipelinesTabContent({ mobile }) {
 }
 
 // ---- Worldview tab (so canvas shows multiple states) ----
-function WorldviewTabContent({ mobile }) {
+function WorldviewTabContent({ mobile, onOpenDoc }) {
   const docs = [
     { name: "Mages 세계관 개요", tag: "세계관", color: "var(--tag-world)", lines: 184, time: "3일 전" },
     { name: "캐릭터 톤 — 시스템 프롬프트", tag: "시스템", color: "var(--tag-system)", lines: 32, time: "1일 전" },
@@ -193,12 +193,16 @@ function WorldviewTabContent({ mobile }) {
       </div>
       <div className="card">
         {docs.map((d, i) => (
-          <div key={i} style={{
-            padding: "12px 16px",
-            display: "flex", alignItems: "center", gap: 12,
-            borderBottom: i < docs.length - 1 ? "1px solid var(--border-subtle)" : "none",
-            cursor: "pointer",
-          }} onMouseOver={(e) => e.currentTarget.style.background = "var(--bg-tint)"} onMouseOut={(e) => e.currentTarget.style.background = ""}>
+          <div key={i}
+            onClick={() => onOpenDoc && onOpenDoc(d)}
+            style={{
+              padding: "12px 16px",
+              display: "flex", alignItems: "center", gap: 12,
+              borderBottom: i < docs.length - 1 ? "1px solid var(--border-subtle)" : "none",
+              cursor: "pointer",
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = "var(--bg-tint)"}
+            onMouseOut={(e) => e.currentTarget.style.background = ""}>
             <div style={{ flex: "0 0 auto", color: "var(--text-tertiary)" }}><Ip1.Doc /></div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontWeight: 500, fontSize: 13.5 }}>{d.name}</div>
@@ -275,7 +279,7 @@ function PipelineHistoryTabContent({ mobile }) {
   );
 }
 
-function ProjectDetailPage({ mobile, defaultTab = "pipelines", onTabChange }) {
+function ProjectDetailPage({ mobile, defaultTab = "pipelines", onTabChange, onOpenDoc, onOpenImage }) {
   const [tab, setTab] = useStateP1(defaultTab);
 
   React.useEffect(() => { setTab(defaultTab); }, [defaultTab]);
@@ -302,18 +306,46 @@ function ProjectDetailPage({ mobile, defaultTab = "pipelines", onTabChange }) {
           <button className="btn btn--secondary"><Ip1.Grid /></button>
         </div>
       )}
-      <div className="tabs" style={{ overflowX: "auto", marginBottom: 20 }}>
-        {tabs.map((t) => (
-          <Tab key={t.k} active={tab === t.k} count={t.c} onClick={() => { setTab(t.k); onTabChange && onTabChange(t.k); }}>
-            {t.l}
-          </Tab>
-        ))}
-      </div>
+      {mobile ? (
+        <div style={{ marginBottom: 20, position: "relative" }}>
+          <select
+            value={tab}
+            onChange={(e) => { setTab(e.target.value); onTabChange && onTabChange(e.target.value); }}
+            style={{
+              appearance: "none",
+              width: "100%",
+              fontFamily: "var(--font-sans)",
+              fontSize: 14, fontWeight: 600,
+              color: "var(--accent-11)",
+              background: "var(--accent-3)",
+              border: "1px solid var(--accent-4)",
+              borderRadius: "var(--r-2)",
+              padding: "10px 36px 10px 14px",
+              cursor: "pointer",
+            }}
+          >
+            {tabs.map((t) => (
+              <option key={t.k} value={t.k} style={{ color: "var(--text-primary)", background: "var(--bg-surface)" }}>
+                {t.l}{t.c != null ? `  (${t.c})` : ""}
+              </option>
+            ))}
+          </select>
+          <Ip1.ChevronDown size={14} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--accent-11)", pointerEvents: "none" }}/>
+        </div>
+      ) : (
+        <div className="tabs" style={{ overflowX: "auto", marginBottom: 20 }}>
+          {tabs.map((t) => (
+            <Tab key={t.k} active={tab === t.k} count={t.c} onClick={() => { setTab(t.k); onTabChange && onTabChange(t.k); }}>
+              {t.l}
+            </Tab>
+          ))}
+        </div>
+      )}
       {tab === "pipelines" && <PipelinesTabContent mobile={mobile} />}
-      {tab === "worldview" && <WorldviewTabContent mobile={mobile} />}
+      {tab === "worldview" && <WorldviewTabContent mobile={mobile} onOpenDoc={onOpenDoc}/>}
       {tab === "history" && <PipelineHistoryTabContent mobile={mobile} />}
-      {tab === "prompts" && <WorldviewTabContent mobile={mobile} />}
-      {tab === "images" && <ImagesTabContent mobile={mobile}/>}
+      {tab === "prompts" && <WorldviewTabContent mobile={mobile} onOpenDoc={onOpenDoc}/>}
+      {tab === "images" && <ImagesTabContent mobile={mobile} onOpenImage={onOpenImage}/>}
       {tab === "chat" && (
         <div className="card" style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)" }}>
           저장된 대화가 없습니다.
@@ -323,7 +355,7 @@ function ProjectDetailPage({ mobile, defaultTab = "pipelines", onTabChange }) {
   );
 }
 
-function ImagesTabContent({ mobile }) {
+function ImagesTabContent({ mobile, onOpenImage }) {
   const imgs = [
     { hue: 30, label: "frontier engineer" },
     { hue: 270, label: "court mage" },
@@ -333,7 +365,7 @@ function ImagesTabContent({ mobile }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12 }}>
       {imgs.map((im, i) => (
-        <div key={i} className="card" style={{ padding: 8 }}>
+        <div key={i} className="card" style={{ padding: 8, cursor: "pointer" }} onClick={() => onOpenImage && onOpenImage(im)}>
           <Placeholder h={mobile ? 130 : 180} hue={im.hue} label={im.label} />
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 4px 4px" }}>
             <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>1024×1024</span>

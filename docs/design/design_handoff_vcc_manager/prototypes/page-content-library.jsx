@@ -69,12 +69,12 @@ function FilterRow({ label, count, active, color }) {
   );
 }
 
-function ImageGrid({ mobile, items, kind = "image" }) {
+function ImageGrid({ mobile, items, kind = "image", onOpenImage }) {
   const cols = mobile ? 2 : 5;
   return (
     <div style={{ display: "grid", gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: 12 }}>
       {items.map((it, i) => (
-        <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div key={i} style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={() => onOpenImage && onOpenImage(it)}>
           <Thumb idx={i} {...it} kind={kind}/>
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -91,7 +91,7 @@ function ImageGrid({ mobile, items, kind = "image" }) {
   );
 }
 
-function ContentLibraryPage({ mobile }) {
+function ContentLibraryPage({ mobile, onOpenImage }) {
   const [tab, setTab] = useStateCl("generated_img");
   const [view, setView] = useStateCl("grid");
 
@@ -181,14 +181,37 @@ function ContentLibraryPage({ mobile }) {
       </div>
 
       {/* Tabs */}
-      <div className="tabs" style={{ overflowX: "auto", marginBottom: 18 }}>
-        {tabs.map((t) => (
-          <div key={t.k} className={"tab" + (tab === t.k ? " is-active" : "")} onClick={() => setTab(t.k)}>
-            <span>{t.l}</span>
-            <span className="tab__count">{t.c}</span>
-          </div>
-        ))}
-      </div>
+      {mobile ? (
+        <div style={{ marginBottom: 18, position: "relative" }}>
+          <select
+            value={tab}
+            onChange={(e) => setTab(e.target.value)}
+            style={{
+              appearance: "none", width: "100%",
+              fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 600,
+              color: "var(--accent-11)", background: "var(--accent-3)",
+              border: "1px solid var(--accent-4)", borderRadius: "var(--r-2)",
+              padding: "10px 36px 10px 14px", cursor: "pointer",
+            }}
+          >
+            {tabs.map((t) => (
+              <option key={t.k} value={t.k} style={{ color: "var(--text-primary)", background: "var(--bg-surface)" }}>
+                {t.l}  ({t.c})
+              </option>
+            ))}
+          </select>
+          <Icl.ChevronDown size={14} style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", color: "var(--accent-11)", pointerEvents: "none" }}/>
+        </div>
+      ) : (
+        <div className="tabs" style={{ overflowX: "auto", marginBottom: 18 }}>
+          {tabs.map((t) => (
+            <div key={t.k} className={"tab" + (tab === t.k ? " is-active" : "")} onClick={() => setTab(t.k)}>
+              <span>{t.l}</span>
+              <span className="tab__count">{t.c}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "200px 1fr", gap: 18, alignItems: "start" }}>
         {/* Filter rail */}
@@ -223,9 +246,9 @@ function ContentLibraryPage({ mobile }) {
 
         {/* Main panel */}
         <section>
-          {tab === "generated_img" && <ImageGrid mobile={mobile} items={generatedImgs} kind="image"/>}
-          {tab === "uploaded_img"  && <ImageGrid mobile={mobile} items={generatedImgs.slice(0, 6).map((x) => ({ ...x, label: "upload-" + x.label, favorite: false }))} kind="image"/>}
-          {tab === "video"         && <ImageGrid mobile={mobile} items={videos} kind="video"/>}
+          {tab === "generated_img" && <ImageGrid mobile={mobile} items={generatedImgs} kind="image" onOpenImage={onOpenImage}/>}
+          {tab === "uploaded_img"  && <ImageGrid mobile={mobile} items={generatedImgs.slice(0, 6).map((x) => ({ ...x, label: "upload-" + x.label, favorite: false }))} kind="image" onOpenImage={onOpenImage}/>}
+          {tab === "video"         && <ImageGrid mobile={mobile} items={videos} kind="video" onOpenImage={onOpenImage}/>}
           {(tab === "text_written" || tab === "text_generated") && (
             <div className="card">
               {texts.map((t, i) => (

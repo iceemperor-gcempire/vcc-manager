@@ -2,7 +2,7 @@
 
 ## Overview
 
-VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·영상 생성 워크플로우를 관리하는 사내 도구입니다. 이 패키지는 디자인 시스템(토큰 + 컴포넌트) + 9개 핵심 페이지의 high-fidelity HTML mockup + clickable prototype + 8단계 PR 마이그레이션 가이드를 포함합니다.
+VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·영상 생성 워크플로우를 관리하는 사내 도구입니다. 이 패키지는 디자인 시스템(토큰 + 컴포넌트) + 10개 핵심 페이지의 high-fidelity HTML mockup + clickable prototype + 8단계 PR 마이그레이션 가이드를 포함합니다.
 
 대상 코드베이스: **React 18 + Material-UI v5 + React Query + react-hook-form**. 한국어 UI 우선. 라이트 단일 → 다크모드 옵트인.
 
@@ -46,19 +46,25 @@ VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·
 
 | 스크린샷 | 구현 대상 페이지 | 소스 파일 |
 |---|---|---|
-| `01-dashboard.png` | E. 대시보드 (로그인 후 첫 화면) | `prototypes/page-dashboard.jsx` |
+| `01-dashboard.png` | E. 대시보드 (로그인 후 첫 화면 · v1.1 통계 블록 제거) | `prototypes/page-dashboard.jsx` |
+| `28-work-history.png` · `29-work-history-video.png` · `30-work-history-text.png` | N. 작업 히스토리 (통합 피드 · 세그먼트 · 계속하기/다른 작업) | `prototypes/page-history.jsx` |
 | `02-project-detail.png` | A. 프로젝트 상세 (탭 구조) | `prototypes/page-project-detail.jsx` |
 | `03-pipeline-builder.png` | B. 파이프라인 빌더 lane (novel) | `prototypes/page-pipeline-builder.jsx` |
 | `04-pipeline-run.png` | C. 파이프라인 실행 + 히스토리 | `prototypes/page-pipeline-run.jsx` |
-| `05-content-library.png` | D. 내 컨텐츠 | `prototypes/page-content-library.jsx` |
+| `05-content-library.png` / `27-content-library.png` | D. 내 컨텐츠 | `prototypes/page-content-library.jsx` |
 | `06-workboard-run.png` | F. 작업판 단발 실행 | `prototypes/page-workboard-run.jsx` |
 | `07-workboard-editor.png` | G. 작업판 정의 admin (3-pane) | `prototypes/page-workboard-editor.jsx` |
 | `08-admin-servers.png` | H. 서버 관리 admin | `prototypes/page-admin-servers.jsx` |
 | `16-admin-users.png` | I. 사용자/그룹 admin | `prototypes/page-admin-users.jsx` |
+| `24-projects-list.png` | K. 프로젝트 카탈로그 (사이드바 → 프로젝트) | `prototypes/page-project-list.jsx` |
+| `25-workboard-list.png` | L. 작업판 카탈로그 (kind 필터) | `prototypes/page-workboard-list.jsx` |
+| `26-document-editor.png` | M. 세계관 문서 에디터 (편집/분할/미리보기) | `prototypes/page-document-editor.jsx` |
 | `09-command-palette.png` | ⌘K 명령 팔레트 (오버레이) | `prototypes/command-palette.jsx` |
 | `10-notifications.png` | 벨 popover | `prototypes/notifications.jsx` |
 | `11`–`13-dark-*.png` | 다크 모드 적용 예시 | `tokens.css` `[data-theme="dark"]` |
 | `14`–`15-migration-guide-*.png` | 마이그레이션 가이드 비주얼 참조 | `prototypes/VCC Manager Migration Guide.html` |
+
+> 이미지 라이트박스 (`image-lightbox.jsx`) 과 9대 빈 상태 패턴 (`empty-states.jsx`) 은 디자인 캐버스(섹션 13, 14)에서 직접 확인하세요.
 
 ### Mobile (390×844, iPhone 15)
 
@@ -74,7 +80,16 @@ VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·
 
 > 픽셀 단위 정확도가 필요할 때는 `prototypes/Prototype.html`을 브라우저에 띄우고 devtools로 직접 측정하세요 — 모든 spacing/font-size가 inline style에 명시되어 있습니다.
 
-## Design Tokens
+## Design Tokens & System Docs
+
+전체 토큰은 `tokens.css` (CSS variables) + `theme.ts` (MUI 객체) 두 형식으로 제공됩니다.
+
+**시스템 문서**는 디자인 캔버스(`prototypes/VCC Manager Design.html`)의 다음 섹션에서 시각적으로 확인:
+- 섹션 15 · **System Docs** — Grid system / Data Table / Form Patterns / Dropdowns & Popovers
+- 섹션 14 · Empty States — 9가지 빈 상태 패턴
+- 섹션 06 · Information States — Empty / Loading / Error / Toast
+
+핵심:
 
 전체 토큰은 `tokens.css` (CSS variables) + `theme.ts` (MUI 객체) 두 형식으로 제공됩니다. 핵심:
 
@@ -208,7 +223,26 @@ MuiTextField: { size: 'small', variant: 'outlined' }
 
 ### E. 대시보드 (`page-dashboard.jsx`)
 - **목적**: 로그인 직후 첫 화면
-- **위젯**: 인사 + 통계 4(이미지/시간/프로젝트/작업판) + 실행 중 파이프라인 + 최근 프로젝트 카드 + 최근 이미지 6/12장 + 주간 sparkline + 서버 상태 + 자주 쓰는 작업판 top4
+- **위젯**: 인사 + 빠른 액션(새 프로젝트/작업판 실행/파이프라인 만들기/이미지 업로드) + 실행 중 파이프라인 + 최근 프로젝트 카드 + 최근 이미지 6/12장 + 주간 sparkline + 서버 상태 + 자주 쓰는 작업판 top4
+- **변경(v1.1)**: 상단 통계 4블록(총 이미지/실행 시간/프로젝트/작업판)은 **제거됨**. 인사 + 빠른 액션 바로 아래에 2열 콘텐츠가 이어집니다.
+
+### N. 작업 히스토리 (`page-history.jsx`)
+- **목적**: 사이드바 "작업 히스토리" 진입점. 파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 **하나의 통합 피드**(최신순)로 표시
+- **레이아웃**: 헤더(제목 + 프로젝트/기간 필터 버튼) · 검색 input · 세그먼트 컨트롤(`전체 / 파이프라인 / 이미지 / 영상 / 텍스트`, 각 카운트) · 카드 리스트
+- **행(row)은 타입별로 적응**:
+  - **이미지** — 썸네일(`.thumb-tile`, `--h` hue) + 장수 배지(`×4`), `프로젝트 · 모델 · 해상도 · N장`
+  - **영상** — 썸네일 위 재생 오버레이 + 길이 배지(`4초`), `프로젝트 · 모델 · 해상도 · 길이`
+  - **텍스트** — `Icon.Type` 타일 + 2줄 클램프 본문 미리보기(tinted box) + 토큰 수
+  - **파이프라인** — `Icon.Pipe` 타일 + 단계 진행 dots(완료=success / 실패=danger / 대기=subtle) + 진행률 바
+- **작업 재개 버튼 2종 (이미지·영상 행 한정, `status !== "error"`)**:
+  - **계속하기** (`Icon.Refresh`) — 같은 작업을 **같은 설정으로 이어서** 진행 (동일 작업판·파라미터 재실행)
+  - **다른 작업** (`Icon.ArrowRight`) — 이 결과를 **입력으로 다른 작업판으로 전환**
+  - 두 버튼은 `e.stopPropagation()`으로 행 클릭(이미지 라이트박스 열기)과 분리
+- **우측 메타**: 시간(mono) + 상세 링크(`상세 →` 파이프라인 / `전문 보기 →` 텍스트 / `열기 →` 이미지·영상)
+- **상태 칩**: 완료(success) / 실행 중(info + pulse dot) / 실패(danger) / 대기(default)
+- **백엔드 권장**: 타입별 엔티티를 `useQueries`로 동시 조회 후 시각(time) 기준 병합 정렬. 실행 중 항목은 polling.
+
+> 참고: 프로젝트 상세(A)의 "파이프라인 히스토리" 탭은 **해당 프로젝트 범위**의 파이프라인 실행만 보여주는 별개 뷰입니다. 작업 히스토리(N)는 **전역·전 타입** 피드입니다.
 
 ### F. 작업판 단발 실행 (`page-workboard-run.jsx`) — 여정 B
 - **목적**: 한 작업판을 양식 채워서 한 번 실행
@@ -301,7 +335,7 @@ design_handoff_vcc_manager/
 │   ├── BRIEF.md                    원본 디자인 브리프
 │   └── TOKENS.md                   현재 코드 기준 토큰 분석 (before)
 │
-├── screenshots/                    ★ 페이지 PNG 캡처 (desktop 16 + mobile 7)
+├── screenshots/                    ★ 페이지 PNG 캡처 (desktop 19 + mobile 7)
 │   ├── 01-dashboard.png            E. 대시보드 (랜딩)
 │   ├── 02-project-detail.png       A. 프로젝트 상세
 │   ├── 03-pipeline-builder.png     B. 파이프라인 빌더 (lane variant — novel)
@@ -318,6 +352,9 @@ design_handoff_vcc_manager/
 │   ├── 14-migration-guide-top.png  마이그레이션 가이드 — 히어로/통계
 │   ├── 15-migration-guide-phase.png 마이그레이션 가이드 — phase 디테일
 │   ├── 16-admin-users.png          I. 사용자/그룹 관리 admin
+│   ├── 28-work-history.png         N. 작업 히스토리 — 전체/이미지 (계속하기·다른 작업 버튼)
+│   ├── 29-work-history-video.png   N. 작업 히스토리 — 영상 필터 (재생 오버레이)
+│   ├── 30-work-history-text.png    N. 작업 히스토리 — 텍스트 필터 (본문 미리보기)
 │   │
 │   ├── 17-mobile-dashboard.png         (모바일) 대시보드
 │   ├── 18-mobile-project-detail.png    (모바일) 프로젝트 상세 — 헤더/액션
@@ -336,6 +373,7 @@ design_handoff_vcc_manager/
     ├── shell.jsx                            사이드바 + 탑바 (앱 chrome)
     │
     ├── page-dashboard.jsx                   E. 대시보드
+    ├── page-history.jsx                      N. 작업 히스토리 (전역 통합 피드)
     ├── page-project-detail.jsx              A. 프로젝트 상세
     ├── page-pipeline-builder.jsx            B. 파이프라인 빌더 (lane + list variants)
     ├── page-pipeline-builder-graph.jsx      B-alt2. graph variant
@@ -392,4 +430,5 @@ design_handoff_vcc_manager/
 
 ---
 
-*Generated 2026-05 · VCC Manager Design System v1*
+*Generated 2026-05 · VCC Manager Design System v1.1*
+*v1.1 변경: 대시보드 상단 통계 4블록 제거 · 작업 히스토리 페이지(`page-history.jsx`) 신설 — 이미지·영상 행에 "계속하기"/"다른 작업" 재개 버튼 2종 추가.*
