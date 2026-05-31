@@ -58,13 +58,13 @@ function Sidebar({ active = "projects", onNav, mobile }) {
 
       <div className="vcc-side__section">
         <div className="vcc-side__label">관리자</div>
-        <NavItem icon={<I.Shield />} label="관리자 대시보드" danger onClick={() => onNav && onNav("stats")}/>
-        <NavItem icon={<I.Users />} label="사용자 관리" danger onClick={() => onNav && onNav("users")}/>
-        <NavItem icon={<I.Grid />} label="작업판 관리" danger onClick={() => onNav && onNav("wbedit")}/>
-        <NavItem icon={<I.Server />} label="서버 관리" danger onClick={() => onNav && onNav("servers")}/>
-        <NavItem icon={<I.Cube />} label="모델 관리" danger onClick={() => onNav && onNav("models")}/>
-        <NavItem icon={<I.Stats />} label="시스템 통계" danger onClick={() => onNav && onNav("stats")}/>
-        <NavItem icon={<I.Backup />} label="백업 / 복구" danger onClick={() => onNav && onNav("backup")}/>
+        <NavItem icon={<I.Shield />} label="관리자 대시보드" danger active={active === "admindash"} onClick={() => onNav && onNav("admindash")}/>
+        <NavItem icon={<I.Users />} label="사용자 관리" danger active={active === "users"} onClick={() => onNav && onNav("users")}/>
+        <NavItem icon={<I.Grid />} label="작업판 관리" danger active={active === "wbadmin"} onClick={() => onNav && onNav("wbadmin")}/>
+        <NavItem icon={<I.Server />} label="서버 관리" danger active={active === "servers"} onClick={() => onNav && onNav("servers")}/>
+        <NavItem icon={<I.Cube />} label="모델 관리" danger active={active === "models"} onClick={() => onNav && onNav("models")}/>
+        <NavItem icon={<I.Stats />} label="시스템 통계" danger active={active === "stats"} onClick={() => onNav && onNav("stats")}/>
+        <NavItem icon={<I.Backup />} label="백업 / 복구" danger active={active === "backup"} onClick={() => onNav && onNav("backup")}/>
       </div>
 
       <div className="vcc-side__spacer" />
