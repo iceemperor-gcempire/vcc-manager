@@ -45,6 +45,7 @@ import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, jobAPI } from '../../services/api';
 import { getServerTypeColor } from '../../templates/capabilities';
+import { ToneChip, TagChip } from '../common/WorkboardCatalog';
 
 // 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
 const KNOWN_SERVER_URLS = {
@@ -138,8 +139,8 @@ function ServerCard({
   const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
   const statusKey = server.healthCheck?.status;
   const statusChip = statusKey === 'healthy'
-    ? { color: 'success', label: 'online' }
-    : statusKey === 'unhealthy' ? { color: 'error', label: 'offline' } : { color: undefined, label: 'unknown' };
+    ? { tone: 'success', label: 'online' }
+    : statusKey === 'unhealthy' ? { tone: 'error', label: 'offline' } : { tone: 'neutral', label: 'unknown' };
   const typeColor = getServerTypeColor(server.serverType);
   const abbr = ((server.serverType || 'SRV').replace(/[^A-Za-z]/g, '').slice(0, 3) || 'SRV').toUpperCase();
   const lastSync = modelSyncStatus?.lastMetadataSync || loraSyncStatus?.lastCivitaiSync || server.healthCheck?.lastChecked;
@@ -154,9 +155,9 @@ function ServerCard({
         <Box sx={{ flex: 1, minWidth: 180 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{server.name}</Typography>
-            <Chip size="small" variant="outlined" label={getServerTypeLabel(server.serverType)} sx={{ height: 20, fontSize: 10.5 }} />
-            <Chip size="small" variant="outlined" color={statusChip.color} label={statusChip.label} sx={{ height: 20, fontSize: 10.5 }} />
-            {!server.isActive && <Chip size="small" label="비활성" sx={{ height: 20, fontSize: 10.5 }} />}
+            <TagChip label={getServerTypeLabel(server.serverType)} />
+            <ToneChip tone={statusChip.tone} label={statusChip.label} mono />
+            {!server.isActive && <ToneChip tone="neutral" label="비활성" />}
           </Box>
           <Typography sx={{ fontSize: 12, color: 'text.disabled', fontFamily: MONO, mt: 0.25 }} noWrap>{server.serverUrl}</Typography>
         </Box>

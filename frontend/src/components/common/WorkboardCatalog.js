@@ -53,7 +53,50 @@ export const SERVER_AXIS = [
   { k: 'openai', label: 'OpenAI' },
   { k: 'gemini', label: 'Gemini' },
 ];
-const OUT_CHIP_COLOR = { image: 'primary', video: 'warning', text: 'info' };
+const OUT_TONE = { image: 'accent', video: 'warning', text: 'info' };
+
+// 원본 .chip--tag 톤 칩 — 은은한 틴트 배경 + 진한 글씨 (height 20, padding 0 7px, 11.5px).
+// 상태/출력 등 의미 색이 있는 칩에 사용. light/dark 양쪽 테마 토큰 기반.
+const TONE_SX = {
+  success: { bgcolor: 'success.light', color: 'success.main' },
+  info: { bgcolor: 'info.light', color: 'info.main' },
+  warning: { bgcolor: 'warning.light', color: 'warning.main' },
+  error: { bgcolor: 'error.light', color: 'error.main' },
+  accent: { bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(118,118,224,0.22)' : 'rgba(91,91,214,0.12)'), color: 'primary.main' },
+  neutral: { bgcolor: 'grey.100', color: 'text.secondary' },
+};
+export function ToneChip({ tone, label, mono, sx }) {
+  const ts = TONE_SX[tone] || TONE_SX.neutral;
+  return (
+    <Chip
+      size="small"
+      variant="filled"
+      label={label}
+      sx={{
+        height: 20, fontSize: '11.5px', fontWeight: 500, border: 0,
+        ...(mono && { fontFamily: MONO, fontSize: '10.5px' }),
+        '& .MuiChip-label': { px: '7px' },
+        ...ts, ...sx,
+      }}
+    />
+  );
+}
+// 의미 색 없는 태그 칩 — 투명 배경 + 옅은 테두리 + tertiary 글씨 (종류 라벨 등).
+export function TagChip({ label, mono, sx }) {
+  return (
+    <Chip
+      size="small"
+      variant="outlined"
+      label={label}
+      sx={{
+        height: 20, fontSize: mono ? '10px' : '11px', bgcolor: 'transparent',
+        borderColor: 'divider', color: 'grey.600',
+        ...(mono && { fontFamily: MONO }),
+        '& .MuiChip-label': { px: '7px' }, ...sx,
+      }}
+    />
+  );
+}
 
 // ── 필터 로직 훅 ─────────────────────────────────────────────
 export function useWorkboardFilter(workboards) {
@@ -158,15 +201,7 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
 }
 
 function WbStatusBadge({ isActive }) {
-  return (
-    <Chip
-      size="small"
-      variant="outlined"
-      color={isActive ? 'success' : undefined}
-      label={isActive ? '게시됨' : '보관'}
-      sx={{ height: 18, fontSize: 10.5, ...(isActive ? {} : { color: 'text.disabled' }) }}
-    />
-  );
+  return <ToneChip tone={isActive ? 'success' : 'neutral'} label={isActive ? '게시됨' : '보관'} />;
 }
 
 // ── 공유 카드 ───────────────────────────────────────────────
@@ -202,8 +237,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
             {kind.label}{wb.version ? ` · v${wb.version}` : ''}
           </Typography>
         </Box>
-        <Chip size="small" variant="outlined" color={OUT_CHIP_COLOR[out]} label={out}
-          sx={{ flex: '0 0 auto', height: 20, fontSize: 10.5, fontFamily: MONO }} />
+        <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
       </Box>
 
       {/* description */}
@@ -217,7 +251,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
           <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>허용</Typography>
           {groupNames.map((g) => (
-            <Chip key={g} size="small" variant="outlined" label={g} sx={{ height: 18, fontSize: 10.5 }} />
+            <TagChip key={g} label={g} />
           ))}
         </Box>
       )}
