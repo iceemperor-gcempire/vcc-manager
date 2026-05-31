@@ -108,12 +108,16 @@
 <script type="text/babel" src="notifications.jsx"></script>
 <script type="text/babel" src="page-auth.jsx"></script>
 <script type="text/babel" src="page-project-list.jsx"></script>
+<script type="text/babel" src="workboard-shared.jsx"></script>
 <script type="text/babel" src="page-workboard-list.jsx"></script>
 <script type="text/babel" src="page-document-editor.jsx"></script>
 <script type="text/babel" src="image-lightbox.jsx"></script>
+<script type="text/babel" src="workboard-picker.jsx"></script>
 <script type="text/babel" src="empty-states.jsx"></script>
 <script type="text/babel" src="page-admin-models.jsx"></script>
 <script type="text/babel" src="page-admin-stats.jsx"></script>
+<script type="text/babel" src="page-admin-dashboard.jsx"></script>
+<script type="text/babel" src="page-admin-workboards.jsx"></script>
 <script type="text/babel" src="page-admin-backup.jsx"></script>
 <script type="text/babel" src="page-admin-audit.jsx"></script>
 <script type="text/babel" src="page-profile.jsx"></script>
@@ -163,6 +167,7 @@ function Proto() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [bellRect, setBellRect] = useState(null);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [pickerSource, setPickerSource] = useState(null);
 
   // Global keyboard: Cmd/Ctrl+K opens command palette
   useEffect(() => {
@@ -192,11 +197,12 @@ function Proto() {
       if (!txt) return;
       // Context-aware: 편집 means workboard editor on workboard pages, pipeline builder elsewhere.
       if (txt === "편집") {
-        setPage((cur) => cur === "wbrun" ? "wbedit" : "builder");
+        setPage((cur) => (cur === "wbrun" || cur === "wbadmin") ? "wbedit" : "builder");
       }
       else if (txt.includes("새 파이프라인")) setPage("builder");
       else if (txt === "실행" || txt.startsWith("상세")) setPage("run");
-      else if (txt === "저장" || txt === "취소") setPage((cur) => cur === "wbedit" ? "wbrun" : "detail");
+      else if (txt === "저장" || txt === "취소") setPage((cur) => cur === "wbedit" ? "wbadmin" : "detail");
+      else if (txt === "작업판 관리") setPage("wbadmin");
     };
     document.addEventListener("click", onClick);
     return () => document.removeEventListener("click", onClick);
@@ -213,6 +219,8 @@ function Proto() {
     if (key === "users")      setPage("users");
     if (key === "models")     setPage("models");
     if (key === "stats")      setPage("stats");
+    if (key === "admindash")  setPage("admindash");
+    if (key === "wbadmin")    setPage("wbadmin");
     if (key === "backup")     setPage("backup");
     if (key === "audit")      setPage("audit");
     if (key === "profile")    setPage("profile");
@@ -228,10 +236,12 @@ function Proto() {
               :  page === "wblist"    ? ["작업판"]
               :  page === "wbrun"     ? ["작업판", "SDXL T2I — LoRA"]
               :  page === "wbedit"    ? ["관리자", "작업판 관리", "SDXL T2I"]
+              :  page === "wbadmin"   ? ["관리자", "작업판 관리"]
               :  page === "servers"   ? ["관리자", "서버 관리"]
               :  page === "users"     ? ["관리자", "사용자 / 그룹"]
               :  page === "models"    ? ["관리자", "모델 관리"]
               :  page === "stats"     ? ["관리자", "시스템 통계"]
+              :  page === "admindash" ? ["관리자", "관리자 대시보드"]
               :  page === "backup"    ? ["관리자", "백업 / 복구"]
               :  page === "audit"     ? ["관리자", "감사 로그"]
               :  page === "profile"   ? ["설정"]
@@ -245,9 +255,16 @@ function Proto() {
     : page === "run"       ? "history"
     : page === "history"   ? "history"
     : page === "dashboard" ? "dashboard"
-    : page === "wbrun" || page === "wbedit" || page === "wblist" ? "workboards"
-    : page === "servers"   ? "workboards"
-    : page === "users"     ? "workboards"
+    : page === "wbrun" || page === "wblist" ? "workboards"
+    : page === "wbedit"    ? "wbadmin"
+    : page === "wbadmin"   ? "wbadmin"
+    : page === "servers"   ? "servers"
+    : page === "users"     ? "users"
+    : page === "models"    ? "models"
+    : page === "stats"     ? "stats"
+    : page === "backup"    ? "backup"
+    : page === "audit"     ? "backup"
+    : page === "admindash" ? "admindash"
     :                        "projects";
 
   const pageEl = (
@@ -261,7 +278,7 @@ function Proto() {
     page === "run"       ? <PipelineRunPage mobile={device === "mobile"}/> :
     page === "content"   ? <ContentLibraryPage mobile={device === "mobile"} onOpenImage={() => setLightboxOpen(true)}/> :
     page === "dashboard" ? <DashboardPage mobile={device === "mobile"}/> :
-    page === "history"   ? <WorkHistoryPage mobile={device === "mobile"} onOpenImage={() => setLightboxOpen(true)}/> :
+    page === "history"   ? <WorkHistoryPage mobile={device === "mobile"} onOpenImage={() => setLightboxOpen(true)} onSwitchWorkboard={(item) => setPickerSource(item)}/> :
     page === "wblist"    ? <WorkboardListPage mobile={device === "mobile"} onOpenWorkboard={() => setPage("wbrun")}/> :
     page === "wbrun"     ? <WorkboardRunPage mobile={device === "mobile"}/> :
     page === "wbedit"    ? <WorkboardEditorPage mobile={device === "mobile"}/> :
@@ -269,6 +286,8 @@ function Proto() {
     page === "users"     ? <AdminUsersPage mobile={device === "mobile"}/> :
     page === "models"    ? <AdminModelsPage mobile={device === "mobile"}/> :
     page === "stats"     ? <AdminStatsPage mobile={device === "mobile"}/> :
+    page === "admindash" ? <AdminDashboardPage mobile={device === "mobile"} onNav={onNav}/> :
+    page === "wbadmin"   ? <AdminWorkboardsPage mobile={device === "mobile"} onEdit={() => setPage("wbedit")} onNew={() => setPage("wbedit")}/> :
     page === "backup"    ? <AdminBackupPage mobile={device === "mobile"}/> :
     page === "audit"     ? <AdminAuditPage mobile={device === "mobile"}/> :
     page === "profile"   ? <ProfilePage mobile={device === "mobile"}/> :
@@ -397,10 +416,12 @@ function Proto() {
             page === "history"   ? "작업 히스토리" :
             page === "wbrun"     ? "작업판 실행" :
             page === "wbedit"    ? "작업판 정의 · admin" :
+            page === "wbadmin"   ? "작업판 관리 · admin" :
             page === "servers"   ? "서버 관리 · admin" :
             page === "users"     ? "사용자 / 그룹 · admin" :
             page === "models"    ? "모델 관리 · admin" :
             page === "stats"     ? "시스템 통계 · admin" :
+            page === "admindash" ? "관리자 대시보드 · admin" :
             page === "backup"    ? "백업 / 복구 · admin" :
             page === "audit"     ? "감사 로그 · admin" :
             page === "profile"   ? "설정" : ""
@@ -456,6 +477,13 @@ function Proto() {
         open={lightboxOpen}
         image={{ label: "frontier-engineer", hue: 30, meta: "Mages · 1024×1024 · 4시간 전", favorite: true }}
         onClose={() => setLightboxOpen(false)}
+      />
+
+      <WorkboardPicker
+        open={!!pickerSource}
+        source={pickerSource}
+        onClose={() => setPickerSource(null)}
+        onPick={() => { setPickerSource(null); setPage("wbrun"); }}
       />
 
       <TweaksPanel title="Tweaks">

@@ -57,7 +57,7 @@ VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·
 | `08-admin-servers.png` | H. 서버 관리 admin | `prototypes/page-admin-servers.jsx` |
 | `16-admin-users.png` | I. 사용자/그룹 admin | `prototypes/page-admin-users.jsx` |
 | `24-projects-list.png` | K. 프로젝트 카탈로그 (사이드바 → 프로젝트) | `prototypes/page-project-list.jsx` |
-| `25-workboard-list.png` | L. 작업판 카탈로그 (kind 필터) | `prototypes/page-workboard-list.jsx` |
+| `25-workboard-list.png` | L. 작업판 카탈로그 (2축 필터: 출력 × 서버) | `prototypes/page-workboard-list.jsx` + `prototypes/workboard-shared.jsx` |
 | `26-document-editor.png` | M. 세계관 문서 에디터 (편집/분할/미리보기) | `prototypes/page-document-editor.jsx` |
 | `09-command-palette.png` | ⌘K 명령 팔레트 (오버레이) | `prototypes/command-palette.jsx` |
 | `10-notifications.png` | 벨 popover | `prototypes/notifications.jsx` |
@@ -256,9 +256,30 @@ MuiTextField: { size: 'small', variant: 'outlined' }
 - **필드 타입**: text / prompt / number / select / slider / image / model / lora / seed
 
 ### H. 서버 관리 (admin) (`page-admin-servers.jsx`)
-- **목적**: ComfyUI / OpenAI / Gemini / Compatible 백엔드 등록 + 모델 동기화
-- **레이아웃**: 통계 4(서버/온라인/모델/큐) + 서버 카드 리스트(클릭 시 인라인 모델 리스트 펼침)
+- **목적**: ComfyUI / OpenAI / Gemini / Compatible 백엔드 등록 + 상태 모니터링
+- **레이아웃**: 통계 3(서버/온라인/실행 중 큐) + 서버 카드 리스트
+- **변경(v1.2)**: 설치된 모델 인라인 리스트 **제거**(모델 관리 영역 소관) · 상단 "총 모델" 통계 카드 **제거**(4→3칸) · 카드 비확장형
+- **모바일(v1.2)**: 한 줄에 GPU·큐·동기화를 욱여넣던 레이아웃을 **세로 적층형**으로 교체 — ①배지+이름+타입 ②호스트 ③상태 칩 ⟷ 마지막 동기화 ④GPU 바(전체 폭)+큐
 - **상태 표시**: online (success dot) / degraded (warning) / offline (danger), GPU 사용률 바, 큐 카운트, 마지막 동기화 시각
+
+### O. 관리자 대시보드 (admin) (`page-admin-dashboard.jsx`)
+- **목적**: 시스템 통계(분석/리포트)와 구분되는 **운영 허브** — "지금 무엇을 봐야 하나"
+- **레이아웃**: 헤더(주의 필요 배지) · 헬스 스트립 4(서버/GPU 평균/대기 큐/활성 사용자) · 2열(조치 필요 + 최근 관리 활동) · 관리 영역 바로가기 카드 6
+- **조치 필요**: 심각도(danger/warning/info)별 행 + 각 항목에서 해당 관리 페이지로 이동(`onNav(key)`)
+- **관리 영역 카드**: 사용자/서버/모델/작업판/통계/백업 — 핵심 지표 + 클릭 시 이동
+- **주의**: 시스템 통계(`page-admin-stats.jsx`)는 그대로 분석 화면. 사이드바 "관리자 대시보드"와 "시스템 통계"가 **별개 라우트**
+
+### P. 작업판 관리 (admin) (`page-admin-workboards.jsx`)
+- **목적**: 작업판 **정의/거버넌스** 목록. 사용자 카탈로그(L)와 카드·필터 레이아웃을 **공유**하되 관리 관점
+- **공유 모듈**: `workboard-shared.jsx` — `WorkboardCard`(admin prop으로 분기) · `WorkboardFilters`(2축) · `useWorkboardFilter` 훅
+- **사용자 목록(L)과의 차이**: 사용자=실행(생성/관리 불가, "새 작업판" 없음). 관리=상태 배지(게시됨/초안/보관) · 허용 그룹 칩 · 편집/더보기 · 새 작업판 · 상태 필터 한 줄 추가
+- **편집 진입**: 카드 "편집" → `page-workboard-editor.jsx`(G). 편집기의 "← 작업판 관리" / 저장 / 취소 → 목록 복귀
+- **2축 필터(공유)**: **출력 형식**(이미지/영상/텍스트/LoRA) × **서버 타입**(ComfyUI/OpenAI/Gemini), 각 다중선택 + 카운트 + 검색 + 초기화. 단일 탭 필터 대체
+
+### Q. 다른 작업 전환 picker (`workboard-picker.jsx`)
+- **목적**: 작업 히스토리(N)·라이트박스에서 이미지/영상 결과를 **입력으로** 다른 작업판에 흘려보내는 전환 모달
+- **핵심**: 단순 나열 아님 — 소스 미리보기 + 카드별 "이미지 → 영상" 입출력 흐름 명시 + **입력 타입 호환** 작업판만 필터
+- **구성**: 추천(피처드, 가장 흔한 다음 단계) + 출력 종류별 그룹(영상 생성/이미지 변환/LoRA 학습) + 검색. Esc/배경 클릭 닫기
 
 ### I. 사용자 / 그룹 관리 (admin) (`page-admin-users.jsx`)
 - **목적**: 계정/그룹 멤버십/초대
@@ -367,7 +388,7 @@ design_handoff_vcc_manager/
 └── prototypes/
     ├── VCC Manager Design.html              ★ 디자인 캔버스 — 13 섹션, 모든 mockup
     ├── VCC Manager Migration Guide.html     ★ 8단계 PR 분해 가이드 — 먼저 읽기
-    ├── Prototype.html                       ★ 클릭 가능한 9페이지 prototype
+    ├── Prototype.html                       ★ 클릭 가능한 prototype (사용자 + admin 전 화면)
     │
     ├── icons.jsx                            ★ 아이콘 set (40개)
     ├── shell.jsx                            사이드바 + 탑바 (앱 chrome)
@@ -379,10 +400,16 @@ design_handoff_vcc_manager/
     ├── page-pipeline-builder-graph.jsx      B-alt2. graph variant
     ├── page-pipeline-run.jsx                C. 파이프라인 실행 + 히스토리
     ├── page-content-library.jsx             D. 내 컨텐츠
+    ├── workboard-shared.jsx                 ★ 공유 카드 + 2축 필터 (L · P 공용)
+    ├── page-workboard-list.jsx              L. 작업판 카탈로그 (사용자 · 실행)
     ├── page-workboard-run.jsx               F. 작업판 단발 실행
     ├── page-workboard-editor.jsx            G. 작업판 정의 (admin)
+    ├── workboard-picker.jsx                 Q. 다른 작업 전환 picker (모달)
+    ├── page-admin-dashboard.jsx             O. 관리자 대시보드 (운영 허브)
+    ├── page-admin-workboards.jsx            P. 작업판 관리 (admin · 거버넌스)
     ├── page-admin-servers.jsx               H. 서버 관리 (admin)
     ├── page-admin-users.jsx                 I. 사용자 / 그룹 (admin)
+    ├── page-admin-stats.jsx                 시스템 통계 (admin · 분석)
     ├── page-auth.jsx                        J. 로그인 + 가입
     │
     ├── command-palette.jsx                  ⌘K 명령 팔레트
@@ -430,5 +457,8 @@ design_handoff_vcc_manager/
 
 ---
 
-*Generated 2026-05 · VCC Manager Design System v1.1*
-*v1.1 변경: 대시보드 상단 통계 4블록 제거 · 작업 히스토리 페이지(`page-history.jsx`) 신설 — 이미지·영상 행에 "계속하기"/"다른 작업" 재개 버튼 2종 추가.*
+*Generated 2026-05 · VCC Manager Design System v1.2*
+
+**변경 이력**
+- **v1.2** — 작업판 카탈로그를 **2축 필터(출력 형식 × 서버 타입)** 다중선택으로 전환 + 사용자/관리자 화면이 공유 카드·필터(`workboard-shared.jsx`) 사용. 사용자 목록 "새 작업판" 제거(생성 불가). **관리자 대시보드**(`page-admin-dashboard.jsx`, 운영 허브) · **작업판 관리**(`page-admin-workboards.jsx`, 거버넌스) 신설 — 시스템 통계와 별개 라우트. **다른 작업 전환 picker**(`workboard-picker.jsx`) 신설. 서버 관리에서 모델 리스트·"총 모델" 통계 제거 + 모바일 세로 적층 레이아웃. 관리자 사이드바 활성 하이라이트 수정.
+- **v1.1** — 대시보드 상단 통계 4블록 제거 · 작업 히스토리 페이지(`page-history.jsx`) 신설 — 이미지·영상 행에 "계속하기"/"다른 작업" 재개 버튼 2종 추가.
