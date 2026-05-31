@@ -65,6 +65,11 @@ import {
   getOutputFormatLabel,
   getServerTypeColor,
 } from '../../templates/capabilities';
+import {
+  WorkboardCard as CatalogCard,
+  WorkboardFilters,
+  useWorkboardFilter,
+} from '../common/WorkboardCatalog';
 
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
 function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
@@ -1925,33 +1930,20 @@ const ADMIN_WB_OUTPUT_KEY = 'vcc.adminWorkboards.outputFormat';
 
 function WorkboardManagement() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState(() => localStorage.getItem(ADMIN_WB_SEARCH_KEY) || '');
-  const [serverTypeFilter, setServerTypeFilter] = useState(() => localStorage.getItem(ADMIN_WB_SERVER_KEY) || '');
-  const [outputFormatFilter, setOutputFormatFilter] = useState(() => localStorage.getItem(ADMIN_WB_OUTPUT_KEY) || '');
-
-  // 필터 변경 시 localStorage 동기 (#370)
-  useEffect(() => {
-    if (search) localStorage.setItem(ADMIN_WB_SEARCH_KEY, search);
-    else localStorage.removeItem(ADMIN_WB_SEARCH_KEY);
-  }, [search]);
-  useEffect(() => {
-    if (serverTypeFilter) localStorage.setItem(ADMIN_WB_SERVER_KEY, serverTypeFilter);
-    else localStorage.removeItem(ADMIN_WB_SERVER_KEY);
-  }, [serverTypeFilter]);
-  useEffect(() => {
-    if (outputFormatFilter) localStorage.setItem(ADMIN_WB_OUTPUT_KEY, outputFormatFilter);
-    else localStorage.removeItem(ADMIN_WB_OUTPUT_KEY);
-  }, [outputFormatFilter]);
+  // 상태 필터(전체/게시됨/보관) + 2축 필터(출력×서버, 공유)는 클라이언트 측에서 적용.
+  const [status, setStatus] = useState('all'); // all | active | inactive
   // create / update / 편집 dialog 상태는 #437 Phase A 에서 페이지로 이전됨
   // (WorkboardEditorPage / WorkboardCreatePage 가 own mutation + 페이지 라우팅).
   // 본 컴포넌트는 목록 / 가져오기 / delete / duplicate / toggleActive / export 만 담당.
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [menuAnchor, setMenuAnchor] = useState(null);
+  const [menuWb, setMenuWb] = useState(null);
 
   const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery(
-    ['adminWorkboards', { search, serverTypeFilter, outputFormatFilter }],
-    () => workboardAPI.getAll({ search, limit: 50, includeAll: true, includeInactive: true, serverType: serverTypeFilter || undefined, outputFormat: outputFormatFilter || undefined }),
+    'adminWorkboards',
+    () => workboardAPI.getAll({ limit: 500, includeAll: true, includeInactive: true }),
     { keepPreviousData: true }
   );
 
@@ -2050,6 +2042,16 @@ function WorkboardManagement() {
 
   const workboards = data?.data?.workboards || [];
 
+  const statusCounts = {
+    all: workboards.length,
+    active: workboards.filter((w) => w.isActive).length,
+    inactive: workboards.filter((w) => !w.isActive).length,
+  };
+  const statusFiltered = workboards.filter((w) =>
+    status === 'all' ? true : status === 'active' ? w.isActive : !w.isActive
+  );
+  const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(statusFiltered);
+
   const handleCreate = () => {
     navigate('/admin/workboards/new');
   };
@@ -2107,87 +2109,86 @@ function WorkboardManagement() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">작업판 관리</Typography>
-        <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            onClick={() => setImportDialogOpen(true)}
-            startIcon={<FileUpload />}
-          >
-            가져오기
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleCreate}
-            startIcon={<Add />}
-          >
-            새 작업판
-          </Button>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h1">작업판 관리</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
+            작업판 정의 · 출력 형식 · 접근 권한 · 서버 매핑을 관리합니다.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          <Button variant="outlined" startIcon={<FileUpload />} onClick={() => setImportDialogOpen(true)}>가져오기</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
         </Box>
       </Box>
 
-      <Box mb={3} display="flex" gap={2} alignItems="center" flexWrap="wrap">
-        <TextField
-          placeholder="작업판 이름으로 검색..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ minWidth: 300, flex: 1 }}
-        />
-        <FormControl sx={{ minWidth: 180 }}>
-          <InputLabel>서버 타입</InputLabel>
-          <Select
-            value={serverTypeFilter}
-            label="서버 타입"
-            onChange={(e) => setServerTypeFilter(e.target.value)}
+      {/* 상태 필터 (관리 전용 축) */}
+      <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, overflowX: 'auto', pb: 0.5 }}>
+        {[
+          { k: 'all', l: '전체', c: statusCounts.all },
+          { k: 'active', l: '게시됨', c: statusCounts.active },
+          { k: 'inactive', l: '보관', c: statusCounts.inactive },
+        ].map((s) => (
+          <Button
+            key={s.k}
+            onClick={() => setStatus(s.k)}
+            variant={status === s.k ? 'contained' : 'outlined'}
+            color={status === s.k ? 'primary' : 'inherit'}
+            sx={{ flex: '0 0 auto', color: status === s.k ? undefined : 'text.secondary' }}
           >
-            <MenuItem value="">전체</MenuItem>
-            <MenuItem value="ComfyUI">ComfyUI</MenuItem>
-            <MenuItem value="OpenAI">OpenAI</MenuItem>
-            <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
-            <MenuItem value="Gemini">Gemini</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl sx={{ minWidth: 150 }}>
-          <InputLabel>출력 타입</InputLabel>
-          <Select
-            value={outputFormatFilter}
-            label="출력 타입"
-            onChange={(e) => setOutputFormatFilter(e.target.value)}
-          >
-            <MenuItem value="">전체</MenuItem>
-            <MenuItem value="image">이미지</MenuItem>
-            <MenuItem value="video">비디오</MenuItem>
-            <MenuItem value="text">텍스트</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+            {s.l}
+            <Box component="span" sx={{ ml: 0.75, fontFamily: 'monospace', fontSize: 11, opacity: 0.8 }}>{s.c}</Box>
+          </Button>
+        ))}
+      </Stack>
+
+      <WorkboardFilters
+        q={q} setQ={setQ}
+        outSel={outSel} toggleOut={toggleOut}
+        svcSel={svcSel} toggleSvc={toggleSvc}
+        counts={counts} total={statusFiltered.length} shown={filtered.length}
+        onClear={clear}
+      />
 
       {isLoading ? (
-        <Box display="flex" justifyContent="center" py={4}>
-          <CircularProgress />
+        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+      ) : filtered.length === 0 ? (
+        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>조건에 맞는 작업판이 없습니다</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>필터를 줄이거나 새 작업판을 만들어 보세요.</Typography>
+          <Button variant="contained" size="small" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
         </Box>
-      ) : workboards.length === 0 ? (
-        <Alert severity="info">
-          {(search || serverTypeFilter || outputFormatFilter) ? '검색 결과가 없습니다.' : '등록된 작업판이 없습니다.'}
-        </Alert>
       ) : (
-        <Grid container spacing={3}>
-          {workboards.map((workboard) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={workboard._id}>
-              <WorkboardCard
-                workboard={workboard}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onDuplicate={handleDuplicate}
-                onExport={handleExport}
-                onView={handleView}
-                onToggleActive={handleToggleActive}
-              />
-            </Grid>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(320px, 1fr))' }, gap: 1.5 }}>
+          {filtered.map((wb) => (
+            <CatalogCard
+              key={wb._id}
+              wb={wb}
+              admin
+              onEdit={handleEdit}
+              onMenu={(e, w) => { setMenuAnchor(e.currentTarget); setMenuWb(w); }}
+              groupNames={(wb.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g.name : null)).filter(Boolean)}
+            />
           ))}
-        </Grid>
+        </Box>
       )}
+
+      <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+        <MenuItem onClick={() => { handleEdit(menuWb); setMenuAnchor(null); }}><Edit sx={{ mr: 1 }} fontSize="small" />편집</MenuItem>
+        <MenuItem onClick={() => { handleDuplicate(menuWb); setMenuAnchor(null); }}><ContentCopy sx={{ mr: 1 }} fontSize="small" />복제</MenuItem>
+        <MenuItem onClick={() => { handleExport(menuWb); setMenuAnchor(null); }}><FileDownload sx={{ mr: 1 }} fontSize="small" />내보내기</MenuItem>
+        <MenuItem
+          onClick={() => { handleToggleActive(menuWb); setMenuAnchor(null); }}
+          sx={{ color: menuWb?.isActive ? 'warning.main' : 'success.main' }}
+        >
+          {menuWb?.isActive
+            ? <><ToggleOff sx={{ mr: 1 }} fontSize="small" />비활성화</>
+            : <><ToggleOn sx={{ mr: 1 }} fontSize="small" />활성화</>}
+        </MenuItem>
+        <MenuItem onClick={() => { handleDelete(menuWb); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>
+          <Delete sx={{ mr: 1 }} fontSize="small" />삭제
+        </MenuItem>
+      </Menu>
 
       <WorkboardImportDialog
         open={importDialogOpen}

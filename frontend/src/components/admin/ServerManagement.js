@@ -23,7 +23,8 @@ import {
   Alert,
   CircularProgress,
   Tooltip,
-  Stack
+  Stack,
+  Paper
 } from '@mui/material';
 import {
   Add,
@@ -42,7 +43,8 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { serverAPI } from '../../services/api';
+import { serverAPI, jobAPI } from '../../services/api';
+import { getServerTypeColor } from '../../templates/capabilities';
 
 // 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
 const KNOWN_SERVER_URLS = {
@@ -133,108 +135,32 @@ function ServerCard({
     }
   };
 
+  const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
+  const statusKey = server.healthCheck?.status;
+  const statusChip = statusKey === 'healthy'
+    ? { color: 'success', label: 'online' }
+    : statusKey === 'unhealthy' ? { color: 'error', label: 'offline' } : { color: undefined, label: 'unknown' };
+  const typeColor = getServerTypeColor(server.serverType);
+  const abbr = ((server.serverType || 'SRV').replace(/[^A-Za-z]/g, '').slice(0, 3) || 'SRV').toUpperCase();
+  const lastSync = modelSyncStatus?.lastMetadataSync || loraSyncStatus?.lastCivitaiSync || server.healthCheck?.lastChecked;
+
   return (
-    <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <CardContent sx={{ flexGrow: 1 }}>
-        {/* 서버 이름 및 상태 */}
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              {server.name}
-            </Typography>
-            <Typography variant="body2" color="textSecondary">
-              {server.description || '설명 없음'}
-            </Typography>
-          </Box>
-          <Box display="flex" alignItems="center" gap={1}>
-            {!server.isActive && <Chip label="비활성" color="default" />}
-            <Chip 
-              icon={getStatusIcon(server.healthCheck?.status)}
-              label={server.healthCheck?.status || 'unknown'}
-              color={getStatusColor(server.healthCheck?.status)}
-            />
-          </Box>
+    <Paper variant="outlined" sx={{ p: 2, opacity: server.isActive ? 1 : 0.7 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', bgcolor: typeColor, color: '#fff',
+          display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO }}>
+          {abbr}
         </Box>
-
-        {/* 서버 정보 */}
-        <Stack spacing={1}>
-          <Box display="flex" alignItems="center" gap={1}>
-            {getTypeIcon(server.serverType)}
-            <Typography variant="body2">
-              <strong>AI API 형식:</strong> {getServerTypeLabel(server.serverType)}
-            </Typography>
+        <Box sx={{ flex: 1, minWidth: 180 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+            <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{server.name}</Typography>
+            <Chip size="small" variant="outlined" label={getServerTypeLabel(server.serverType)} sx={{ height: 20, fontSize: 10.5 }} />
+            <Chip size="small" variant="outlined" color={statusChip.color} label={statusChip.label} sx={{ height: 20, fontSize: 10.5 }} />
+            {!server.isActive && <Chip size="small" label="비활성" sx={{ height: 20, fontSize: 10.5 }} />}
           </Box>
-          
-          <Typography variant="body2">
-            <strong>URL:</strong> {server.serverUrl}
-          </Typography>
-          
-          {/* 헬스체크 정보 */}
-          {server.healthCheck?.lastChecked && (
-            <Box>
-              <Typography variant="caption" color="textSecondary">
-                마지막 확인: {new Date(server.healthCheck.lastChecked).toLocaleString()}
-              </Typography>
-              {server.healthCheck.responseTime && (
-                <Typography variant="caption" color="textSecondary" display="block">
-                  응답시간: {server.healthCheck.responseTime}ms
-                </Typography>
-              )}
-              {server.healthCheck.errorMessage && (
-                <Typography variant="caption" color="error" display="block">
-                  오류: {server.healthCheck.errorMessage}
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {/* LoRA 동기화 정보 (ComfyUI 서버만) */}
-          {isComfyUI && loraSyncStatus && (
-            <Box>
-              {loraSyncStatus.totalLoras > 0 ? (
-                <>
-                  <Typography variant="caption" color="textSecondary">
-                    LoRA: {loraSyncStatus.lorasWithMetadata}/{loraSyncStatus.totalLoras}개 (메타데이터 있음)
-                  </Typography>
-                  {loraSyncStatus.lastCivitaiSync && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      마지막 동기화: {new Date(loraSyncStatus.lastCivitaiSync).toLocaleString()}
-                    </Typography>
-                  )}
-                </>
-              ) : (
-                <Typography variant="caption" color="textSecondary">
-                  LoRA: 동기화 필요
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {/* 모델 동기화 정보 (ComfyUI / OpenAI / OpenAI Compatible / Gemini) */}
-          {supportsModelSync && modelSyncStatus && (
-            <Box>
-              {modelSyncStatus.totalModels > 0 ? (
-                <>
-                  <Typography variant="caption" color="textSecondary">
-                    모델: {modelSyncStatus.modelsWithMetadata}/{modelSyncStatus.totalModels}개 (메타데이터 있음)
-                  </Typography>
-                  {modelSyncStatus.lastMetadataSync && (
-                    <Typography variant="caption" color="textSecondary" display="block">
-                      마지막 동기화: {new Date(modelSyncStatus.lastMetadataSync).toLocaleString()}
-                    </Typography>
-                  )}
-                </>
-              ) : (
-                <Typography variant="caption" color="textSecondary">
-                  모델: 동기화 필요
-                </Typography>
-              )}
-            </Box>
-          )}
-        </Stack>
-      </CardContent>
-      
-      <CardActions>
+          <Typography sx={{ fontSize: 12, color: 'text.disabled', fontFamily: MONO, mt: 0.25 }} noWrap>{server.serverUrl}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flex: '0 0 auto' }}>
         <Tooltip title="헬스체크">
           <span>
             <IconButton
@@ -302,8 +228,23 @@ function ServerCard({
             <Delete />
           </IconButton>
         </Tooltip>
-      </CardActions>
-    </Card>
+        </Box>
+      </Box>
+
+      {/* sync summary */}
+      <Box sx={{ display: 'flex', gap: 2, mt: 1.5, flexWrap: 'wrap', fontSize: 11.5, color: 'text.secondary', fontFamily: MONO }}>
+        {supportsModelSync && (
+          <Box component="span">모델 {modelSyncStatus?.totalModels ? `${modelSyncStatus.modelsWithMetadata}/${modelSyncStatus.totalModels}` : '동기화 필요'}</Box>
+        )}
+        {isComfyUI && (
+          <Box component="span">LoRA {loraSyncStatus?.totalLoras ? `${loraSyncStatus.lorasWithMetadata}/${loraSyncStatus.totalLoras}` : '동기화 필요'}</Box>
+        )}
+        {lastSync && <Box component="span" sx={{ ml: 'auto' }}>마지막 동기화 {new Date(lastSync).toLocaleString()}</Box>}
+      </Box>
+      {server.healthCheck?.errorMessage && (
+        <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>오류: {server.healthCheck.errorMessage}</Typography>
+      )}
+    </Paper>
   );
 }
 
@@ -538,6 +479,16 @@ function ServerManagement() {
 
   // ComfyUI 서버들의 LoRA 동기화 상태 조회
   const servers = serversData?.data?.data?.servers || [];
+
+  // 요약: 온라인 수 + 전체 큐(서버별 큐 수집 데이터가 없어 전체 큐로 표시)
+  const { data: queueStatsData } = useQuery(
+    'serverQueueStats',
+    () => jobAPI.getQueueStats(),
+    { refetchInterval: 10000 }
+  );
+  const queueStats = queueStatsData?.data?.stats || {};
+  const onlineCount = servers.filter((s) => s.healthCheck?.status === 'healthy').length;
+  const activeQueue = (queueStats.active || 0) + (queueStats.waiting || 0);
   const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
   const modelSyncSupportedServers = servers.filter(s =>
     ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(s.serverType)
@@ -767,50 +718,57 @@ function ServerManagement() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">서버 관리</Typography>
-        <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<Refresh />}
-            onClick={handleAllHealthCheck}
-            disabled={allHealthCheckMutation.isLoading}
-          >
-            전체 헬스체크
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleAddServer}
-          >
-            서버 추가
-          </Button>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="h1">서버 관리</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
+            ComfyUI / OpenAI / Gemini / Compatible 백엔드 등록 및 모델 동기화.
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          <Button variant="outlined" startIcon={<Refresh />} onClick={handleAllHealthCheck} disabled={allHealthCheckMutation.isLoading}>전체 헬스체크</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={handleAddServer}>서버 추가</Button>
         </Box>
       </Box>
 
+      {/* 요약 */}
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 2.5 }}>
+        {[
+          { label: '서버', value: servers.length, suffix: '등록' },
+          { label: '온라인', value: `${onlineCount} / ${servers.length}`, color: 'success.main' },
+          { label: '실행 중 큐', value: activeQueue },
+        ].map((st) => (
+          <Paper key={st.label} variant="outlined" sx={{ p: 1.75 }}>
+            <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{st.label}</Typography>
+            <Typography sx={{ fontSize: 24, fontWeight: 700, mt: 0.5, color: st.color }}>
+              {st.value}{st.suffix && <Box component="span" sx={{ fontSize: 12, color: 'text.disabled', ml: 0.5 }}>{st.suffix}</Box>}
+            </Typography>
+          </Paper>
+        ))}
+      </Box>
+
       {servers.length === 0 ? (
-        <Alert severity="info">
-          등록된 서버가 없습니다. 서버를 추가해주세요.
-        </Alert>
+        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
+          <Typography variant="body2" color="text.secondary">등록된 서버가 없습니다. 서버를 추가해주세요.</Typography>
+        </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Stack spacing={1.25}>
           {servers.map((server) => (
-            <Grid item xs={12} md={6} lg={4} key={server._id}>
-              <ServerCard
-                server={server}
-                onEdit={handleEditServer}
-                onDelete={handleDeleteServer}
-                onHealthCheck={handleHealthCheck}
-                onLoraSync={handleLoraSync}
-                loraSyncStatus={loraSyncStatuses[server._id]}
-                onLoraResetSync={handleLoraResetSync}
-                onModelSync={handleModelSync}
-                modelSyncStatus={modelSyncStatuses[server._id]}
-                onModelResetSync={handleModelResetSync}
-              />
-            </Grid>
+            <ServerCard
+              key={server._id}
+              server={server}
+              onEdit={handleEditServer}
+              onDelete={handleDeleteServer}
+              onHealthCheck={handleHealthCheck}
+              onLoraSync={handleLoraSync}
+              loraSyncStatus={loraSyncStatuses[server._id]}
+              onLoraResetSync={handleLoraResetSync}
+              onModelSync={handleModelSync}
+              modelSyncStatus={modelSyncStatuses[server._id]}
+              onModelResetSync={handleModelResetSync}
+            />
           ))}
-        </Grid>
+        </Stack>
       )}
 
       {/* 서버 추가/편집 다이얼로그 */}
