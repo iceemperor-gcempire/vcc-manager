@@ -49,6 +49,7 @@ import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import VideoViewerDialog from '../components/common/VideoViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
+import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
 
 const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
@@ -66,23 +67,15 @@ function mapStatus(s) {
   }
 }
 const STATUS_CFG = {
-  done: { color: 'success', label: '완료' },
-  running: { color: 'info', label: '실행 중' },
-  error: { color: 'error', label: '실패' },
-  queued: { color: 'default', label: '대기' },
-  cancelled: { color: 'default', label: '취소' },
+  done: { tone: 'success', label: '완료' },
+  running: { tone: 'info', label: '실행 중' },
+  error: { tone: 'error', label: '실패' },
+  queued: { tone: 'neutral', label: '대기' },
+  cancelled: { tone: 'neutral', label: '취소' },
 };
 function StatusChip({ status }) {
   const cfg = STATUS_CFG[status] || STATUS_CFG.done;
-  return (
-    <Chip
-      size="small"
-      variant="outlined"
-      color={cfg.color === 'default' ? undefined : cfg.color}
-      label={cfg.label}
-      sx={{ height: 20, fontSize: 11 }}
-    />
-  );
+  return <ToneChip tone={cfg.tone} label={cfg.label} />;
 }
 
 // ---- 필드 추출 ----------------------------------------------------------
@@ -273,8 +266,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
             <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
               {item.title}
             </Typography>
-            <Chip size="small" variant="outlined" label={TYPE_LABEL[item.type]}
-              sx={{ height: 18, fontSize: 10, fontFamily: MONO, color: 'text.secondary' }} />
+            <TagChip label={TYPE_LABEL[item.type]} mono />
             <StatusChip status={item.status} />
           </Box>
 
