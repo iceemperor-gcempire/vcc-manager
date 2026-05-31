@@ -1,328 +1,106 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
-  Container,
-  Grid,
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Button,
   Box,
-  TextField,
-  InputAdornment,
+  Typography,
   Chip,
   CircularProgress,
   Alert,
+  Paper,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogContentText,
   DialogActions,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  IconButton
+  Button,
+  IconButton,
 } from '@mui/material';
-import {
-  Search,
-  PlayArrow,
-  Info,
-  TrendingUp,
-  Computer,
-  ContentCopy
-} from '@mui/icons-material';
+import { PlayArrow, ContentCopy, Inventory2 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from 'react-query';
-import { workboardAPI, userAPI, projectAPI } from '../services/api';
+import { workboardAPI, projectAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
-  getServerTypeLabel as getServerTypeLabelShared,
+  getServerTypeLabel,
   getServerTypeColor,
-  getOutputFormatLabel as getOutputFormatLabelShared,
+  getOutputFormatLabel,
 } from '../templates/capabilities';
+import {
+  WorkboardFilters,
+  WorkboardCard,
+  useWorkboardFilter,
+} from '../components/common/WorkboardCatalog';
 
-
-function WorkboardCard({ workboard, projectId }) {
-  const navigate = useNavigate();
-  const [infoOpen, setInfoOpen] = useState(false);
-
-  const outputFormat = workboard.outputFormat || 'image';
-  const isPromptWorkboard = outputFormat === 'text';
-  const isImageWorkboard = !isPromptWorkboard;
-  const projectQuery = projectId ? `?projectId=${projectId}` : '';
-
-  const handleSelect = () => {
-    // 히스토리에서 온 데이터가 있는지 확인
-    const continueJobData = localStorage.getItem('continueJobData');
-    if (continueJobData) {
-      try {
-        const parsedData = JSON.parse(continueJobData);
-        if (parsedData.fromJobHistory) {
-          const updatedData = {
-            workboardId: workboard._id,
-            inputData: parsedData.inputData,
-            workboard: workboard
-          };
-          localStorage.setItem('continueJobData', JSON.stringify(updatedData));
-          toast.success('작업 히스토리 데이터와 작업판이 연결되었습니다');
-        }
-      } catch (error) {
-        console.warn('Failed to parse continue job data:', error);
-      }
-    }
-
-    if (isImageWorkboard) {
-      navigate(`/generate/${workboard._id}${projectQuery}`);
-    } else {
-      navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
-    }
-  };
-
-  const handleInfo = () => {
-    setInfoOpen(true);
-  };
-
-  const handleInfoClose = () => {
-    setInfoOpen(false);
-  };
-
-  const handleCopyWorkboardId = async () => {
+function selectWorkboard(workboard, projectId, navigate) {
+  // 히스토리에서 온 데이터가 있으면 작업판과 연결
+  const continueJobData = localStorage.getItem('continueJobData');
+  if (continueJobData) {
     try {
-      await navigator.clipboard.writeText(workboard._id);
-      toast.success('작업판 ID를 복사했습니다.');
-    } catch (error) {
-      toast.error('작업판 ID 복사에 실패했습니다.');
+      const parsed = JSON.parse(continueJobData);
+      if (parsed.fromJobHistory) {
+        localStorage.setItem('continueJobData', JSON.stringify({
+          workboardId: workboard._id,
+          inputData: parsed.inputData,
+          workboard,
+        }));
+        toast.success('작업 히스토리 데이터와 작업판이 연결되었습니다');
+      }
+    } catch (e) {
+      console.warn('Failed to parse continue job data:', e);
     }
+  }
+  const projectQuery = projectId ? `?projectId=${projectId}` : '';
+  if ((workboard.outputFormat || 'image') === 'text') {
+    navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
+  } else {
+    navigate(`/generate/${workboard._id}${projectQuery}`);
+  }
+}
+
+function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
+  if (!workboard) return null;
+  const copyId = async () => {
+    try { await navigator.clipboard.writeText(workboard._id); toast.success('작업판 ID를 복사했습니다.'); }
+    catch { toast.error('작업판 ID 복사에 실패했습니다.'); }
   };
-
-  const getOutputFormatLabel = (format) => getOutputFormatLabelShared(format);
-  const getServerTypeLabel = (serverType) => getServerTypeLabelShared(serverType) || '서버 미설정';
-
   return (
-    <>
-      <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <CardContent sx={{ flexGrow: 1 }}>
-          <Typography variant="h6" gutterBottom>
-            {workboard.name}
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>{workboard.name}</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>{workboard.description || '설명이 없습니다.'}</DialogContentText>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+          <Chip size="small"
+            label={getOutputFormatLabel(workboard.outputFormat || 'image')}
+            color={workboard.outputFormat === 'text' ? 'info' : workboard.outputFormat === 'video' ? 'warning' : 'primary'} />
+          <Chip size="small" label={getServerTypeLabel(workboard.serverId?.serverType) || '서버 미설정'}
+            sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }} />
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            작업판 ID: {workboard._id}
           </Typography>
-
-          {workboard.description && (
-            <Typography variant="body2" color="textSecondary" paragraph>
-              {workboard.description}
-            </Typography>
-          )}
-
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <Computer fontSize="small" />
-            <Typography variant="caption" color="textSecondary">
-              {workboard.serverId?.name || (workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 정보 없음')}
-            </Typography>
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={1} mb={2}>
-            <TrendingUp fontSize="small" />
-            <Typography variant="caption" color="textSecondary">
-              사용횟수: {workboard.usageCount || 0}회
-            </Typography>
-          </Box>
-
-          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-              ID: {workboard._id}
-            </Typography>
-            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
-              <ContentCopy fontSize="inherit" />
-            </IconButton>
-          </Box>
-
-          <Box display="flex" flexWrap="wrap" gap={0.5} mb={2}>
-            <Chip
-              label={getOutputFormatLabel(workboard.outputFormat || 'image')}
-              color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
-            />
-            <Chip
-              label={getServerTypeLabel(workboard.serverId?.serverType)}
-              sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
-            />
-          </Box>
-
-          <Box display="flex" flexWrap="wrap" gap={1}>
-            {workboard.baseInputFields?.aiModel?.slice(0, 3).map((model, index) => (
-              <Chip
-                key={index}
-                label={model.key}
-                variant="outlined"
-                sx={{ maxWidth: '100%' }}
-              />
-            ))}
-            {workboard.baseInputFields?.aiModel?.length > 3 && (
-              <Chip
-                label={`+${workboard.baseInputFields.aiModel.length - 3}개`}
-                variant="outlined"
-              />
-            )}
-          </Box>
-        </CardContent>
-
-        <CardActions>
-          <Button
-            onClick={handleInfo}
-            startIcon={<Info />}
-          >
-            상세정보
-          </Button>
-          <Button
-            variant="contained"
-            color={isImageWorkboard ? 'primary' : 'secondary'}
-            onClick={handleSelect}
-            startIcon={<PlayArrow />}
-            sx={{ ml: 'auto' }}
-          >
-            선택하기
-          </Button>
-        </CardActions>
-      </Card>
-
-      {/* 상세정보 다이얼로그 */}
-      <Dialog open={infoOpen} onClose={handleInfoClose} maxWidth="md" fullWidth>
-        <DialogTitle>{workboard.name}</DialogTitle>
-        <DialogContent>
-          <DialogContentText paragraph>
-            {workboard.description || '설명이 없습니다.'}
-          </DialogContentText>
-
-          <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-              작업판 ID: {workboard._id}
-            </Typography>
-            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
-              <ContentCopy fontSize="inherit" />
-            </IconButton>
-          </Box>
-
-          <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-            <Chip
-              label={getOutputFormatLabel(workboard.outputFormat || 'image')}
-              color={workboard.outputFormat === 'text' ? 'secondary' : workboard.outputFormat === 'video' ? 'warning' : 'primary'}
-            />
-            <Chip
-              label={getServerTypeLabel(workboard.serverId?.serverType)}
-              sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
-            />
-          </Box>
-
-          <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            지원 AI 모델
-          </Typography>
-          <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-            {workboard.baseInputFields?.aiModel?.map((model, index) => (
-              <Chip
-                key={index}
-                label={`${model.key}`}
-                color="primary"
-                variant="outlined"
-              />
-            ))}
-          </Box>
-
-          {isImageWorkboard && workboard.baseInputFields?.imageSizes?.length > 0 && (
-            <>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                지원 이미지 크기
-              </Typography>
-              <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-                {workboard.baseInputFields.imageSizes.map((size, index) => (
-                  <Chip
-                    key={index}
-                    label={size.key}
-                    color="secondary"
-                    variant="outlined"
-                  />
-                ))}
-              </Box>
-            </>
-          )}
-
-          {workboard.serverId?.serverType === 'ComfyUI' && workboard.baseInputFields?.referenceImageMethods?.length > 0 && (
-            <>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                참고 이미지 사용 방식
-              </Typography>
-              <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-                {workboard.baseInputFields.referenceImageMethods.map((method, index) => (
-                  <Chip
-                    key={index}
-                    label={method.key}
-                    color="info"
-                    variant="outlined"
-                  />
-                ))}
-              </Box>
-            </>
-          )}
-
-          {workboard.serverId?.serverType !== 'ComfyUI' && workboard.baseInputFields?.systemPrompt && (
-            <>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                시스템 프롬프트
-              </Typography>
-              <Typography variant="body2" color="textSecondary" sx={{
-                whiteSpace: 'pre-wrap',
-                bgcolor: 'action.hover',
-                p: 2,
-                borderRadius: 1,
-                maxHeight: 200,
-                overflow: 'auto'
-              }}>
-                {workboard.baseInputFields.systemPrompt}
-              </Typography>
-            </>
-          )}
-
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="textSecondary">
-              생성자: {workboard.createdBy?.nickname || '알 수 없음'}
-            </Typography>
-            <br />
-            <Typography variant="caption" color="textSecondary">
-              버전: {workboard.version || 1}
-            </Typography>
-            <br />
-            <Typography variant="caption" color="textSecondary">
-              생성일: {new Date(workboard.createdAt).toLocaleDateString()}
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleInfoClose}>닫기</Button>
-          <Button
-            onClick={handleSelect}
-            variant="contained"
-            color={isImageWorkboard ? 'primary' : 'secondary'}
-            startIcon={<PlayArrow />}
-          >
-            선택하기
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+          <IconButton size="small" onClick={copyId}><ContentCopy fontSize="inherit" /></IconButton>
+        </Box>
+        <Typography variant="caption" color="text.secondary" display="block">서버: {workboard.serverId?.name || '미설정'}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">생성자: {workboard.createdBy?.nickname || '알 수 없음'}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">버전: v{workboard.version || 1}</Typography>
+        {workboard.createdAt && (
+          <Typography variant="caption" color="text.secondary" display="block">생성일: {new Date(workboard.createdAt).toLocaleDateString()}</Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>닫기</Button>
+        <Button variant="contained" startIcon={<PlayArrow />} onClick={() => onSelect(workboard)}>선택하기</Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
 function Workboards() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
-  const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [outputFormat, setOutputFormat] = useState(
-    () => localStorage.getItem('workboardFilter_outputFormat') || ''
-  );
-  const [serverType, setServerType] = useState(
-    () => localStorage.getItem('workboardFilter_serverType') || ''
-  );
+  const [detailWb, setDetailWb] = useState(null);
 
-  // 프로젝트 컨텍스트
   const { data: projectData } = useQuery(
     ['project', projectId],
     () => projectAPI.getById(projectId),
@@ -330,179 +108,71 @@ function Workboards() {
   );
   const projectContext = projectData?.data?.data?.project;
 
-  const { data: profileData } = useQuery(
-    'userProfile',
-    () => userAPI.getProfile(),
-    { staleTime: 5 * 60 * 1000 }
-  );
-
-  useEffect(() => {
-    const prefs = profileData?.data?.user?.preferences;
-    if (!prefs) return;
-
-    if (prefs.resetWorkboardOutputFormat) {
-      setOutputFormat('');
-      localStorage.removeItem('workboardFilter_outputFormat');
-    }
-    if (prefs.resetWorkboardApiFormat) {
-      setServerType('');
-      localStorage.removeItem('workboardFilter_serverType');
-      // legacy 키 정리
-      localStorage.removeItem('workboardFilter_apiFormat');
-    }
-  }, [profileData]);
-
-  const queryParams = { search, page, limit: 12 };
-  if (outputFormat) queryParams.outputFormat = outputFormat;
-  if (serverType) queryParams.serverType = serverType;
-
   const { data, isLoading, error } = useQuery(
-    ['workboards', queryParams],
-    () => workboardAPI.getAll(queryParams),
+    'workboardsCatalog',
+    () => workboardAPI.getAll({ limit: 500 }),
     { keepPreviousData: true }
   );
-
   const workboards = data?.data?.workboards || [];
-  const pagination = data?.data?.pagination || {};
 
-  const handleSearchChange = (event) => {
-    setSearch(event.target.value);
-    setPage(1);
-  };
+  const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(workboards);
 
-  const handleOutputFormatChange = (event) => {
-    const value = event.target.value;
-    setOutputFormat(value);
-    setPage(1);
-    if (value) {
-      localStorage.setItem('workboardFilter_outputFormat', value);
-    } else {
-      localStorage.removeItem('workboardFilter_outputFormat');
-    }
-  };
-
-  const handleServerTypeChange = (event) => {
-    const value = event.target.value;
-    setServerType(value);
-    setPage(1);
-    if (value) {
-      localStorage.setItem('workboardFilter_serverType', value);
-    } else {
-      localStorage.removeItem('workboardFilter_serverType');
-    }
-  };
+  const handleSelect = (wb) => { setDetailWb(null); selectWorkboard(wb, projectId, navigate); };
 
   if (error) {
-    return (
-      <Container maxWidth="xl" sx={{ mt: 4 }}>
-        <Alert severity="error">
-          작업판을 불러오는 중 오류가 발생했습니다: {error.message}
-        </Alert>
-      </Container>
-    );
+    return <Box sx={{ maxWidth: 1100, mx: 'auto' }}><Alert severity="error">작업판을 불러오는 중 오류가 발생했습니다: {error.message}</Alert></Box>;
   }
 
   return (
-    <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box mb={4}>
-        <Typography variant="h4" gutterBottom>
-          작업판 선택
-        </Typography>
-        <Typography variant="body1" color="textSecondary" gutterBottom>
-          사용할 작업판을 선택하세요. 각 작업판은 서로 다른 AI 모델과 설정을 제공합니다.
+    <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+      <Box sx={{ mb: 2.5 }}>
+        <Typography variant="h1">작업판</Typography>
+        <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
+          한 번의 호출로 실행하는 단위. 파이프라인의 단계로도 사용됩니다.
         </Typography>
         {projectContext && (
-          <Chip
-            label={`프로젝트: ${projectContext.name}`}
-            color="primary"
-            variant="outlined"
-            sx={{ mt: 1 }}
-          />
+          <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" size="small" sx={{ mt: 1 }} />
         )}
       </Box>
 
-      {/* 검색 및 필터 */}
-      <Box mb={4} display="flex" gap={2} flexWrap="wrap" alignItems="center">
-        <TextField
-          placeholder="작업판 이름이나 설명으로 검색..."
-          value={search}
-          onChange={handleSearchChange}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-          sx={{ minWidth: 300, flex: 1, maxWidth: 500 }}
-        />
-        <FormControl sx={{ minWidth: 150 }} size="small">
-          <InputLabel>출력 형식</InputLabel>
-          <Select
-            value={outputFormat}
-            onChange={handleOutputFormatChange}
-            label="출력 형식"
-          >
-            <MenuItem value="">전체</MenuItem>
-            <MenuItem value="image">이미지</MenuItem>
-            <MenuItem value="video">비디오</MenuItem>
-            <MenuItem value="text">텍스트</MenuItem>
-          </Select>
-        </FormControl>
-        <FormControl sx={{ minWidth: 180 }} size="small">
-          <InputLabel>서버 타입</InputLabel>
-          <Select
-            value={serverType}
-            onChange={handleServerTypeChange}
-            label="서버 타입"
-          >
-            <MenuItem value="">전체</MenuItem>
-            <MenuItem value="ComfyUI">ComfyUI</MenuItem>
-            <MenuItem value="OpenAI">OpenAI</MenuItem>
-            <MenuItem value="OpenAI Compatible">OpenAI Compatible</MenuItem>
-            <MenuItem value="Gemini">Gemini</MenuItem>
-          </Select>
-        </FormControl>
-      </Box>
+      <WorkboardFilters
+        q={q} setQ={setQ}
+        outSel={outSel} toggleOut={toggleOut}
+        svcSel={svcSel} toggleSvc={toggleSvc}
+        counts={counts} total={workboards.length} shown={filtered.length}
+        onClear={clear}
+      />
 
-      {/* 작업판 목록 */}
       {isLoading ? (
-        <Box display="flex" justifyContent="center" mt={8}>
-          <CircularProgress />
-        </Box>
-      ) : workboards.length === 0 ? (
-        <Alert severity="info">
-          {search || outputFormat || serverType ? '검색 결과가 없습니다.' : '사용 가능한 작업판이 없습니다.'}
-        </Alert>
+        <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
+      ) : filtered.length === 0 ? (
+        <Paper variant="outlined" sx={{ p: 5, textAlign: 'center', borderStyle: 'dashed' }}>
+          <Inventory2 sx={{ fontSize: 32, color: 'text.disabled', mb: 1.5 }} />
+          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>조건에 맞는 작업판이 없습니다</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {workboards.length === 0 ? '사용 가능한 작업판이 없습니다.' : '필터를 줄이거나 초기화해 보세요.'}
+          </Typography>
+        </Paper>
       ) : (
-        <>
-          <Grid container spacing={3}>
-            {workboards.map((workboard) => (
-              <Grid item xs={12} sm={6} md={4} key={workboard._id}>
-                <WorkboardCard workboard={workboard} projectId={projectId} />
-              </Grid>
-            ))}
-          </Grid>
-
-          {/* 페이지네이션 */}
-          {pagination.pages > 1 && (
-            <Box display="flex" justifyContent="center" mt={4}>
-              <Box display="flex" gap={1}>
-                {Array.from({ length: pagination.pages }, (_, i) => i + 1).map((pageNum) => (
-                  <Button
-                    key={pageNum}
-                    variant={pageNum === page ? "contained" : "outlined"}
-                    onClick={() => setPage(pageNum)}
-                  >
-                    {pageNum}
-                  </Button>
-                ))}
-              </Box>
-            </Box>
-          )}
-        </>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 1.5 }}>
+          {filtered.map((wb) => (
+            <WorkboardCard
+              key={wb._id}
+              wb={wb}
+              onClick={() => handleSelect(wb)}
+              onInfo={(w) => setDetailWb(w)}
+            />
+          ))}
+        </Box>
       )}
-    </Container>
+
+      <WorkboardDetailDialog
+        workboard={detailWb}
+        open={!!detailWb}
+        onClose={() => setDetailWb(null)}
+        onSelect={handleSelect}
+      />
+    </Box>
   );
 }
 
