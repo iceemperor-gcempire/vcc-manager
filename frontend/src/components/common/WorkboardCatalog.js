@@ -94,8 +94,8 @@ function FilterToggle({ active, onClick, children, count }) {
       component="button"
       onClick={onClick}
       sx={{
-        cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 0.5,
-        height: 28, px: 1.25, borderRadius: 999, fontSize: 12.5, fontWeight: 500,
+        cursor: 'pointer', whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: '5px',
+        height: 28, px: '11px', borderRadius: 999, fontSize: 12.5, fontWeight: 500,
         bgcolor: active ? 'primary.main' : 'background.paper',
         color: active ? 'primary.contrastText' : 'text.secondary',
         border: '1px solid', borderColor: active ? 'primary.main' : 'divider',
