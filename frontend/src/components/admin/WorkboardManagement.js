@@ -1699,7 +1699,7 @@ export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, o
   );
 }
 
-function WorkboardImportDialog({ open, onClose, onSuccess }) {
+export function WorkboardImportDialog({ open, onClose, onSuccess }) {
   const [file, setFile] = useState(null);
   const [parsedData, setParsedData] = useState(null);
   const [parseError, setParseError] = useState('');
