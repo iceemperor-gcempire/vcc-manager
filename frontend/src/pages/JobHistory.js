@@ -266,7 +266,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
             <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap>
               {item.title}
             </Typography>
-            <TagChip label={TYPE_LABEL[item.type]} mono />
+            <TagChip label={TYPE_LABEL[item.type]} />
             <StatusChip status={item.status} />
           </Box>
 

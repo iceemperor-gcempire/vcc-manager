@@ -73,9 +73,9 @@ export function ToneChip({ tone, label, mono, sx }) {
       variant="filled"
       label={label}
       sx={{
-        height: 20, fontSize: '11.5px', fontWeight: 500, border: 0,
-        ...(mono && { fontFamily: MONO, fontSize: '10.5px' }),
-        '& .MuiChip-label': { px: '7px' },
+        height: 22, fontSize: '11.5px', fontWeight: 500, border: 0,
+        ...(mono && { fontFamily: MONO, fontSize: '11px' }),
+        '& .MuiChip-label': { px: '9px' },
         ...ts, ...sx,
       }}
     />
@@ -89,10 +89,10 @@ export function TagChip({ label, mono, sx }) {
       variant="outlined"
       label={label}
       sx={{
-        height: 20, fontSize: mono ? '10px' : '11px', bgcolor: 'transparent',
+        height: 22, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
         borderColor: 'divider', color: 'grey.600',
         ...(mono && { fontFamily: MONO }),
-        '& .MuiChip-label': { px: '7px' }, ...sx,
+        '& .MuiChip-label': { px: '9px' }, ...sx,
       }}
     />
   );
