@@ -161,10 +161,10 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
   return (
     <Paper
       variant="outlined"
-      sx={{ bgcolor: 'background.default', p: { xs: 1.5, sm: '12px 14px' }, mb: 2.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}
+      sx={{ bgcolor: 'background.default', p: { xs: 3, sm: '12px 14px' }, mb: 4.5, display: 'flex', flexDirection: 'column', gap: 2.75 }}
     >
       {/* search */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
         <Paper variant="outlined" sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', px: 1, height: 34, bgcolor: 'background.paper' }}>
           <Search fontSize="small" sx={{ color: 'text.disabled', mr: 0.5 }} />
           <InputBase value={q} onChange={(e) => setQ(e.target.value)} placeholder="작업판 이름 · 설명 검색" sx={{ flex: 1, fontSize: 13 }} />
@@ -175,8 +175,8 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
       </Box>
 
       {/* two axes */}
-      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 1.25, sm: 2.25 }, alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 2.5, sm: 4.5 }, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.disabled' }}>출력</Typography>
           {OUTPUT_AXIS.map((o) => (
             <FilterToggle key={o.k} active={outSel.includes(o.k)} onClick={() => toggleOut(o.k)} count={counts.out[o.k] || 0}>{o.label}</FilterToggle>
@@ -217,14 +217,14 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       variant="outlined"
       onClick={admin ? undefined : onClick}
       sx={{
-        p: 2, display: 'flex', flexDirection: 'column', gap: 1.25, height: '100%',
+        p: 3.5, display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%',
         cursor: admin ? 'default' : 'pointer', opacity: archived ? 0.72 : 1,
         transition: 'border-color 150ms, box-shadow 150ms',
         '&:hover': admin ? {} : { borderColor: 'primary.main', boxShadow: 2 },
       }}
     >
       {/* header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.25 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2.5 }}>
         <Box sx={{ width: 32, height: 32, borderRadius: 1.5, bgcolor: kind.tint, color: kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
           <KindIcon sx={{ fontSize: 18 }} />
         </Box>
@@ -257,7 +257,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       )}
 
       {/* stats row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, pt: 1.25, mt: 'auto',
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, pt: 2.5, mt: 'auto',
         borderTop: '1px solid', borderColor: 'divider', fontSize: 11, color: 'text.disabled', fontFamily: MONO }}>
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
           <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: archived ? 'text.disabled' : 'success.main', flex: '0 0 auto' }} />

@@ -297,12 +297,12 @@ function Dashboard() {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: '1.4fr 1fr' },
-          gap: 2,
+          gap: 4,
           alignItems: 'start',
         }}
       >
         {/* Left column */}
-        <Stack spacing={2}>
+        <Stack spacing={4}>
           {/* Running pipelines */}
           <SectionCard
             icon={
@@ -491,7 +491,7 @@ function Dashboard() {
         </Stack>
 
         {/* Right column */}
-        <Stack spacing={2}>
+        <Stack spacing={4}>
           {/* Generation trend */}
           <Paper variant="outlined" sx={{ p: 3.5 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
