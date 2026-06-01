@@ -42,6 +42,7 @@ import {
   useWorkboardFilter,
 } from '../components/common/WorkboardCatalog';
 import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
+import { copyToClipboard } from '../utils/clipboard';
 
 const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
@@ -70,7 +71,7 @@ function selectWorkboard(workboard, projectId, navigate) {
 function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
   if (!workboard) return null;
   const copyId = async () => {
-    try { await navigator.clipboard.writeText(workboard._id); toast.success('작업판 ID를 복사했습니다.'); }
+    try { await copyToClipboard(workboard._id); toast.success('작업판 ID를 복사했습니다.'); }
     catch { toast.error('작업판 ID 복사에 실패했습니다.'); }
   };
   return (
