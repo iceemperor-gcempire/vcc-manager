@@ -55,9 +55,15 @@ const LEGACY_BASE_FIELD_TO_ROLE = Object.freeze({
   maxTokens: FIELD_ROLES.MAX_TOKENS
 });
 
-// well-known 필드 이름 → role 매핑 — snake_case 단일 컨벤션 (v2.1.1+).
+// well-known 필드 이름 → role 매핑.
 // 서비스 코드 fallback 에서 customField 이름이 well-known 인 경우 자동으로 role 인식.
 // LEGACY_BASE_FIELD_TO_ROLE 는 마이그레이션 전용으로 분리 — 신규 런타임 lookup 에는 미사용.
+//
+// snake_case (작업판 customField 컨벤션) + camelCase 별칭을 함께 인식.
+// camelCase 는 ImageGeneration 등 폼의 "고정 입력 필드" (customField 아님) 가 inputData 에
+// 저장하는 canonical key — prompt/seed 처럼 단일어는 동일하지만, negativePrompt 등 여러 단어
+// 필드는 snake 와 달라 role lookup 이 빈 값을 반환하던 버그가 있었음. camelCase 별칭으로 해결.
+// (loop 는 첫 매치 우선이라 snake 를 먼저 두어 customField 값을 우선, 없으면 고정 필드 fallback.)
 const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
   prompt: FIELD_ROLES.PROMPT,
   negative_prompt: FIELD_ROLES.NEGATIVE_PROMPT,
@@ -70,7 +76,15 @@ const WELL_KNOWN_FIELD_NAME_TO_ROLE = Object.freeze({
   reference_image: FIELD_ROLES.REFERENCE_IMAGE,
   reference_image_method: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
   style_preset: FIELD_ROLES.STYLE_PRESET,
-  upscale_method: FIELD_ROLES.UPSCALE_METHOD
+  upscale_method: FIELD_ROLES.UPSCALE_METHOD,
+  // camelCase 별칭 — 폼 고정 입력 필드의 canonical key (inputData 에 그대로 저장됨)
+  negativePrompt: FIELD_ROLES.NEGATIVE_PROMPT,
+  systemPrompt: FIELD_ROLES.SYSTEM_PROMPT,
+  imageSize: FIELD_ROLES.IMAGE_SIZE,
+  maxTokens: FIELD_ROLES.MAX_TOKENS,
+  referenceImageMethod: FIELD_ROLES.REFERENCE_IMAGE_METHOD,
+  stylePreset: FIELD_ROLES.STYLE_PRESET,
+  upscaleMethod: FIELD_ROLES.UPSCALE_METHOD
 });
 
 module.exports = {
