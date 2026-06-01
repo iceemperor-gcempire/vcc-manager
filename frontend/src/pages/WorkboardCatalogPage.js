@@ -199,7 +199,7 @@ function WorkboardCatalogPage({ admin = false }) {
   };
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+    <Box>
       {/* 헤더 — admin 일 때만 관리 버튼 노출 */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 4 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
