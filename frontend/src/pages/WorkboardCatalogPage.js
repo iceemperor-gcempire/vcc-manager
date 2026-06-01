@@ -199,9 +199,9 @@ function WorkboardCatalogPage({ admin = false }) {
   };
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+    <Box>
       {/* 헤더 — admin 일 때만 관리 버튼 노출 */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 4 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="h1">{admin ? '작업판 관리' : '작업판'}</Typography>
           <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
@@ -223,7 +223,7 @@ function WorkboardCatalogPage({ admin = false }) {
 
       {/* 상태 필터 — admin 전용 축 */}
       {admin && (
-        <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, overflowX: 'auto', pb: 0.5 }}>
+        <Stack direction="row" spacing={1.5} sx={{ mb: 3, overflowX: 'auto', pb: 0.5 }}>
           {[
             { k: 'all', l: '전체', c: statusCounts.all },
             { k: 'active', l: '게시됨', c: statusCounts.active },
@@ -266,7 +266,7 @@ function WorkboardCatalogPage({ admin = false }) {
           {admin && <Button variant="contained" size="small" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>}
         </Box>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 1.5 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
           {filtered.map((wb) => (
             <WorkboardCard
               key={wb._id}

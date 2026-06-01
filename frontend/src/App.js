@@ -144,7 +144,10 @@ function MainLayout() {
           flexGrow: 1,
           minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)
           overflowX: 'hidden',
-          p: 3,
+          // 디자인 .vcc-body: padding 24px 32px 48px (모바일 16px). theme.spacing=4 → px/4.
+          pt: { xs: 4, sm: 6 },   // 16 / 24px
+          px: { xs: 4, sm: 8 },   // 16 / 32px
+          pb: { xs: 4, sm: 12 },  // 16 / 48px
           bgcolor: 'background.default',
           minHeight: 'calc(100vh - 64px)'
         }}>

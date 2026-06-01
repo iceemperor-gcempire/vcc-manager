@@ -137,8 +137,12 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
     <Paper variant="outlined" onClick={onOpen}
       sx={{ p: 0, overflow: 'hidden', cursor: 'pointer', transition: 'all 150ms', height: '100%', display: 'flex', flexDirection: 'column',
         '&:hover': { borderColor: 'primary.main', boxShadow: 2 } }}>
-      {/* cover */}
-      <Box sx={{ position: 'relative', height: 120, background: gradientFor(String(project._id)) }}>
+      {/* cover — 설정된 커버 이미지가 있으면 그걸, 없으면 그라데이션 */}
+      <Box sx={{ position: 'relative', height: 120, background: gradientFor(String(project._id)), overflow: 'hidden' }}>
+        {project.coverImage?.url && (
+          <Box component="img" src={project.coverImage.url} alt="" loading="lazy"
+            sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
         <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggleFav(project); }}
           sx={{ position: 'absolute', top: 6, left: 6, color: isFav ? 'warning.main' : 'rgba(255,255,255,0.85)',
             bgcolor: 'rgba(0,0,0,0.15)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } }}>
@@ -156,7 +160,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
         </IconButton>
       </Box>
       {/* body */}
-      <Box sx={{ p: 1.75, flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <Box sx={{ p: 3.5, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
           <TagPill tag={project.tagId} />
@@ -178,10 +182,14 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
 // ── 목록 행 ─────────────────────────────────────────────────
 function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) {
   return (
-    <Box onClick={onOpen} sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer',
+    <Box onClick={onOpen} sx={{ px: 3.5, py: 3, display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', background: gradientFor(String(project._id)),
-        color: '#fff', fontWeight: 700, display: 'grid', placeItems: 'center' }}>{(project.name || '?')[0]}</Box>
+      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientFor(String(project._id)),
+        color: '#fff', fontWeight: 700, display: 'grid', placeItems: 'center' }}>
+        {project.coverImage?.url
+          ? <Box component="img" src={project.coverImage.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          : (project.name || '?')[0]}
+      </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
@@ -258,13 +266,13 @@ function ProjectList() {
   const openMenu = (e, project) => { setMenuAnchor(e.currentTarget); setMenuProject(project); };
   const closeMenu = () => { setMenuAnchor(null); setMenuProject(null); };
 
-  if (isLoading) return <Box sx={{ maxWidth: 1100, mx: 'auto' }}><Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box></Box>;
-  if (error) return <Box sx={{ maxWidth: 1100, mx: 'auto' }}><Alert severity="error">프로젝트 목록을 불러올 수 없습니다.</Alert></Box>;
+  if (isLoading) return <Box><Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box></Box>;
+  if (error) return <Box><Alert severity="error">프로젝트 목록을 불러올 수 없습니다.</Alert></Box>;
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+    <Box>
       {/* 헤더 */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 5 }}>
         <Box sx={{ flex: '1 1 360px', minWidth: 0 }}>
           <Typography variant="h1">프로젝트</Typography>
           <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
@@ -278,7 +286,7 @@ function ProjectList() {
       </Box>
 
       {/* 검색 / 필터 */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2.5, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 2, mb: 4.5, alignItems: 'center', flexWrap: 'wrap' }}>
         <Paper variant="outlined" sx={{ display: 'flex', alignItems: 'center', px: 1, height: 34, minWidth: { sm: 300 }, flex: { xs: 1, sm: '0 1 auto' } }}>
           <Search fontSize="small" sx={{ color: 'text.disabled', mr: 0.5 }} />
           <InputBase value={search} onChange={(e) => setSearch(e.target.value)} placeholder="프로젝트 이름 · 태그 · 설명 검색" sx={{ flex: 1, fontSize: 13 }} />
@@ -310,7 +318,7 @@ function ProjectList() {
           {visible.length === 0 && <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="body2" color="text.secondary">조건에 맞는 프로젝트가 없습니다.</Typography></Box>}
         </Paper>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(280px, 1fr))' }, gap: 1.75 }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(280px, 1fr))' }, gap: 3.5 }}>
           {visible.map((p) => (
             <ProjectGridCard key={p._id} project={p} isFav={favoriteIds.includes(p._id)}
               onOpen={() => navigate(`/projects/${p._id}`)} onToggleFav={() => favoriteMutation.mutate(p._id)} onMenu={openMenu} />

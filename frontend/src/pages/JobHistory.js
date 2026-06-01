@@ -528,9 +528,9 @@ function JobHistory() {
   };
 
   return (
-    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
+    <Box>
       {/* 헤더 */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 4.5 }}>
         <Typography variant="h1">작업 히스토리</Typography>
         <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
           파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순.
@@ -543,12 +543,12 @@ function JobHistory() {
         placeholder="히스토리 검색…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 2, maxWidth: { sm: 360 }, width: '100%' }}
+        sx={{ mb: 3.5, maxWidth: { sm: 360 }, width: '100%' }}
         InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
       />
 
       {/* 세그먼트 */}
-      <Stack direction="row" spacing={0.5} sx={{ mb: 2.5, overflowX: 'auto', pb: 0.5 }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 4.5, overflowX: 'auto', pb: 0.5 }}>
         {[
           { k: 'all', l: '전체' },
           { k: 'pipeline', l: '파이프라인' },
@@ -581,7 +581,7 @@ function JobHistory() {
           </Typography>
         </Paper>
       ) : (
-        <Stack spacing={1}>
+        <Stack spacing={2}>
           {visible.map((item) => (
             <HistoryRow
               key={`${item.kind}-${item.id}`}
