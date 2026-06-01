@@ -690,6 +690,11 @@ router.get('/:id/lora-models', requireAuth, async (req, res) => {
       return res.status(403).json({ message: 'Workboard is not active' });
     }
 
+    // 그룹 접근 권한 검사 — LoRA 직접 목록 제거 후, 사용자는 권한 있는 작업판의 LoRA 만 조회 가능 (admin 은 bypass)
+    if (!userHasWorkboardAccess(req.user, workboard)) {
+      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
+    }
+
     // 서버 정보 확인
     if (!workboard.serverId) {
       return res.status(400).json({ message: 'Workboard has no server configured' });
@@ -707,9 +712,17 @@ router.get('/:id/lora-models', requireAuth, async (req, res) => {
 
     const { search, page = 1, limit = 50 } = req.query;
 
-    // 서버 단위 캐시에서 조회
+    // 작업판의 LoRA 노출 정책 / 화이트리스트 적용 (#198 Phase D — 이 경로에 누락돼 있던 것 보강)
+    let whitelist;
+    if (workboard.loraExposurePolicy === 'whitelist') {
+      whitelist = workboard.loraWhitelist || [];
+      if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
+    }
+
+    // 서버 단위 캐시에서 조회 (노출정책 화이트리스트 필터 적용)
     const result = await loraMetadataService.searchServerLoras(server._id, {
       search,
+      whitelist,
       page: parseInt(page),
       limit: parseInt(limit)
     });
