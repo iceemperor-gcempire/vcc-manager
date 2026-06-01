@@ -10,30 +10,88 @@ const SERVER_TYPES = {
   compat:   { label: "Compatible", color: "var(--text-secondary)", bg: "var(--bg-subtle)", fg: "var(--text-primary)" },
 };
 
-function ServerCard({ s, expanded, onToggle }) {
+function ServerCard({ s, mobile }) {
   const t = SERVER_TYPES[s.type];
+  const statusChip =
+    s.status === "online"   ? <span className="chip chip--success chip--tag"><span className="chip__dot"/>online</span> :
+    s.status === "degraded" ? <span className="chip chip--warning chip--tag"><span className="chip__dot"/>degraded</span> :
+                              <span className="chip chip--danger chip--tag"><span className="chip__dot"/>offline</span>;
+  const typeBadge = (
+    <div style={{
+      width: 36, height: 36, borderRadius: 8, flex: "0 0 auto",
+      background: t.bg, color: t.fg,
+      display: "grid", placeItems: "center",
+      fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)",
+      textTransform: "uppercase",
+    }}>{t.label.slice(0, 3)}</div>
+  );
+  const gpuMeter = s.gpu != null && (
+    <div style={{ height: 4, background: "var(--bg-subtle)", borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
+      <div style={{ width: s.gpu + "%", height: "100%", background: s.gpu > 75 ? "var(--warning-9)" : "var(--success-9)" }}/>
+    </div>
+  );
+
+  // ---------- Mobile: stacked layout ----------
+  if (mobile) {
+    return (
+      <div className="card" style={{ overflow: "hidden", padding: 14 }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {typeBadge}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
+              <span className="chip chip--tag" style={{ background: t.bg, color: t.fg, border: "none" }}>{t.label}</span>
+            </div>
+            <div style={{ fontSize: 11.5, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {s.host}
+            </div>
+          </div>
+          <button className="btn btn--ghost btn--icon btn--sm" onClick={(e) => { e.stopPropagation(); }}><Ias.Dots /></button>
+        </div>
+
+        {/* Status + stats */}
+        <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {statusChip}
+            <span style={{ flex: 1 }}/>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>마지막 동기화</span>
+            <span style={{ fontSize: 12, fontFamily: "var(--font-mono)", color: "var(--text-secondary)" }}>{s.lastSync}</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: s.gpu != null ? "1fr auto" : "1fr", gap: 14, alignItems: "center" }}>
+            {s.gpu != null && (
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10.5, color: "var(--text-tertiary)" }}>
+                  <span style={{ textTransform: "uppercase", letterSpacing: "0.06em" }}>GPU</span>
+                  <span style={{ fontFamily: "var(--font-mono)" }}>{s.gpu}%</span>
+                </div>
+                {gpuMeter}
+              </div>
+            )}
+            <div style={{ display: "flex", alignItems: "baseline", gap: 6, justifyContent: "flex-end" }}>
+              <span style={{ fontSize: 10.5, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>큐</span>
+              <span style={{ fontSize: 16, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{s.queue}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---------- Desktop: single row ----------
   return (
-    <div className="card" style={{ overflow: "hidden", transition: "all 200ms" }}>
-      <div onClick={onToggle} style={{
+    <div className="card" style={{ overflow: "hidden" }}>
+      <div style={{
         padding: "14px 16px",
         display: "flex", alignItems: "center", gap: 12,
-        cursor: "pointer",
-        background: expanded ? "var(--bg-tint)" : "transparent",
       }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 8,
-          background: t.bg, color: t.fg,
-          display: "grid", placeItems: "center",
-          fontSize: 11, fontWeight: 700, fontFamily: "var(--font-mono)",
-          textTransform: "uppercase",
-        }}>{t.label.slice(0, 3)}</div>
+        {typeBadge}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 14 }}>{s.name}</span>
             <span className="chip chip--tag" style={{ background: t.bg, color: t.fg, border: "none" }}>{t.label}</span>
-            {s.status === "online" && <span className="chip chip--success chip--tag"><span className="chip__dot"/>online</span>}
-            {s.status === "degraded" && <span className="chip chip--warning chip--tag"><span className="chip__dot"/>degraded</span>}
-            {s.status === "offline" && <span className="chip chip--danger chip--tag"><span className="chip__dot"/>offline</span>}
+            {statusChip}
           </div>
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)", marginTop: 2 }}>
             {s.host}
@@ -45,19 +103,13 @@ function ServerCard({ s, expanded, onToggle }) {
           {s.gpu != null && (
             <div style={{ width: 72 }}>
               <div style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>GPU</div>
-              <div style={{ height: 4, background: "var(--bg-subtle)", borderRadius: 2, overflow: "hidden", marginTop: 4 }}>
-                <div style={{ width: s.gpu + "%", height: "100%", background: s.gpu > 75 ? "var(--warning-9)" : "var(--success-9)" }}/>
-              </div>
+              {gpuMeter}
               <div style={{ fontSize: 10, color: "var(--text-tertiary)", textAlign: "right", marginTop: 1, fontFamily: "var(--font-mono)" }}>{s.gpu}%</div>
             </div>
           )}
           <div style={{ textAlign: "center" }}>
             <div style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>큐</div>
             <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{s.queue}</div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>모델</div>
-            <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-mono)" }}>{s.models}</div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 10, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>마지막 동기화</div>
@@ -66,48 +118,12 @@ function ServerCard({ s, expanded, onToggle }) {
         </div>
 
         <button className="btn btn--ghost btn--icon btn--sm" onClick={(e) => { e.stopPropagation(); }}><Ias.Dots /></button>
-        <Ias.ChevronDown size={14} style={{ color: "var(--text-tertiary)", transform: expanded ? "rotate(180deg)" : "rotate(0)", transition: "transform 200ms" }}/>
       </div>
-
-      {expanded && (
-        <div style={{ padding: "14px 16px", borderTop: "1px solid var(--border-subtle)", background: "var(--bg-surface)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>설치된 모델</span>
-            <span className="tab__count">{s.models}</span>
-            <span style={{ flex: 1 }}/>
-            <button className="btn btn--secondary btn--sm"><Ias.Refresh size={12}/> 동기화</button>
-            <button className="btn btn--ghost btn--sm"><Ias.Edit size={12}/> 화이트리스트 편집</button>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8 }}>
-            {(s.modelList || []).map((m) => (
-              <div key={m.name} style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px",
-                border: "1px solid var(--border-subtle)",
-                borderRadius: "var(--r-2)",
-                background: "var(--bg-tint)",
-              }}>
-                <Ias.Cube size={14} style={{ color: "var(--text-tertiary)", flex: "0 0 auto" }}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12.5, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
-                  <div style={{ fontSize: 10.5, color: "var(--text-tertiary)", fontFamily: "var(--font-mono)" }}>{m.kind} · {m.size}</div>
-                </div>
-                {m.whitelisted ? (
-                  <Ias.Check size={14} style={{ color: "var(--success-9)" }}/>
-                ) : (
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>비활성</span>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 function AdminServersPage({ mobile }) {
-  const [expanded, setExpanded] = useStateAs(0);
   const servers = [
     {
       name: "comfy-01", host: "http://192.168.1.51:8188", type: "comfy",
@@ -155,7 +171,7 @@ function AdminServersPage({ mobile }) {
       </div>
 
       {/* Summary row */}
-      <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 12, marginBottom: 18 }}>
+      <div style={{ display: "grid", gridTemplateColumns: mobile ? "repeat(3,1fr)" : "repeat(3,1fr)", gap: 12, marginBottom: 18 }}>
         <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>서버</div>
           <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>5 <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>등록</span></div>
@@ -165,10 +181,6 @@ function AdminServersPage({ mobile }) {
           <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4, color: "var(--success-11)" }}>4 / 5</div>
         </div>
         <div className="card" style={{ padding: 14 }}>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>총 모델</div>
-          <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>32</div>
-        </div>
-        <div className="card" style={{ padding: 14 }}>
           <div style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: "0.06em" }}>실행 중 큐</div>
           <div style={{ fontSize: 24, fontWeight: 700, marginTop: 4 }}>8</div>
         </div>
@@ -176,13 +188,8 @@ function AdminServersPage({ mobile }) {
 
       {/* Server cards */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {servers.map((s, i) => (
-          <ServerCard
-            key={s.name}
-            s={s}
-            expanded={expanded === i}
-            onToggle={() => setExpanded(expanded === i ? -1 : i)}
-          />
+        {servers.map((s) => (
+          <ServerCard key={s.name} s={s} mobile={mobile}/>
         ))}
       </div>
 

@@ -46,6 +46,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
+import { copyToClipboard } from '../utils/clipboard';
 import MetadataPickerModal from '../components/common/MetadataPickerModal';
 import MetadataFieldInput from '../components/common/MetadataFieldInput';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
@@ -403,7 +404,7 @@ function ImageGeneration() {
     if (!workboardData?._id) return;
 
     try {
-      await navigator.clipboard.writeText(workboardData._id);
+      await copyToClipboard(workboardData._id);
       toast.success('작업판 ID를 복사했습니다.');
     } catch (error) {
       toast.error('작업판 ID 복사에 실패했습니다.');

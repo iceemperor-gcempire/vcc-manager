@@ -69,7 +69,7 @@ function HistVisual({ item, mobile }) {
 // ---- one row ------------------------------------------------------------
 const TYPE_LABEL = { pipeline: "파이프라인", image: "이미지", video: "영상", text: "텍스트" };
 
-function HistoryRow({ item, mobile, onOpenImage }) {
+function HistoryRow({ item, mobile, onOpenImage, onSwitchWorkboard }) {
   // sub-meta string per type
   const sub =
     item.type === "image"    ? `${item.project} · ${item.model} · ${item.res} · ${item.count}장` :
@@ -134,7 +134,7 @@ function HistoryRow({ item, mobile, onOpenImage }) {
               <button className="btn btn--secondary btn--sm" onClick={(e) => e.stopPropagation()} title="같은 작업을 같은 설정으로 이어서 진행">
                 <Ih.Refresh size={12}/> 계속하기
               </button>
-              <button className="btn btn--secondary btn--sm" onClick={(e) => e.stopPropagation()} title="이 결과를 입력으로 다른 작업판으로 전환">
+              <button className="btn btn--secondary btn--sm" onClick={(e) => { e.stopPropagation(); onSwitchWorkboard && onSwitchWorkboard(item); }} title="이 결과를 입력으로 다른 작업판으로 전환">
                 <Ih.ArrowRight size={12}/> 다른 작업
               </button>
             </div>
@@ -174,7 +174,7 @@ const HIST_ITEMS = [
 ];
 
 // ---- page ---------------------------------------------------------------
-function WorkHistoryPage({ mobile, onOpenImage }) {
+function WorkHistoryPage({ mobile, onOpenImage, onSwitchWorkboard }) {
   const [seg, setSeg] = useStateHist("all");
 
   const counts = {
@@ -228,7 +228,7 @@ function WorkHistoryPage({ mobile, onOpenImage }) {
       {/* Feed */}
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {visible.map((item, i) => (
-          <HistoryRow key={i} item={item} mobile={mobile} onOpenImage={onOpenImage}/>
+          <HistoryRow key={i} item={item} mobile={mobile} onOpenImage={onOpenImage} onSwitchWorkboard={onSwitchWorkboard}/>
         ))}
       </div>
 

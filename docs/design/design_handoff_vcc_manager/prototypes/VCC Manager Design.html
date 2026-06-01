@@ -37,6 +37,7 @@
 <script type="text/babel" src="notifications.jsx"></script>
 <script type="text/babel" src="page-auth.jsx"></script>
 <script type="text/babel" src="page-project-list.jsx"></script>
+<script type="text/babel" src="workboard-shared.jsx"></script>
 <script type="text/babel" src="page-workboard-list.jsx"></script>
 <script type="text/babel" src="page-document-editor.jsx"></script>
 <script type="text/babel" src="image-lightbox.jsx"></script>
@@ -44,6 +45,8 @@
 <script type="text/babel" src="system-docs.jsx"></script>
 <script type="text/babel" src="page-admin-models.jsx"></script>
 <script type="text/babel" src="page-admin-stats.jsx"></script>
+<script type="text/babel" src="page-admin-dashboard.jsx"></script>
+<script type="text/babel" src="page-admin-workboards.jsx"></script>
 <script type="text/babel" src="page-admin-backup.jsx"></script>
 <script type="text/babel" src="page-admin-audit.jsx"></script>
 <script type="text/babel" src="page-profile.jsx"></script>
@@ -66,7 +69,7 @@ const {
   EmptyProjects, EmptyImages, EmptyPipelines, EmptyDocs,
   EmptyHistory, EmptyServers, EmptySearch, EmptyNotifications, EmptyError,
   GridSystemCard, DataTableCard, FormPatternsCard, PopoverPatternsCard, ViewToggleCard,
-  AdminModelsPage, AdminStatsPage, AdminBackupPage, AdminAuditPage,
+  AdminModelsPage, AdminStatsPage, AdminBackupPage, AdminAuditPage, AdminDashboardPage, AdminWorkboardsPage,
   ProfilePage, OnboardingPage, Error404, Error500, Error403,
 } = window;
 
@@ -792,7 +795,21 @@ function App() {
       </DCSection>
 
       {/* ============ ROUND C: ADMIN PAGES ============ */}
-      <DCSection id="admin-c" title="16 · Admin 완성 — 모델 · 통계 · 백업 · 감사 로그" subtitle="관리자 메뉴의 나머지 4개 페이지.">
+      <DCSection id="admin-c" title="16 · Admin 완성 — 관리자 대시보드 · 모델 · 통계 · 백업 · 감사 로그" subtitle="관리자 메뉴 페이지들. 대시보드(운영 허브)와 시스템 통계(분석)는 별개 화면.">
+        <DCArtboard id="admin-dash-d" label="관리자 대시보드 — 운영 허브 (상태 · 조치 필요 · 바로가기)" width={1440} height={1060}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "관리자 대시보드"]}>
+              <AdminDashboardPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
+        <DCArtboard id="admin-wb-d" label="작업판 관리 — 거버넌스 목록 (상태·권한·서버 · 편집→편집기)" width={1440} height={900}>
+          <PageArtboard>
+            <Shell active="workboards" crumbs={["관리자", "작업판 관리"]}>
+              <AdminWorkboardsPage/>
+            </Shell>
+          </PageArtboard>
+        </DCArtboard>
         <DCArtboard id="admin-models-d" label="모델 관리 — 카탈로그 + 화이트리스트" width={1440} height={900}>
           <PageArtboard>
             <Shell active="workboards" crumbs={["관리자", "모델 관리"]}>

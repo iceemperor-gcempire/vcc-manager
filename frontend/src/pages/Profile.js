@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Container,
   Paper,
@@ -293,7 +294,7 @@ function SecuritySettings() {
 
   const handleCopyKey = () => {
     if (createdKey?.key) {
-      navigator.clipboard.writeText(createdKey.key);
+      copyToClipboard(createdKey.key);
       toast.success('API Key가 클립보드에 복사되었습니다');
     }
   };

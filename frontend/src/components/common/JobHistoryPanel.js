@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { copyToClipboard } from '../../utils/clipboard';
 import {
   Card,
   CardContent,
@@ -638,10 +639,10 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
   const handleCopyWorkflow = () => {
     try {
       const parsed = JSON.parse(job.resolvedWorkflowData);
-      navigator.clipboard.writeText(JSON.stringify(parsed, null, 2));
+      copyToClipboard(JSON.stringify(parsed, null, 2));
       toast.success('워크플로우 JSON이 클립보드에 복사되었습니다');
     } catch {
-      navigator.clipboard.writeText(job.resolvedWorkflowData);
+      copyToClipboard(job.resolvedWorkflowData);
       toast.success('워크플로우 데이터가 클립보드에 복사되었습니다');
     }
   };

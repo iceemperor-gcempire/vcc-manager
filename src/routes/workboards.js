@@ -64,6 +64,7 @@ router.get('/', requireAuth, async (req, res) => {
     const workboards = await Workboard.find(filter)
       .populate('createdBy', 'nickname email')
       .populate('serverId', 'name serverType serverUrl isActive')
+      .populate('allowedGroupIds', 'name')
       .select('-workflowData')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
