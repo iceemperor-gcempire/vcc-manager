@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Paper,
   Typography,
@@ -230,7 +231,7 @@ function PromptGeneratorPanel({
 
   const handleCopyResult = () => {
     if (generatedResult?.result) {
-      navigator.clipboard.writeText(generatedResult.result);
+      copyToClipboard(generatedResult.result);
       toast.success('클립보드에 복사되었습니다');
     }
   };

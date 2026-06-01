@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Container,
   Typography,
@@ -114,7 +115,7 @@ function LoraCard({ lora, expanded, onToggleExpand, onCopyTriggerWord, getBaseMo
     const basename = lora.filename.split(/[/\\]/).pop();
     const nameWithoutExt = basename.replace(/\.[^/.]+$/, '');
     const loraString = `<lora:${nameWithoutExt}:1>`;
-    navigator.clipboard.writeText(loraString);
+    copyToClipboard(loraString);
     toast.success(`LoRA 태그가 복사되었습니다.`);
   };
 
@@ -306,7 +307,7 @@ function LoraListItem({ lora, onCopyTriggerWord, getBaseModelColor, nsfwImageFil
     const basename = lora.filename.split(/[/\\]/).pop();
     const nameWithoutExt = basename.replace(/\.[^/.]+$/, '');
     const loraString = `<lora:${nameWithoutExt}:1>`;
-    navigator.clipboard.writeText(loraString);
+    copyToClipboard(loraString);
     toast.success(`LoRA 태그가 복사되었습니다.`);
   };
 
@@ -549,7 +550,7 @@ function LoraList() {
   }, [selectedServerId, searchQuery, baseModelFilter, fetchLoraModels]);
 
   const handleCopyTriggerWord = (word) => {
-    navigator.clipboard.writeText(word);
+    copyToClipboard(word);
     toast.success(`"${word}" 복사됨`);
   };
 

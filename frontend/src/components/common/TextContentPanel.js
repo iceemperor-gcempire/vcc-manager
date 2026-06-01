@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { copyToClipboard } from '../../utils/clipboard';
 import {
   Box,
   Typography,
@@ -128,7 +129,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
 
   const handleCopy = async (content) => {
     try {
-      await navigator.clipboard.writeText(content);
+      await copyToClipboard(content);
       toast.success('복사되었습니다.');
     } catch {
       toast.error('복사 실패');

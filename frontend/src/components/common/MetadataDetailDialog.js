@@ -1,4 +1,5 @@
 import React from 'react';
+import { copyToClipboard } from '../../utils/clipboard';
 import {
   Dialog,
   DialogTitle,
@@ -38,7 +39,7 @@ function MetadataDetailDialog({ open, onClose, item, nsfwImageFilter = true, bas
   const hasProvider = item.metadataSource === 'provider';
 
   const handleCopyFilename = () => {
-    navigator.clipboard.writeText(item.filename || '').then(
+    copyToClipboard(item.filename || '').then(
       () => toast.success('파일 경로를 복사했습니다.'),
       () => toast.error('복사 실패')
     );
