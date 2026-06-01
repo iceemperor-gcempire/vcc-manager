@@ -146,8 +146,8 @@ function ServerCard({
   const lastSync = modelSyncStatus?.lastMetadataSync || loraSyncStatus?.lastCivitaiSync || server.healthCheck?.lastChecked;
 
   return (
-    <Paper variant="outlined" sx={{ p: 2, opacity: server.isActive ? 1 : 0.7 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+    <Paper variant="outlined" sx={{ p: '14px 16px', opacity: server.isActive ? 1 : 0.7 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
         <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', bgcolor: typeColor, color: '#fff',
           display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO }}>
           {abbr}
@@ -719,7 +719,7 @@ function ServerManagement() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 4 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography variant="h1">서버 관리</Typography>
           <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
@@ -733,13 +733,13 @@ function ServerManagement() {
       </Box>
 
       {/* 요약 */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1.5, mb: 2.5 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, mb: 4.5 }}>
         {[
           { label: '서버', value: servers.length, suffix: '등록' },
           { label: '온라인', value: `${onlineCount} / ${servers.length}`, color: 'success.main' },
           { label: '실행 중 큐', value: activeQueue },
         ].map((st) => (
-          <Paper key={st.label} variant="outlined" sx={{ p: 1.75 }}>
+          <Paper key={st.label} variant="outlined" sx={{ p: 3.5 }}>
             <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{st.label}</Typography>
             <Typography sx={{ fontSize: 24, fontWeight: 700, mt: 0.5, color: st.color }}>
               {st.value}{st.suffix && <Box component="span" sx={{ fontSize: 12, color: 'text.disabled', ml: 0.5 }}>{st.suffix}</Box>}
@@ -753,7 +753,7 @@ function ServerManagement() {
           <Typography variant="body2" color="text.secondary">등록된 서버가 없습니다. 서버를 추가해주세요.</Typography>
         </Box>
       ) : (
-        <Stack spacing={1.25}>
+        <Stack spacing={2.5}>
           {servers.map((server) => (
             <ServerCard
               key={server._id}
