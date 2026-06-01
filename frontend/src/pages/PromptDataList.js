@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { copyToClipboard } from '../utils/clipboard';
 import {
   Container,
   Typography,
@@ -100,7 +101,7 @@ function PromptDataList() {
   };
 
   const handleCopyPrompt = (promptData) => {
-    navigator.clipboard.writeText(promptData.prompt);
+    copyToClipboard(promptData.prompt);
     toast.success('프롬프트가 클립보드에 복사되었습니다');
   };
 
