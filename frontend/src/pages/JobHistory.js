@@ -528,7 +528,7 @@ function JobHistory() {
   };
 
   return (
-    <Box sx={{ maxWidth: 960, mx: 'auto' }}>
+    <Box>
       {/* 헤더 */}
       <Box sx={{ mb: 4.5 }}>
         <Typography variant="h1">작업 히스토리</Typography>

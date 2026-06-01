@@ -266,11 +266,11 @@ function ProjectList() {
   const openMenu = (e, project) => { setMenuAnchor(e.currentTarget); setMenuProject(project); };
   const closeMenu = () => { setMenuAnchor(null); setMenuProject(null); };
 
-  if (isLoading) return <Box sx={{ maxWidth: 1100, mx: 'auto' }}><Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box></Box>;
-  if (error) return <Box sx={{ maxWidth: 1100, mx: 'auto' }}><Alert severity="error">프로젝트 목록을 불러올 수 없습니다.</Alert></Box>;
+  if (isLoading) return <Box><Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box></Box>;
+  if (error) return <Box><Alert severity="error">프로젝트 목록을 불러올 수 없습니다.</Alert></Box>;
 
   return (
-    <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+    <Box>
       {/* 헤더 */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 5 }}>
         <Box sx={{ flex: '1 1 360px', minWidth: 0 }}>
