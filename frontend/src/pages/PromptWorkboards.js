@@ -32,6 +32,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
+import { copyToClipboard } from '../utils/clipboard';
 import toast from 'react-hot-toast';
 
 function PromptWorkboardCard({ workboard }) {
@@ -52,7 +53,7 @@ function PromptWorkboardCard({ workboard }) {
 
   const handleCopyWorkboardId = async () => {
     try {
-      await navigator.clipboard.writeText(workboard._id);
+      await copyToClipboard(workboard._id);
       toast.success('작업판 ID를 복사했습니다.');
     } catch (error) {
       toast.error('작업판 ID 복사에 실패했습니다.');
