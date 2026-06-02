@@ -25,11 +25,12 @@ import {
   Chat,
   ContentCopy
 } from '@mui/icons-material';
-import { useQuery, useMutation } from 'react-query';
+import { useQuery } from 'react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
-import { workboardAPI, jobAPI, imageAPI } from '../services/api';
+import { workboardAPI, imageAPI } from '../services/api';
+import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
 import MetadataFieldInput from './common/MetadataFieldInput';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
@@ -145,6 +146,7 @@ function PromptGeneratorPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState(null);
   const [referenceImages, setReferenceImages] = useState({});
+  const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
 
   const { control, handleSubmit, setValue, formState: { errors } } = useForm({
     defaultValues: {
@@ -169,10 +171,13 @@ function PromptGeneratorPanel({
     }
   }, [generatedResult, onResultChange]);
 
-  const generateMutation = useMutation(
-    async (formData) => {
-      const uploadedImages = {};
-      
+  // 참조 이미지를 먼저 업로드한 뒤 스트리밍 생성 (#490)
+  const onSubmit = async (formData) => {
+    setIsGenerating(true);
+    setGeneratedResult(null);
+
+    let uploadedImages = {};
+    try {
       for (const [fieldName, images] of Object.entries(referenceImages)) {
         if (images && images.length > 0) {
           const imageIds = [];
@@ -190,8 +195,14 @@ function PromptGeneratorPanel({
           uploadedImages[fieldName] = imageIds;
         }
       }
-      
-      const jobData = {
+    } catch (error) {
+      toast.error('이미지 업로드 실패: ' + (error.response?.data?.message || error.message));
+      setIsGenerating(false);
+      return;
+    }
+
+    streamSend(
+      {
         workboardId: workboard._id,
         // #396: 프로젝트 컨텍스트 / 세계관 적용 (단일 샷 모드)
         projectId: projectId || undefined,
@@ -206,27 +217,19 @@ function PromptGeneratorPanel({
             )
           )
         }
-      };
-
-      return jobAPI.createPromptJob(jobData);
-    },
-    {
-      onSuccess: (response) => {
-        setGeneratedResult(response.data);
-        toast.success('프롬프트가 생성되었습니다!');
-        setIsGenerating(false);
       },
-      onError: (error) => {
-        toast.error('생성 실패: ' + (error.response?.data?.message || error.message));
-        setIsGenerating(false);
+      {
+        onDone: (info, fullText) => {
+          setGeneratedResult({ ...info, result: info.result ?? fullText });
+          toast.success('프롬프트가 생성되었습니다!');
+          setIsGenerating(false);
+        },
+        onError: (error) => {
+          toast.error('생성 실패: ' + (error.message || '알 수 없는 오류'));
+          setIsGenerating(false);
+        }
       }
-    }
-  );
-
-  const onSubmit = (data) => {
-    setIsGenerating(true);
-    setGeneratedResult(null);
-    generateMutation.mutate(data);
+    );
   };
 
   const handleCopyResult = () => {
@@ -387,7 +390,7 @@ function PromptGeneratorPanel({
                 )}
               </Box>
 
-              {isGenerating && (
+              {isGenerating && !streamingText && (
                 <Box>
                   <LinearProgress color="secondary" sx={{ mb: 2 }} />
                   <Typography variant="body2" color="textSecondary" textAlign="center">
@@ -396,7 +399,7 @@ function PromptGeneratorPanel({
                 </Box>
               )}
 
-              {generatedResult?.result ? (
+              {(streamingText || generatedResult?.result) ? (
                 <Box>
                   <Typography
                     variant="body1"
@@ -411,10 +414,11 @@ function PromptGeneratorPanel({
                       fontSize: compact ? '0.875rem' : '1rem'
                     }}
                   >
-                    {generatedResult.result}
+                    {streamingText || generatedResult.result}
+                    {isStreaming && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
                   </Typography>
-                  
-                  {generatedResult.usage && (
+
+                  {!isStreaming && generatedResult?.usage && (
                     <Box mt={1}>
                       <Typography variant="caption" color="textSecondary">
                         토큰: 입력 {generatedResult.usage.promptTokens} / 출력 {generatedResult.usage.completionTokens}

@@ -22,7 +22,8 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { conversationAPI, jobAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI } from '../../services/api';
+import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
 
 // 멀티턴 대화 모드 패널 (#375).
 // `conversationId` 가 주어졌을 때 PromptGeneration 페이지에서 PromptGeneratorPanel 대신 렌더.
@@ -58,33 +59,42 @@ function ConversationChatPanel({ workboard, conversationId }) {
     }
   );
 
-  const sendMutation = useMutation(
-    async (text) => {
-      return jobAPI.createPromptJob({
-        workboardId: workboard._id,
-        conversationId,
-        inputData: { userPrompt: text },
-      });
-    },
-    {
-      onSuccess: () => {
-        setNewMessage('');
-        queryClient.invalidateQueries(['conversation', conversationId]);
-        queryClient.invalidateQueries('conversations');
-      },
-      onError: (err) => {
-        toast.error('전송 실패: ' + (err.response?.data?.message || err.message));
-        // 실패 시에도 서버 측 conversation 은 failed 상태로 마킹돼 있으므로 refetch
-        queryClient.invalidateQueries(['conversation', conversationId]);
-      },
+  // 스트리밍 전송 (#490)
+  const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
+  const [pendingUserMsg, setPendingUserMsg] = useState(null);
+
+  // 스트리밍 중 자동 스크롤
+  useEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
     }
-  );
+  }, [streamingText, pendingUserMsg]);
 
   const handleSend = (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
-    if (!trimmed) return;
-    sendMutation.mutate(trimmed);
+    if (!trimmed || isStreaming) return;
+    setPendingUserMsg(trimmed);
+    setNewMessage('');
+    streamSend(
+      {
+        workboardId: workboard._id,
+        conversationId,
+        inputData: { userPrompt: trimmed },
+      },
+      {
+        onDone: () => {
+          setPendingUserMsg(null);
+          queryClient.invalidateQueries(['conversation', conversationId]);
+          queryClient.invalidateQueries('conversations');
+        },
+        onError: (err) => {
+          toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
+          setPendingUserMsg(null);
+          queryClient.invalidateQueries(['conversation', conversationId]);
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -101,7 +111,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
     return <Alert severity="warning">대화를 찾을 수 없습니다.</Alert>;
   }
 
-  const isSending = sendMutation.isLoading;
+  const isSending = isStreaming;
 
   return (
     <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
@@ -162,11 +172,40 @@ function ConversationChatPanel({ workboard, conversationId }) {
               )}
             </Box>
           ))}
+          {/* 낙관적 사용자 말풍선 + 실시간 어시스턴트 말풍선 (#490) */}
+          {pendingUserMsg && (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Box sx={{ pt: 0.5 }}><PersonIcon fontSize="small" color="primary" /></Box>
+              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  user
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
+                  {pendingUserMsg}
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          {isStreaming && (
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+              <Box sx={{ pt: 0.5 }}><AssistantIcon fontSize="small" color="action" /></Box>
+              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  assistant
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
+                  {streamingText}
+                  {!streamingText && <CircularProgress size={14} color="secondary" sx={{ ml: 0.5 }} />}
+                  {streamingText && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
+                </Typography>
+              </Box>
+            </Box>
+          )}
         </Stack>
-        {isSending && (
-          <Box display="flex" justifyContent="center" mt={2}>
-            <CircularProgress size={20} color="secondary" />
-          </Box>
+        {conversation.status === 'processing' && !isStreaming && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            이 대화는 다른 곳에서 생성 중입니다. 완료되면 새로고침해 주세요.
+          </Alert>
         )}
         {conversation.status === 'failed' && conversation.error?.message && (
           <Alert severity="error" sx={{ mt: 2 }}>

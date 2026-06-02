@@ -30,7 +30,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { jobAPI, conversationAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI } from '../../services/api';
+import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
 import MetadataFieldInput from './MetadataFieldInput';
 
 // 텍스트 작업판의 멀티턴 대화 모드 패널 (#391).
@@ -76,35 +77,45 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
     }
   }, [messages.length]);
 
-  const sendMutation = useMutation(
-    ({ text, settings, cid }) => jobAPI.createPromptJob({
-      workboardId: workboard._id,
-      conversationId: cid || undefined,
-      // 첫 메시지 (cid 없음) 일 때만 프로젝트 컨텍스트 / 세계관 적용 (#396).
-      // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
-      projectId: cid ? undefined : (projectId || undefined),
-      useWorldview: cid ? undefined : !!useWorldview,
-      inputData: { ...settings, userPrompt: text },
-    }),
-    {
-      onSuccess: (response) => {
-        const cid = response.data?.conversationId;
-        if (cid && !conversationId) {
-          setConversationId(cid);
-          setSettingsOpen(false);
-        }
-        setNewMessage('');
-        queryClient.invalidateQueries(['conversation', cid || conversationId]);
-        queryClient.invalidateQueries('conversations');
+  // 스트리밍 전송 (#490). 보낸 직후 사용자 말풍선 + 실시간 어시스턴트 말풍선을 낙관적으로 표시,
+  // 완료되면 저장된 메시지를 refetch 하고 낙관적 상태를 정리.
+  const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
+  const [pendingUserMsg, setPendingUserMsg] = useState(null);
+
+  const doSend = ({ text, settings, cid }) => {
+    setPendingUserMsg(text);
+    streamSend(
+      {
+        workboardId: workboard._id,
+        conversationId: cid || undefined,
+        // 첫 메시지 (cid 없음) 일 때만 프로젝트 컨텍스트 / 세계관 적용 (#396).
+        // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
+        projectId: cid ? undefined : (projectId || undefined),
+        useWorldview: cid ? undefined : !!useWorldview,
+        inputData: { ...settings, userPrompt: text },
       },
-      onError: (err) => {
-        toast.error('전송 실패: ' + (err.response?.data?.message || err.message));
-        if (conversationId) {
-          queryClient.invalidateQueries(['conversation', conversationId]);
-        }
-      },
-    }
-  );
+      {
+        onDone: (info) => {
+          const newCid = info?.conversationId;
+          if (newCid && !conversationId) {
+            setConversationId(newCid);
+            setSettingsOpen(false);
+          }
+          setPendingUserMsg(null);
+          queryClient.invalidateQueries(['conversation', newCid || cid || conversationId]);
+          queryClient.invalidateQueries('conversations');
+        },
+        onError: (err) => {
+          toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
+          setPendingUserMsg(null);
+          if (cid || conversationId) {
+            queryClient.invalidateQueries(['conversation', cid || conversationId]);
+          }
+        },
+      }
+    );
+    setNewMessage('');
+  };
 
   const saveMessageMutation = useMutation(
     ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
@@ -117,14 +128,21 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
     }
   );
 
+  // 스트리밍 중 자동 스크롤
+  useEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }
+  }, [streamingText, pendingUserMsg]);
+
   const handleSend = (e) => {
     e?.preventDefault?.();
     const trimmed = newMessage.trim();
-    if (!trimmed) return;
-    sendMutation.mutate({ text: trimmed, settings: getValues(), cid: conversationId });
+    if (!trimmed || isStreaming) return;
+    doSend({ text: trimmed, settings: getValues(), cid: conversationId });
   };
 
-  const isSending = sendMutation.isLoading;
+  const isSending = isStreaming;
   const isLocked = !!conversationId; // 첫 전송 후 lock
 
   const renderSettingField = (field) => {
@@ -269,7 +287,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
           borderRadius: 1,
         }}
       >
-        {messages.length === 0 ? (
+        {messages.length === 0 && !pendingUserMsg && !isStreaming ? (
           <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
             아래 입력창에 메시지를 입력해 대화를 시작하세요.
           </Typography>
@@ -303,12 +321,37 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
                 )}
               </Box>
             ))}
+            {/* 낙관적 사용자 말풍선 — 보낸 직후 ~ 저장본 refetch 전까지 (#490) */}
+            {pendingUserMsg && (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Box sx={{ pt: 0.5 }}><PersonIcon fontSize="small" color="primary" /></Box>
+                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    user
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
+                    {pendingUserMsg}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            {/* 실시간 어시스턴트 말풍선 — 토큰 스트리밍 (#490) */}
+            {isStreaming && (
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Box sx={{ pt: 0.5 }}><AssistantIcon fontSize="small" color="action" /></Box>
+                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    assistant
+                  </Typography>
+                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
+                    {streamingText}
+                    {!streamingText && <CircularProgress size={14} color="secondary" sx={{ ml: 0.5 }} />}
+                    {streamingText && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
           </Stack>
-        )}
-        {isSending && (
-          <Box display="flex" justifyContent="center" mt={2}>
-            <CircularProgress size={20} color="secondary" />
-          </Box>
         )}
         {conversation?.status === 'failed' && conversation?.error?.message && (
           <Alert severity="error" sx={{ mt: 2 }}>
