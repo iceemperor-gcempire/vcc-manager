@@ -30,7 +30,6 @@ import Settings from './pages/Settings';
 import TagSearch from './pages/TagSearch';
 import ProjectList from './pages/ProjectList';
 import ProjectDetail from './pages/ProjectDetail';
-import LoraList from './pages/LoraList';
 import {
   AdminDashboardPage,
   UserManagementPage,
@@ -165,7 +164,8 @@ function MainLayout() {
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/tags" element={<TagSearch />} />
-            <Route path="/loras" element={<LoraList />} />
+            {/* LoRA 목록 메뉴 제거 — 이제 작업판 실행 화면에서만 조회. 직접 접근은 작업판으로 리다이렉트 */}
+            <Route path="/loras" element={<Navigate to="/workboards" replace />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/settings" element={<Settings />} />
             <Route

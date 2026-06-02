@@ -363,6 +363,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         allowedBaseModels,
         whitelist,
         outputFormat,
+        serverType: server.serverType,
         page: parseInt(page),
         limit: parseInt(limit)
       });
@@ -465,6 +466,13 @@ router.get('/:id/loras', verifyJWT, async (req, res) => {
         whitelist = wb.loraWhitelist || [];
         if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
       }
+    } else if (!req.user?.isAdmin) {
+      // LoRA 직접 목록 접근 제거 — 일반 사용자는 작업판 컨텍스트(권한 + 노출정책) 로만 조회 가능.
+      // admin 만 관리 UI 용으로 작업판 없이 전체 LoRA 조회 허용.
+      return res.status(403).json({
+        success: false,
+        message: '작업판을 통해서만 LoRA 목록을 조회할 수 있습니다.'
+      });
     }
 
     const result = await loraMetadataService.searchServerLoras(server._id, {
