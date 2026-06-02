@@ -363,6 +363,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         allowedBaseModels,
         whitelist,
         outputFormat,
+        serverType: server.serverType,
         page: parseInt(page),
         limit: parseInt(limit)
       });
