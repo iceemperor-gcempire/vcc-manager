@@ -427,6 +427,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 });
 
 router.post('/generate-prompt', requireAuth, async (req, res) => {
+  let heartbeat = null; // SSE 하트비트 타이머 — 외부 catch 에서도 정리할 수 있도록 try 밖에 선언
   try {
     const { workboardId, inputData, conversationId, projectId, useWorldview, contextDocIds, systemPromptDocId } = req.body;
 
@@ -562,26 +563,77 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       });
     }
 
-    // server.serverType 기반 chat 서비스 분기. Gemini 는 generateContent (텍스트 모드),
-    // 그 외 (OpenAI / OpenAI Compatible) 는 /v1/chat/completions.
-    const chatService = server.serverType === 'Gemini'
-      ? geminiService
-      : openAIChatService;
+    // ── 여기서부터 SSE 스트리밍 (#490) ──
+    // 위의 검증(400/403/404)은 모두 JSON 응답을 유지하고, 생성 단계부터 스트리밍한다.
+    // 첫 바이트를 즉시 흘려보내 Cloudflare Tunnel 등 앞단 프록시의 TTFB 타임아웃(100초)을 회피.
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no', // nginx 버퍼링 방지 (proxy_buffering off 와 병행)
+    });
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+    // TTFB 즉시 확보용 SSE 코멘트
+    res.write(': open\n\n');
+
+    // 클라이언트가 중간에 나가도 LLM 스트림은 끝까지 받아 대화를 저장한다 (현재 sync 동작 보존).
+    // clientGone 이면 res 쓰기만 멈추고, 저장 로직은 그대로 진행.
+    let clientGone = false;
+    let finished = false;
+    res.on('close', () => { if (!finished) clientGone = true; });
+    const sse = (event, data) => {
+      if (clientGone || res.writableEnded) return;
+      try { res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`); } catch (_) { /* socket 닫힘 */ }
+    };
+
+    // 하트비트 — 첫 토큰까지 오래 걸리는(느린 로컬 LLM) 동안 SSE 코멘트를 주기적으로 흘려
+    // 앞단 프록시(Cloudflare 등)의 idle 타임아웃을 회피. 클라이언트는 코멘트(:)를 무시.
+    heartbeat = setInterval(() => {
+      if (clientGone || res.writableEnded) return;
+      try { res.write(': ping\n\n'); } catch (_) {}
+    }, 15000);
 
     let result, usage;
     try {
-      ({ content: result, usage } = await chatService.complete(
-        server.serverUrl,
-        server.configuration?.apiKey,
-        messages,
-        { model, temperature, timeout: server.configuration?.timeout || 60000 }
-      ));
+      if (server.serverType === 'Gemini') {
+        // Gemini 는 스트리밍 미구현 — 헤더는 이미 flush 됐으니 TTFB 는 확보됨.
+        // 결과를 단일 token 이벤트로 전송해 프론트 SSE 처리 경로를 통일.
+        ({ content: result, usage } = await geminiService.complete(
+          server.serverUrl,
+          server.configuration?.apiKey,
+          messages,
+          { model, temperature, timeout: server.configuration?.timeout || 60000 }
+        ));
+        if (result) sse('token', { delta: result });
+      } else {
+        ({ content: result, usage } = await openAIChatService.completeStream(
+          server.serverUrl,
+          server.configuration?.apiKey,
+          messages,
+          { model, temperature, timeout: server.configuration?.timeout || 60000 },
+          (delta) => sse('token', { delta })
+        ));
+      }
     } catch (chatError) {
+      clearInterval(heartbeat);
       conversation.status = 'failed';
       conversation.error = { message: chatError.message };
       conversation.completedAt = new Date();
       await conversation.save();
-      throw chatError;
+      sse('error', { message: chatError.message });
+      finished = true;
+      return res.end();
+    }
+
+    if (!result || !String(result).trim()) {
+      clearInterval(heartbeat);
+      conversation.status = 'failed';
+      conversation.error = { message: 'LLM 서버에서 빈 응답을 반환했습니다.' };
+      conversation.completedAt = new Date();
+      await conversation.save();
+      sse('error', { message: 'LLM 서버에서 빈 응답을 반환했습니다.' });
+      finished = true;
+      return res.end();
     }
 
     // assistant 응답 + usage + 비용 추정 (#377). usage 누적 (멀티턴 시 직전 턴 토큰 합산).
@@ -615,16 +667,25 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
 
     await workboard.incrementUsage();
 
-    res.json({
-      success: true,
+    clearInterval(heartbeat);
+    // 완료 이벤트 — 프론트는 여기서 conversationId 확보 + 저장된 메시지 refetch
+    sse('done', {
       conversationId: conversation._id,
       result,
       usage: turnUsage,
       costEstimate: conversation.costEstimate || null,
-      model
+      model,
     });
+    finished = true;
+    res.end();
   } catch (error) {
     console.error('Prompt generation error:', error);
+    if (heartbeat) clearInterval(heartbeat);
+    // 헤더가 이미 나갔으면(스트리밍 시작 후) error 이벤트로, 아니면 JSON 으로.
+    if (res.headersSent) {
+      try { res.write(`event: error\ndata: ${JSON.stringify({ message: error.message })}\n\n`); } catch (_) {}
+      return res.end();
+    }
     res.status(502).json({ message: error.message });
   }
 });
