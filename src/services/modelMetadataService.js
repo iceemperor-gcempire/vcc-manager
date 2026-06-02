@@ -626,7 +626,7 @@ const resetSyncStatus = async (serverId) => {
  * @param {string[]} opts.allowedBaseModels — civitai.baseModel 다중 매칭
  *   (작업판의 allowedModelTypes 와 매핑 — 필터 활성 시 Civitai 미등록 모델은 제외, #320)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, serverType, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -683,13 +683,17 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
 
   // outputFormat: provider.outputFormats 기반 필터 (#354).
   // SaaS provider 모델 한정 — ComfyUI checkpoint 는 provider.found=false 라 영향 없음.
-  // 매칭 실패 / 미분류 (whisper / tts / embedding 등 현재 워크플로 미지원) 도 숨김 — 나중에
-  // 해당 타입 워크플로 도입 시 inferOpenAI/inferGemini 에 맞춰 노출 (#354 후속).
+  // 미분류(빈 outputFormats) 처리: OpenAI Compatible(로컬 LLM 서버 — vLLM/Ollama/LM Studio)는
+  // 모델 id 가 임의(llama/qwen/mistral 등)라 inferOpenAIOutputFormats 가 형식을 못 잡아 항상
+  // 빈 배열이 된다. 이를 숨기면 로컬 모델 전체가 작업판에서 사라지므로(회귀) 반드시 노출한다.
+  // 공식 OpenAI/Gemini 는 미분류(whisper/tts/embedding 등)를 계속 숨겨 picker 를 깔끔하게 유지.
   if (outputFormat) {
+    const showUnclassified = serverType === 'OpenAI Compatible';
     filtered = filtered.filter(m => {
       if (!m.provider?.found) return true;  // ComfyUI checkpoint 등
       const formats = m.provider.outputFormats;
-      return Array.isArray(formats) && formats.includes(outputFormat);
+      if (!Array.isArray(formats) || formats.length === 0) return showUnclassified;
+      return formats.includes(outputFormat);
     });
   }
 
