@@ -21,10 +21,12 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
     throw new Error('OpenAI Chat: model is required');
   }
 
-  // max_tokens / max_completion_tokens / temperature 모두 모델 기본값 사용.
-  // gpt-5+ 등 reasoning 모델은 비기본 temperature 를 거부하고, 그 외 모델도
-  // 텍스트 워크보드에서는 사용자 미세조정 수요가 낮아 단순화함.
+  // max_tokens / max_completion_tokens / temperature 모두 기본은 모델 기본값 사용.
+  // gpt-5+ 등 reasoning 모델은 비기본 temperature 를 거부하므로 전역 전송은 안 함.
+  // 작업판별로 필요한 값(temperature/top_p/chat_template_kwargs 등)은 extraParams 로 passthrough (#493).
+  // extraParams 를 먼저 펼치고 필수 키(model/messages)를 뒤에 둬 덮어쓰기 방지.
   const requestBody = {
+    ...(options.extraParams || {}),
     model,
     messages,
   };
@@ -86,6 +88,8 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
   }
 
   const requestBody = {
+    // 작업판별 추가 파라미터 passthrough (#493) — 필수/스트림 키가 뒤에서 항상 이김
+    ...(options.extraParams || {}),
     model,
     messages,
     stream: true,

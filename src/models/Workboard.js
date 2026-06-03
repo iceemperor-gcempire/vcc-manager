@@ -103,6 +103,13 @@ const workboardSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 작업판 단위 LLM 추가 요청 파라미터 (#493). 텍스트 챗(OpenAI/Compatible/Gemini) 요청에
+  // 그대로 passthrough — temperature / top_p / chat_template_kwargs(enable_thinking) 등을
+  // 모델·서버별로 admin 이 직접 지정. 모델별 thinking 비활성화/창작 temperature 제어용.
+  llmExtraParams: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined
+  },
   // 이 작업판에 접근 가능한 사용자 그룹 (#198). 빈 배열이면 admin 외 접근 불가.
   // admin 은 implicit all-access (이 필드 무관). 마이그레이션 시 기본 그룹 1개 자동 할당.
   allowedGroupIds: [{

@@ -740,6 +740,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       modelWhitelist: [],
       loraExposurePolicy: 'full',
       loraWhitelist: [],
+      llmExtraParams: '',
       isActive: true,
       additionalCustomFields: []
     }
@@ -843,6 +844,10 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             modelWhitelist: fullData.modelWhitelist || [],
             loraExposurePolicy: fullData.loraExposurePolicy || 'full',
             loraWhitelist: fullData.loraWhitelist || [],
+            // LLM 추가 파라미터 (#493) — 편집용으로 JSON 문자열(보기 좋게 들여쓰기)로 hydrate
+            llmExtraParams: fullData.llmExtraParams && Object.keys(fullData.llmExtraParams).length > 0
+              ? JSON.stringify(fullData.llmExtraParams, null, 2)
+              : '',
             isActive: fullData.isActive ?? true,
             // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출.
             // defaultValue / description / placeholder 도 form 에 같이 싣어 admin 이 편집 가능 (#391)
@@ -936,6 +941,21 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       });
     }
 
+    // LLM 추가 파라미터 (#493) — JSON 문자열을 파싱해 객체로. 비었으면 빈 객체.
+    let parsedLlmExtraParams = {};
+    const rawExtra = (data.llmExtraParams || '').trim();
+    if (rawExtra) {
+      try {
+        parsedLlmExtraParams = JSON.parse(rawExtra);
+        if (typeof parsedLlmExtraParams !== 'object' || Array.isArray(parsedLlmExtraParams)) {
+          throw new Error('객체(JSON object) 형태여야 합니다');
+        }
+      } catch (e) {
+        toast.error('추가 LLM 파라미터 JSON 형식 오류: ' + e.message);
+        return;
+      }
+    }
+
     const isComfyUIServer = data.serverType === 'ComfyUI';
     const normalizedOutputFormat = data.outputFormat || 'image';
     const updateData = {
@@ -951,6 +971,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
+      llmExtraParams: parsedLlmExtraParams,
       isActive: Boolean(data.isActive),
       // F3: baseInputFields 편집 제거 — 신규/기존 모두 빈 상태로 저장.
       // 스키마의 required: true (aiModel) 통과 위해 빈 배열 명시.
@@ -1036,14 +1057,40 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
 
           {/* 기본 정보 탭 */}
           {tabValue === 0 && (
-            <WorkboardBasicInfoForm
-              control={control}
-              setValue={setValue}
-              errors={errors}
-              showActiveSwitch={true}
-              showTypeSelector={true}
-              isDialogOpen={isOpen}
-            />
+            <>
+              <WorkboardBasicInfoForm
+                control={control}
+                setValue={setValue}
+                errors={errors}
+                showActiveSwitch={true}
+                showTypeSelector={true}
+                isDialogOpen={isOpen}
+              />
+              {/* 추가 LLM 파라미터 (#493) — 텍스트(LLM) 작업판 한정 */}
+              {outputFormat === 'text' && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                    추가 LLM 파라미터 (고급)
+                  </Typography>
+                  <Controller
+                    name="llmExtraParams"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        multiline
+                        minRows={3}
+                        label="추가 LLM 파라미터 (JSON)"
+                        placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
+                        helperText="LLM 요청에 그대로 전달됩니다. 모델/서버별 thinking 비활성화(enable_thinking)·창작 temperature 등을 지정하세요. 비워두면 모델 기본값 사용. (OpenAI 계열: 요청 본문 최상위 / Gemini: generationConfig 에 병합)"
+                        InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+                      />
+                    )}
+                  />
+                </Box>
+              )}
+            </>
           )}
 
 
