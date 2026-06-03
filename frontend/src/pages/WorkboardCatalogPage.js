@@ -43,6 +43,7 @@ import {
 } from '../components/common/WorkboardCatalog';
 import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
 import { copyToClipboard } from '../utils/clipboard';
+import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
 
 const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
@@ -149,7 +150,8 @@ function WorkboardCatalogPage({ admin = false }) {
   const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(baseList);
 
   // ── admin mutations ──
-  const invalidate = () => queryClient.invalidateQueries(['workboardCatalog', true]);
+  // 작업판 관련 캐시 전체 무효화 (#498) — 목록/상세/실행화면/대시보드 일괄 갱신
+  const invalidate = () => invalidateWorkboardQueries(queryClient);
   const deleteMutation = useMutation(workboardAPI.delete, {
     onSuccess: () => { toast.success('작업판이 삭제되었습니다'); invalidate(); },
     onError: (e) => toast.error('삭제 실패: ' + e.message),

@@ -82,14 +82,26 @@ function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, labe
   );
   const items = data?.data?.data?.items
     || data?.data?.data?.models
+    || data?.data?.data?.loraModels
     || data?.data?.data?.loras
     || data?.data?.models
+    || data?.data?.loraModels
     || data?.data?.loras
     || [];
 
+  const keyOf = (m) => (typeof m === 'string' ? m : (m?.filename || m?.fileName || m?.name || ''));
+
+  // 저장된 기본값(문자열)을 항상 표시한다 (#498). 모델 목록이 로딩 중이거나 stale/누락이어도
+  // 선택값이 비어 보이지 않도록, 목록에 없으면 합성 옵션을 만들어 value/options 를 객체로 일치시킨다.
+  const matched = typeof value === 'string' ? items.find((m) => keyOf(m) === value) : value;
+  const selectedValue = matched || (typeof value === 'string' && value ? { filename: value } : (value || null));
+  const options = (selectedValue && !items.some((m) => keyOf(m) === keyOf(selectedValue)))
+    ? [selectedValue, ...items]
+    : items;
+
   return (
     <Autocomplete
-      options={items}
+      options={options}
       getOptionLabel={(opt) => {
         if (!opt) return '';
         if (typeof opt === 'string') return opt;
@@ -97,14 +109,8 @@ function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, labe
           ? `${opt.civitai.model.name} (${opt.filename || opt.fileName})`
           : (opt.filename || opt.fileName || opt.name || '');
       }}
-      isOptionEqualToValue={(opt, val) => {
-        const optKey = typeof opt === 'string' ? opt : (opt.filename || opt.fileName || opt.name);
-        const valKey = typeof val === 'string' ? val : (val?.filename || val?.fileName || val?.name);
-        return optKey === valKey;
-      }}
-      value={typeof value === 'string'
-        ? (items.find((m) => (m.filename || m.fileName) === value) || (value ? value : null))
-        : (value || null)}
+      isOptionEqualToValue={(opt, val) => keyOf(opt) === keyOf(val)}
+      value={selectedValue}
       onChange={(_, picked) => {
         if (!picked) return onChange('');
         const key = typeof picked === 'string' ? picked : (picked.filename || picked.fileName || picked.name || '');

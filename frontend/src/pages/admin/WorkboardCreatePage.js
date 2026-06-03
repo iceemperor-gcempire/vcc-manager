@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI } from '../../services/api';
 import { getWorkboardTemplate } from '../../templates';
 import { WorkboardCreateDialog } from '../../components/admin/WorkboardManagement';
+import { invalidateWorkboardQueries } from '../../utils/queryInvalidation';
 
 // #437 Phase A — WorkboardCreateDialog 를 페이지로. 생성 성공 시 편집 페이지로 이동.
 function WorkboardCreatePage() {
@@ -17,7 +18,7 @@ function WorkboardCreatePage() {
     {
       onSuccess: (response) => {
         toast.success('작업판이 생성되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
+        invalidateWorkboardQueries(queryClient);
         const newId = response?.data?.workboard?._id;
         if (newId) {
           navigate(`/admin/workboards/${newId}/edit`, { replace: true });
