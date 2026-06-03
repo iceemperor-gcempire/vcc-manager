@@ -163,7 +163,21 @@ function PromptGeneratorPanel({
 
   const workboard = externalWorkboard || workboardData?.data?.workboard;
 
-  // F2: baseInputFields.aiModel 기반 기본값 제거 — customField 의 defaultValue 만 사용
+  // F2: baseInputFields.aiModel 기반 기본값 제거 — customField 의 defaultValue 만 사용.
+  // 작업판 로드 시 customField(베이스 모델/시스템 프롬프트 등)의 defaultValue 를 폼에 적용한다.
+  // 이게 없으면 실행 화면에서 베이스 모델 기본값이 빈 채로 떠 사용자가 매번 다시 골라야 했다 (#498 후속 버그).
+  // workboard._id 키로 1회 적용 — 캐시 refetch 로 객체 참조가 바뀌어도 사용자 입력을 덮어쓰지 않음.
+  useEffect(() => {
+    if (!workboard?.additionalInputFields) return;
+    workboard.additionalInputFields
+      .filter((f) => f.name !== 'conversation_mode')
+      .forEach((f) => {
+        if (f.defaultValue !== undefined && f.defaultValue !== null && f.defaultValue !== '') {
+          setValue(f.name, f.defaultValue);
+        }
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workboard?._id, setValue]);
 
   useEffect(() => {
     if (onResultChange) {
