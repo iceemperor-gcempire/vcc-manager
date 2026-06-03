@@ -216,7 +216,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
 
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 채워 상단 정렬 맞춤 (#503) */}
-        <Stack direction="row" spacing={1} alignItems="flex-start">
+        <Stack direction="row" spacing={3} alignItems="flex-start">
           <TextField
             fullWidth
             multiline
@@ -237,7 +237,9 @@ function ConversationChatPanel({ workboard, conversationId }) {
             color="secondary"
             disabled={isSending || !newMessage.trim()}
             startIcon={isSending ? <CircularProgress size={18} color="inherit" /> : <Send />}
-            sx={{ minWidth: 100, height: 56 }}
+            // 입력창(size small, 2행)과 외곽 높이 정확히 맞춤 + elevation 제거 (#503)
+            disableElevation
+            sx={{ minWidth: 100, height: 55 }}
           >
             전송
           </Button>
