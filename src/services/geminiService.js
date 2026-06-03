@@ -133,9 +133,11 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
   }
 
   // Gemini 3+ 는 temperature 를 기본(1.0) 으로 두는 것을 공식 권장 (looping/성능 저하 방지).
-  // maxOutputTokens 도 모델 기본값을 사용 — 두 옵션 모두 전송하지 않음.
+  // maxOutputTokens 도 모델 기본값을 사용 — 두 옵션 모두 기본 전송하지 않음.
+  // 작업판별 추가 파라미터(temperature/topP 등)는 extraParams 로 generationConfig 에 merge (#493).
   const generationConfig = {
     responseModalities: ['TEXT'],
+    ...(options.extraParams || {}),
   };
 
   const response = await axios.post(

@@ -166,7 +166,7 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
       server.serverUrl,
       server.configuration?.apiKey,
       messages,
-      { model: resolvedModel, temperature, timeout: server.configuration?.timeout || 60000 }
+      { model: resolvedModel, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams }
     ));
   } catch (err) {
     conversation.status = 'failed';
