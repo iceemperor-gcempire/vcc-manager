@@ -363,7 +363,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 위아래 꽉 채워 상단 정렬 맞춤 (#503).
             ⌘/Ctrl+Enter 안내는 정렬을 흐트러뜨리지 않도록 폼 아래 caption 으로 분리. */}
-        <Stack direction="row" spacing={2} alignItems="flex-start">
+        <Stack direction="row" spacing={2.5} alignItems="flex-start">
           <TextField
             fullWidth
             multiline
