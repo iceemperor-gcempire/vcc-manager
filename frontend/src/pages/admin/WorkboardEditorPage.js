@@ -5,6 +5,7 @@ import { Container, Box, CircularProgress, Alert } from '@mui/material';
 import toast from 'react-hot-toast';
 import { workboardAPI } from '../../services/api';
 import { WorkboardDetailDialog } from '../../components/admin/WorkboardManagement';
+import { invalidateWorkboardQueries } from '../../utils/queryInvalidation';
 
 // #437 Phase A — 기존 WorkboardDetailDialog 를 페이지 안에 그대로 렌더 (asPage prop).
 // 데이터 fetch / update mutation / unsaved 경고는 본 페이지가 소유.
@@ -29,8 +30,7 @@ function WorkboardEditorPage() {
     {
       onSuccess: () => {
         toast.success('작업판이 수정되었습니다');
-        queryClient.invalidateQueries('adminWorkboards');
-        queryClient.invalidateQueries(['adminWorkboard', id]);
+        invalidateWorkboardQueries(queryClient);
         navigate('/admin/workboards');
       },
       onError: (err) => {
