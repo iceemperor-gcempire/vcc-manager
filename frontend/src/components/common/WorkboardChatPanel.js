@@ -361,7 +361,9 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
       </Box>
 
       <form onSubmit={handleSend}>
-        <Stack direction="row" spacing={1} alignItems="flex-end">
+        {/* 전송 버튼을 입력창 높이만큼 위아래 꽉 채워 상단 정렬 맞춤 (#503).
+            ⌘/Ctrl+Enter 안내는 정렬을 흐트러뜨리지 않도록 폼 아래 caption 으로 분리. */}
+        <Stack direction="row" spacing={1} alignItems="flex-start">
           <TextField
             fullWidth
             multiline
@@ -375,7 +377,6 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
                 handleSend(e);
               }
             }}
-            helperText="⌘/Ctrl + Enter 로 전송"
           />
           <Button
             type="submit"
@@ -388,6 +389,9 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
             전송
           </Button>
         </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          ⌘/Ctrl + Enter 로 전송
+        </Typography>
       </form>
     </Paper>
   );
