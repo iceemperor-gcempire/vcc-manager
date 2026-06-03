@@ -363,7 +363,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 위아래 꽉 채워 상단 정렬 맞춤 (#503).
             ⌘/Ctrl+Enter 안내는 정렬을 흐트러뜨리지 않도록 폼 아래 caption 으로 분리. */}
-        <Stack direction="row" spacing={3} alignItems="flex-start">
+        <Stack direction="row" spacing={2} alignItems="flex-start">
           <TextField
             fullWidth
             multiline
@@ -386,7 +386,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
             startIcon={isSending ? <CircularProgress size={18} color="inherit" /> : <Send />}
             // 입력창(size small, 2행)과 외곽 높이를 정확히 맞춤. elevation 제거로 시각적 두께도 통일 (#503)
             disableElevation
-            sx={{ minWidth: 100, height: 55 }}
+            sx={{ minWidth: 100, height: 52 }}
           >
             전송
           </Button>
