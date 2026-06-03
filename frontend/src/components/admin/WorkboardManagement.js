@@ -740,6 +740,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       modelWhitelist: [],
       loraExposurePolicy: 'full',
       loraWhitelist: [],
+      llmExtraParams: '',
       isActive: true,
       additionalCustomFields: []
     }
@@ -843,6 +844,10 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             modelWhitelist: fullData.modelWhitelist || [],
             loraExposurePolicy: fullData.loraExposurePolicy || 'full',
             loraWhitelist: fullData.loraWhitelist || [],
+            // LLM 추가 파라미터 (#493) — 편집용으로 JSON 문자열(보기 좋게 들여쓰기)로 hydrate
+            llmExtraParams: fullData.llmExtraParams && Object.keys(fullData.llmExtraParams).length > 0
+              ? JSON.stringify(fullData.llmExtraParams, null, 2)
+              : '',
             isActive: fullData.isActive ?? true,
             // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출.
             // defaultValue / description / placeholder 도 form 에 같이 싣어 admin 이 편집 가능 (#391)
@@ -936,6 +941,21 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       });
     }
 
+    // LLM 추가 파라미터 (#493) — JSON 문자열을 파싱해 객체로. 비었으면 빈 객체.
+    let parsedLlmExtraParams = {};
+    const rawExtra = (data.llmExtraParams || '').trim();
+    if (rawExtra) {
+      try {
+        parsedLlmExtraParams = JSON.parse(rawExtra);
+        if (typeof parsedLlmExtraParams !== 'object' || Array.isArray(parsedLlmExtraParams)) {
+          throw new Error('객체(JSON object) 형태여야 합니다');
+        }
+      } catch (e) {
+        toast.error('추가 LLM 파라미터 JSON 형식 오류: ' + e.message);
+        return;
+      }
+    }
+
     const isComfyUIServer = data.serverType === 'ComfyUI';
     const normalizedOutputFormat = data.outputFormat || 'image';
     const updateData = {
@@ -951,6 +971,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
+      llmExtraParams: parsedLlmExtraParams,
       isActive: Boolean(data.isActive),
       // F3: baseInputFields 편집 제거 — 신규/기존 모두 빈 상태로 저장.
       // 스키마의 required: true (aiModel) 통과 위해 빈 배열 명시.
@@ -1032,6 +1053,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             <Tab label="입력 양식" />
             <Tab label="권한 / 노출" />
             {isComfyUI && <Tab label="워크플로우" />}
+            {outputFormat === 'text' && <Tab label="LLM 파라미터" />}
           </Tabs>
 
           {/* 기본 정보 탭 */}
@@ -1457,6 +1479,45 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
               modelExposurePolicyValue={watch('modelExposurePolicy')}
               loraExposurePolicyValue={watch('loraExposurePolicy')}
             />
+          )}
+
+          {/* LLM 파라미터 탭 - 텍스트(LLM) 작업판만 (#495). ComfyUI 워크플로우 탭과 동일 위치(index 3) */}
+          {outputFormat === 'text' && tabValue === 3 && (
+            <Box>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                LLM 요청에 추가로 전달할 파라미터를 JSON 으로 지정합니다. 모델/서버별 thinking 비활성화나
+                창작용 temperature 등을 작업판마다 다르게 설정할 수 있습니다. 비워두면 모델 기본값으로 동작합니다.
+              </Typography>
+              <Controller
+                name="llmExtraParams"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    minRows={6}
+                    label="추가 LLM 파라미터 (JSON)"
+                    placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
+                    helperText="OpenAI 계열은 요청 본문 최상위, Gemini 는 generationConfig 에 병합됩니다. thinking 끄는 방식은 모델/서버마다 달라 가이드 문서를 참고하세요."
+                    InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+                  />
+                )}
+              />
+              <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography variant="subtitle2" fontWeight="bold">자주 쓰는 예시</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                    {'// 창작용 — 무작위성 높이고 thinking 끄기 (서버에 따라 키가 다름)\n'}
+                    {'{ "temperature": 1.0, "chat_template_kwargs": { "enable_thinking": false } }\n\n'}
+                    {'// reasoning 모델(gpt-5/o1 등) — temperature 미지원이니 비워두기\n'}
+                    {'{ }'}
+                  </Typography>
+                </AccordionDetails>
+              </Accordion>
+            </Box>
           )}
 
           {/* 워크플로우 탭 - 이미지 타입만 */}

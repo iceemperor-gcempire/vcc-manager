@@ -602,7 +602,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
           server.serverUrl,
           server.configuration?.apiKey,
           messages,
-          { model, temperature, timeout: server.configuration?.timeout || 60000 }
+          { model, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams }
         ));
         if (result) sse('token', { delta: result });
       } else {
@@ -610,7 +610,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
           server.serverUrl,
           server.configuration?.apiKey,
           messages,
-          { model, temperature, timeout: server.configuration?.timeout || 60000 },
+          { model, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams },
           (delta) => sse('token', { delta })
         ));
       }

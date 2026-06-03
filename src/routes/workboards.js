@@ -280,7 +280,8 @@ router.post('/', requireAdmin, async (req, res) => {
       modelExposurePolicy,
       modelWhitelist,
       loraExposurePolicy,
-      loraWhitelist
+      loraWhitelist,
+      llmExtraParams
     } = req.body;
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
@@ -339,6 +340,7 @@ router.post('/', requireAdmin, async (req, res) => {
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUI && Array.isArray(loraWhitelist) ? loraWhitelist : [],
+      llmExtraParams: (llmExtraParams && Object.keys(llmExtraParams).length > 0) ? llmExtraParams : undefined,
       createdBy: req.user._id
     });
 
@@ -377,6 +379,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      llmExtraParams,
       isActive
     } = req.body;
 
@@ -459,7 +462,12 @@ router.put('/:id', requireAdmin, async (req, res) => {
       workboard.loraWhitelist = wbServer?.serverType === 'ComfyUI' ? loraWhitelist : [];
     }
     if (isActive !== undefined) workboard.isActive = isActive;
-    
+    // LLM 추가 파라미터 (#493) — 빈 객체/null 이면 미설정 처리. Mixed 라 markModified 필요.
+    if (llmExtraParams !== undefined) {
+      workboard.llmExtraParams = (llmExtraParams && Object.keys(llmExtraParams).length > 0) ? llmExtraParams : undefined;
+      workboard.markModified('llmExtraParams');
+    }
+
     console.log('Before save:', workboard.toObject());
     await workboard.save();
     await workboard.populate('createdBy', 'nickname email');
@@ -570,6 +578,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       modelWhitelist: originalWorkboard.modelWhitelist || [],
       loraExposurePolicy: originalWorkboard.loraExposurePolicy || 'full',
       loraWhitelist: originalWorkboard.loraWhitelist || [],
+      llmExtraParams: originalWorkboard.llmExtraParams,
       createdBy: req.user._id
     });
     
