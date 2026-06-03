@@ -215,7 +215,8 @@ function ConversationChatPanel({ workboard, conversationId }) {
       </Box>
 
       <form onSubmit={handleSend}>
-        <Stack direction="row" spacing={1} alignItems="flex-end">
+        {/* 전송 버튼을 입력창 높이만큼 채워 상단 정렬 맞춤 (#503) */}
+        <Stack direction="row" spacing={1} alignItems="flex-start">
           <TextField
             fullWidth
             multiline
@@ -229,7 +230,6 @@ function ConversationChatPanel({ workboard, conversationId }) {
                 handleSend(e);
               }
             }}
-            helperText="⌘/Ctrl + Enter 로 전송"
           />
           <Button
             type="submit"
@@ -242,6 +242,9 @@ function ConversationChatPanel({ workboard, conversationId }) {
             전송
           </Button>
         </Stack>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          ⌘/Ctrl + Enter 로 전송
+        </Typography>
       </form>
     </Paper>
   );
