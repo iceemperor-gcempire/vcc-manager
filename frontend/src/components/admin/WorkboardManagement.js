@@ -1053,44 +1053,19 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             <Tab label="입력 양식" />
             <Tab label="권한 / 노출" />
             {isComfyUI && <Tab label="워크플로우" />}
+            {outputFormat === 'text' && <Tab label="LLM 파라미터" />}
           </Tabs>
 
           {/* 기본 정보 탭 */}
           {tabValue === 0 && (
-            <>
-              <WorkboardBasicInfoForm
-                control={control}
-                setValue={setValue}
-                errors={errors}
-                showActiveSwitch={true}
-                showTypeSelector={true}
-                isDialogOpen={isOpen}
-              />
-              {/* 추가 LLM 파라미터 (#493) — 텍스트(LLM) 작업판 한정 */}
-              {outputFormat === 'text' && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                    추가 LLM 파라미터 (고급)
-                  </Typography>
-                  <Controller
-                    name="llmExtraParams"
-                    control={control}
-                    render={({ field }) => (
-                      <TextField
-                        {...field}
-                        fullWidth
-                        multiline
-                        minRows={3}
-                        label="추가 LLM 파라미터 (JSON)"
-                        placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
-                        helperText="LLM 요청에 그대로 전달됩니다. 모델/서버별 thinking 비활성화(enable_thinking)·창작 temperature 등을 지정하세요. 비워두면 모델 기본값 사용. (OpenAI 계열: 요청 본문 최상위 / Gemini: generationConfig 에 병합)"
-                        InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
-                      />
-                    )}
-                  />
-                </Box>
-              )}
-            </>
+            <WorkboardBasicInfoForm
+              control={control}
+              setValue={setValue}
+              errors={errors}
+              showActiveSwitch={true}
+              showTypeSelector={true}
+              isDialogOpen={isOpen}
+            />
           )}
 
 
@@ -1504,6 +1479,45 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
               modelExposurePolicyValue={watch('modelExposurePolicy')}
               loraExposurePolicyValue={watch('loraExposurePolicy')}
             />
+          )}
+
+          {/* LLM 파라미터 탭 - 텍스트(LLM) 작업판만 (#495). ComfyUI 워크플로우 탭과 동일 위치(index 3) */}
+          {outputFormat === 'text' && tabValue === 3 && (
+            <Box>
+              <Typography variant="body2" color="textSecondary" paragraph>
+                LLM 요청에 추가로 전달할 파라미터를 JSON 으로 지정합니다. 모델/서버별 thinking 비활성화나
+                창작용 temperature 등을 작업판마다 다르게 설정할 수 있습니다. 비워두면 모델 기본값으로 동작합니다.
+              </Typography>
+              <Controller
+                name="llmExtraParams"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    fullWidth
+                    multiline
+                    minRows={6}
+                    label="추가 LLM 파라미터 (JSON)"
+                    placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
+                    helperText="OpenAI 계열은 요청 본문 최상위, Gemini 는 generationConfig 에 병합됩니다. thinking 끄는 방식은 모델/서버마다 달라 가이드 문서를 참고하세요."
+                    InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+                  />
+                )}
+              />
+              <Accordion sx={{ mt: 2 }}>
+                <AccordionSummary expandIcon={<ExpandMore />}>
+                  <Typography variant="subtitle2" fontWeight="bold">자주 쓰는 예시</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                    {'// 창작용 — 무작위성 높이고 thinking 끄기 (서버에 따라 키가 다름)\n'}
+                    {'{ "temperature": 1.0, "chat_template_kwargs": { "enable_thinking": false } }\n\n'}
+                    {'// reasoning 모델(gpt-5/o1 등) — temperature 미지원이니 비워두기\n'}
+                    {'{ }'}
+                  </Typography>
+                </AccordionDetails>
+              </Accordion>
+            </Box>
           )}
 
           {/* 워크플로우 탭 - 이미지 타입만 */}
