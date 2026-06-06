@@ -15,7 +15,8 @@ const LIGHT = {
   warning:   { main: '#BE7415', light: '#FAEBC8', dark: '#95580B', contrastText: '#FFFFFF' },
   error:     { main: '#D5383E', light: '#FBE0E0', dark: '#A8222A', contrastText: '#FFFFFF' },
   info:      { main: '#2F77E4', light: '#DCEBFC', dark: '#1955B0', contrastText: '#FFFFFF' },
-  navbar:    { main: '#161A22', light: '#262C39', dark: '#0F1218', contrastText: '#E4E5E9' },
+  // 라이트모드에선 사이드바/헤더도 밝게 (#514). 흰 표면 + 어두운 텍스트, 활성/hover 는 옅은 primary 틴트.
+  navbar:    { main: '#FFFFFF', light: '#ECEDF7', dark: '#F1F1ED', contrastText: '#16181D' },
   background:{ default: '#F7F7F4', paper: '#FFFFFF' },
   text:      { primary: '#16181D', secondary: '#5B616E', disabled: '#B6BAC2' },
   divider:   '#E2E2DC',

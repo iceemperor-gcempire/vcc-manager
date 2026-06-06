@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
 import {
   Search,
@@ -99,10 +100,11 @@ export function TagChip({ label, mono, sx }) {
 }
 
 // ── 필터 로직 훅 ─────────────────────────────────────────────
-export function useWorkboardFilter(workboards) {
-  const [q, setQ] = useState('');
-  const [outSel, setOutSel] = useState([]);
-  const [svcSel, setSvcSel] = useState([]);
+// persistKey 를 주면 검색어·필터 선택을 localStorage 에 유지한다 (#510) — 작업판에 들어갔다 나와도 보존.
+export function useWorkboardFilter(workboards, persistKey) {
+  const [q, setQ] = usePersistedState(persistKey ? `${persistKey}.q` : null, '');
+  const [outSel, setOutSel] = usePersistedState(persistKey ? `${persistKey}.out` : null, []);
+  const [svcSel, setSvcSel] = usePersistedState(persistKey ? `${persistKey}.svc` : null, []);
 
   const toggleOut = (k) => setOutSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
   const toggleSvc = (k) => setSvcSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));

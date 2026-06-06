@@ -166,7 +166,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
         </Typography>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+      <Divider sx={{ borderColor: 'divider' }} />
 
       <List sx={{ px: 1 }}>
         {menuItems.map((item) => (
@@ -200,7 +200,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
 
       {isAdmin && (
         <>
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', my: 1 }} />
+          <Divider sx={{ borderColor: 'divider', my: 1 }} />
 
           <Box sx={{ px: 2, py: 1 }}>
             <Typography variant="caption" sx={{ color: 'grey.500' }}>
