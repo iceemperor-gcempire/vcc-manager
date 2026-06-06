@@ -117,7 +117,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
                 label="Admin"
                 color="secondary"
                 variant="outlined"
-                sx={{ color: 'white', borderColor: 'white' }}
+                sx={{ color: 'navbar.contrastText', borderColor: 'navbar.contrastText' }}
               />
             )}
 
