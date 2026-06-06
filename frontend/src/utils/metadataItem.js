@@ -116,6 +116,7 @@ export function normalizeModel(raw, { serverType } = {}) {
     baseModel: civ.baseModel || null,
     trainedWords: civ.trainedWords || [],
     capabilities: prov.capabilities || [],
+    outputFormats: prov.outputFormats || [],
     contextWindow: prov.contextWindow || null,
     hash: raw.hash || null,
     hashError: raw.hashError || null,
