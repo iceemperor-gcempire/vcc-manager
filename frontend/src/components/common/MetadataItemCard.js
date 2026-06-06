@@ -16,7 +16,10 @@ import {
   InfoOutlined as InfoOutlinedIcon,
   OpenInNew as OpenInNewIcon,
   CheckCircle as CheckCircleIcon,
-  Add as AddIcon
+  Add as AddIcon,
+  Psychology as PsychologyIcon,
+  ImageOutlined as ImageOutlinedIcon,
+  HideImageOutlined as HideImageOutlinedIcon
 } from '@mui/icons-material';
 import MetadataMediaThumbnail from './MetadataMediaThumbnail';
 import { getKindLabel } from '../../utils/metadataItem';
@@ -71,6 +74,20 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
 
   const handleCardClick = cardClickable && onPrimary ? () => onPrimary(item) : undefined;
 
+  // 썸네일이 없을 때의 placeholder (#510). 언어(LLM)/이미지 API 모델은 썸네일이 없는 게 정상이라
+  // 텍스트 대신 종류에 맞는 아이콘을 보여준다. (provider-model 의 outputFormats 로 언어/이미지 구분)
+  const noImagePlaceholder = (() => {
+    if (item.kind === 'provider-model') {
+      const fmts = item.outputFormats || [];
+      // 이미지 전용으로 분류된 모델(DALL-E/Imagen 등)만 이미지 아이콘.
+      // 그 외(텍스트 또는 미분류 — 로컬 LLM 은 분류 불가라 outputFormats 가 비는 경우가 많음)는
+      // 언어 모델로 본다.
+      if (fmts.includes('image') && !fmts.includes('text')) return { Icon: ImageOutlinedIcon, label: '이미지 모델' };
+      return { Icon: PsychologyIcon, label: '언어 모델' };
+    }
+    return { Icon: HideImageOutlinedIcon, label: '미리보기 없음' };
+  })();
+
   // multi-add 모드에서 이미 선택된 항목은 토글로 \"제거\" 표시 (#277)
   const resolvedPrimaryLabel = primaryLabel || (
     primaryVariant === 'insert' ? '프롬프트에 추가'
@@ -94,7 +111,7 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
         '&:hover': { borderColor: 'primary.main' }
       }}
     >
-      {/* 미리보기 */}
+      {/* 미리보기 — 썸네일 없으면 종류별 아이콘 placeholder (#510) */}
       {previewImage?.url ? (
         <MetadataMediaThumbnail image={previewImage} alt={item.displayName} />
       ) : (
@@ -102,13 +119,17 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
           sx={{
             height: 140,
             display: 'flex',
+            flexDirection: 'column',
+            gap: 0.75,
             alignItems: 'center',
             justifyContent: 'center',
-            bgcolor: 'action.hover'
+            bgcolor: 'action.hover',
+            color: 'text.disabled'
           }}
         >
-          <Typography variant="body2" color="text.secondary">
-            미리보기 없음
+          <noImagePlaceholder.Icon sx={{ fontSize: 44 }} />
+          <Typography variant="caption" color="text.secondary">
+            {noImagePlaceholder.label}
           </Typography>
         </Box>
       )}

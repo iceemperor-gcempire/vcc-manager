@@ -44,6 +44,7 @@ import {
 import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
 import { copyToClipboard } from '../utils/clipboard';
 import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
+import { usePersistedState } from '../hooks/usePersistedState';
 
 const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
@@ -113,10 +114,13 @@ function WorkboardCatalogPage({ admin = false }) {
   const [searchParams] = useSearchParams();
   const projectId = admin ? null : searchParams.get('projectId');
 
+  // 필터 영속 키 — admin/user 컨텍스트별 분리 (#510). 작업판에 들어갔다 나와도 필터 유지.
+  const persistKey = `vcc.wbCatalog.${admin ? 'admin' : 'user'}`;
+
   // user-only
   const [detailWb, setDetailWb] = useState(null);
   // admin-only
-  const [status, setStatus] = useState('all'); // all | active | inactive
+  const [status, setStatus] = usePersistedState(`${persistKey}.status`, 'all'); // all | active | inactive
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuWb, setMenuWb] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -147,7 +151,7 @@ function WorkboardCatalogPage({ admin = false }) {
     ? workboards
     : workboards.filter((w) => (status === 'active' ? w.isActive : !w.isActive));
 
-  const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(baseList);
+  const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(baseList, persistKey);
 
   // ── admin mutations ──
   // 작업판 관련 캐시 전체 무효화 (#498) — 목록/상세/실행화면/대시보드 일괄 갱신
