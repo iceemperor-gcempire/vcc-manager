@@ -239,7 +239,7 @@ function Login() {
           </form>
 
           <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
               또는
             </Typography>
           </Divider>
