@@ -184,6 +184,15 @@ function ConversationChatPanel({ workboard, conversationId }) {
                 <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
                   {msg.content}
                 </Typography>
+                {/* 첨부 이미지 썸네일 (#517) */}
+                {msg.attachments?.length > 0 && (
+                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.75 }}>
+                    {msg.attachments.map((a, ai) => (
+                      <Box key={ai} component="img" src={a.url} alt="첨부 이미지"
+                        sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }} />
+                    ))}
+                  </Box>
+                )}
               </Box>
               {msg.role === 'assistant' && (
                 <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
