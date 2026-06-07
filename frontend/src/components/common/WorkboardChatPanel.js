@@ -30,9 +30,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { conversationAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
 import MetadataFieldInput from './MetadataFieldInput';
+import ImageUploadField from './ImageUploadField';
 
 // 텍스트 작업판의 멀티턴 대화 모드 패널 (#391).
 // PromptGeneration 페이지에서 workboard.conversation_mode = true 일 때 PromptGeneratorPanel 대신 렌더.
@@ -81,9 +82,34 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
   // 완료되면 저장된 메시지를 refetch 하고 낙관적 상태를 정리.
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
   const [pendingUserMsg, setPendingUserMsg] = useState(null);
+  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#517)
 
-  const doSend = ({ text, settings, cid }) => {
+  const doSend = async ({ text, settings, cid }) => {
     setPendingUserMsg(text);
+    setNewMessage('');
+
+    // 비전 첨부 이미지 업로드 (#517)
+    let attachedImageIds = [];
+    if (workboard.allowImageInput && attachImages.length > 0) {
+      try {
+        for (const img of attachImages) {
+          if (img.file) {
+            const fd = new FormData();
+            fd.append('image', img.file);
+            fd.append('imageType', 'reference');
+            const resp = await imageAPI.upload(fd);
+            attachedImageIds.push(resp.data.image._id);
+          } else if (img._id) {
+            attachedImageIds.push(img._id);
+          }
+        }
+      } catch (e) {
+        toast.error('이미지 업로드 실패: ' + (e.response?.data?.message || e.message));
+        setPendingUserMsg(null);
+        return;
+      }
+    }
+
     streamSend(
       {
         workboardId: workboard._id,
@@ -92,7 +118,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
         // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
         projectId: cid ? undefined : (projectId || undefined),
         useWorldview: cid ? undefined : !!useWorldview,
-        inputData: { ...settings, userPrompt: text },
+        inputData: { ...settings, userPrompt: text, ...(attachedImageIds.length ? { attachedImages: attachedImageIds } : {}) },
       },
       {
         onDone: (info) => {
@@ -114,7 +140,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
         },
       }
     );
-    setNewMessage('');
+    setAttachImages([]);
   };
 
   const saveMessageMutation = useMutation(
@@ -307,6 +333,15 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
                   <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
                     {msg.content}
                   </Typography>
+                  {/* 첨부 이미지 썸네일 (#517) */}
+                  {msg.attachments?.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.75 }}>
+                      {msg.attachments.map((a, ai) => (
+                        <Box key={ai} component="img" src={a.url} alt="첨부 이미지"
+                          sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }} />
+                      ))}
+                    </Box>
+                  )}
                 </Box>
                 {msg.role === 'assistant' && (
                   <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
@@ -359,6 +394,19 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
           </Alert>
         )}
       </Box>
+
+      {/* 비전 이미지 첨부 (#517) — 작업판이 이미지 입력 허용 시 */}
+      {workboard.allowImageInput && (
+        <Box sx={{ mb: 1.5 }}>
+          <ImageUploadField
+            description="이미지를 첨부하면 모델이 분석에 참고합니다. 최대 4장. (비전 모델 전용)"
+            images={attachImages}
+            onImagesChange={setAttachImages}
+            maxImages={4}
+            disabled={isSending}
+          />
+        </Box>
+      )}
 
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 위아래 꽉 채워 상단 정렬 맞춤 (#503).

@@ -7,6 +7,25 @@ const extractValue = (input) => {
   return input;
 };
 
+// 비전 첨부(#517) 직렬화 — 메시지에 images([{base64, mimeType}]) 가 있으면 OpenAI vision 포맷으로.
+// content 를 텍스트 + image_url(data URL) 배열로 구성. 이미지 없으면 기존 문자열 content 그대로.
+// images 같은 내부 필드는 제거하고 OpenAI 가 받는 {role, content} 만 남긴다.
+const toOpenAIMessages = (messages) => (messages || []).map((m) => {
+  if (Array.isArray(m.images) && m.images.length > 0) {
+    return {
+      role: m.role,
+      content: [
+        ...(m.content ? [{ type: 'text', text: m.content }] : []),
+        ...m.images.map((img) => ({
+          type: 'image_url',
+          image_url: { url: `data:${img.mimeType || 'image/jpeg'};base64,${img.base64}` },
+        })),
+      ],
+    };
+  }
+  return { role: m.role, content: m.content || '' };
+});
+
 
 // OpenAI 호환 `/v1/chat/completions` 호출 — OpenAI 공식 / Local LLM (Ollama, LiteLLM, vLLM 등) 공통.
 // 응답에서 첫 번째 choice 의 메시지 본문 + usage 를 추출해 반환.
@@ -28,7 +47,7 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
   const requestBody = {
     ...(options.extraParams || {}),
     model,
-    messages,
+    messages: toOpenAIMessages(messages),
   };
 
   const headers = { 'Content-Type': 'application/json' };
@@ -91,7 +110,7 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
     // 작업판별 추가 파라미터 passthrough (#493) — 필수/스트림 키가 뒤에서 항상 이김
     ...(options.extraParams || {}),
     model,
-    messages,
+    messages: toOpenAIMessages(messages),
     stream: true,
     // usage 를 마지막 청크에 포함하도록 요청 (지원하는 서버 한정 — 미지원 시 usage 0 으로 degrade)
     stream_options: { include_usage: true },

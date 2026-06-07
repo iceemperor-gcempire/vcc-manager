@@ -747,6 +747,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       loraExposurePolicy: 'full',
       loraWhitelist: [],
       llmExtraParams: '',
+      allowImageInput: false,
       isActive: true,
       additionalCustomFields: []
     }
@@ -854,6 +855,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             llmExtraParams: fullData.llmExtraParams && Object.keys(fullData.llmExtraParams).length > 0
               ? JSON.stringify(fullData.llmExtraParams, null, 2)
               : '',
+            allowImageInput: !!fullData.allowImageInput,
             isActive: fullData.isActive ?? true,
             // 커스텀 필드 — 모든 additionalInputFields 를 단일 generic 편집기에 노출.
             // defaultValue / description / placeholder 도 form 에 같이 싣어 admin 이 편집 가능 (#391)
@@ -978,6 +980,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
       llmExtraParams: parsedLlmExtraParams,
+      allowImageInput: !!data.allowImageInput,
       isActive: Boolean(data.isActive),
       // F3: baseInputFields 편집 제거 — 신규/기존 모두 빈 상태로 저장.
       // 스키마의 required: true (aiModel) 통과 위해 빈 배열 명시.
@@ -1490,6 +1493,22 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           {/* LLM 파라미터 탭 - 텍스트(LLM) 작업판만 (#495). ComfyUI 워크플로우 탭과 동일 위치(index 3) */}
           {outputFormat === 'text' && tabValue === 3 && (
             <Box>
+              {/* 이미지 입력 허용 (#517) — 비전 모델일 때만 켤 것 */}
+              <Controller
+                name="allowImageInput"
+                control={control}
+                render={({ field }) => (
+                  <FormControlLabel
+                    sx={{ mb: 1 }}
+                    control={<Switch checked={!!field.value} onChange={(e) => field.onChange(e.target.checked)} />}
+                    label="이미지 입력 허용 (비전 모델)"
+                  />
+                )}
+              />
+              <Typography variant="caption" color="textSecondary" display="block" sx={{ mb: 2 }}>
+                켜면 실행 화면에서 사용자가 이미지를 첨부할 수 있고, 첨부 이미지는 모델에 비전 입력으로 전달됩니다.
+                선택한 베이스 모델이 비전(멀티모달)을 지원해야 정상 동작합니다.
+              </Typography>
               <Typography variant="body2" color="textSecondary" paragraph>
                 LLM 요청에 추가로 전달할 파라미터를 JSON 으로 지정합니다. 모델/서버별 thinking 비활성화나
                 창작용 temperature 등을 작업판마다 다르게 설정할 수 있습니다. 비워두면 모델 기본값으로 동작합니다.

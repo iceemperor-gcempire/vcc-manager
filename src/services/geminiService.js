@@ -124,9 +124,15 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
   if (!model) throw new Error('Gemini Chat: model is required');
   if (!apiKey) throw new Error('Gemini Chat: api key is required');
 
+  // 비전 첨부(#517): 메시지에 images([{base64, mimeType}]) 가 있으면 inline_data 파트로 추가.
   const contents = (Array.isArray(messages) ? messages : []).map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content || '' }],
+    parts: [
+      ...(m.content ? [{ text: m.content }] : []),
+      ...(Array.isArray(m.images)
+        ? m.images.map((img) => ({ inline_data: { mime_type: img.mimeType || 'image/jpeg', data: img.base64 } }))
+        : []),
+    ],
   }));
   if (contents.length === 0) {
     throw new Error('Gemini Chat: messages is empty');
