@@ -18,6 +18,7 @@ const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/prici
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const UploadedText = require('../models/UploadedText');
+const { loadVisionImages } = require('../utils/visionImages');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -480,6 +481,16 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       isContinuation: !!conversationId,
     });
 
+    // 비전 첨부 (#517): 작업판이 이미지 입력 허용 시 이번 턴의 첨부 이미지를 로드.
+    // turnImages = LLM 전송용 base64, turnAttachments = 대화 저장용 imageId/url 참조.
+    let turnImages = [];
+    let turnAttachments = [];
+    if (workboard.allowImageInput && Array.isArray(inputData.attachedImages) && inputData.attachedImages.length > 0) {
+      const loaded = await loadVisionImages(inputData.attachedImages, req.user._id);
+      turnImages = loaded.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
+      turnAttachments = loaded.map((v) => ({ imageId: v.imageId, url: v.url }));
+    }
+
     // 멀티턴 (#375): conversationId 가 있으면 기존 대화 로드 후 append.
     // 없으면 신규 대화 생성 (#373 Phase 1 동일 흐름).
     let conversation;
@@ -502,13 +513,21 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       conversation.messages.push({
         role: 'user',
         content: inputData.userPrompt,
+        attachments: turnAttachments,
         createdAt: new Date(),
       });
       conversation.status = 'processing';
       conversation.error = undefined;
       await conversation.save();
-      // LLM 에는 전체 시퀀스 전달
-      messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
+      // LLM 에는 전체 시퀀스 전달. 첨부 있는 메시지는 base64 로 로드해 비전 콘텐츠로 전송 (#517).
+      messages = await Promise.all(conversation.messages.map(async (m) => {
+        const base = { role: m.role, content: m.content };
+        if (m.attachments && m.attachments.length > 0) {
+          const imgs = await loadVisionImages(m.attachments.map((a) => a.imageId), conversation.userId);
+          if (imgs.length > 0) base.images = imgs.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
+        }
+        return base;
+      }));
     } else {
       // 신규 대화 — 세계관 / 사전 컨텍스트 / 시스템 프롬프트 문서 주입 (#396, #401).
       // 우선순위:
@@ -542,7 +561,14 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       if (composedSystem) {
         messages.push({ role: 'system', content: composedSystem });
       }
-      messages.push({ role: 'user', content: inputData.userPrompt });
+      // 단발: 사용자 메시지에 첨부 이미지 동봉 (#517). attachments 는 영속(스키마), images 는
+      // LLM 전송용이라 ConversationJob.create 시 mongoose strict 가 떨궈낸다(스키마 미정의).
+      messages.push({
+        role: 'user',
+        content: inputData.userPrompt,
+        attachments: turnAttachments,
+        images: turnImages,
+      });
       // 프로젝트 작업 시 자동으로 프로젝트 태그 주입 (이미지 작업과 통일된 필터 메커니즘, #397 후속)
       let projectTagIds = [];
       if (projectId) {

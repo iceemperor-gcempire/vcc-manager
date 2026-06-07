@@ -281,7 +281,8 @@ router.post('/', requireAdmin, async (req, res) => {
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
-      llmExtraParams
+      llmExtraParams,
+      allowImageInput
     } = req.body;
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
@@ -341,6 +342,7 @@ router.post('/', requireAdmin, async (req, res) => {
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUI && Array.isArray(loraWhitelist) ? loraWhitelist : [],
       llmExtraParams: (llmExtraParams && Object.keys(llmExtraParams).length > 0) ? llmExtraParams : undefined,
+      allowImageInput: !!allowImageInput,
       createdBy: req.user._id
     });
 
@@ -380,6 +382,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
       loraExposurePolicy,
       loraWhitelist,
       llmExtraParams,
+      allowImageInput,
       isActive
     } = req.body;
 
@@ -466,6 +469,9 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (llmExtraParams !== undefined) {
       workboard.llmExtraParams = (llmExtraParams && Object.keys(llmExtraParams).length > 0) ? llmExtraParams : undefined;
       workboard.markModified('llmExtraParams');
+    }
+    if (allowImageInput !== undefined) {
+      workboard.allowImageInput = !!allowImageInput;
     }
 
     console.log('Before save:', workboard.toObject());
@@ -579,6 +585,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       loraExposurePolicy: originalWorkboard.loraExposurePolicy || 'full',
       loraWhitelist: originalWorkboard.loraWhitelist || [],
       llmExtraParams: originalWorkboard.llmExtraParams,
+      allowImageInput: originalWorkboard.allowImageInput,
       createdBy: req.user._id
     });
     
