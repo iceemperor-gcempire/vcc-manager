@@ -22,8 +22,9 @@ import {
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
-import { conversationAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
+import ImageUploadField from './ImageUploadField';
 
 // 멀티턴 대화 모드 패널 (#375).
 // `conversationId` 가 주어졌을 때 PromptGeneration 페이지에서 PromptGeneratorPanel 대신 렌더.
@@ -62,6 +63,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
   // 스트리밍 전송 (#490)
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
   const [pendingUserMsg, setPendingUserMsg] = useState(null);
+  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#517)
 
   // 스트리밍 중 자동 스크롤
   useEffect(() => {
@@ -70,17 +72,40 @@ function ConversationChatPanel({ workboard, conversationId }) {
     }
   }, [streamingText, pendingUserMsg]);
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed || isStreaming) return;
     setPendingUserMsg(trimmed);
     setNewMessage('');
+
+    // 비전 첨부 이미지 업로드 (#517)
+    let attachedImageIds = [];
+    if (workboard.allowImageInput && attachImages.length > 0) {
+      try {
+        for (const img of attachImages) {
+          if (img.file) {
+            const fd = new FormData();
+            fd.append('image', img.file);
+            fd.append('imageType', 'reference');
+            const resp = await imageAPI.upload(fd);
+            attachedImageIds.push(resp.data.image._id);
+          } else if (img._id) {
+            attachedImageIds.push(img._id);
+          }
+        }
+      } catch (err) {
+        toast.error('이미지 업로드 실패: ' + (err.response?.data?.message || err.message));
+        setPendingUserMsg(null);
+        return;
+      }
+    }
+
     streamSend(
       {
         workboardId: workboard._id,
         conversationId,
-        inputData: { userPrompt: trimmed },
+        inputData: { userPrompt: trimmed, ...(attachedImageIds.length ? { attachedImages: attachedImageIds } : {}) },
       },
       {
         onDone: () => {
@@ -95,6 +120,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
         },
       }
     );
+    setAttachImages([]);
   };
 
   if (isLoading) {
@@ -213,6 +239,19 @@ function ConversationChatPanel({ workboard, conversationId }) {
           </Alert>
         )}
       </Box>
+
+      {/* 비전 이미지 첨부 (#517) — 작업판이 이미지 입력 허용 시 */}
+      {workboard.allowImageInput && (
+        <Box sx={{ mb: 1.5 }}>
+          <ImageUploadField
+            description="이미지를 첨부하면 모델이 분석에 참고합니다. 최대 4장. (비전 모델 전용)"
+            images={attachImages}
+            onImagesChange={setAttachImages}
+            maxImages={4}
+            disabled={isSending}
+          />
+        </Box>
+      )}
 
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 채워 상단 정렬 맞춤 (#503) */}
