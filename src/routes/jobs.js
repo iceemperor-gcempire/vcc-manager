@@ -481,12 +481,22 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       isContinuation: !!conversationId,
     });
 
-    // 비전 첨부 (#517): 작업판이 이미지 입력 허용 시 이번 턴의 첨부 이미지를 로드.
+    // 비전 첨부 (#517 → #519 통합): 작업판의 image 타입 customField 값(imageId)을 비전 입력으로.
+    // 별도 토글 없이 image 필드가 있으면 동작하고, 첨부가 없으면 그냥 일반 채팅으로 진행.
     // turnImages = LLM 전송용 base64, turnAttachments = 대화 저장용 imageId/url 참조.
     let turnImages = [];
     let turnAttachments = [];
-    if (workboard.allowImageInput && Array.isArray(inputData.attachedImages) && inputData.attachedImages.length > 0) {
-      const loaded = await loadVisionImages(inputData.attachedImages, req.user._id);
+    const imageFieldNames = (workboard.additionalInputFields || [])
+      .filter((f) => f.type === 'image')
+      .map((f) => f.name);
+    const collectedImageIds = [];
+    for (const fname of imageFieldNames) {
+      const v = inputData[fname];
+      if (Array.isArray(v)) collectedImageIds.push(...v.filter(Boolean));
+      else if (v) collectedImageIds.push(v);
+    }
+    if (collectedImageIds.length > 0) {
+      const loaded = await loadVisionImages(collectedImageIds, req.user._id);
       turnImages = loaded.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
       turnAttachments = loaded.map((v) => ({ imageId: v.imageId, url: v.url }));
     }

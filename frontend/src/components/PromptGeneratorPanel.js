@@ -146,7 +146,6 @@ function PromptGeneratorPanel({
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState(null);
   const [referenceImages, setReferenceImages] = useState({});
-  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#517)
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
 
   const { control, handleSubmit, setValue, formState: { errors } } = useForm({
@@ -192,7 +191,6 @@ function PromptGeneratorPanel({
     setGeneratedResult(null);
 
     let uploadedImages = {};
-    let attachedImageIds = [];
     try {
       for (const [fieldName, images] of Object.entries(referenceImages)) {
         if (images && images.length > 0) {
@@ -211,18 +209,6 @@ function PromptGeneratorPanel({
           uploadedImages[fieldName] = imageIds;
         }
       }
-      // 비전 첨부 이미지 업로드 (#517)
-      for (const img of attachImages) {
-        if (img.file) {
-          const uploadData = new FormData();
-          uploadData.append('image', img.file);
-          uploadData.append('imageType', 'reference');
-          const response = await imageAPI.upload(uploadData);
-          attachedImageIds.push(response.data.image._id);
-        } else if (img._id) {
-          attachedImageIds.push(img._id);
-        }
-      }
     } catch (error) {
       toast.error('이미지 업로드 실패: ' + (error.response?.data?.message || error.message));
       setIsGenerating(false);
@@ -239,7 +225,6 @@ function PromptGeneratorPanel({
           model: formData.model,
           userPrompt: formData.userPrompt,
           ...uploadedImages,
-          ...(attachedImageIds.length > 0 ? { attachedImages: attachedImageIds } : {}),
           ...Object.fromEntries(
             Object.entries(formData).filter(([key]) =>
               !['model', 'userPrompt'].includes(key)
@@ -252,7 +237,7 @@ function PromptGeneratorPanel({
           setGeneratedResult({ ...info, result: info.result ?? fullText });
           toast.success('프롬프트가 생성되었습니다!');
           setIsGenerating(false);
-          setAttachImages([]); // 첨부 초기화 — 재생성 시 중복 업로드 방지 (#517)
+          setReferenceImages({}); // 첨부 초기화 — 재생성 시 중복 업로드 방지 (#519)
         },
         onError: (error) => {
           toast.error('생성 실패: ' + (error.message || '알 수 없는 오류'));
@@ -370,6 +355,16 @@ function PromptGeneratorPanel({
                       )}
                     />
                   )}
+                  {/* 이미지 입력 (#519) — image 타입 필드. 첨부 시 비전 입력으로 사용 */}
+                  {field.type === 'image' && (
+                    <ImageUploadField
+                      label={field.label}
+                      description={field.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
+                      images={referenceImages[field.name] || []}
+                      onImagesChange={(imgs) => setReferenceImages((prev) => ({ ...prev, [field.name]: imgs }))}
+                      maxImages={field.imageConfig?.maxImages || 4}
+                    />
+                  )}
                 </Box>
               ))}
 
@@ -391,19 +386,6 @@ function PromptGeneratorPanel({
                   />
                 )}
               />
-
-              {/* 비전 이미지 첨부 (#517) — 작업판이 이미지 입력 허용 시에만 */}
-              {workboard.allowImageInput && (
-                <Box sx={{ mt: 2 }}>
-                  <ImageUploadField
-                    label="이미지 첨부 (선택)"
-                    description="이미지를 첨부하면 모델이 분석에 참고합니다. 최대 4장. (비전 모델 전용)"
-                    images={attachImages}
-                    onImagesChange={setAttachImages}
-                    maxImages={4}
-                  />
-                </Box>
-              )}
 
               <Button
                 type="submit"

@@ -63,7 +63,8 @@ function ConversationChatPanel({ workboard, conversationId }) {
   // 스트리밍 전송 (#490)
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
   const [pendingUserMsg, setPendingUserMsg] = useState(null);
-  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#517)
+  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#519)
+  const imageField = (workboard.additionalInputFields || []).find((f) => f.type === 'image');
 
   // 스트리밍 중 자동 스크롤
   useEffect(() => {
@@ -79,9 +80,9 @@ function ConversationChatPanel({ workboard, conversationId }) {
     setPendingUserMsg(trimmed);
     setNewMessage('');
 
-    // 비전 첨부 이미지 업로드 (#517)
+    // 비전 첨부 이미지 업로드 (#519) — image 필드가 있을 때만
     let attachedImageIds = [];
-    if (workboard.allowImageInput && attachImages.length > 0) {
+    if (imageField && attachImages.length > 0) {
       try {
         for (const img of attachImages) {
           if (img.file) {
@@ -105,7 +106,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
       {
         workboardId: workboard._id,
         conversationId,
-        inputData: { userPrompt: trimmed, ...(attachedImageIds.length ? { attachedImages: attachedImageIds } : {}) },
+        inputData: { userPrompt: trimmed, ...(attachedImageIds.length && imageField ? { [imageField.name]: attachedImageIds } : {}) },
       },
       {
         onDone: () => {
@@ -249,14 +250,15 @@ function ConversationChatPanel({ workboard, conversationId }) {
         )}
       </Box>
 
-      {/* 비전 이미지 첨부 (#517) — 작업판이 이미지 입력 허용 시 */}
-      {workboard.allowImageInput && (
+      {/* 비전 이미지 첨부 (#519) — image 필드가 있을 때 턴별 첨부 */}
+      {imageField && (
         <Box sx={{ mb: 1.5 }}>
           <ImageUploadField
-            description="이미지를 첨부하면 모델이 분석에 참고합니다. 최대 4장. (비전 모델 전용)"
+            label={imageField.label}
+            description={imageField.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
             images={attachImages}
             onImagesChange={setAttachImages}
-            maxImages={4}
+            maxImages={imageField.imageConfig?.maxImages || 4}
             disabled={isSending}
           />
         </Box>
