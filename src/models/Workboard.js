@@ -110,12 +110,6 @@ const workboardSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: undefined
   },
-  // 텍스트(LLM) 작업판에서 이미지 첨부 허용 여부 (#517). 비전 모델일 때 admin 이 켠다.
-  // 켜면 실행 화면에 이미지 첨부 UI 가 노출되고, 첨부 이미지는 비전 콘텐츠로 LLM 에 전달.
-  allowImageInput: {
-    type: Boolean,
-    default: false
-  },
   // 이 작업판에 접근 가능한 사용자 그룹 (#198). 빈 배열이면 admin 외 접근 불가.
   // admin 은 implicit all-access (이 필드 무관). 마이그레이션 시 기본 그룹 1개 자동 할당.
   allowedGroupIds: [{

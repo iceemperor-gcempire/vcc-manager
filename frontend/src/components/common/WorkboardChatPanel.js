@@ -46,9 +46,15 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
   const transcriptRef = useRef(null);
   const queryClient = useQueryClient();
 
-  // admin 이 설정하는 conversation_mode 외 customField 를 settings 폼으로 노출
+  // 비전 이미지 입력 필드 (#519) — image 타입은 "설정"이 아니라 턴별 첨부로 다룬다(잠금 분리).
+  const imageField = useMemo(
+    () => (workboard.additionalInputFields || []).find((f) => f.type === 'image'),
+    [workboard]
+  );
+
+  // admin 이 설정하는 conversation_mode / image 외 customField 를 settings 폼으로 노출
   const settingsFields = useMemo(
-    () => (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode'),
+    () => (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode' && f.type !== 'image'),
     [workboard]
   );
 
@@ -88,9 +94,9 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
     setPendingUserMsg(text);
     setNewMessage('');
 
-    // 비전 첨부 이미지 업로드 (#517)
+    // 비전 첨부 이미지 업로드 (#519) — image 필드가 있을 때만
     let attachedImageIds = [];
-    if (workboard.allowImageInput && attachImages.length > 0) {
+    if (imageField && attachImages.length > 0) {
       try {
         for (const img of attachImages) {
           if (img.file) {
@@ -118,7 +124,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
         // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
         projectId: cid ? undefined : (projectId || undefined),
         useWorldview: cid ? undefined : !!useWorldview,
-        inputData: { ...settings, userPrompt: text, ...(attachedImageIds.length ? { attachedImages: attachedImageIds } : {}) },
+        inputData: { ...settings, userPrompt: text, ...(attachedImageIds.length && imageField ? { [imageField.name]: attachedImageIds } : {}) },
       },
       {
         onDone: (info) => {
@@ -395,14 +401,15 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
         )}
       </Box>
 
-      {/* 비전 이미지 첨부 (#517) — 작업판이 이미지 입력 허용 시 */}
-      {workboard.allowImageInput && (
+      {/* 비전 이미지 첨부 (#519) — image 필드가 있을 때 턴별 첨부 */}
+      {imageField && (
         <Box sx={{ mb: 1.5 }}>
           <ImageUploadField
-            description="이미지를 첨부하면 모델이 분석에 참고합니다. 최대 4장. (비전 모델 전용)"
+            label={imageField.label}
+            description={imageField.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
             images={attachImages}
             onImagesChange={setAttachImages}
-            maxImages={4}
+            maxImages={imageField.imageConfig?.maxImages || 4}
             disabled={isSending}
           />
         </Box>
