@@ -111,9 +111,10 @@ function MainLayout() {
   useEffect(() => {
     const refreshPaths = ['/jobs', '/content'];
     if (refreshPaths.includes(location.pathname)) {
-      queryClient.invalidateQueries('recentJobs');
+      queryClient.invalidateQueries('historyJobs');
       queryClient.invalidateQueries('generatedImages');
       queryClient.invalidateQueries('uploadedImages');
+      queryClient.invalidateQueries('generatedVideos');
     }
   }, [location.pathname, queryClient]);
 

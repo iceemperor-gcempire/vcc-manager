@@ -387,7 +387,6 @@ function ImageGeneration() {
   const [loraModalOpen, setLoraModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
-  const [promptValue, setPromptValue] = useState('');
   const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
   const promptInputRef = useRef(null);
@@ -423,15 +422,15 @@ function ImageGeneration() {
 
   // LoRA 모달에서 프롬프트 변경 핸들러
   const handlePromptChangeFromLora = (newPrompt) => {
-    setPromptValue(newPrompt);
-    setValue('prompt', newPrompt);
+    setValue('prompt', newPrompt, { shouldValidate: true, shouldDirty: true });
   };
 
   // MetadataPickerModal (LoRA, prompt-insert 모드) 의 onPrimary — LoRA 태그를 프롬프트 커서 위치에 삽입.
   const handleAddLoraToPrompt = (lora) => {
     const filename = lora.filename || lora;
-    const cursorPosition = promptInputRef?.current?.selectionStart ?? (promptValue?.length || 0);
-    const result = insertLoraTag(promptValue || '', filename, cursorPosition);
+    const currentPrompt = getValues('prompt') || '';
+    const cursorPosition = promptInputRef?.current?.selectionStart ?? currentPrompt.length;
+    const result = insertLoraTag(currentPrompt, filename, cursorPosition);
 
     if (!result.added) {
       const displayName = lora.civitai?.name || extractLoraName(filename);
@@ -455,7 +454,7 @@ function ImageGeneration() {
   // 트리거 워드 chip 클릭 — 프롬프트에 삽입 (LoRA 태그도 자동 추가)
   const handleInsertTriggerWord = (word, lora) => {
     const cursorPosition = promptInputRef?.current?.selectionStart;
-    const result = insertTriggerWordWithLora(promptValue || '', word, lora.filename, cursorPosition);
+    const result = insertTriggerWordWithLora(getValues('prompt') || '', word, lora.filename, cursorPosition);
 
     if (!result.addedTrigger && !result.addedLora) {
       toast(`"${word}"가 이미 프롬프트에 있습니다.`);
@@ -478,7 +477,7 @@ function ImageGeneration() {
   };
 
   const handlePromptDataSelect = (promptData) => {
-    setValue('prompt', promptData.prompt || '');
+    setValue('prompt', promptData.prompt || '', { shouldValidate: true, shouldDirty: true });
     setValue('negativePrompt', promptData.negativePrompt || '');
     if (promptData.seed) {
       setSeedValue(promptData.seed);
@@ -504,7 +503,7 @@ function ImageGeneration() {
   };
 
   const handleGeneratedPromptApply = (generatedPrompt) => {
-    setValue('prompt', generatedPrompt);
+    setValue('prompt', generatedPrompt, { shouldValidate: true, shouldDirty: true });
     toast.success('AI 생성 프롬프트가 적용되었습니다');
   };
 
@@ -528,7 +527,7 @@ function ImageGeneration() {
     {
       onSuccess: (data) => {
         toast.success('이미지 생성 작업이 시작되었습니다');
-        queryClient.invalidateQueries('recentJobs');
+        queryClient.invalidateQueries('historyJobs');
         navigate('/jobs');
       },
       onError: (error) => {
@@ -597,7 +596,6 @@ function ImageGeneration() {
         // baseInputFields 의 옵션 풀에 의존했는데, F2 에서 풀이 제거되어 단순화.
         if (jobInputData.prompt) {
           safeSetValue('prompt', jobInputData.prompt);
-          setPromptValue(jobInputData.prompt);
         }
         if (jobInputData.negativePrompt) {
           safeSetValue('negativePrompt', jobInputData.negativePrompt);
@@ -887,11 +885,7 @@ function ImageGeneration() {
                     error={!!errors.prompt}
                     helperText={errors.prompt?.message}
                     sx={{ mb: 2 }}
-                    onChange={(e) => {
-                      field.onChange(e);
-                      setPromptValue(e.target.value);
-                    }}
-                    value={promptValue || field.value || ''}
+                    value={field.value || ''}
                   />
                 )}
               />
