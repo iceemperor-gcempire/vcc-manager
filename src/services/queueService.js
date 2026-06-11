@@ -1041,9 +1041,17 @@ const getQueueStats = async () => {
   }
 };
 
+// 종료 시 큐 정리 — active 잡 완료를 기다리지 않음 (잡이 매우 길 수 있어 빠른 종료 우선, #523)
+const closeQueues = async () => {
+  if (!imageGenerationQueue) return;
+  await imageGenerationQueue.close(true);
+  console.log('🛑 Image generation queue closed');
+};
+
 module.exports = {
   initializeQueues,
   addImageGenerationJob,
   getQueueStats,
+  closeQueues,
   imageGenerationQueue
 };

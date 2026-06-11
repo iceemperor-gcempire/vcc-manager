@@ -330,8 +330,16 @@ async function processPipelineRun(job) {
   await run.save();
 }
 
+// 종료 시 큐 정리 — active 잡 완료를 기다리지 않음 (#523)
+const closePipelineRunQueue = async () => {
+  if (!pipelineRunQueue) return;
+  await pipelineRunQueue.close(true);
+  console.log('🛑 Pipeline run queue closed');
+};
+
 module.exports = {
   initPipelineRunQueue,
   startPipelineRun,
   retryPipelineRun,
+  closePipelineRunQueue,
 };
