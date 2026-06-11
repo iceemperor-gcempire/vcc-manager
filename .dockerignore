@@ -1,0 +1,44 @@
+# 빌드 컨텍스트 제외 목록 (#527)
+# 주의: .dockerignore 패턴은 .gitignore 와 달리 컨텍스트 루트 기준 앵커링.
+#       'nginx.conf' 는 Dockerfile.frontend 가 COPY 하므로 제외 금지.
+
+# 의존성 / 빌드 산출물 (이미지 내부에서 설치/빌드)
+node_modules
+**/node_modules
+**/.pnpm-store
+frontend/build
+
+# VCS / OS
+.git
+.github
+.DS_Store
+**/.DS_Store
+
+# 시크릿 — 런타임 환경변수는 compose 가 주입.
+# frontend/.env 는 CRA "빌드타임" 설정이라 컨텍스트에 포함되어야 함 (루트 앵커링이라 자동 보존됨)
+.env
+.env.production
+
+# 테스트 / 개발 도구 (이미지에 불필요)
+e2e
+test-results
+playwright.config.js
+samples
+tools
+scripts
+claude
+mongo-init
+
+# 런타임 볼륨으로 마운트되는 디렉토리
+uploads
+backups
+
+# 문서 (updatelogs 는 backend 가 COPY — 재포함)
+docs/*
+!docs/updatelogs
+*.md
+
+# docker 메타파일 자신
+docker-compose*.yml
+Dockerfile*
+.dockerignore
