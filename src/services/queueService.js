@@ -274,7 +274,8 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
   const result = await comfyUIService.submitWorkflow(
     workboardData.serverUrl,
     workflowJson,
-    (progress) => job.progress(20 + (progress * 0.7))
+    (progress) => job.progress(20 + (progress * 0.7)),
+    workboardData.timeout || 300000
   );
   job.progress(90);
 
