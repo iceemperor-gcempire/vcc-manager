@@ -44,8 +44,6 @@ import {
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
-import './App.css';
-
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

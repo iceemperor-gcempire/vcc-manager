@@ -26,3 +26,10 @@ html, body, #root {
 .MuiTypography-body2 {
   text-wrap: pretty;
 }
+
+/* 앱 루트 래퍼 — App.css 삭제(#541) 시 유일하게 살아 있던 규칙을 이전 */
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
