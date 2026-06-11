@@ -1,9 +1,17 @@
 
+# 컨테이너 로그 로테이션 — 무제한 누적으로 인한 디스크 고갈 방지 (#522)
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mongodb:
     image: mongo:7.0
     container_name: vcc-mongodb
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:-admin}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-password}
@@ -21,6 +29,7 @@ services:
     image: redis:7.2-alpine
     container_name: vcc-redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redispassword}
     # 보안상 Redis 포트는 개발환경에서만 노출 (프로덕션에서는 docker-compose.prod.yml 사용 권장)
     ports:
@@ -36,6 +45,7 @@ services:
       dockerfile: Dockerfile.backend
     container_name: vcc-backend
     restart: unless-stopped
+    logging: *default-logging
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -84,6 +94,7 @@ services:
       dockerfile: Dockerfile.frontend
     container_name: vcc-frontend
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${FRONTEND_PORT:-8136}:80"
     depends_on:
@@ -97,6 +108,7 @@ services:
       dockerfile: Dockerfile.mcp
     container_name: vcc-mcp-server
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MCP_TRANSPORT: http
       MCP_PORT: 3100
