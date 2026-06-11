@@ -309,7 +309,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
           <Typography variant="h6" gutterBottom>
             {isDragActive ? '이미지를 여기에 놓으세요' : '이미지를 선택하거나 드래그하세요'}
           </Typography>
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             JPG, PNG, WebP 형식 지원
           </Typography>
         </Box>
@@ -320,7 +320,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
               선택된 파일 ({acceptedFiles.length}개)
             </Typography>
             {acceptedFiles.map((file, index) => (
-              <Typography key={index} variant="body2" color="textSecondary">
+              <Typography key={index} variant="body2" color="text.secondary">
                 {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
               </Typography>
             ))}

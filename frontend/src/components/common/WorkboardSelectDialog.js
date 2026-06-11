@@ -52,7 +52,7 @@ function WorkboardSelectDialog({ open, onClose, onSelect }) {
                   <CardContent>
                     <Typography variant="subtitle1">{workboard.name}</Typography>
                     {workboard.description && (
-                      <Typography variant="body2" color="textSecondary">
+                      <Typography variant="body2" color="text.secondary">
                         {workboard.description}
                       </Typography>
                     )}

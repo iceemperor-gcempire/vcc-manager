@@ -39,7 +39,7 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
         <Typography variant="subtitle2" gutterBottom>{label}</Typography>
       )}
       {description && (
-        <Typography variant="caption" color="textSecondary" display="block" mb={1}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
           {description}
         </Typography>
       )}

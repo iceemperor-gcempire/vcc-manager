@@ -137,7 +137,7 @@ function Login() {
             <Typography variant="h4" gutterBottom>
               Visual Content Creator
             </Typography>
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               AI 이미지 생성 도구에 액세스하려면 로그인하세요
             </Typography>
           </Box>
@@ -241,7 +241,7 @@ function Login() {
           </form>
 
           <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               또는
             </Typography>
           </Divider>
@@ -260,7 +260,7 @@ function Login() {
 
           {/* Sign Up Link */}
           <Box textAlign="center">
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               계정이 없으신가요?{' '}
               <Link
                 component="button"
@@ -273,7 +273,7 @@ function Login() {
             </Typography>
           </Box>
 
-          <Typography variant="caption" display="block" mt={3} textAlign="center" color="textSecondary">
+          <Typography variant="caption" display="block" mt={3} textAlign="center" color="text.secondary">
             로그인함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
           </Typography>
         </Paper>

@@ -55,11 +55,11 @@ function StatCard({ title, value, subtitle }) {
         <Typography variant="h4" component="div" gutterBottom>
           {value}
         </Typography>
-        <Typography color="textSecondary" gutterBottom>
+        <Typography color="text.secondary" gutterBottom>
           {title}
         </Typography>
         {subtitle && (
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             {subtitle}
           </Typography>
         )}
@@ -378,7 +378,7 @@ function SecuritySettings() {
                           <Chip label="파기됨" color="error" variant="outlined" />
                         )}
                       </Box>
-                      <Typography variant="caption" color="textSecondary" component="div">
+                      <Typography variant="caption" color="text.secondary" component="div">
                         {apiKey.prefix}... | 생성: {formatDate(apiKey.createdAt)}
                         {apiKey.lastUsedAt && ` | 마지막 사용: ${formatDate(apiKey.lastUsedAt)}`}
                         {apiKey.isRevoked && apiKey.revokedAt && ` | 파기: ${formatDate(apiKey.revokedAt)}`}
@@ -600,10 +600,10 @@ function Profile() {
           <Typography variant="h4" gutterBottom>
             {user?.nickname || '사용자'}
           </Typography>
-          <Typography variant="body1" color="textSecondary">
+          <Typography variant="body1" color="text.secondary">
             {user?.email}
           </Typography>
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             가입일: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
           </Typography>
         </Box>

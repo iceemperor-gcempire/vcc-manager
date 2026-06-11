@@ -108,7 +108,7 @@ function Pagination({
       {/* 페이지 정보 표시 */}
       {showInfo && (
         <Box display="flex" justifyContent="center" mb={2}>
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             페이지 {currentPage} / {totalPages}
             {totalItems && ` (총 ${totalItems}개)`}
           </Typography>
@@ -210,7 +210,7 @@ function Pagination({
       >
         <DialogTitle>페이지 이동</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" color="textSecondary" gutterBottom>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
             이동할 페이지 번호를 입력하세요 (1 ~ {totalPages})
           </Typography>
           <TextField

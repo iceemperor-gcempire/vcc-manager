@@ -337,7 +337,7 @@ function UserManagement() {
           <Typography>
             <strong>{selectedUser?.nickname}</strong> 사용자를 삭제하시겠습니까?
           </Typography>
-          <Typography variant="body2" color="textSecondary" mt={1}>
+          <Typography variant="body2" color="text.secondary" mt={1}>
             사용자의 모든 데이터(이미지, 작업 히스토리 등)가 함께 삭제됩니다.
           </Typography>
         </DialogContent>

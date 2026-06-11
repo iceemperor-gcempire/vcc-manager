@@ -17,7 +17,6 @@ export function ToneChip({ tone, label, mono, sx }) {
   const ts = TONE_SX[tone] || TONE_SX.neutral;
   return (
     <Chip
-      size="small"
       variant="filled"
       label={label}
       sx={{

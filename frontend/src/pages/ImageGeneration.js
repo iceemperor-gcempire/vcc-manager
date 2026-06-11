@@ -139,7 +139,7 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
                         </Typography>
                         <Typography
                           variant="caption"
-                          color="textSecondary"
+                          color="text.secondary"
                           sx={{
                             display: '-webkit-box',
                             WebkitLineClamp: 2,
@@ -265,7 +265,7 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
       </Box>
 
       {field.description && (
-        <Typography variant="caption" color="textSecondary" display="block" mb={1}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
           {field.description}
         </Typography>
       )}
@@ -285,14 +285,14 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
         >
           <input {...getInputProps()} />
           <ImageIcon sx={{ fontSize: 48, color: 'grey.400', mb: 1 }} />
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             이미지를 드래그하거나 클릭하여 업로드
           </Typography>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             최대 {maxImages}장
           </Typography>
           {isComfyUI && (
-            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
               미첨부 시 1024×1024 흰색 이미지가 자동으로 사용됩니다
             </Typography>
           )}
@@ -831,7 +831,7 @@ function ImageGeneration() {
           )}
         </Box>
         {workboardData?.description && (
-          <Typography variant="body1" color="textSecondary" gutterBottom>
+          <Typography variant="body1" color="text.secondary" gutterBottom>
             {workboardData.description}
           </Typography>
         )}
@@ -955,7 +955,6 @@ function ImageGeneration() {
                       <InputAdornment position="end">
                         <IconButton
                           onClick={() => setSeedValue(generateRandomSeed())}
-                          size="small"
                         >
                           <Shuffle />
                         </IconButton>
@@ -1052,13 +1051,13 @@ function ImageGeneration() {
               </Typography>
 
               <Box mb={2}>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   서버: {new URL(workboardData?.serverUrl || '').hostname}
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   버전: {workboardData?.version || 1}
                 </Typography>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   사용횟수: {workboardData?.usageCount || 0}회
                 </Typography>
               </Box>

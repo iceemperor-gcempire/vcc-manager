@@ -181,7 +181,7 @@ function ResetPassword() {
               </Typography>
             </Alert>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               비밀번호 재설정 링크는 1시간 동안만 유효합니다.
               새로운 링크를 요청하려면 아래 버튼을 클릭해주세요.
             </Typography>
@@ -233,7 +233,7 @@ function ResetPassword() {
               </Typography>
             </Alert>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               새 비밀번호로 로그인해주세요.
             </Typography>
 
@@ -266,7 +266,7 @@ function ResetPassword() {
             <Typography variant="h4" gutterBottom>
               새 비밀번호 설정
             </Typography>
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               새로운 비밀번호를 입력해주세요
             </Typography>
           </Box>

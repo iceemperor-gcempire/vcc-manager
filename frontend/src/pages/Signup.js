@@ -193,7 +193,7 @@ function Signup() {
             <Typography variant="h4" gutterBottom>
               회원가입
             </Typography>
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               Visual Content Creator에 오신 것을 환영합니다
             </Typography>
           </Box>
@@ -392,7 +392,7 @@ function Signup() {
           </form>
 
           <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               또는
             </Typography>
           </Divider>
@@ -411,7 +411,7 @@ function Signup() {
 
           {/* Sign In Link */}
           <Box textAlign="center">
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               이미 계정이 있으신가요?{' '}
               <Link
                 component="button"
@@ -424,7 +424,7 @@ function Signup() {
             </Typography>
           </Box>
 
-          <Typography variant="caption" display="block" mt={3} textAlign="center" color="textSecondary">
+          <Typography variant="caption" display="block" mt={3} textAlign="center" color="text.secondary">
             회원가입함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
           </Typography>
         </Paper>

@@ -188,7 +188,7 @@ function SystemStats() {
               </Typography>
 
               <Box mb={3}>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   총 이미지 수
                 </Typography>
                 <Typography variant="h4">
@@ -197,7 +197,7 @@ function SystemStats() {
               </Box>
 
               <Box>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   사용 중인 저장 공간
                 </Typography>
                 <Typography variant="h5">
@@ -222,7 +222,7 @@ function SystemStats() {
                     <Typography variant="h4" color="warning.main">
                       {queue.waiting || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       대기 중
                     </Typography>
                   </Box>
@@ -232,7 +232,7 @@ function SystemStats() {
                     <Typography variant="h4" color="info.main">
                       {queue.active || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       처리 중
                     </Typography>
                   </Box>
@@ -242,7 +242,7 @@ function SystemStats() {
                     <Typography variant="h4" color="success.main">
                       {queue.completed || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       완료됨
                     </Typography>
                   </Box>
@@ -252,7 +252,7 @@ function SystemStats() {
                     <Typography variant="h4" color="error.main">
                       {queue.failed || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       실패함
                     </Typography>
                   </Box>

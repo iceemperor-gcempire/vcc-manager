@@ -84,9 +84,9 @@ function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
       <DialogContent>
         <DialogContentText sx={{ mb: 2 }}>{workboard.description || '설명이 없습니다.'}</DialogContentText>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
-          <Chip size="small" label={getOutputFormatLabel(workboard.outputFormat || 'image')}
+          <Chip label={getOutputFormatLabel(workboard.outputFormat || 'image')}
             color={workboard.outputFormat === 'text' ? 'info' : workboard.outputFormat === 'video' ? 'warning' : 'primary'} />
-          <Chip size="small" label={getServerTypeLabel(workboard.serverId?.serverType) || '서버 미설정'}
+          <Chip label={getServerTypeLabel(workboard.serverId?.serverType) || '서버 미설정'}
             sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }} />
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
@@ -223,7 +223,7 @@ function WorkboardCatalogPage({ admin = false }) {
         )}
       >
         {projectContext && (
-          <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" size="small" sx={{ mt: 1 }} />
+          <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" sx={{ mt: 1 }} />
         )}
       </PageHeader>
 
