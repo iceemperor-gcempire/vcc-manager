@@ -82,7 +82,8 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
       headers: {
         'Content-Type': 'application/json'
       },
-      timeout: options.timeout || 300000
+      timeout: options.timeout || 300000,
+      signal: options.signal
     }
   );
 

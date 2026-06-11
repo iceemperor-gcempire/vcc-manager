@@ -47,7 +47,8 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json'
         },
-        timeout: options.timeout || 300000
+        timeout: options.timeout || 300000,
+        signal: options.signal
       }
     );
   } catch (err) {

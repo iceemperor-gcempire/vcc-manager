@@ -144,7 +144,7 @@ const resolveServiceKey = (workboardData) => {
   return { key: `${serverType}:${outputFormat}`, serverType, outputFormat };
 };
 
-async function handleGeminiImage({ workboardData, inputData, job }) {
+async function handleGeminiImage({ workboardData, inputData, job, signal }) {
   const geminiImages = await loadImageInputs(
     workboardData.additionalInputFields || [],
     inputData
@@ -161,6 +161,7 @@ async function handleGeminiImage({ workboardData, inputData, job }) {
       resolution: extractOptionValue(inputData.additionalParams?.resolution),
       images: geminiImages,
       timeout: workboardData.timeout,
+      signal,
     }
   );
   job.progress(90);
@@ -188,7 +189,7 @@ async function handleGeminiImage({ workboardData, inputData, job }) {
   };
 }
 
-async function handleOpenAIImage({ workboardData, inputData, job }) {
+async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
   const result = await gptImageService.generateImage(
     workboardData.serverUrl,
     workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
@@ -208,6 +209,7 @@ async function handleOpenAIImage({ workboardData, inputData, job }) {
       background: extractOptionValue(inputData.additionalParams?.background),
       outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
       timeout: workboardData.timeout,
+      signal,
     }
   );
   job.progress(90);
@@ -296,6 +298,20 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
   return { ...result, seed: actualSeed };
 }
 
+// 진행 중 잡의 AbortController — 취소 시 외부 API HTTP 호출 즉시 중단용 (#539)
+// in-memory 라 단일 백엔드 인스턴스 전제. ComfyUI 경로는 재매칭 플로우 보존을 위해 제외.
+const activeJobAborters = new Map();
+
+const abortActiveJob = (jobId) => {
+  const aborter = activeJobAborters.get(String(jobId));
+  if (aborter) {
+    aborter.abort();
+    console.log(`🚫 Job ${jobId} — in-flight HTTP request aborted`);
+    return true;
+  }
+  return false;
+};
+
 // 취소 여부 확인 — worker 체크포인트용 (#521)
 const isJobCancelled = async (jobId) => {
   try {
@@ -309,6 +325,8 @@ const isJobCancelled = async (jobId) => {
 
 const processImageGeneration = async (job) => {
   const { jobId, workboardData, inputData } = job.data;
+  const aborter = new AbortController();
+  activeJobAborters.set(String(jobId), aborter);
 
   try {
     job.progress(5);
@@ -328,7 +346,7 @@ const processImageGeneration = async (job) => {
     }
     console.log(`[dispatch] job ${jobId} → ${key}`);
 
-    const generationResult = await handler({ workboardData, inputData, job, jobId });
+    const generationResult = await handler({ workboardData, inputData, job, jobId, signal: aborter.signal });
 
     // 취소 체크포인트 2 — 결과 저장 전. 생성은 이미 끝났지만 취소된 잡의 결과는 버린다 (#521)
     if (await isJobCancelled(jobId)) {
@@ -374,8 +392,15 @@ const processImageGeneration = async (job) => {
       costEstimate: generationResult.costEstimate,
     };
   } catch (error) {
+    // 취소로 인한 HTTP 중단 — 실패가 아니라 취소 종결 (Bull 재시도 방지) (#539)
+    if (aborter.signal.aborted || error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
+      console.log(`🚫 Job ${jobId} — generation aborted by cancel`);
+      return { cancelled: true };
+    }
     console.error(`Error processing job ${jobId}:`, error);
     throw error;
+  } finally {
+    activeJobAborters.delete(String(jobId));
   }
 };
 
@@ -1106,6 +1131,7 @@ module.exports = {
   addImageGenerationJob,
   getQueueStats,
   cancelQueueJob,
+  abortActiveJob,
   closeQueues,
   imageGenerationQueue
 };

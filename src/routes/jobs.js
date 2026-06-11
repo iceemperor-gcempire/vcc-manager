@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
-const { addImageGenerationJob, getQueueStats, cancelQueueJob } = require('../services/queueService');
+const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
@@ -424,9 +424,12 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 
     // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단)
     const { removed, state } = await cancelQueueJob(job.queueJobId);
-    console.log(`🚫 Job ${job._id} cancelled (queue: ${removed ? 'removed' : state || 'not found'})`);
 
-    res.json({ message: 'Job cancelled successfully', queueRemoved: removed });
+    // active 잡의 진행 중 외부 API HTTP 호출 즉시 중단 (Gemini/GPT — ComfyUI 는 비대상) (#539)
+    const aborted = abortActiveJob(job._id);
+    console.log(`🚫 Job ${job._id} cancelled (queue: ${removed ? 'removed' : state || 'not found'}, http aborted: ${aborted})`);
+
+    res.json({ message: 'Job cancelled successfully', queueRemoved: removed, httpAborted: aborted });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
