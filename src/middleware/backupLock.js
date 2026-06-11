@@ -48,26 +48,29 @@ function blockDuringBackup(req, res, next) {
     return next();
   }
 
-  // 백업 관련 API는 허용 (상태 조회 등)
-  if (req.path.startsWith('/api/admin/backup')) {
+  if (!backupInProgress) {
     return next();
   }
 
-  // 인증 API는 허용
-  if (req.path.startsWith('/api/auth')) {
+  // NOTE: app.use('/api', ...) 로 마운트되므로 req.path 에는 '/api' prefix 가 없음 (#529)
+
+  // 로그인/로그아웃은 백업 중에도 허용 (관리자 진입 경로).
+  // signup / 비밀번호 재설정은 User 컬렉션 쓰기라 차단 유지.
+  if (req.path === '/auth/signin' || req.path === '/auth/logout') {
     return next();
   }
 
-  // 백업 진행 중이면 차단
-  if (backupInProgress) {
-    return res.status(503).json({
-      success: false,
-      message: '백업이 진행 중입니다. 잠시 후 다시 시도해주세요.',
-      backupJobId: currentBackupJobId
-    });
+  // 백업 제어 API 는 허용 (백업 시작은 핸들러 자체 가드로 중복 방지).
+  // 단 복원(restore)은 진행 중 백업과 동시 실행 금지.
+  if (req.path.startsWith('/admin/backup') && !req.path.startsWith('/admin/backup/restore')) {
+    return next();
   }
 
-  next();
+  return res.status(503).json({
+    success: false,
+    message: '백업이 진행 중입니다. 잠시 후 다시 시도해주세요.',
+    backupJobId: currentBackupJobId
+  });
 }
 
 module.exports = {

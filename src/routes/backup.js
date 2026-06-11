@@ -291,6 +291,14 @@ router.post('/restore/validate', requireAdmin, upload.single('backup'), async (r
  */
 router.post('/restore', requireAdmin, async (req, res) => {
   try {
+    // 백업 진행 중 복원 금지 — blockDuringBackup allowlist 와 무관하게 핸들러에서도 가드 (#529)
+    if (isBackupInProgress()) {
+      return res.status(409).json({
+        success: false,
+        message: '백업이 진행 중입니다. 백업 완료 후 복원을 시작해주세요.'
+      });
+    }
+
     const { jobId, options = {} } = req.body;
 
     if (!jobId) {
