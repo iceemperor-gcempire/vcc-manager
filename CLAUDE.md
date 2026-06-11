@@ -217,6 +217,13 @@ npm run test:e2e:headed
 - Material-UI 컴포넌트 사용
 - `useForm` (react-hook-form)으로 폼 관리
 
+### UI 스타일 규칙 (#543 — 디자인 핸드오프 동기화)
+- **색·간격·폰트는 반드시 theme 토큰 경유** (`frontend/src/theme.js`). **새 hex 리터럴 추가 금지** — 필요한 색이 토큰에 없으면 theme/공용 모듈에 토큰을 추가한 뒤 사용. (예외: `templates/capabilities.js` 의 서버 브랜드 컬러)
+- 공용 모듈 사용 (사본 생성 금지): 모노스페이스 `import { MONO } from '../theme'`, 브랜드 그라데이션 `utils/brandGradients`, 상대시각 `utils/relativeTime`
+- spacing 단위는 4px (`theme.spacing(1)` = 4px) — 디자인 mockup 의 px 값은 **px/4 로 환산** (8px 관성 주의)
+- **디자인 의도가 핸드오프와 다르게 결정되면**, 그 PR 에서 `docs/design/design_handoff_vcc_manager/README.md` 의 "Deviations from v1" 섹션을 함께 갱신할 것 (코드↔디자인 동기화 유지의 핵심)
+- 디자인 기준 문서: `docs/design/design_handoff_vcc_manager/` (목업·토큰·마이그레이션 가이드)
+
 ### 공통 컴포넌트 활용 (`frontend/src/components/common/`)
 - `ImageSelectDialog`: 이미지 선택 다이얼로그
 - `ImageViewerDialog`: 이미지 뷰어
