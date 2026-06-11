@@ -961,7 +961,7 @@ function JobHistoryPanel({
         if (deletedImagesCount > 0 || deletedVideosCount > 0) {
           toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
           queryClient.invalidateQueries('generatedImages');
-          queryClient.invalidateQueries('videos');
+          queryClient.invalidateQueries('generatedVideos');
         } else {
           toast.success('작업이 삭제되었습니다');
         }
