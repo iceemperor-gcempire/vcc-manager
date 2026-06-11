@@ -32,6 +32,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, imageAPI } from '../services/api';
 import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
 import MetadataFieldInput from './common/MetadataFieldInput';
+import { MONO } from '../theme';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -435,7 +436,7 @@ function PromptGeneratorPanel({
                       borderRadius: 1,
                       maxHeight: compact ? 200 : 500,
                       overflow: 'auto',
-                      fontFamily: 'monospace',
+                      fontFamily: MONO,
                       fontSize: compact ? '0.875rem' : '1rem'
                     }}
                   >

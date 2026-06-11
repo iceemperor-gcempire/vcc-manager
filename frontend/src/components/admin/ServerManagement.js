@@ -46,6 +46,7 @@ import toast from 'react-hot-toast';
 import { serverAPI, jobAPI } from '../../services/api';
 import { getServerTypeColor } from '../../templates/capabilities';
 import { ToneChip, TagChip } from '../common/WorkboardCatalog';
+import { MONO } from '../../theme';
 
 // 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
 const KNOWN_SERVER_URLS = {
@@ -136,7 +137,6 @@ function ServerCard({
     }
   };
 
-  const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
   const statusKey = server.healthCheck?.status;
   const statusChip = statusKey === 'healthy'
     ? { tone: 'success', label: 'online' }

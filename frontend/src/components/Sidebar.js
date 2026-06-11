@@ -203,7 +203,8 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
           <Divider sx={{ borderColor: 'divider', my: 1 }} />
 
           <Box sx={{ px: 2, py: 1 }}>
-            <Typography variant="caption" sx={{ color: 'grey.500' }}>
+            {/* 관리자 구분은 색이 아닌 섹션 라벨로 (#542 — 빨강 일괄 적용 제거, 핸드오프 중립 스타일) */}
+            <Typography variant="overline" sx={{ color: 'grey.500', letterSpacing: '0.06em' }}>
               관리자 메뉴
             </Typography>
           </Box>
@@ -221,7 +222,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                     '&:hover': { bgcolor: 'navbar.light' },
                   }}
                 >
-                  <ListItemIcon sx={{ color: 'error.main', minWidth: 40 }}>
+                  <ListItemIcon sx={{ color: 'navbar.contrastText', minWidth: 40 }}>
                     {item.icon}
                   </ListItemIcon>
                   <ListItemText
@@ -230,7 +231,6 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
                       '& .MuiListItemText-primary': {
                         fontSize: isMobile ? '1rem' : '0.9rem',
                         fontWeight: isMobile ? 500 : 400,
-                        color: 'error.main',
                       },
                     }}
                   />

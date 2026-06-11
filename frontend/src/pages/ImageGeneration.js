@@ -53,6 +53,7 @@ import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../ut
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
+import { MONO } from '../theme';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -835,7 +836,7 @@ function ImageGeneration() {
           </Typography>
         )}
         <Box display="flex" alignItems="center" gap={0.5} mb={1}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
             작업판 ID: {workboardData?._id}
           </Typography>
           <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">

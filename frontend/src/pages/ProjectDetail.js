@@ -56,6 +56,7 @@ import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import JobHistoryPanel from '../components/common/JobHistoryPanel';
 import TagInput from '../components/common/TagInput';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -801,7 +802,7 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
           overflow: 'hidden',
           backgroundImage: hasCover
             ? `url(${project.coverImage.url})`
-            : 'linear-gradient(135deg, #7B4DD8 0%, #5B5BD6 50%, #2F77E4 100%)',
+            : BRAND_GRADIENTS[0],
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           boxShadow: 1,

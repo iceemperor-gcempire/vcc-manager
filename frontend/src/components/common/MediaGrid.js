@@ -90,24 +90,24 @@ function ImageDetailDialog({ image, open, onClose, type }) {
       onClose={onClose}
       maxWidth="lg"
       fullWidth
-      PaperProps={{ sx: { bgcolor: 'black', maxHeight: '90vh' } }}
+      PaperProps={{ sx: { bgcolor: 'common.black', maxHeight: '90vh' } }}
     >
-      <DialogTitle sx={{ color: 'white', pb: 1 }}>
+      <DialogTitle sx={{ color: 'common.white', pb: 1 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">이미지 상세보기</Typography>
           <Box>
-            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}><Download /></IconButton>
-            <IconButton onClick={onClose} sx={{ color: 'white' }}><Close /></IconButton>
+            <IconButton onClick={handleDownload} sx={{ color: 'common.white', mr: 1 }}><Download /></IconButton>
+            <IconButton onClick={onClose} sx={{ color: 'common.white' }}><Close /></IconButton>
           </Box>
         </Box>
       </DialogTitle>
-      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
+      <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'common.black' }}>
         <img
           src={image.url}
           alt={image.originalName}
           style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }}
         />
-        <Box mt={2} sx={{ color: 'white' }}>
+        <Box mt={2} sx={{ color: 'common.white' }}>
           <Typography variant="body2">{image.originalName}</Typography>
           {image.metadata && (
             <Typography variant="body2">크기: {image.metadata.width} x {image.metadata.height}</Typography>
@@ -270,7 +270,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
       )}
       <Box
         sx={{
-          position: 'relative', height: 200, bgcolor: 'black',
+          position: 'relative', height: 200, bgcolor: 'common.black',
           display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
         }}
         onClick={() => bulkMode ? onBulkToggle?.(video._id) : onView(video)}
@@ -283,7 +283,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
           onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
         />
         <Box sx={{ position: 'absolute', top: 8, right: 8, bgcolor: 'rgba(0,0,0,0.6)', borderRadius: 1, px: 1, py: 0.5 }}>
-          <Videocam sx={{ color: 'white', fontSize: 20 }} />
+          <Videocam sx={{ color: 'common.white', fontSize: 20 }} />
         </Box>
       </Box>
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
@@ -478,7 +478,7 @@ function MediaGrid({
                         <CheckCircle
                           sx={{
                             position: 'absolute', top: 8, right: 8,
-                            color: 'primary.main', bgcolor: 'white', borderRadius: '50%', zIndex: 1
+                            color: 'primary.main', bgcolor: 'common.white', borderRadius: '50%', zIndex: 1
                           }}
                         />
                       )}

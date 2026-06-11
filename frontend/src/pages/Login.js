@@ -13,6 +13,7 @@ import {
   IconButton,
   CircularProgress
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   Google as GoogleIcon,
   Visibility,
@@ -28,6 +29,7 @@ import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 function Login() {
+  const theme = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -99,8 +101,8 @@ function Login() {
             duration: 6000,
             icon: '❌',
             style: {
-              background: '#ffebee',
-              color: '#c62828',
+              background: theme.palette.error.light,
+              color: theme.palette.error.main,
             },
           });
         } else {

@@ -50,8 +50,9 @@ import VideoViewerDialog from '../components/common/VideoViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
 import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
+import { MONO } from '../theme';
+import { relativeTime } from '../utils/relativeTime';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
 
 // ---- 상태 매핑 ----------------------------------------------------------
@@ -98,18 +99,6 @@ function extractSize(job) {
 function projectFromTags(tags = []) {
   const t = tags.find((x) => typeof x === 'object' && x.name);
   return t?.name || '';
-}
-function relativeTime(time) {
-  const diff = Date.now() - time.getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  return `${String(time.getFullYear()).slice(2)}. ${time.getMonth() + 1}. ${time.getDate()}.`;
 }
 
 // ---- 정규화 -------------------------------------------------------------

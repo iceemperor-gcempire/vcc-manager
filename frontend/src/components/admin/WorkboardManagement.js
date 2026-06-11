@@ -60,6 +60,8 @@ import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import MetadataPickerModal from '../common/MetadataPickerModal';
 import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
+import { MONO } from '../../theme';
+import { BRAND_GRADIENTS } from '../../utils/brandGradients';
 import {
   getServerTypeLabel,
   getOutputFormatLabel,
@@ -207,7 +209,7 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         </Box>
 
         <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
             ID: {workboard._id}
           </Typography>
           <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
@@ -673,7 +675,7 @@ function PreviewField({ field }) {
       <Box>
         {label}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
-          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: 'linear-gradient(135deg, #7B4DD8, #5B5BD6)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
+          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: BRAND_GRADIENTS[0], color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
             M
           </Box>
           <Typography variant="caption" sx={{ flex: 1 }}>모델 선택…</Typography>
@@ -1036,7 +1038,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           ) : (
             <>
           <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
               작업판 ID: {workboard?._id}
             </Typography>
             <IconButton
@@ -1139,13 +1141,13 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                 <Chip
                                   label={field.type}
                                   variant="outlined"
-                                  sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
+                                  sx={{ fontFamily: MONO, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
                                 />
                                 <Typography sx={{ fontWeight: selectedFieldIdx === index ? 600 : 500 }}>
                                   {field.label || `커스텀 필드 ${index + 1}`}
                                 </Typography>
                                 {field.name && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
                                     {field.name}
                                   </Typography>
                                 )}
@@ -1167,7 +1169,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   fullWidth
                                   label="필드명 (영문)"
                                   placeholder="예: customField1"
-                                  sx={{ fontFamily: 'monospace' }}
+                                  sx={{ fontFamily: MONO }}
                                 />
                               )}
                             />
@@ -1218,7 +1220,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   fullWidth
                                   label="Workflow 형식 문자열"
                                   placeholder={`예: {{##${field.name || 'field_name'}##}}`}
-                                  sx={{ fontFamily: 'monospace' }}
+                                  sx={{ fontFamily: MONO }}
                                 />
                               )}
                             />
@@ -1502,7 +1504,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                     label="추가 LLM 파라미터 (JSON)"
                     placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
                     helperText="OpenAI 계열은 요청 본문 최상위, Gemini 는 generationConfig 에 병합됩니다. thinking 끄는 방식은 모델/서버마다 달라 가이드 문서를 참고하세요."
-                    InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+                    InputProps={{ sx: { fontFamily: MONO, fontSize: '0.85rem' } }}
                   />
                 )}
               />
@@ -1511,7 +1513,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                   <Typography variant="subtitle2" fontWeight="bold">자주 쓰는 예시</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                  <Typography variant="caption" component="div" sx={{ fontFamily: MONO, whiteSpace: 'pre-wrap' }}>
                     {'// 창작용 — 무작위성 높이고 thinking 끄기 (서버에 따라 키가 다름)\n'}
                     {'{ "temperature": 1.0, "chat_template_kwargs": { "enable_thinking": false } }\n\n'}
                     {'// reasoning 모델(gpt-5/o1 등) — temperature 미지원이니 비워두기\n'}
@@ -1646,7 +1648,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                         label="ComfyUI Workflow JSON"
                         error={!!errors.workflowData}
                         helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                        sx={{ fontFamily: 'monospace' }}
+                        sx={{ fontFamily: MONO }}
                       />
                     )}
                   />
