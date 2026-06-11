@@ -89,6 +89,11 @@ const initializeQueues = async () => {
     });
 
     imageGenerationQueue.on('completed', async (job, result) => {
+      // 취소된 잡은 체크포인트가 빈 결과를 반환 — 상태를 덮어쓰지 않음 (#521)
+      if (result?.cancelled) {
+        console.log(`🚫 Job ${job.id} finished as cancelled — keeping cancelled status`);
+        return;
+      }
       console.log(`Job ${job.id} completed successfully`);
       console.log(`ComfyUI result:`, JSON.stringify(result, null, 2));
       console.log(`Result images count: ${result?.images?.length || 0}`);
@@ -291,11 +296,28 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
   return { ...result, seed: actualSeed };
 }
 
+// 취소 여부 확인 — worker 체크포인트용 (#521)
+const isJobCancelled = async (jobId) => {
+  try {
+    const doc = await ImageGenerationJob.findById(jobId).select('status').lean();
+    return doc?.status === 'cancelled';
+  } catch (error) {
+    console.error(`Error checking cancel state for ${jobId}:`, error.message);
+    return false;
+  }
+};
+
 const processImageGeneration = async (job) => {
   const { jobId, workboardData, inputData } = job.data;
 
   try {
     job.progress(5);
+
+    // 취소 체크포인트 1 — 생성 시작 전. throw 하지 않음 (throw 시 Bull attempts 재시도가 발동) (#521)
+    if (await isJobCancelled(jobId)) {
+      console.log(`🚫 Job ${jobId} cancelled — skipping generation`);
+      return { cancelled: true };
+    }
 
     const { key, serverType, outputFormat } = resolveServiceKey(workboardData);
     const handler = SERVICE_MAP[key];
@@ -307,6 +329,13 @@ const processImageGeneration = async (job) => {
     console.log(`[dispatch] job ${jobId} → ${key}`);
 
     const generationResult = await handler({ workboardData, inputData, job, jobId });
+
+    // 취소 체크포인트 2 — 결과 저장 전. 생성은 이미 끝났지만 취소된 잡의 결과는 버린다 (#521)
+    if (await isJobCancelled(jobId)) {
+      console.log(`🚫 Job ${jobId} cancelled during generation — discarding results`);
+      return { cancelled: true };
+    }
+
     const enhancedInputData = generationResult.seed != null
       ? { ...inputData, seed: generationResult.seed }
       : inputData;
@@ -1041,6 +1070,30 @@ const getQueueStats = async () => {
   }
 };
 
+// 취소된 잡을 Bull 큐에서 제거 (#521)
+// waiting/delayed/paused 면 실행 자체를 차단. active 면 worker 체크포인트가 처리.
+const cancelQueueJob = async (queueJobId) => {
+  if (!imageGenerationQueue || !queueJobId) {
+    return { removed: false, state: null };
+  }
+  try {
+    const queueJob = await imageGenerationQueue.getJob(queueJobId);
+    if (!queueJob) {
+      return { removed: false, state: null };
+    }
+    const state = await queueJob.getState();
+    if (['waiting', 'delayed', 'paused'].includes(state)) {
+      await queueJob.remove();
+      console.log(`🚫 Queue job ${queueJobId} removed (state: ${state})`);
+      return { removed: true, state };
+    }
+    return { removed: false, state };
+  } catch (error) {
+    console.error(`Error removing queue job ${queueJobId}:`, error.message);
+    return { removed: false, state: 'error' };
+  }
+};
+
 // 종료 시 큐 정리 — active 잡 완료를 기다리지 않음 (잡이 매우 길 수 있어 빠른 종료 우선, #523)
 const closeQueues = async () => {
   if (!imageGenerationQueue) return;
@@ -1052,6 +1105,7 @@ module.exports = {
   initializeQueues,
   addImageGenerationJob,
   getQueueStats,
+  cancelQueueJob,
   closeQueues,
   imageGenerationQueue
 };

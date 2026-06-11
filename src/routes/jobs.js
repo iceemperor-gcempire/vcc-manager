@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
-const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
+const { addImageGenerationJob, getQueueStats, cancelQueueJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
@@ -418,10 +418,15 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     if (!['pending', 'processing'].includes(job.status)) {
       return res.status(400).json({ message: 'Job cannot be cancelled' });
     }
-    
+
+    // DB 상태를 먼저 cancelled 로 — active 잡은 worker 체크포인트가 이 상태를 보고 중단 (#521)
     await job.updateStatus('cancelled');
-    
-    res.json({ message: 'Job cancelled successfully' });
+
+    // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단)
+    const { removed, state } = await cancelQueueJob(job.queueJobId);
+    console.log(`🚫 Job ${job._id} cancelled (queue: ${removed ? 'removed' : state || 'not found'})`);
+
+    res.json({ message: 'Job cancelled successfully', queueRemoved: removed });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
