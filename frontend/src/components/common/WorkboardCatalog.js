@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
+import { MONO } from '../../theme';
 import {
   Search,
   Close,
@@ -15,7 +16,6 @@ import {
   Info,
 } from '@mui/icons-material';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
 // 작업판 종류(생성 엔진) — outputFormat + serverType 로 유도. 카드 좌측 아이콘.
 export const KIND_META = {

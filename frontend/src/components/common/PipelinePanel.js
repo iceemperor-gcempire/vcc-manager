@@ -51,6 +51,7 @@ import PromptDataPickerDialog from './PromptDataPickerDialog';
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI, promptDataAPI } from '../../services/api';
+import { MONO } from '../../theme';
 
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
@@ -238,7 +239,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
               color="text.secondary"
               noWrap
               sx={{
-                fontFamily: '"JetBrains Mono", monospace',
+                fontFamily: MONO,
                 minWidth: 0,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -306,7 +307,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
                     placeItems: 'center',
                     fontSize: 10,
                     fontWeight: 700,
-                    fontFamily: '"JetBrains Mono", monospace',
+                    fontFamily: MONO,
                     flexShrink: 0,
                   }}
                 >
@@ -317,7 +318,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
                     {s.workboardId?.name || '(삭제됨)'}
                   </Typography>
                   {s.workboardId?.outputFormat && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10, fontFamily: '"JetBrains Mono", monospace' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10, fontFamily: MONO }}>
                       out: {s.workboardId.outputFormat}
                     </Typography>
                   )}
@@ -478,7 +479,7 @@ function StepLaneCard({
             placeItems: 'center',
             fontSize: 12,
             fontWeight: 700,
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: MONO,
           }}
         >
           {index + 1}
@@ -487,7 +488,7 @@ function StepLaneCard({
           <Chip
             label={`out: ${step.workboard.outputFormat}`}
             variant="outlined"
-            sx={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
+            sx={{ fontFamily: MONO, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
           />
         )}
         <Box sx={{ flex: 1 }} />
@@ -658,7 +659,7 @@ function LaneConnector({ isMobile, prevOutput, autoInject }) {
       {prevOutput && (
         <Typography
           variant="caption"
-          sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+          sx={{ fontFamily: MONO, fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
         >
           {prevOutput}
         </Typography>
@@ -813,7 +814,7 @@ function PaletteDocList({ docs, selectedIds, disabled, onClickDoc, singleSelect 
               <Typography variant="body2" noWrap sx={{ fontWeight: active ? 600 : 500 }}>
                 {d.title || '(제목 없음)'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO, fontSize: 10, display: 'block' }}>
                 {(d.content || '').length.toLocaleString()}자
               </Typography>
             </Box>
@@ -889,7 +890,7 @@ function PipelineDiagnosticStrip({ steps }) {
         <Typography
           variant="caption"
           sx={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: MONO,
             fontSize: 11,
             color: 'text.secondary',
             flexShrink: 0,
@@ -1740,7 +1741,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           {run && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, flexWrap: 'wrap', fontSize: 13, color: 'text.secondary' }}>
               <span>실행 ID</span>
-              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 12, color: 'text.primary' }}>
+              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: MONO, fontSize: 12, color: 'text.primary' }}>
                 {String(run._id).slice(-8)}
               </Box>
               {run.startedAt && (
@@ -1832,7 +1833,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                 sx={{ height: 6, borderRadius: 1 }}
               />
             </Box>
-            <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
+            <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
               {progressPct}%
             </Typography>
           </Box>
@@ -1875,7 +1876,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                     )}
                     {runStep.status === 'completed' && runStep.output && (
                       <Paper variant="outlined" sx={{ borderColor: (t) => alpha(t.palette.success.main, 0.35), bgcolor: (t) => alpha(t.palette.success.main, 0.06), overflow: 'hidden' }}>
-                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: '"JetBrains Mono", monospace' }}>
+                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: MONO }}>
                           결과 ({runStep.output.type})
                         </Box>
                         <Box sx={{ p: 1.5 }}>
@@ -1969,7 +1970,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                         <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: isCurrent ? 600 : 500 }}>
                           {r.initialPrompt?.slice(0, 30) || '(빈 입력)'}
                         </Typography>
-                        <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', flexShrink: 0 }}>
+                        <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.secondary', flexShrink: 0 }}>
                           {formatRunTime(r.createdAt)}
                         </Typography>
                       </Box>
@@ -2134,7 +2135,7 @@ export function PipelineHistoryPanel({ projectId }) {
               </StepLabel>
               <StepContent>
                 {runStep.status === 'completed' && runStep.output && (
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'success.light' }}>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
                       결과 ({runStep.output.type})
                     </Typography>
@@ -2218,7 +2219,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
             <Chip label={`재시도 ${run.triggerCount - 1}회`} variant="outlined" />
           )}
           <Box sx={{ flex: 1 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
             {new Date(run.createdAt).toLocaleString('ko-KR')}
           </Typography>
         </Box>
@@ -2246,7 +2247,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
               const isFail = s.status === 'failed';
               const isRunning = s.status === 'running';
               const bg = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'transparent';
-              const fg = isDone || isFail || isRunning ? '#FFFFFF' : 'text.secondary';
+              const fg = isDone || isFail || isRunning ? 'common.white' : 'text.secondary';
               const border = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'divider';
               return (
                 <Box
@@ -2263,7 +2264,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
                     placeItems: 'center',
                     fontSize: 10,
                     fontWeight: 700,
-                    fontFamily: '"JetBrains Mono", monospace',
+                    fontFamily: MONO,
                   }}
                 >
                   {isDone ? <CheckCircleIcon sx={{ fontSize: 12 }} /> : idx + 1}
@@ -2278,7 +2279,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
                 value={progressPct}
                 sx={{ height: 4, borderRadius: 1 }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', fontFamily: '"JetBrains Mono", monospace', fontSize: 10, mt: 0.25 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', fontFamily: MONO, fontSize: 10, mt: 0.25 }}>
                 {progressPct}%
               </Typography>
             </Box>

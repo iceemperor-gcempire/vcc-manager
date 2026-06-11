@@ -45,8 +45,8 @@ import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
 import { copyToClipboard } from '../utils/clipboard';
 import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
 import { usePersistedState } from '../hooks/usePersistedState';
+import { MONO } from '../theme';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
 // ── 사용자: 작업판 선택(실행) ────────────────────────────────
 function selectWorkboard(workboard, projectId, navigate) {

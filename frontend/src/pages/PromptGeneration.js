@@ -23,6 +23,7 @@ import ConversationChatPanel from '../components/common/ConversationChatPanel';
 import WorkboardChatPanel from '../components/common/WorkboardChatPanel';
 import ProjectContextSelector from '../components/common/ProjectContextSelector';
 import toast from 'react-hot-toast';
+import { MONO } from '../theme';
 
 function PromptGeneration() {
   const { workboardId } = useParams();
@@ -104,7 +105,7 @@ function PromptGeneration() {
       </Box>
 
       <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
           작업판 ID: {workboard._id}
         </Typography>
         <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">

@@ -8,6 +8,9 @@
 //   - 신설 palette.navbar (사이드바/헤더 통합)
 //   - 한국어 letter-spacing -0.005em, font: Pretendard
 
+// 모노스페이스 폰트 토큰 — 시드/ID/메타 영역 공용 (tokens.css --font-mono, #542)
+export const MONO = '"JetBrains Mono","SF Mono","Menlo","Consolas",monospace';
+
 const LIGHT = {
   primary:   { main: '#5B5BD6', light: '#A6A8E6', dark: '#4040AD', contrastText: '#FFFFFF' },
   secondary: { main: '#7B4DD8', light: '#B69CEC', dark: '#5B2DBF', contrastText: '#FFFFFF' },
@@ -18,7 +21,7 @@ const LIGHT = {
   // 라이트모드에선 사이드바/헤더도 밝게 (#514). 흰 표면 + 어두운 텍스트, 활성/hover 는 옅은 primary 틴트.
   navbar:    { main: '#FFFFFF', light: '#ECEDF7', dark: '#F1F1ED', contrastText: '#16181D' },
   background:{ default: '#F7F7F4', paper: '#FFFFFF' },
-  text:      { primary: '#16181D', secondary: '#5B616E', disabled: '#B6BAC2' },
+  text:      { primary: '#16181D', secondary: '#5B616E', tertiary: '#8A8F9A', disabled: '#B6BAC2' },
   divider:   '#E2E2DC',
   grey: {
     50:  '#F7F7F4', 100: '#F1F1ED', 200: '#EBEAE5', 300: '#E2E2DC',
@@ -37,7 +40,7 @@ const DARK = {
   // 다크에선 사이드바가 컨텐츠보다 더 어둡게 (디자이너 권장)
   navbar:    { main: '#0A0C10', light: '#1A1E27', dark: '#05070A', contrastText: '#E4E5E9' },
   background:{ default: '#0E1015', paper: '#161A22' },
-  text:      { primary: '#E8E9EE', secondary: '#A0A4AF', disabled: '#4A4E58' },
+  text:      { primary: '#E8E9EE', secondary: '#A0A4AF', tertiary: '#717684', disabled: '#4A4E58' },
   divider:   '#2A2F3B',
   // 다크 grey 스케일 — bgcolor: 'grey.50/100/...' 가 다크모드에서 어두운 surface 로 동작하도록
   // 50~400 은 paper 주변의 다크 톤, 500~700 은 mid → light text/icon 톤, 800~900 은 near-white.
@@ -73,6 +76,7 @@ export function buildVccTheme(mode = 'light') {
     palette: { mode, ...palette },
     typography: {
       fontFamily: '"Pretendard","Pretendard Variable",-apple-system,BlinkMacSystemFont,"Noto Sans KR",Roboto,sans-serif',
+      fontFamilyMono: MONO,
       h1: { fontSize: 28, lineHeight: '36px', fontWeight: 700, letterSpacing: '-0.01em' },
       h2: { fontSize: 22, lineHeight: '30px', fontWeight: 700, letterSpacing: '-0.01em' },
       h3: { fontSize: 18, lineHeight: '26px', fontWeight: 700, letterSpacing: '-0.005em' },

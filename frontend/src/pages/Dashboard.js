@@ -32,40 +32,10 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import config from '../config';
 import UpdateLogDialog from '../components/common/UpdateLogDialog';
+import { MONO } from '../theme';
+import { gradientForId } from '../utils/brandGradients';
+import { relativeTime } from '../utils/relativeTime';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
-
-// 프로젝트 아바타 그라데이션 — 디자인 핸드오프 팔레트에서 id 해시로 결정적 선택
-const GRADIENTS = [
-  'linear-gradient(135deg, #7B4DD8, #5B5BD6)',
-  'linear-gradient(135deg, #2F77E4, #4E8EE8)',
-  'linear-gradient(135deg, #BE7415, #D69021)',
-  'linear-gradient(135deg, #1F9D55, #2EBA6B)',
-  'linear-gradient(135deg, #5B616E, #8A8F9A)',
-];
-function gradientFor(id = '') {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return GRADIENTS[h % GRADIENTS.length];
-}
-
-// 상대 시각 — "방금 / N분 전 / N시간 전 / 어제 / N일 전 / yy.M.d"
-function relativeTime(iso) {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const diff = Date.now() - then;
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  const d = new Date(then);
-  return `${String(d.getFullYear()).slice(2)}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-}
 
 function dateHeroLine() {
   const now = new Date();
@@ -419,7 +389,7 @@ function Dashboard() {
                         width: 36,
                         height: 36,
                         borderRadius: 2,
-                        background: gradientFor(String(p._id)),
+                        background: gradientForId(String(p._id)),
                         color: '#fff',
                         fontWeight: 700,
                         fontSize: 16,

@@ -20,6 +20,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from 'react-query';
 import { alpha } from '@mui/material/styles';
+import { MONO } from '../../theme';
 
 // 휘발성 알림 popover (Phase 6).
 // 영속 저장은 없음 — react-query 캐시에 있는 'pipelineRun' 데이터를 source 로 활용.
@@ -245,7 +246,7 @@ function NotifRow({ run, onClick, unread }) {
           <Typography variant="body2" sx={{ flex: 1, fontWeight: 600, textWrap: 'pretty' }}>
             {title}
           </Typography>
-          <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', flexShrink: 0 }}>
+          <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.secondary', flexShrink: 0 }}>
             {formatRelative(time)}
           </Typography>
         </Box>

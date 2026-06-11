@@ -17,6 +17,7 @@ import {
 import MetadataMediaThumbnail from '../common/MetadataMediaThumbnail';
 import { getKindLabel } from '../../utils/metadataItem';
 import { getBaseModelColor } from '../common/MetadataItemCard';
+import { MONO } from '../../theme';
 
 // 한 줄 / 아이템 — 이미지 좌측, 정보 우측 (#344).
 // 좌: 썸네일 (90x90). 우: 모델명+버전 / chips / 트리거 워드 또는 파일명 / 액션 버튼.
@@ -135,7 +136,7 @@ function MetadataImageListItem({
             )}
           </Box>
         ) : (
-          <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ mt: 0.5, fontFamily: 'monospace' }}>
+          <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ mt: 0.5, fontFamily: MONO }}>
             {item.filename}
           </Typography>
         )}

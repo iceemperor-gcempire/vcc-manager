@@ -35,37 +35,10 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../services/api';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
+import { MONO } from '../theme';
+import { gradientForId } from '../utils/brandGradients';
+import { relativeTime } from '../utils/relativeTime';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
-
-const GRADIENTS = [
-  'linear-gradient(135deg, #7B4DD8 0%, #5B5BD6 50%, #2F77E4 100%)',
-  'linear-gradient(135deg, #2F77E4 0%, #4E8EE8 100%)',
-  'linear-gradient(135deg, #BE7415 0%, #D69021 100%)',
-  'linear-gradient(135deg, #1F9D55 0%, #2EBA6B 100%)',
-  'linear-gradient(135deg, #D5383E 0%, #BE7415 100%)',
-  'linear-gradient(135deg, #5B616E 0%, #8A8F9A 100%)',
-];
-function gradientFor(id = '') {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return GRADIENTS[h % GRADIENTS.length];
-}
-function relativeTime(iso) {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const min = Math.floor((Date.now() - then) / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  const d = new Date(then);
-  return `${String(d.getFullYear()).slice(2)}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-}
 
 function TagPill({ tag }) {
   if (!tag?.name) return null;
@@ -138,7 +111,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
       sx={{ p: 0, overflow: 'hidden', cursor: 'pointer', transition: 'all 150ms', height: '100%', display: 'flex', flexDirection: 'column',
         '&:hover': { borderColor: 'primary.main', boxShadow: 2 } }}>
       {/* cover — 설정된 커버 이미지가 있으면 그걸, 없으면 그라데이션 */}
-      <Box sx={{ position: 'relative', height: 120, background: gradientFor(String(project._id)), overflow: 'hidden' }}>
+      <Box sx={{ position: 'relative', height: 120, background: gradientForId(String(project._id)), overflow: 'hidden' }}>
         {project.coverImage?.url && (
           <Box component="img" src={project.coverImage.url} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -184,7 +157,7 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
   return (
     <Box onClick={onOpen} sx={{ px: 3.5, py: 3, display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientFor(String(project._id)),
+      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientForId(String(project._id)),
         color: '#fff', fontWeight: 700, display: 'grid', placeItems: 'center' }}>
         {project.coverImage?.url
           ? <Box component="img" src={project.coverImage.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
