@@ -46,6 +46,8 @@ import { copyToClipboard } from '../utils/clipboard';
 import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { MONO } from '../theme';
+import PageHeader from '../components/common/PageHeader';
+import EmptyState from '../components/common/EmptyState';
 
 
 // ── 사용자: 작업판 선택(실행) ────────────────────────────────
@@ -207,25 +209,23 @@ function WorkboardCatalogPage({ admin = false }) {
   return (
     <Box>
       {/* 헤더 — admin 일 때만 관리 버튼 노출 */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 4 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h1">{admin ? '작업판 관리' : '작업판'}</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-            {admin
-              ? '작업판 정의 · 출력 형식 · 접근 권한 · 서버 매핑을 관리합니다.'
-              : '한 번의 호출로 실행하는 단위. 파이프라인의 단계로도 사용됩니다.'}
-          </Typography>
-          {projectContext && (
-            <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" size="small" sx={{ mt: 1 }} />
-          )}
-        </Box>
-        {admin && (
-          <Box sx={{ display: 'flex', gap: 0.75 }}>
+      <PageHeader
+        title={admin ? '작업판 관리' : '작업판'}
+        description={admin
+          ? '작업판 정의 · 출력 형식 · 접근 권한 · 서버 매핑을 관리합니다.'
+          : '한 번의 호출로 실행하는 단위. 파이프라인의 단계로도 사용됩니다.'}
+        sx={{ mb: 4 }}
+        actions={admin && (
+          <>
             <Button variant="outlined" startIcon={<FileUpload />} onClick={() => setImportOpen(true)}>가져오기</Button>
             <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
-          </Box>
+          </>
         )}
-      </Box>
+      >
+        {projectContext && (
+          <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" size="small" sx={{ mt: 1 }} />
+        )}
+      </PageHeader>
 
       {/* 상태 필터 — admin 전용 축 */}
       {admin && (
@@ -261,16 +261,14 @@ function WorkboardCatalogPage({ admin = false }) {
       {isLoading ? (
         <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
       ) : filtered.length === 0 ? (
-        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Inventory2 sx={{ fontSize: 32, color: 'text.disabled', mb: 1.5 }} />
-          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>조건에 맞는 작업판이 없습니다</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: admin ? 2 : 0 }}>
-            {workboards.length === 0
-              ? (admin ? '새 작업판을 만들어 보세요.' : '사용 가능한 작업판이 없습니다.')
-              : '필터를 줄이거나 초기화해 보세요.'}
-          </Typography>
-          {admin && <Button variant="contained" size="small" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>}
-        </Box>
+        <EmptyState
+          icon={<Inventory2 />}
+          title="조건에 맞는 작업판이 없습니다"
+          description={workboards.length === 0
+            ? (admin ? '새 작업판을 만들어 보세요.' : '사용 가능한 작업판이 없습니다.')
+            : '필터를 줄이거나 초기화해 보세요.'}
+          action={admin ? <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button> : undefined}
+        />
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
           {filtered.map((wb) => (

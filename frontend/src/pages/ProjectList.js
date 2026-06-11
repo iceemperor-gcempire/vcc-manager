@@ -38,6 +38,8 @@ import ProjectEditDialog from '../components/common/ProjectEditDialog';
 import { MONO } from '../theme';
 import { gradientForId } from '../utils/brandGradients';
 import { relativeTime } from '../utils/relativeTime';
+import PageHeader from '../components/common/PageHeader';
+import EmptyState from '../components/common/EmptyState';
 
 
 function TagPill({ tag }) {
@@ -244,19 +246,17 @@ function ProjectList() {
 
   return (
     <Box>
-      {/* 헤더 */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 5 }}>
-        <Box sx={{ flex: '1 1 360px', minWidth: 0 }}>
-          <Typography variant="h1">프로젝트</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-            세계관, 캠페인, 실험 모음을 프로젝트 단위로 묶어 관리합니다.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
-          <ViewToggle view={view} setView={setView} />
-          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="프로젝트"
+        description="세계관, 캠페인, 실험 모음을 프로젝트 단위로 묶어 관리합니다."
+        sx={{ mb: 5 }}
+        actions={(
+          <>
+            <ViewToggle view={view} setView={setView} />
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
+          </>
+        )}
+      />
 
       {/* 검색 / 필터 */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4.5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -277,11 +277,11 @@ function ProjectList() {
       </Box>
 
       {projects.length === 0 ? (
-        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>아직 프로젝트가 없습니다</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>첫 프로젝트를 만들어 보세요.</Typography>
-          <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
-        </Box>
+        <EmptyState
+          title="아직 프로젝트가 없습니다"
+          description="첫 프로젝트를 만들어 보세요."
+          action={<Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>}
+        />
       ) : view === 'list' ? (
         <Paper variant="outlined">
           {visible.map((p, i) => (
