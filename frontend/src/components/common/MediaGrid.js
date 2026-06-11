@@ -174,13 +174,13 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
       />
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         <Typography variant="subtitle2" noWrap gutterBottom>{image.originalName}</Typography>
-        <Typography variant="caption" color="textSecondary" display="block">
+        <Typography variant="caption" color="text.secondary" display="block">
           {image.metadata?.width && image.metadata?.height
             ? `${image.metadata.width}x${image.metadata.height}`
             : '크기 정보 없음'}
         </Typography>
-        <Typography variant="caption" color="textSecondary" display="block">{formatFileSize(image.size)}</Typography>
-        <Typography variant="caption" color="textSecondary" display="block">
+        <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(image.size)}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
           {new Date(image.createdAt).toLocaleDateString()}
         </Typography>
 
@@ -288,13 +288,13 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
       </Box>
       <CardContent sx={{ flexGrow: 1, pb: 1 }}>
         <Typography variant="subtitle2" noWrap gutterBottom>{video.originalName}</Typography>
-        <Typography variant="caption" color="textSecondary" display="block">
+        <Typography variant="caption" color="text.secondary" display="block">
           {video.metadata?.width && video.metadata?.height
             ? `${video.metadata.width}x${video.metadata.height}`
             : '크기 정보 없음'}
         </Typography>
-        <Typography variant="caption" color="textSecondary" display="block">{formatFileSize(video.size)}</Typography>
-        <Typography variant="caption" color="textSecondary" display="block">
+        <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(video.size)}</Typography>
+        <Typography variant="caption" color="text.secondary" display="block">
           {new Date(video.createdAt).toLocaleDateString()}
         </Typography>
 

@@ -78,7 +78,7 @@ function Settings() {
         <Typography variant="h6" gutterBottom>
           삭제 동작 설정
         </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
+        <Typography variant="body2" color="text.secondary" paragraph>
           작업 히스토리와 컨텐츠(이미지/동영상) 삭제 시의 동작을 설정합니다.
         </Typography>
 
@@ -96,7 +96,7 @@ function Settings() {
                 <Typography variant="body1">
                   작업 히스토리 삭제 시 연관 컨텐츠도 같이 삭제
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 히스토리 삭제 시 생성된 이미지나 동영상도 같이 삭제됩니다. 삭제 전에 확인 창이 표시됩니다.
                 </Typography>
               </Box>
@@ -117,7 +117,7 @@ function Settings() {
                 <Typography variant="body1">
                   컨텐츠 삭제 시 작업 히스토리도 같이 삭제
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 이미지/동영상 삭제 시 해당 작업 히스토리도 같이 삭제됩니다. 삭제 전에 확인 창이 표시됩니다.
                 </Typography>
               </Box>
@@ -131,7 +131,7 @@ function Settings() {
         <Typography variant="h6" gutterBottom>
           작업 계속하기 설정
         </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
+        <Typography variant="body2" color="text.secondary" paragraph>
           작업 히스토리에서 "계속하기" 기능 사용 시의 동작을 설정합니다.
         </Typography>
 
@@ -149,7 +149,7 @@ function Settings() {
                 <Typography variant="body1">
                   계속하기 시 무조건 랜덤 시드 사용
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 히스토리에서 "계속하기"로 작업판을 호출했을 때 랜덤 시드 스위치가 자동으로 켜집니다.
                 </Typography>
               </Box>
@@ -163,7 +163,7 @@ function Settings() {
         <Typography variant="h6" gutterBottom>
           LoRA NSFW 필터 설정
         </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
+        <Typography variant="body2" color="text.secondary" paragraph>
           LoRA 목록에서 NSFW(성인용) 콘텐츠의 표시 여부를 설정합니다.
         </Typography>
 
@@ -181,7 +181,7 @@ function Settings() {
                 <Typography variant="body1">
                   NSFW LoRA 숨기기
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 NSFW로 분류된 LoRA 모델이 목록에서 숨겨집니다.
                 </Typography>
               </Box>
@@ -202,7 +202,7 @@ function Settings() {
                 <Typography variant="body1">
                   NSFW 미리보기 이미지 숨기기
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 LoRA 카드에서 NSFW로 분류된 미리보기 이미지가 숨겨집니다.
                 </Typography>
               </Box>
@@ -216,7 +216,7 @@ function Settings() {
         <Typography variant="h6" gutterBottom>
           작업판 검색 설정
         </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
+        <Typography variant="body2" color="text.secondary" paragraph>
           작업판 목록의 검색 필터 조건의 보존 여부를 설정합니다.
         </Typography>
 
@@ -234,7 +234,7 @@ function Settings() {
                 <Typography variant="body1">
                   작업판 출력 형식 검색 조건 보존하지 않음
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 작업판 목록에 진입할 때 출력 형식 필터가 '전체'로 초기화됩니다.
                 </Typography>
               </Box>
@@ -255,7 +255,7 @@ function Settings() {
                 <Typography variant="body1">
                   작업판 서버 타입 검색 조건 보존하지 않음
                 </Typography>
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   이 옵션이 켜져 있으면 작업판 목록에 진입할 때 서버 타입 필터가 '전체'로 초기화됩니다.
                 </Typography>
               </Box>

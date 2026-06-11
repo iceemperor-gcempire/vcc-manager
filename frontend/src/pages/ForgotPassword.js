@@ -69,12 +69,12 @@ function ForgotPassword() {
               </Typography>
             </Alert>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               이메일을 확인하고 링크를 클릭하여 비밀번호를 재설정해주세요.
               링크는 1시간 동안 유효합니다.
             </Typography>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               이메일이 도착하지 않았다면 스팸 폴더를 확인해주세요.
             </Typography>
 
@@ -106,7 +106,7 @@ function ForgotPassword() {
             <Typography variant="h4" gutterBottom>
               비밀번호 찾기
             </Typography>
-            <Typography variant="body1" color="textSecondary">
+            <Typography variant="body1" color="text.secondary">
               가입하신 이메일 주소를 입력해주세요
             </Typography>
           </Box>

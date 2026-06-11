@@ -28,14 +28,14 @@ function StatCard({ title, value, subtitle, icon, color = 'primary' }) {
       <CardContent>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
-            <Typography color="textSecondary" gutterBottom variant="body2">
+            <Typography color="text.secondary" gutterBottom variant="body2">
               {title}
             </Typography>
             <Typography variant="h4" component="div">
               {value}
             </Typography>
             {subtitle && (
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="text.secondary">
                 {subtitle}
               </Typography>
             )}
@@ -168,7 +168,7 @@ function AdminDashboard() {
 
                   <Grid container spacing={2} mt={1}>
                     <Grid item xs={6}>
-                      <Typography variant="body2" color="textSecondary">
+                      <Typography variant="body2" color="text.secondary">
                         완료: {queue.completed || 0}
                       </Typography>
                     </Grid>

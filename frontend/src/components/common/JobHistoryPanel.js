@@ -161,7 +161,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
                   ) : (
                     <Box textAlign="center">
                       <ImageIcon sx={{ fontSize: 40, color: 'grey.400' }} />
-                      <Typography variant="caption" color="textSecondary" display="block">
+                      <Typography variant="caption" color="text.secondary" display="block">
                         클릭하여 선택
                       </Typography>
                     </Box>
@@ -254,7 +254,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
 
               {resolvedJobTags.length > 0 && (
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     프로젝트 태그 (자동 적용)
                   </Typography>
                   <Box display="flex" gap={0.5}>
@@ -359,7 +359,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           <Box display="flex" alignItems="center" gap={1}>
             <Typography
               variant="caption"
-              color="textSecondary"
+              color="text.secondary"
               sx={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -515,19 +515,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             }}
           >
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">생성 시간</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">생성 시간</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {new Date(job.createdAt).toLocaleDateString()}
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">소요 시간</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">소요 시간</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatDuration(job.actualTime)}
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">AI 모델</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">AI 모델</Typography>
               <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                   ? (job.inputData.aiModel.key === 'UserSelected'
@@ -537,7 +537,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">크기</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">크기</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                   ? job.inputData.imageSize.key
@@ -545,7 +545,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">시드</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">시드</Typography>
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {job.inputData?.seed !== undefined
                   ? (job.inputData.seed.toString().length > 8
@@ -694,15 +694,15 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
 
         <Grid container spacing={2} mb={3}>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">상태</Typography>
+            <Typography variant="body2" color="text.secondary">상태</Typography>
             <JobStatusChip status={job.status} />
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">작업판</Typography>
+            <Typography variant="body2" color="text.secondary">작업판</Typography>
             <Typography variant="body1">{job.workboardId?.name || '알 수 없음'}</Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">AI 모델</Typography>
+            <Typography variant="body2" color="text.secondary">AI 모델</Typography>
             <Typography variant="body1" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''}>
               {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                 ? (job.inputData.aiModel.key === 'UserSelected'
@@ -712,7 +712,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">요청 크기</Typography>
+            <Typography variant="body2" color="text.secondary">요청 크기</Typography>
             <Typography variant="body1">
               {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                 ? job.inputData.imageSize.key
@@ -720,13 +720,13 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">시드 (Seed)</Typography>
+            <Typography variant="body2" color="text.secondary">시드 (Seed)</Typography>
             <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
               {job.inputData?.seed !== undefined ? job.inputData.seed : '-'}
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">실제 이미지 크기</Typography>
+            <Typography variant="body2" color="text.secondary">실제 이미지 크기</Typography>
             <Typography variant="body1">
               {job.resultImages?.length > 0 && job.resultImages[0].metadata?.width && job.resultImages[0].metadata?.height
                 ? `${job.resultImages[0].metadata.width} x ${job.resultImages[0].metadata.height}`
@@ -734,25 +734,25 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">생성 시간</Typography>
+            <Typography variant="body2" color="text.secondary">생성 시간</Typography>
             <Typography variant="body1">{new Date(job.createdAt).toLocaleString()}</Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">완료 시간</Typography>
+            <Typography variant="body2" color="text.secondary">완료 시간</Typography>
             <Typography variant="body1">
               {job.completedAt ? new Date(job.completedAt).toLocaleString() : '-'}
             </Typography>
           </Grid>
           {job.costEstimate?.amount !== undefined && (
             <Grid item xs={12}>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="text.secondary">
                 추정 비용 ({job.costEstimate.pricingVersion || 'unknown'})
               </Typography>
               <Typography variant="body1">
                 ${job.costEstimate.amount?.toFixed(6) || '0.000000'} {job.costEstimate.currency || 'USD'}
               </Typography>
               {job.usage && (
-                <Typography variant="caption" color="textSecondary" component="div" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
                   토큰: 입력 텍스트 {job.usage.inputTextTokens ?? 0} · 입력 이미지 {job.usage.inputImageTokens ?? 0} · 출력 {job.usage.outputTokens ?? 0} (총 {job.usage.totalTokens ?? 0})
                 </Typography>
               )}

@@ -98,7 +98,7 @@ function PromptDataFormDialog({ open, onClose, promptData = null, onSave }) {
                   ) : (
                     <Box textAlign="center">
                       <ImageIcon sx={{ fontSize: 40, color: 'grey.400' }} />
-                      <Typography variant="caption" color="textSecondary" display="block">
+                      <Typography variant="caption" color="text.secondary" display="block">
                         클릭하여 선택
                       </Typography>
                     </Box>

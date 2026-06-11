@@ -143,7 +143,7 @@ function WorkboardBasicInfoForm({ control, setValue, errors, showActiveSwitch = 
 
       {showTypeSelector && selectedServerType && (
         <Grid item xs={12}>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             선택된 서버 타입: <strong>{getServerTypeLabel(selectedServerType)}</strong> · 지원 출력 형식: {capableOutputFormats.map(getOutputFormatLabel).join(', ') || '없음'}
           </Typography>
         </Grid>

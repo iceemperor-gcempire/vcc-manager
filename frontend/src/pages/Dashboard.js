@@ -585,7 +585,6 @@ function Dashboard() {
           <Tooltip title="이번 버전에서 달라진 점 보기">
             <Button
               variant="text"
-              size="small"
               startIcon={<NewReleases />}
               onClick={() => setUpdateLogOpen(true)}
               sx={{ alignSelf: 'flex-start', color: 'text.secondary' }}

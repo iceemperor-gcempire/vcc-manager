@@ -316,7 +316,7 @@ function TagSearch() {
 
               <SearchTabPanel value={searchTabValue} index={0}>
                 {generatedImages.length === 0 ? (
-                  <Typography color="textSecondary">결과 없음</Typography>
+                  <Typography color="text.secondary">결과 없음</Typography>
                 ) : (
                   <Grid container spacing={2}>
                     {generatedImages.map((img) => (
@@ -352,7 +352,7 @@ function TagSearch() {
 
               <SearchTabPanel value={searchTabValue} index={1}>
                 {uploadedImages.length === 0 ? (
-                  <Typography color="textSecondary">결과 없음</Typography>
+                  <Typography color="text.secondary">결과 없음</Typography>
                 ) : (
                   <Grid container spacing={2}>
                     {uploadedImages.map((img) => (
@@ -388,7 +388,7 @@ function TagSearch() {
 
               <SearchTabPanel value={searchTabValue} index={2}>
                 {promptData.length === 0 ? (
-                  <Typography color="textSecondary">결과 없음</Typography>
+                  <Typography color="text.secondary">결과 없음</Typography>
                 ) : (
                   <Grid container spacing={2}>
                     {promptData.map((pd) => (
@@ -418,7 +418,7 @@ function TagSearch() {
                             )}
                             <CardContent sx={{ flex: 1, py: 1 }}>
                               <Typography variant="subtitle1" noWrap>{pd.name}</Typography>
-                              <Typography variant="body2" color="textSecondary" sx={{
+                              <Typography variant="body2" color="text.secondary" sx={{
                                 display: '-webkit-box',
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: 'vertical',

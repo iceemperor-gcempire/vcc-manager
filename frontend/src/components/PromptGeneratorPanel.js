@@ -74,7 +74,7 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
         {label}
       </Typography>
       {description && (
-        <Typography variant="caption" color="textSecondary" display="block" mb={1}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
           {description}
         </Typography>
       )}
@@ -419,7 +419,7 @@ function PromptGeneratorPanel({
               {isGenerating && !streamingText && (
                 <Box>
                   <LinearProgress color="secondary" sx={{ mb: 2 }} />
-                  <Typography variant="body2" color="textSecondary" textAlign="center">
+                  <Typography variant="body2" color="text.secondary" textAlign="center">
                     AI가 프롬프트를 생성하고 있습니다...
                   </Typography>
                 </Box>
@@ -446,7 +446,7 @@ function PromptGeneratorPanel({
 
                   {!isStreaming && generatedResult?.usage && (
                     <Box mt={1}>
-                      <Typography variant="caption" color="textSecondary">
+                      <Typography variant="caption" color="text.secondary">
                         토큰: 입력 {generatedResult.usage.promptTokens} / 출력 {generatedResult.usage.completionTokens}
                       </Typography>
                     </Box>

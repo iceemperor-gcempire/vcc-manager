@@ -65,7 +65,6 @@ export { ToneChip };
 export function TagChip({ label, mono, sx }) {
   return (
     <Chip
-      size="small"
       variant="outlined"
       label={label}
       sx={{
@@ -173,7 +172,7 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
         {anyActive && (
           <>
             <Box sx={{ flex: 1 }} />
-            <Button size="small" variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.disabled' }}>초기화</Button>
+            <Button variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.disabled' }}>초기화</Button>
           </>
         )}
       </Box>
@@ -259,13 +258,13 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
             {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
           </Typography>
           <Box sx={{ flex: 1 }} />
-          <Button size="small" variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
+          <Button variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>
           {onInfo && (
-            <Button size="small" variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
+            <Button variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
               상세정보
             </Button>
           )}

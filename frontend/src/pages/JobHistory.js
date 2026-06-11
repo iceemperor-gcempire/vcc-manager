@@ -298,16 +298,16 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
             {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
               <>
-                <Button size="small" variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
+                <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
                   계속하기
                 </Button>
-                <Button size="small" variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>
+                <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>
                   다른 작업
                 </Button>
               </>
             )}
             {item.type === 'text' && item.workboardId && item.status !== 'error' && (
-              <Button size="small" variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>
+              <Button variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>
                 이어가기
               </Button>
             )}
@@ -528,7 +528,6 @@ function JobHistory() {
 
       {/* 검색 */}
       <TextField
-        size="small"
         placeholder="히스토리 검색…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -639,8 +638,8 @@ function JobHistory() {
           {textDetail && (
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {textDetail.model && <Chip size="small" variant="outlined" label={textDetail.model} />}
-                {textDetail.tokens != null && <Chip size="small" variant="outlined" label={`${textDetail.tokens.toLocaleString()} 토큰`} />}
+                {textDetail.model && <Chip variant="outlined" label={textDetail.model} />}
+                {textDetail.tokens != null && <Chip variant="outlined" label={`${textDetail.tokens.toLocaleString()} 토큰`} />}
                 <StatusChip status={textDetail.status} />
               </Stack>
               {(textDetail.raw?.messages || []).filter((m) => m.role !== 'system').map((m, i) => (

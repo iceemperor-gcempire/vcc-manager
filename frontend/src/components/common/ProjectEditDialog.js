@@ -228,10 +228,10 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
         )}
 
         <Box>
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             태그명: <Chip label={project?.tagId?.name} sx={{ bgcolor: project?.tagId?.color, color: 'white' }} />
           </Typography>
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             태그명은 변경할 수 없습니다.
           </Typography>
         </Box>

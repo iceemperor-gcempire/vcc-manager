@@ -186,14 +186,14 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         </Box>
 
         {workboard.description && (
-          <Typography variant="body2" color="textSecondary" paragraph>
+          <Typography variant="body2" color="text.secondary" paragraph>
             {workboard.description}
           </Typography>
         )}
 
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           <Computer fontSize="small" />
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             {workboard.serverId ? 
               `${workboard.serverId.name} (${workboard.serverId.serverType})` :
               workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 미설정'
@@ -203,7 +203,7 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
         <Box display="flex" alignItems="center" gap={1} mb={2}>
           <TrendingUp fontSize="small" />
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             사용횟수: {workboard.usageCount || 0}회
           </Typography>
         </Box>
@@ -234,11 +234,11 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           />
         </Box>
 
-        <Typography variant="caption" color="textSecondary">
+        <Typography variant="caption" color="text.secondary">
           생성자: {workboard.createdBy?.nickname || '알 수 없음'}
         </Typography>
         <br />
-        <Typography variant="caption" color="textSecondary">
+        <Typography variant="caption" color="text.secondary">
           생성일: {new Date(workboard.createdAt).toLocaleDateString()}
         </Typography>
       </CardContent>
@@ -1008,7 +1008,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           py: 2, mb: 2,
           display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
         }}>
-          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Button onClick={handleCancel} sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
           <Typography variant="h6" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
             {workboard?.name || '작업판 편집'}
           </Typography>
@@ -1091,7 +1091,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
               </Box>
               <Box sx={{ minWidth: 0 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
                 </Typography>
                 <Button
@@ -1358,7 +1358,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   </TextField>
                                 )}
                               />
-                              <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                                 사용자가 선택할 수 있는 참고 이미지의 최대 개수를 설정합니다.
                               </Typography>
                             </Grid>
@@ -1488,7 +1488,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             <Box>
               {/* 이미지 입력은 입력 양식 탭에서 'image' 타입 필드를 추가하면 자동 활성화됩니다 (#519).
                   비전(멀티모달) 모델을 베이스 모델로 선택해야 분석됩니다. */}
-              <Typography variant="body2" color="textSecondary" paragraph>
+              <Typography variant="body2" color="text.secondary" paragraph>
                 LLM 요청에 추가로 전달할 파라미터를 JSON 으로 지정합니다. 모델/서버별 thinking 비활성화나
                 창작용 temperature 등을 작업판마다 다르게 설정할 수 있습니다. 비워두면 모델 기본값으로 동작합니다.
               </Typography>
@@ -1535,7 +1535,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography variant="body2" color="textSecondary" paragraph>
+                  <Typography variant="body2" color="text.secondary" paragraph>
                     아래 변수들을 워크플로우 JSON에서 사용할 수 있습니다. 변수는 작업 실행 시 실제 값으로 치환됩니다.
                   </Typography>
 
@@ -1580,7 +1580,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                       </tbody>
                     </Box>
                   ) : (
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       "입력 양식" 탭에서 항목을 정의하면 여기에 표시됩니다.
                     </Typography>
                   )}
@@ -1729,7 +1729,7 @@ export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, o
           py: 2, mb: 2,
           display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
         }}>
-          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Button onClick={handleCancel} sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>새 작업판</Typography>
           <Box sx={{ flex: 1 }} />
           <Button onClick={handleCancel}>취소</Button>
@@ -1890,7 +1890,7 @@ export function WorkboardImportDialog({ open, onClose, onSuccess }) {
             <Typography variant="body1" gutterBottom>
               JSON 파일을 드래그하거나 클릭하여 선택
             </Typography>
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="text.secondary">
               작업판 내보내기로 생성된 .json 파일
             </Typography>
             <input
@@ -1915,7 +1915,7 @@ export function WorkboardImportDialog({ open, onClose, onSuccess }) {
                 </Typography>
               )}
               {parsedData.exportedAt && (
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   내보낸 날짜: {new Date(parsedData.exportedAt).toLocaleString()}
                 </Typography>
               )}

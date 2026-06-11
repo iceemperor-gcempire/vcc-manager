@@ -81,7 +81,7 @@ function ImageSelectDialog({
       <DialogTitle>
         {title}
         {multiple && (
-          <Typography variant="body2" color="textSecondary">
+          <Typography variant="body2" color="text.secondary">
             {selectedImages.length}/{maxImages} 선택됨
           </Typography>
         )}

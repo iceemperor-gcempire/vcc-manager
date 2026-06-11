@@ -1292,7 +1292,6 @@ function StepInputsForm({ workboard, values, onChange, projectId }) {
       {projectId && (
         <Box>
           <Button
-            size="small"
             variant="outlined"
             onClick={() => setPickerOpen(true)}
             disabled={!canLoadPromptData}

@@ -158,7 +158,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
               minHeight={300}
             >
               <Chat sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
-              <Typography variant="body1" color="textSecondary" mb={3}>
+              <Typography variant="body1" color="text.secondary" mb={3}>
                 프롬프트 작업판을 선택해주세요
               </Typography>
               <Button
