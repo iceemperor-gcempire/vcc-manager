@@ -35,6 +35,7 @@ import { imageAPI, userAPI, textAPI, projectAPI, tagAPI } from '../services/api'
 import TagInput from '../components/common/TagInput';
 import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
+import PageHeader from '../components/common/PageHeader';
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
 // 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
@@ -568,20 +569,10 @@ function MyImages() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, mb: 4.5, flexWrap: 'wrap' }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            variant="h4"
-            component="h1"
-            sx={{ fontSize: { xs: '1.5rem', md: '2rem' }, fontWeight: 700, letterSpacing: '-0.01em' }}
-          >
-            내 컨텐츠
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환.
-          </Typography>
-        </Box>
-        {!bulkMode && !isTextTab && (
+      <PageHeader
+        title="내 컨텐츠"
+        description="프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환."
+        actions={!bulkMode && !isTextTab && (
           <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
             {tab === 1 && (
               <Button
@@ -602,7 +593,7 @@ function MyImages() {
             </Button>
           </Box>
         )}
-      </Box>
+      />
 
       {/* Bulk mode 툴바 */}
       {bulkMode && (

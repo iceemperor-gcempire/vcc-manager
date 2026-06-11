@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
 import { MONO } from '../../theme';
+import { ToneChip } from './ToneChip';
 import {
   Search,
   Close,
@@ -57,31 +58,9 @@ export const SERVER_AXIS = [
 const OUT_TONE = { image: 'accent', video: 'warning', text: 'info' };
 
 // 원본 .chip--tag 톤 칩 — 은은한 틴트 배경 + 진한 글씨 (height 20, padding 0 7px, 11.5px).
-// 상태/출력 등 의미 색이 있는 칩에 사용. light/dark 양쪽 테마 토큰 기반.
-const TONE_SX = {
-  success: { bgcolor: 'success.light', color: 'success.main' },
-  info: { bgcolor: 'info.light', color: 'info.main' },
-  warning: { bgcolor: 'warning.light', color: 'warning.main' },
-  error: { bgcolor: 'error.light', color: 'error.main' },
-  accent: { bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(118,118,224,0.22)' : 'rgba(91,91,214,0.12)'), color: 'primary.main' },
-  neutral: { bgcolor: 'grey.100', color: 'text.secondary' },
-};
-export function ToneChip({ tone, label, mono, sx }) {
-  const ts = TONE_SX[tone] || TONE_SX.neutral;
-  return (
-    <Chip
-      size="small"
-      variant="filled"
-      label={label}
-      sx={{
-        height: 22, fontSize: '11.5px', fontWeight: 500, border: 0,
-        ...(mono && { fontFamily: MONO, fontSize: '11px' }),
-        '& .MuiChip-label': { px: '9px' },
-        ...ts, ...sx,
-      }}
-    />
-  );
-}
+// ToneChip 은 common/ToneChip 으로 승격 (#548) — 기존 import 호환 재export
+export { ToneChip };
+
 // 의미 색 없는 태그 칩 — 투명 배경 + 옅은 테두리 + tertiary 글씨 (종류 라벨 등).
 export function TagChip({ label, mono, sx }) {
   return (

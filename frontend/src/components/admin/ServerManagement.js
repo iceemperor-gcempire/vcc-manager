@@ -47,6 +47,8 @@ import { serverAPI, jobAPI } from '../../services/api';
 import { getServerTypeColor } from '../../templates/capabilities';
 import { ToneChip, TagChip } from '../common/WorkboardCatalog';
 import { MONO } from '../../theme';
+import PageHeader from '../common/PageHeader';
+import EmptyState from '../common/EmptyState';
 
 // 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
 const KNOWN_SERVER_URLS = {
@@ -719,18 +721,17 @@ function ServerManagement() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 4 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h1">서버 관리</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-            ComfyUI / OpenAI / Gemini / Compatible 백엔드 등록 및 모델 동기화.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          <Button variant="outlined" startIcon={<Refresh />} onClick={handleAllHealthCheck} disabled={allHealthCheckMutation.isLoading}>전체 헬스체크</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={handleAddServer}>서버 추가</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="서버 관리"
+        description="ComfyUI / OpenAI / Gemini / Compatible 백엔드 등록 및 모델 동기화."
+        sx={{ mb: 4 }}
+        actions={(
+          <>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={handleAllHealthCheck} disabled={allHealthCheckMutation.isLoading}>전체 헬스체크</Button>
+            <Button variant="contained" startIcon={<Add />} onClick={handleAddServer}>서버 추가</Button>
+          </>
+        )}
+      />
 
       {/* 요약 */}
       <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, mb: 4.5 }}>
@@ -749,9 +750,7 @@ function ServerManagement() {
       </Box>
 
       {servers.length === 0 ? (
-        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography variant="body2" color="text.secondary">등록된 서버가 없습니다. 서버를 추가해주세요.</Typography>
-        </Box>
+        <EmptyState description="등록된 서버가 없습니다. 서버를 추가해주세요." />
       ) : (
         <Stack spacing={2.5}>
           {servers.map((server) => (

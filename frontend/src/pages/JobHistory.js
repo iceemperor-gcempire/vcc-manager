@@ -50,6 +50,9 @@ import VideoViewerDialog from '../components/common/VideoViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
 import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
+import PageHeader from '../components/common/PageHeader';
+import SegmentTabs from '../components/common/SegmentTabs';
+import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
 
@@ -518,13 +521,10 @@ function JobHistory() {
 
   return (
     <Box>
-      {/* 헤더 */}
-      <Box sx={{ mb: 4.5 }}>
-        <Typography variant="h1">작업 히스토리</Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-          파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순.
-        </Typography>
-      </Box>
+      <PageHeader
+        title="작업 히스토리"
+        description="파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순."
+      />
 
       {/* 검색 */}
       <TextField
@@ -536,39 +536,24 @@ function JobHistory() {
         InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
       />
 
-      {/* 세그먼트 */}
-      <Stack direction="row" spacing={1} sx={{ mb: 4.5, overflowX: 'auto', pb: 0.5 }}>
-        {[
-          { k: 'all', l: '전체' },
-          { k: 'pipeline', l: '파이프라인' },
-          { k: 'image', l: '이미지' },
-          { k: 'video', l: '영상' },
-          { k: 'text', l: '텍스트' },
-        ].map((s) => (
-          <Button
-            key={s.k}
-            onClick={() => setSeg(s.k)}
-            variant={seg === s.k ? 'contained' : 'text'}
-            color={seg === s.k ? 'primary' : 'inherit'}
-            sx={{ flex: '0 0 auto', color: seg === s.k ? undefined : 'text.secondary' }}
-          >
-            {s.l}
-            <Box component="span" sx={{ ml: 0.75, fontFamily: MONO, fontSize: 11, opacity: 0.8 }}>
-              {counts[s.k]}
-            </Box>
-          </Button>
-        ))}
-      </Stack>
+      {/* 세그먼트 — 언더라인 탭 (목업 28, #548) */}
+      <SegmentTabs
+        value={seg}
+        onChange={setSeg}
+        items={[
+          { value: 'all', label: '전체', count: counts.all },
+          { value: 'pipeline', label: '파이프라인', count: counts.pipeline },
+          { value: 'image', label: '이미지', count: counts.image },
+          { value: 'video', label: '영상', count: counts.video },
+          { value: 'text', label: '텍스트', count: counts.text },
+        ]}
+      />
 
       {/* 피드 */}
       {loading && items.length === 0 ? (
         <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
       ) : visible.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            {search ? '검색 결과가 없습니다.' : '아직 작업 기록이 없습니다.'}
-          </Typography>
-        </Paper>
+        <EmptyState description={search ? '검색 결과가 없습니다.' : '아직 작업 기록이 없습니다.'} />
       ) : (
         <Stack spacing={2}>
           {visible.map((item) => (
