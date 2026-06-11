@@ -16,7 +16,7 @@ const conversationRoutes = require('./routes/conversations');
 const textRoutes = require('./routes/texts');
 const pipelineRoutes = require('./routes/pipelines');
 const pipelineRunRoutes = require('./routes/pipelineRuns');
-const { initPipelineRunQueue } = require('./services/pipelineRunService');
+const { initPipelineRunQueue, closePipelineRunQueue } = require('./services/pipelineRunService');
 const adminRoutes = require('./routes/admin');
 const serverRoutes = require('./routes/servers');
 const promptDataRoutes = require('./routes/promptData');
@@ -32,7 +32,7 @@ const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { transformUploadUrls } = require('./utils/signedUrl');
-const { initializeQueues } = require('./services/queueService');
+const { initializeQueues, closeQueues, getQueueStats } = require('./services/queueService');
 const migrateMediaOrderIndex = require('./migrations/migrateMediaOrderIndex');
 const migrateServerTypeToOpenAI = require('./migrations/migrateServerTypeToOpenAI');
 const dropBackupJobTTL = require('./migrations/dropBackupJobTTL');
@@ -51,6 +51,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+let httpServer = null; // 종료 처리에서 close 하기 위해 모듈 스코프 유지 (#523)
 
 // Trust proxy for rate limiting (behind nginx/docker)
 app.set('trust proxy', 1);
@@ -168,16 +169,50 @@ app.use('*', (req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Graceful shutdown handling
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
-});
+// 종료 처리 (#523) — 잡이 매우 길 수 있어 active 잡 완료는 기다리지 않는다 (빠른 종료).
+// 대신 중단되는 잡 수를 경고로 남기고, 신규 수락 중단 + 연결 정리만 짧은 시간 내 수행.
+const SHUTDOWN_TIMEOUT_MS = 5000;
+let shuttingDown = false;
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
+const shutdown = async (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received. Shutting down...`);
+
+  // 경고: 진행/대기 중 잡 표시 (재기동 후 Bull stalled 재시도로 이어질 수 있음)
+  try {
+    const stats = await getQueueStats();
+    if (stats.active > 0 || stats.waiting > 0) {
+      console.warn(`⚠️ 종료로 중단되는 잡 — 진행 중 ${stats.active}건 / 대기 ${stats.waiting}건`);
+    }
+  } catch (e) {
+    console.warn('큐 상태 조회 실패 (무시):', e.message);
+  }
+
+  // 정리가 늦으면 강제 종료 (빠른 종료 우선)
+  const forceExit = setTimeout(() => {
+    console.warn(`정리 ${SHUTDOWN_TIMEOUT_MS}ms 초과 — 강제 종료`);
+    process.exit(0);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  try {
+    if (httpServer) {
+      await new Promise((resolve) => httpServer.close(resolve));
+      console.log('🛑 HTTP server closed');
+    }
+    await Promise.allSettled([closeQueues(), closePipelineRunQueue()]);
+    await require('mongoose').disconnect();
+    console.log('🛑 MongoDB disconnected');
+  } catch (e) {
+    console.error('Shutdown cleanup error:', e.message);
+  }
+
+  clearTimeout(forceExit);
   process.exit(0);
-});
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
@@ -222,7 +257,7 @@ const startServer = async () => {
     await initPipelineRunQueue();
     
     // Start HTTP server
-    const server = app.listen(PORT, () => {
+    httpServer = app.listen(PORT, () => {
       console.log(`✅ Server is running on port ${PORT}`);
       console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🏥 Health check: http://localhost:${PORT}/health`);
@@ -230,7 +265,7 @@ const startServer = async () => {
     });
 
     // Handle server errors
-    server.on('error', (err) => {
+    httpServer.on('error', (err) => {
       console.error('Server error:', err);
       process.exit(1);
     });
