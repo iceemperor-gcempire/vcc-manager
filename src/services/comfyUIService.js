@@ -169,7 +169,7 @@ const processHistoryResult = async (serverUrl, history) => {
   return { images, videos };
 };
 
-const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
+const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000) => {
   const clientId = uuidv4();
 
   console.log(`🔗 ComfyUI Service: Connecting to ${serverUrl}`);
@@ -215,10 +215,12 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback) => {
     //    executing { node: null }은 히스토리 저장 후 전송되므로 가장 안전한 완료 신호
     return new Promise((resolve, reject) => {
       let currentProgress = 0;
+      // 서버 설정 (Server.configuration.timeout) 적용 — 스키마 기본값도 300000 이라 미설정 시 기존과 동일 (#530)
+      // 타임아웃 시 interrupt 는 호출하지 않음 — 재연결 후 타임아웃 작업 재매칭 운영 플로우 보존
       const timeout = setTimeout(() => {
         ws.close();
-        reject(new Error('Workflow execution timeout'));
-      }, 300000); // 5 minutes timeout
+        reject(new Error(`Workflow execution timeout (${Math.round(executionTimeout / 1000)}s)`));
+      }, executionTimeout);
 
       ws.on('message', async (data, isBinary) => {
         // ComfyUI sends binary messages (image previews, etc.) — skip them
