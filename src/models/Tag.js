@@ -14,7 +14,7 @@ const tagSchema = new mongoose.Schema({
   },
   color: {
     type: String,
-    default: '#1976d2'
+    default: '#C96A3B' // v2 primary (#546 — 구 MUI 블루에서 정렬)
   },
   usageCount: {
     type: Number,

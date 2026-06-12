@@ -54,7 +54,7 @@ function SearchTabPanel({ children, value, index }) {
 
 function TagEditDialog({ open, onClose, tag }) {
   const [name, setName] = useState(tag?.name || '');
-  const [color, setColor] = useState(tag?.color || '#1976d2');
+  const [color, setColor] = useState(tag?.color || '#C96A3B');
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation(
@@ -83,7 +83,7 @@ function TagEditDialog({ open, onClose, tag }) {
   React.useEffect(() => {
     if (tag) {
       setName(tag.name || '');
-      setColor(tag.color || '#1976d2');
+      setColor(tag.color || '#C96A3B');
     }
   }, [tag]);
 
@@ -130,7 +130,7 @@ function TagEditDialog({ open, onClose, tag }) {
 
 function TagCreateDialog({ open, onClose }) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#1976d2');
+  const [color, setColor] = useState('#C96A3B');
   const queryClient = useQueryClient();
 
   const createMutation = useMutation(
@@ -141,7 +141,7 @@ function TagCreateDialog({ open, onClose }) {
         queryClient.invalidateQueries('tags');
         toast.success('태그가 생성되었습니다');
         setName('');
-        setColor('#1976d2');
+        setColor('#C96A3B');
         onClose();
       },
       onError: (error) => {

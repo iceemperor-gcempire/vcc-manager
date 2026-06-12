@@ -93,7 +93,7 @@ function TagInput({
             key={option._id || index}
             label={option.name}
             sx={{ 
-              bgcolor: option.color || '#1976d2',
+              bgcolor: option.color || '#C96A3B',
               color: 'white',
               '& .MuiChip-deleteIcon': {
                 color: 'rgba(255,255,255,0.7)',
@@ -126,7 +126,7 @@ function TagInput({
           <Chip
             label={option.name}
             sx={{ 
-              bgcolor: option.color || '#1976d2',
+              bgcolor: option.color || '#C96A3B',
               color: 'white',
               mr: 1
             }}

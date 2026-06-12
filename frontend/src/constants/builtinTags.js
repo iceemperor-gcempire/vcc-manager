@@ -7,8 +7,8 @@ export const BUILTIN_TAG_NAMES = Object.freeze({
 });
 
 export const BUILTIN_TAG_META = Object.freeze({
-  [BUILTIN_TAG_NAMES.WORLDVIEW]: { label: '세계관', color: '#9c27b0' },
-  [BUILTIN_TAG_NAMES.SYSTEM_PROMPT]: { label: '시스템 프롬프트', color: '#2196f3' },
+  [BUILTIN_TAG_NAMES.WORLDVIEW]: { label: '세계관', color: '#7A5CC4' },
+  [BUILTIN_TAG_NAMES.SYSTEM_PROMPT]: { label: '시스템 프롬프트', color: '#4A7DBF' },
 });
 
 // 세계관 탭에 표시할 타입 chip 목록 (순서 고정)

@@ -46,6 +46,7 @@ const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchem
 const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
 const ensureWorldviewTag = require('./migrations/ensureWorldviewTag');
 const backfillConversationTags = require('./migrations/backfillConversationTags');
+const alignTagColorsV2 = require('./migrations/alignTagColorsV2');
 
 dotenv.config();
 
@@ -250,6 +251,7 @@ const startServer = async () => {
     await relocateCivitaiApiKey();
     await ensureWorldviewTag();
     await backfillConversationTags();
+    await alignTagColorsV2();
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');

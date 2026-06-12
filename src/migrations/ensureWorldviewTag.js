@@ -1,4 +1,5 @@
 const Tag = require('../models/Tag');
+const { BUILTIN_TAG_NAMES, BUILTIN_TAG_META } = require('../constants/builtinTags');
 const User = require('../models/User');
 
 // 세계관 (사전 컨텍스트) 역할 태그 자동 시드 (#396).
@@ -22,7 +23,7 @@ async function ensureWorldviewTag() {
       userId: user._id,
       createdBy: user._id,
       name: '세계관',
-      color: '#9c27b0',
+      color: BUILTIN_TAG_META[BUILTIN_TAG_NAMES.WORLDVIEW].color,
       isWorldviewTag: true,
     });
     created += 1;

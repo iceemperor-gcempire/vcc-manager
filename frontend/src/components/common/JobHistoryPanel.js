@@ -112,7 +112,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
     ? jobTags
     : jobTags.map(tagId => {
         const found = allTags.find(t => t._id === tagId);
-        return found || { _id: tagId, name: tagId, color: '#1976d2' };
+        return found || { _id: tagId, name: tagId, color: '#C96A3B' };
       });
 
   // 태그 ID 배열 (프롬프트 저장 시 전달용)

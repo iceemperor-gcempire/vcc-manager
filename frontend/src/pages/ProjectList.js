@@ -47,7 +47,7 @@ function TagPill({ tag }) {
   return (
     <Box component="span" sx={{
       display: 'inline-flex', alignItems: 'center', height: 21, px: '10px', borderRadius: 999,
-      fontSize: 10.5, fontWeight: 600, color: '#fff', bgcolor: tag.color || '#7c4dff', whiteSpace: 'nowrap',
+      fontSize: 10.5, fontWeight: 600, color: '#fff', bgcolor: tag.color || '#C96A3B', whiteSpace: 'nowrap',
     }}>
       {tag.name}
     </Box>
