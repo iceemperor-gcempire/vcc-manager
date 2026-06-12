@@ -8,7 +8,6 @@ import {
   ListItemText,
   Box,
   Typography,
-  Divider,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -32,110 +31,44 @@ import {
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 
-const DRAWER_WIDTH = 250;
+const DRAWER_WIDTH = 236;
 
-const menuItems = [
-  {
-    text: '대시보드',
-    path: '/dashboard',
-    icon: <Dashboard />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '작업판',
-    path: '/workboards',
-    icon: <ViewModule />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '프로젝트',
-    path: '/projects',
-    icon: <FolderSpecial />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '내 컨텐츠',
-    path: '/content',
-    icon: <Image />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '작업 히스토리',
-    path: '/jobs',
-    icon: <History />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '프롬프트 데이터',
-    path: '/prompt-data',
-    icon: <TextSnippet />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '태그',
-    path: '/tags',
-    icon: <LocalOffer />,
-    roles: ['user', 'admin']
-  },
-  {
-    text: '설정',
-    path: '/settings',
-    icon: <Settings />,
-    roles: ['user', 'admin']
-  }
+// v2 셸 (#558) — 섹션 재편: 작업 / 자료 / 관리자, 설정은 하단 고정
+const workItems = [
+  { text: '대시보드', path: '/dashboard', icon: <Dashboard /> },
+  { text: '작업판', path: '/workboards', icon: <ViewModule /> },
+  { text: '프로젝트', path: '/projects', icon: <FolderSpecial /> },
+  { text: '내 컨텐츠', path: '/content', icon: <Image /> },
+  { text: '작업 히스토리', path: '/jobs', icon: <History /> },
+];
+
+const dataItems = [
+  { text: '프롬프트 데이터', path: '/prompt-data', icon: <TextSnippet /> },
+  { text: '태그', path: '/tags', icon: <LocalOffer /> },
 ];
 
 const adminMenuItems = [
-  {
-    text: '관리자 대시보드',
-    path: '/admin/dashboard',
-    icon: <AdminPanelSettings />,
-    roles: ['admin']
-  },
-  {
-    text: '사용자 관리',
-    path: '/admin/users',
-    icon: <People />,
-    roles: ['admin']
-  },
-  {
-    text: '작업판 관리',
-    path: '/admin/workboards',
-    icon: <Apps />,
-    roles: ['admin']
-  },
-  {
-    text: '서버 관리',
-    path: '/admin/servers',
-    icon: <Storage />,
-    roles: ['admin']
-  },
-  {
-    text: '모델 관리',
-    path: '/admin/models',
-    icon: <AutoFixHigh />,
-    roles: ['admin']
-  },
-  {
-    text: '그룹 관리',
-    path: '/admin/groups',
-    icon: <Group />,
-    roles: ['admin']
-  },
-  {
-    text: '시스템 통계',
-    path: '/admin/stats',
-    icon: <BarChart />,
-    roles: ['admin']
-  },
-  {
-    text: '백업 / 복구',
-    path: '/admin/backup',
-    icon: <Backup />,
-    roles: ['admin']
-  }
+  { text: '관리자 대시보드', path: '/admin/dashboard', icon: <AdminPanelSettings /> },
+  { text: '사용자 관리', path: '/admin/users', icon: <People /> },
+  { text: '작업판 관리', path: '/admin/workboards', icon: <Apps /> },
+  { text: '서버 관리', path: '/admin/servers', icon: <Storage /> },
+  { text: '모델 관리', path: '/admin/models', icon: <AutoFixHigh /> },
+  { text: '그룹 관리', path: '/admin/groups', icon: <Group /> },
+  { text: '시스템 통계', path: '/admin/stats', icon: <BarChart /> },
+  { text: '백업 / 복구', path: '/admin/backup', icon: <Backup /> },
 ];
+
+const settingsItem = { text: '설정', path: '/settings', icon: <Settings /> };
+
+function SectionLabel({ children }) {
+  return (
+    <Typography variant="overline" sx={{ display: 'block', px: 3, pt: 3.5, pb: 1, color: 'text.tertiary' }}>
+      {children}
+    </Typography>
+  );
+}
 
 function Sidebar({ mobileOpen, onMobileToggle }) {
   const navigate = useNavigate();
@@ -158,90 +91,87 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
     return location.pathname.startsWith(path);
   };
 
+  const renderItem = (item) => {
+    const active = isPathActive(item.path);
+    return (
+      <ListItem key={item.text} disablePadding>
+        <ListItemButton
+          onClick={() => handleNavigation(item.path)}
+          sx={{
+            borderRadius: '9px',
+            mb: 0.25,
+            py: isMobile ? 1.5 : 1,
+            px: 3,
+            // 활성 = surface 픽 + 그림자 (라이트) / 민트 틴트 표면 (다크) — v2 셸 시안
+            bgcolor: active ? 'navbar.light' : 'transparent',
+            boxShadow: active ? 1 : 'none',
+            color: active
+              ? (theme.palette.mode === 'dark' ? 'primary.main' : 'primary.dark')
+              : 'navbar.contrastText',
+            '&:hover': { bgcolor: 'navbar.light' },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit', minWidth: 36, '& svg': { fontSize: 19 } }}>
+            {item.icon}
+          </ListItemIcon>
+          <ListItemText
+            primary={item.text}
+            sx={{
+              '& .MuiListItemText-primary': {
+                fontSize: isMobile ? '1rem' : '0.85rem',
+                fontWeight: active ? 700 : 500,
+              },
+            }}
+          />
+        </ListItemButton>
+      </ListItem>
+    );
+  };
+
   const drawer = (
-    <Box sx={{ height: '100%', bgcolor: 'navbar.main', color: 'navbar.contrastText' }}>
-      <Box sx={{ p: 2 }}>
-        <Typography variant="h6" sx={{ color: 'navbar.contrastText', fontWeight: 'bold' }}>
-          메뉴
-        </Typography>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'navbar.main', color: 'navbar.contrastText' }}>
+      {/* 로고 블록 — 탑바에서 사이드바로 이동 (#558) */}
+      <Box
+        onClick={() => handleNavigation('/dashboard')}
+        sx={{ display: 'flex', alignItems: 'center', gap: 2.5, px: 3.5, pt: 4, pb: 2, cursor: 'pointer' }}
+      >
+        <Box sx={{
+          width: 28, height: 28, borderRadius: 2, background: BRAND_GRADIENTS[0],
+          color: 'common.white', display: 'grid', placeItems: 'center',
+          fontSize: 13, fontWeight: 800,
+        }}>
+          V
+        </Box>
+        <Typography sx={{ fontSize: 14.5, fontWeight: 800 }}>VCC Manager</Typography>
       </Box>
 
-      <Divider sx={{ borderColor: 'divider' }} />
+      <SectionLabel>작업</SectionLabel>
+      <List sx={{ px: 2, py: 0 }}>{workItems.map(renderItem)}</List>
 
-      <List sx={{ px: 1 }}>
-        {menuItems.map((item) => (
-          <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              onClick={() => handleNavigation(item.path)}
-              sx={{
-                borderRadius: 1,
-                mb: 0.5,
-                py: isMobile ? 1.5 : 1,
-                bgcolor: isPathActive(item.path) ? 'navbar.light' : 'transparent',
-                '&:hover': { bgcolor: 'navbar.light' },
-              }}
-            >
-              <ListItemIcon sx={{ color: 'navbar.contrastText', minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText
-                primary={item.text}
-                sx={{
-                  '& .MuiListItemText-primary': {
-                    fontSize: isMobile ? '1rem' : '0.9rem',
-                    fontWeight: isMobile ? 500 : 400,
-                  },
-                }}
-              />
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
+      <SectionLabel>자료</SectionLabel>
+      <List sx={{ px: 2, py: 0 }}>{dataItems.map(renderItem)}</List>
 
       {isAdmin && (
         <>
-          <Divider sx={{ borderColor: 'divider', my: 1 }} />
-
-          <Box sx={{ px: 2, py: 1 }}>
-            {/* 관리자 구분은 색이 아닌 섹션 라벨로 (#542 — 빨강 일괄 적용 제거, 핸드오프 중립 스타일) */}
-            <Typography variant="overline" sx={{ color: 'grey.500', letterSpacing: '0.06em' }}>
-              관리자 메뉴
-            </Typography>
-          </Box>
-
-          <List sx={{ px: 1 }}>
-            {adminMenuItems.map((item) => (
-              <ListItem key={item.text} disablePadding>
-                <ListItemButton
-                  onClick={() => handleNavigation(item.path)}
-                  sx={{
-                    borderRadius: 1,
-                    mb: 0.5,
-                    py: isMobile ? 1.5 : 1,
-                    bgcolor: isPathActive(item.path) ? 'navbar.light' : 'transparent',
-                    '&:hover': { bgcolor: 'navbar.light' },
-                  }}
-                >
-                  <ListItemIcon sx={{ color: 'navbar.contrastText', minWidth: 40 }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={item.text}
-                    sx={{
-                      '& .MuiListItemText-primary': {
-                        fontSize: isMobile ? '1rem' : '0.9rem',
-                        fontWeight: isMobile ? 500 : 400,
-                      },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
+          <SectionLabel>관리자</SectionLabel>
+          <List sx={{ px: 2, py: 0 }}>{adminMenuItems.map(renderItem)}</List>
         </>
       )}
+
+      {/* 설정 — 하단 고정 */}
+      <Box sx={{ mt: 'auto' }}>
+        <List sx={{ px: 2, py: 2 }}>{renderItem(settingsItem)}</List>
+      </Box>
     </Box>
   );
+
+  // 라이트: 배경과 한 몸(보더 없음) / 다크: 콘솔 레일 + 보더 — v2 셸 시안
+  const paperSx = {
+    boxSizing: 'border-box',
+    width: DRAWER_WIDTH,
+    bgcolor: 'navbar.main',
+    borderRight: (t) => (t.palette.mode === 'dark' ? `1px solid ${t.palette.divider}` : 'none'),
+  };
 
   return (
     <Box
@@ -263,11 +193,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
         }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': {
-            boxSizing: 'border-box',
-            width: DRAWER_WIDTH,
-            bgcolor: 'navbar.main',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
-          },
+          '& .MuiDrawer-paper': paperSx, // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
         }}
       >
         {drawer}
@@ -278,13 +204,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
         variant="permanent"
         sx={{
           display: { xs: 'none', md: 'block' },
-          '& .MuiDrawer-paper': {
-            boxSizing: 'border-box',
-            width: DRAWER_WIDTH,
-            position: 'relative',
-            height: '100%',
-            bgcolor: 'navbar.main',  // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
-          },
+          '& .MuiDrawer-paper': { ...paperSx, position: 'relative', height: '100%' },
         }}
         open
       >

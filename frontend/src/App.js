@@ -133,11 +133,12 @@ function MainLayout() {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
+    // v2 셸 (#558): 사이드바 전고(全高) — 로고가 좌상단 앵커, 헤더는 콘텐츠 컬럼 폭만 차지
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <Box sx={{ display: 'flex', flex: 1 }}>
-        <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
+      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+        <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
         <Box component="main" sx={{
           flexGrow: 1,
           minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)
