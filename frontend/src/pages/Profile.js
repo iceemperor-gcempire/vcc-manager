@@ -47,24 +47,25 @@ import { useMutation, useQuery, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { MONO } from '../theme';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 
+// v2 스탯 카드 — outlined + mono 숫자 (#564)
 function StatCard({ title, value, subtitle }) {
   return (
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h4" component="div" gutterBottom>
-          {value}
+    <Paper variant="outlined" sx={{ p: 4, height: '100%' }}>
+      <Typography variant="caption" sx={{ color: 'text.tertiary', fontWeight: 600 }}>
+        {title}
+      </Typography>
+      <Typography sx={{ fontSize: 22, fontWeight: 800, fontFamily: MONO, mt: 0.5 }}>
+        {value}
+      </Typography>
+      {subtitle && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {subtitle}
         </Typography>
-        <Typography color="text.secondary" gutterBottom>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" color="text.secondary">
-            {subtitle}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </Paper>
   );
 }
 
@@ -113,7 +114,7 @@ function AccountSettings() {
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper variant="outlined" sx={{ p: 4 }}>
       <Typography variant="h6" gutterBottom>
         계정 설정
       </Typography>
@@ -315,7 +316,7 @@ function SecuritySettings() {
 
   return (
     <>
-      <Paper sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 4 }}>
         <Typography variant="h6" gutterBottom>
           보안 설정
         </Typography>
@@ -588,23 +589,18 @@ function Profile() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" alignItems="center" mb={4}>
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
+      <Box display="flex" alignItems="center" gap={4} mb={5}>
         <Avatar
           src={user?.avatar}
-          sx={{ width: 80, height: 80, mr: 3 }}
+          sx={{ width: 72, height: 72, fontSize: 26, fontWeight: 800, background: BRAND_GRADIENTS[0] }}
         >
           {user?.nickname?.charAt(0).toUpperCase()}
         </Avatar>
         <Box>
-          <Typography variant="h4" gutterBottom>
-            {user?.nickname || '사용자'}
-          </Typography>
-          <Typography variant="body1" color="text.secondary">
-            {user?.email}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            가입일: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
+          <Typography variant="h1">{user?.nickname || '사용자'}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {user?.email} · 가입일 {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
           </Typography>
         </Box>
       </Box>
