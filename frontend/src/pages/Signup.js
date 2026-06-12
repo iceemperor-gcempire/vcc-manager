@@ -27,7 +27,7 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { debounce } from 'lodash';
+import { debounce } from '../utils/debounce';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
