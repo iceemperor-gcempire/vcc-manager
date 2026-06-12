@@ -36,6 +36,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from 'react-query';
 import toast from 'react-hot-toast';
 import { groupAPI, adminAPI } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
 
 // 그룹 생성/편집 다이얼로그
 function GroupFormDialog({ open, onClose, group, onSave }) {
@@ -301,18 +302,18 @@ function GroupManagementPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h5">그룹 관리</Typography>
-          <Typography variant="body2" color="text.secondary">
-            사용자 그룹을 정의하고, 작업판 단위 접근 권한을 관리합니다. admin 은 implicit all-access 이므로 그룹과 무관합니다.
-          </Typography>
-        </Box>
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
+      <PageHeader
+        title="그룹 관리"
+        description="사용자 그룹을 정의하고, 작업판 단위 접근 권한을 관리합니다. admin 은 implicit all-access 이므로 그룹과 무관합니다."
+        actions={(
+          <>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleNew}>
           새 그룹
         </Button>
-      </Stack>
+          </>
+        )}
+      />
 
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={6}>

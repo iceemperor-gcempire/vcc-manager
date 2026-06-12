@@ -1,8 +1,7 @@
 import React from 'react';
 import {
   Box,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   Grid,
   CircularProgress,
@@ -18,6 +17,7 @@ import {
 import { useQuery } from 'react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
+import PageHeader from '../common/PageHeader';
 
 function SystemStats() {
   const { data: stats, isLoading: statsLoading } = useQuery(
@@ -68,15 +68,12 @@ function SystemStats() {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        시스템 통계
-      </Typography>
+      <PageHeader title="시스템 통계" description="사용자 · 작업판 단위 사용량 집계" />
 
       <Grid container spacing={3}>
         {/* 사용자 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 사용자 통계
               </Typography>
@@ -118,14 +115,12 @@ function SystemStats() {
                   color="secondary"
                 />
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 작업 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 작업 통계
               </Typography>
@@ -175,14 +170,12 @@ function SystemStats() {
                   color="info"
                 />
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 저장소 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 저장소 통계
               </Typography>
@@ -204,14 +197,12 @@ function SystemStats() {
                   {formatBytes(systemStats.images?.totalSize || 0)}
                 </Typography>
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 큐 상태 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 현재 큐 상태
               </Typography>
@@ -258,14 +249,12 @@ function SystemStats() {
                   </Box>
                 </Grid>
               </Grid>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 최근 작업 목록 */}
         <Grid item xs={12}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 최근 작업 목록
               </Typography>
@@ -311,8 +300,7 @@ function SystemStats() {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
       </Grid>
     </Box>

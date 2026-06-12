@@ -40,6 +40,7 @@ import { useQuery, useMutation } from 'react-query';
 import toast from 'react-hot-toast';
 import { backupAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
+import PageHeader from '../../components/common/PageHeader';
 
 function TabPanel({ children, value, index }) {
   return (
@@ -261,10 +262,13 @@ function BackupRestorePage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h5" fontWeight="bold">
-          백업 / 복구 관리
-        </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 3, mb: 4.5 }}>
+        <Box>
+          <Typography variant="h1">백업 / 복구 관리</Typography>
+          <Typography variant="body1" color="text.secondary" sx={{ mt: 0.5 }}>
+            온디맨드 백업 생성 · 다운로드 · ZIP 복원
+          </Typography>
+        </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
@@ -295,7 +299,7 @@ function BackupRestorePage() {
         </Box>
       </Box>
 
-      <Paper sx={{ p: 2 }}>
+      <Paper variant="outlined" sx={{ p: 4 }}>
         <Tabs value={tabValue} onChange={(e, v) => setTabValue(v)}>
           <Tab label="백업 목록" />
           <Tab label="복구 히스토리" />
