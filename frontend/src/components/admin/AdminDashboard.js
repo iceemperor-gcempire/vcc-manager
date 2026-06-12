@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Grid,
+  Paper,
   Card,
   CardContent,
   Typography,
@@ -21,40 +22,30 @@ import {
 import { useQuery } from 'react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
+import PageHeader from '../common/PageHeader';
+import { MONO } from '../../theme';
 
+// v2 스탯 카드 — outlined + mono 숫자 (#568)
 function StatCard({ title, value, subtitle, icon, color = 'primary' }) {
   return (
-    <Card>
-      <CardContent>
-        <Box display="flex" alignItems="center" justifyContent="space-between">
-          <Box>
-            <Typography color="text.secondary" gutterBottom variant="body2">
-              {title}
+    <Paper variant="outlined" sx={{ p: 4, height: '100%' }}>
+      <Box display="flex" alignItems="flex-start" justifyContent="space-between" gap={2}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="caption" sx={{ color: 'text.tertiary', fontWeight: 600 }}>
+            {title}
+          </Typography>
+          <Typography sx={{ fontSize: 22, fontWeight: 800, fontFamily: MONO, mt: 0.5 }}>
+            {value}
+          </Typography>
+          {subtitle && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+              {subtitle}
             </Typography>
-            <Typography variant="h4" component="div">
-              {value}
-            </Typography>
-            {subtitle && (
-              <Typography variant="body2" color="text.secondary">
-                {subtitle}
-              </Typography>
-            )}
-          </Box>
-          <Box
-            sx={{
-              backgroundColor: `${color}.light`,
-              borderRadius: '50%',
-              p: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            {icon}
-          </Box>
+          )}
         </Box>
-      </CardContent>
-    </Card>
+        <Box sx={{ color: `${color}.main`, opacity: 0.7, '& svg': { fontSize: 20 } }}>{icon}</Box>
+      </Box>
+    </Paper>
   );
 }
 
@@ -83,12 +74,11 @@ function AdminDashboard() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">시스템 개요</Typography>
-        <IconButton onClick={() => refetch()}>
-          <Refresh />
-        </IconButton>
-      </Box>
+      <PageHeader
+        title="관리자 대시보드"
+        description="시스템 개요 · 작업 큐 상태"
+        actions={<IconButton onClick={() => refetch()}><Refresh /></IconButton>}
+      />
 
       <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
@@ -135,11 +125,11 @@ function AdminDashboard() {
       <Grid container spacing={3}>
         {/* 작업 큐 상태 */}
         <Grid item xs={12} md={8} lg={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                작업 큐 상태
-              </Typography>
+          <Paper variant="outlined">
+            <Box sx={{ px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+              <Typography variant="h6">작업 큐 상태</Typography>
+            </Box>
+            <Box sx={{ p: 4 }}>
               
               {queueLoading ? (
                 <CircularProgress size={24} />
@@ -180,8 +170,8 @@ function AdminDashboard() {
                   </Grid>
                 </Box>
               )}
-            </CardContent>
-          </Card>
+            </Box>
+          </Paper>
         </Grid>
 
         {/* 시스템 알림 */}
