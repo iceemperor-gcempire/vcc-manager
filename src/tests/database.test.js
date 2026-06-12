@@ -42,9 +42,9 @@ describe('Database Connection Configuration', () => {
         'mongodb://127.0.0.1:27017/test-db'
       ];
 
+      // NOTE: 'mongodb://localhost' 는 포트/DB 가 없어도 유효한 mongodb URI 라 invalid 목록에서 제외 (#535)
       const invalidURIs = [
         'redis://localhost:6379', // Wrong protocol
-        'mongodb://localhost', // Missing port and database
         'http://localhost:27017' // Wrong protocol
       ];
 
