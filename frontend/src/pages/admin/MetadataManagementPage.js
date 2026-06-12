@@ -5,6 +5,7 @@ import LoraManagementPage from './LoraManagementPage';
 import ModelManagementPage from './ModelManagementPage';
 import CivitaiAdminHeader from '../../components/admin/CivitaiAdminHeader';
 import { serverAPI, adminAPI } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
 
 const MODEL_SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
 const LORA_SERVER_TYPES = ['ComfyUI'];
@@ -64,10 +65,8 @@ function MetadataManagementPage() {
   }, []);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
-      <Typography variant="h5" gutterBottom>
-        모델 관리
-      </Typography>
+    <Container maxWidth="xl" sx={{ mb: 8, overflow: 'hidden' }}>
+      <PageHeader title="모델 관리" description="모델 · LoRA 메타데이터와 Civitai 연동을 관리합니다." />
 
       <CivitaiAdminHeader
         selectedServerId={selectedServerId}

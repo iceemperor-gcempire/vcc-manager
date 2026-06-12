@@ -2,8 +2,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Paper,
-  Card,
-  CardContent,
   Typography,
   Table,
   TableBody,
