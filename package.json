@@ -33,7 +33,7 @@
     "passport-google-oauth20": "^2.0.0",
     "redis": "^4.7.1",
     "sharp": "^0.34.5",
-    "unzipper": "^0.10.14",
+    "unzipper": "^0.12.3",
     "uuid": "^9.0.1",
     "ws": "^8.21.0"
   },
