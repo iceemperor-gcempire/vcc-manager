@@ -30,7 +30,7 @@ import {
   GridView,
   ViewList,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../services/api';
@@ -71,15 +71,14 @@ function ProjectCreateDialog({ open, onClose }) {
   const [tagName, setTagName] = useState('');
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation((data) => projectAPI.create(data), {
+  const createMutation = useMutation({ mutationFn: (data) => projectAPI.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries('projects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('프로젝트가 생성되었습니다');
       setName(''); setDescription(''); setTagName('');
       onClose();
     },
-    onError: (error) => toast.error(error.response?.data?.message || '생성 실패'),
-  });
+    onError: (error) => toast.error(error.response?.data?.message || '생성 실패'), });
 
   const handleSubmit = () => {
     if (!name.trim()) return toast.error('프로젝트 이름을 입력해주세요');
@@ -100,7 +99,7 @@ function ProjectCreateDialog({ open, onClose }) {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>취소</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isLoading}>생성</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>생성</Button>
       </DialogActions>
     </Dialog>
   );
@@ -209,22 +208,20 @@ function ProjectList() {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuProject, setMenuProject] = useState(null);
 
-  const { data, isLoading, error } = useQuery('projects', () => projectAPI.getAll());
+  const { data, isLoading, error } = useQuery({ queryKey: ['projects'], queryFn: () => projectAPI.getAll() });
 
-  const deleteMutation = useMutation((id) => projectAPI.delete(id), {
+  const deleteMutation = useMutation({ mutationFn: (id) => projectAPI.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries('projects'); queryClient.invalidateQueries('favoriteProjects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
       toast.success('프로젝트가 삭제되었습니다'); setDeleteProject(null);
     },
-    onError: (e) => toast.error(e.response?.data?.message || '삭제 실패'),
-  });
-  const favoriteMutation = useMutation((id) => projectAPI.toggleFavorite(id), {
+    onError: (e) => toast.error(e.response?.data?.message || '삭제 실패'), });
+  const favoriteMutation = useMutation({ mutationFn: (id) => projectAPI.toggleFavorite(id),
     onSuccess: (res) => {
-      queryClient.invalidateQueries('projects'); queryClient.invalidateQueries('favoriteProjects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
       toast.success(res.data?.data?.isFavorite ? '즐겨찾기에 추가되었습니다' : '즐겨찾기에서 제거되었습니다');
     },
-    onError: (e) => toast.error(e.response?.data?.message || '즐겨찾기 변경 실패'),
-  });
+    onError: (e) => toast.error(e.response?.data?.message || '즐겨찾기 변경 실패'), });
 
   const projects = data?.data?.data?.projects || [];
   const favoriteIds = data?.data?.data?.favoriteIds || [];
@@ -329,7 +326,7 @@ function ProjectList() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteProject(null)}>취소</Button>
-          <Button color="error" variant="contained" onClick={() => deleteMutation.mutate(deleteProject._id)} disabled={deleteMutation.isLoading}>삭제</Button>
+          <Button color="error" variant="contained" onClick={() => deleteMutation.mutate(deleteProject._id)} disabled={deleteMutation.isPending}>삭제</Button>
         </DialogActions>
       </Dialog>
     </Box>

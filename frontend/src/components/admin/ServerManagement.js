@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -41,7 +41,7 @@ import {
   CloudSync as CloudSyncIcon,
   RestartAlt as RestartAltIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, jobAPI } from '../../services/api';
 import { getServerTypeColor } from '../../templates/capabilities';
@@ -474,21 +474,13 @@ function ServerManagement() {
   const queryClient = useQueryClient();
 
   // 서버 목록 조회 (admin: 비활성 포함)
-  const { data: serversData, isLoading } = useQuery(
-    ['servers', { includeInactive: true }],
-    () => serverAPI.getServers({ includeInactive: true }),
-    { refetchInterval: 30000 } // 30초마다 갱신
-  );
+  const { data: serversData, isLoading } = useQuery({ queryKey: ['servers', { includeInactive: true }], queryFn: () => serverAPI.getServers({ includeInactive: true }), refetchInterval: 30000 /* 30초마다 갱신 */ });
 
   // ComfyUI 서버들의 LoRA 동기화 상태 조회
   const servers = serversData?.data?.data?.servers || [];
 
   // 요약: 온라인 수 + 전체 큐(서버별 큐 수집 데이터가 없어 전체 큐로 표시)
-  const { data: queueStatsData } = useQuery(
-    'serverQueueStats',
-    () => jobAPI.getQueueStats(),
-    { refetchInterval: 10000 }
-  );
+  const { data: queueStatsData } = useQuery({ queryKey: ['serverQueueStats'], queryFn: () => jobAPI.getQueueStats(), refetchInterval: 10000 });
   const queueStats = queueStatsData?.data?.stats || {};
   const onlineCount = servers.filter((s) => s.healthCheck?.status === 'healthy').length;
   const activeQueue = (queueStats.active || 0) + (queueStats.waiting || 0);
@@ -497,9 +489,7 @@ function ServerManagement() {
     ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(s.serverType)
   );
 
-  useQuery(
-    ['loraSyncStatuses', comfyUIServers.map(s => s._id).join(',')],
-    async () => {
+  const { data: loraSyncData } = useQuery({ queryKey: ['loraSyncStatuses', comfyUIServers.map(s => s._id).join(',')], queryFn: async () => {
       const statuses = {};
       for (const server of comfyUIServers) {
         try {
@@ -511,23 +501,18 @@ function ServerManagement() {
       }
       return statuses;
     },
-    {
       enabled: comfyUIServers.length > 0,
-      refetchInterval: (data) => {
-        // 동기화 중인 서버가 있으면 3초마다, 아니면 30초마다
+      // v5: refetchInterval 시그니처 (query) => — 동기화 중이면 3초, 아니면 30초 (#526)
+      refetchInterval: (query) => {
+        const data = query.state.data;
         const hasSyncing = data && Object.values(data).some(s => s?.status === 'fetching');
         return hasSyncing ? 3000 : 30000;
-      },
-      onSuccess: (data) => {
-        setLoraSyncStatuses(data || {});
-      }
-    }
-  );
+      } });
+  // v5: query onSuccess 제거 — data 동기화는 effect 로 (#526)
+  useEffect(() => { setLoraSyncStatuses(loraSyncData || {}); }, [loraSyncData]);
 
   // 모델 동기화 상태 조회 (4종 serverType)
-  useQuery(
-    ['modelSyncStatuses', modelSyncSupportedServers.map(s => s._id).join(',')],
-    async () => {
+  const { data: modelSyncData } = useQuery({ queryKey: ['modelSyncStatuses', modelSyncSupportedServers.map(s => s._id).join(',')], queryFn: async () => {
       const statuses = {};
       for (const server of modelSyncSupportedServers) {
         try {
@@ -539,138 +524,102 @@ function ServerManagement() {
       }
       return statuses;
     },
-    {
       enabled: modelSyncSupportedServers.length > 0,
-      refetchInterval: (data) => {
+      refetchInterval: (query) => {
+        const data = query.state.data;
         const hasSyncing = data && Object.values(data).some(s => s?.status === 'fetching');
         return hasSyncing ? 3000 : 30000;
-      },
-      onSuccess: (data) => {
-        setModelSyncStatuses(data || {});
-      }
-    }
-  );
+      } });
+  useEffect(() => { setModelSyncStatuses(modelSyncData || {}); }, [modelSyncData]);
 
   // 서버 생성/수정 mutation
-  const serverMutation = useMutation(
-    async (serverData) => {
+  const serverMutation = useMutation({ mutationFn: async (serverData) => {
       if (selectedServer) {
         return serverAPI.updateServer(selectedServer._id, serverData);
       } else {
         return serverAPI.createServer(serverData);
       }
     },
-    {
       onSuccess: () => {
         toast.success(selectedServer ? '서버가 수정되었습니다.' : '서버가 생성되었습니다.');
         setDialogOpen(false);
         setSelectedServer(null);
-        queryClient.invalidateQueries(['servers']);
+        queryClient.invalidateQueries({ queryKey: ['servers'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '서버 저장에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 서버 삭제 mutation
-  const deleteMutation = useMutation(
-    (id) => serverAPI.deleteServer(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => serverAPI.deleteServer(id),
       onSuccess: () => {
         toast.success('서버가 삭제되었습니다.');
         setDeleteConfirmOpen(false);
         setServerToDelete(null);
-        queryClient.invalidateQueries(['servers']);
+        queryClient.invalidateQueries({ queryKey: ['servers'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '서버 삭제에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 헬스체크 mutation
-  const healthCheckMutation = useMutation(
-    (id) => serverAPI.checkServerHealth(id),
-    {
+  const healthCheckMutation = useMutation({ mutationFn: (id) => serverAPI.checkServerHealth(id),
       onSuccess: () => {
         toast.success('헬스체크가 완료되었습니다.');
-        queryClient.invalidateQueries(['servers']);
+        queryClient.invalidateQueries({ queryKey: ['servers'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '헬스체크에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 전체 헬스체크 mutation
-  const allHealthCheckMutation = useMutation(
-    () => serverAPI.checkAllServersHealth(),
-    {
+  const allHealthCheckMutation = useMutation({ mutationFn: () => serverAPI.checkAllServersHealth(),
       onSuccess: (response) => {
         const { data } = response.data;
         toast.success(`${data.total}개 서버 헬스체크 완료 (성공: ${data.success}, 실패: ${data.failed})`);
-        queryClient.invalidateQueries(['servers']);
+        queryClient.invalidateQueries({ queryKey: ['servers'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '헬스체크에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // LoRA 동기화 mutation
-  const loraSyncMutation = useMutation(
-    (serverId) => serverAPI.syncLoras(serverId),
-    {
+  const loraSyncMutation = useMutation({ mutationFn: (serverId) => serverAPI.syncLoras(serverId),
       onSuccess: () => {
         toast.success('LoRA 동기화가 시작되었습니다.');
-        queryClient.invalidateQueries(['loraSyncStatuses']);
+        queryClient.invalidateQueries({ queryKey: ['loraSyncStatuses'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || 'LoRA 동기화에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 모델 동기화 mutation (4종 serverType — 각각 dispatch 는 backend 가 처리)
-  const modelSyncMutation = useMutation(
-    (serverId) => serverAPI.syncModels(serverId),
-    {
+  const modelSyncMutation = useMutation({ mutationFn: (serverId) => serverAPI.syncModels(serverId),
       onSuccess: () => {
         toast.success('모델 동기화가 시작되었습니다.');
-        queryClient.invalidateQueries(['modelSyncStatuses']);
+        queryClient.invalidateQueries({ queryKey: ['modelSyncStatuses'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '모델 동기화에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // LoRA / 모델 sync 상태 강제 리셋 mutation (#256)
-  const loraResetMutation = useMutation(
-    (serverId) => serverAPI.resetLorasSync(serverId),
-    {
+  const loraResetMutation = useMutation({ mutationFn: (serverId) => serverAPI.resetLorasSync(serverId),
       onSuccess: () => {
         toast.success('LoRA 동기화 상태가 초기화되었습니다.');
-        queryClient.invalidateQueries(['loraSyncStatuses']);
+        queryClient.invalidateQueries({ queryKey: ['loraSyncStatuses'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '리셋 실패');
-      }
-    }
-  );
-  const modelResetMutation = useMutation(
-    (serverId) => serverAPI.resetModelsSync(serverId),
-    {
+      } });
+  const modelResetMutation = useMutation({ mutationFn: (serverId) => serverAPI.resetModelsSync(serverId),
       onSuccess: () => {
         toast.success('모델 동기화 상태가 초기화되었습니다.');
-        queryClient.invalidateQueries(['modelSyncStatuses']);
+        queryClient.invalidateQueries({ queryKey: ['modelSyncStatuses'] });
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '리셋 실패');
-      }
-    }
-  );
+      } });
 
   const handleAddServer = () => {
     setSelectedServer(null);
@@ -727,7 +676,7 @@ function ServerManagement() {
         sx={{ mb: 4 }}
         actions={(
           <>
-            <Button variant="outlined" startIcon={<Refresh />} onClick={handleAllHealthCheck} disabled={allHealthCheckMutation.isLoading}>전체 헬스체크</Button>
+            <Button variant="outlined" startIcon={<Refresh />} onClick={handleAllHealthCheck} disabled={allHealthCheckMutation.isPending}>전체 헬스체크</Button>
             <Button variant="contained" startIcon={<Add />} onClick={handleAddServer}>서버 추가</Button>
           </>
         )}
@@ -799,7 +748,7 @@ function ServerManagement() {
             onClick={() => deleteMutation.mutate(serverToDelete._id)}
             color="error"
             variant="contained"
-            disabled={deleteMutation.isLoading}
+            disabled={deleteMutation.isPending}
           >
             삭제
           </Button>

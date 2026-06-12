@@ -13,17 +13,13 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../../services/api';
 
 function WorkboardSelectDialog({ open, onClose, onSelect }) {
   // 본 다이얼로그는 image / video 작업판으로 다른 작업판 이어가기 용. text 작업판은 제외.
   // 백엔드 limit max 50 으로 한 번에 가능한 많이 가져오고 클라이언트에서 outputFormat 필터.
-  const { data, isLoading } = useQuery(
-    ['workboards', { limit: 50, isActive: true }],
-    () => workboardAPI.getAll({ isActive: true, limit: 50 }),
-    { enabled: open }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['workboards', { limit: 50, isActive: true }], queryFn: () => workboardAPI.getAll({ isActive: true, limit: 50 }), enabled: open });
 
   const allWorkboards = data?.data?.workboards || [];
   const workboards = allWorkboards.filter((wb) => (wb.outputFormat || 'image') !== 'text');

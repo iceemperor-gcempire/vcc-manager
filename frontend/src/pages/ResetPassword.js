@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
@@ -105,18 +105,11 @@ function ResetPassword() {
   const watchedPassword = watch('password');
 
   // Verify token on page load
-  const { data: tokenData, isLoading: isVerifying, isError: isTokenError } = useQuery(
-    ['verifyResetToken', token],
-    () => authAPI.verifyResetToken(token),
-    {
+  const { data: tokenData, isLoading: isVerifying, isError: isTokenError } = useQuery({ queryKey: ['verifyResetToken', token], queryFn: () => authAPI.verifyResetToken(token),
       retry: false,
-      refetchOnWindowFocus: false
-    }
-  );
+      refetchOnWindowFocus: false });
 
-  const resetPasswordMutation = useMutation(
-    (data) => authAPI.resetPassword({ token, ...data }),
-    {
+  const resetPasswordMutation = useMutation({ mutationFn: (data) => authAPI.resetPassword({ token, ...data }),
       onSuccess: () => {
         setResetSuccess(true);
         toast.success('비밀번호가 성공적으로 변경되었습니다');
@@ -124,9 +117,7 @@ function ResetPassword() {
       onError: (error) => {
         const message = error.response?.data?.message || '비밀번호 재설정 중 오류가 발생했습니다';
         toast.error(message);
-      }
-    }
-  );
+      } });
 
   const onSubmit = (data) => {
     resetPasswordMutation.mutate(data);
@@ -346,10 +337,10 @@ function ResetPassword() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={resetPasswordMutation.isLoading}
+              disabled={resetPasswordMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {resetPasswordMutation.isLoading ? (
+              {resetPasswordMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '비밀번호 변경'

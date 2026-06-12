@@ -37,7 +37,7 @@ import {
   Close,
   HourglassEmpty
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { adminAPI } from '../../services/api';
 import PageHeader from '../common/PageHeader';
@@ -54,51 +54,35 @@ function UserManagement() {
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, refetch } = useQuery(
-    ['adminUsers', { search, approvalStatus, page: page + 1, limit: rowsPerPage }],
-    () => adminAPI.getUsers({ search, approvalStatus, page: page + 1, limit: rowsPerPage }),
-    { keepPreviousData: true }
-  );
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['adminUsers', { search, approvalStatus, page: page + 1, limit: rowsPerPage }], queryFn: () => adminAPI.getUsers({ search, approvalStatus, page: page + 1, limit: rowsPerPage }), placeholderData: keepPreviousData });
 
-  const deleteMutation = useMutation(
-    adminAPI.deleteUser,
-    {
+  const deleteMutation = useMutation({ mutationFn: adminAPI.deleteUser,
       onSuccess: () => {
         toast.success('사용자가 삭제되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
         setDeleteDialogOpen(false);
       },
       onError: (error) => {
         toast.error('삭제 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
-  const approveMutation = useMutation(
-    adminAPI.approveUser,
-    {
+  const approveMutation = useMutation({ mutationFn: adminAPI.approveUser,
       onSuccess: () => {
         toast.success('사용자가 승인되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       },
       onError: (error) => {
         toast.error('승인 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
-  const rejectMutation = useMutation(
-    adminAPI.rejectUser,
-    {
+  const rejectMutation = useMutation({ mutationFn: adminAPI.rejectUser,
       onSuccess: () => {
         toast.success('사용자 승인이 거절되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       },
       onError: (error) => {
         toast.error('거절 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
   const users = data?.data?.users || [];
   const pagination = data?.data?.pagination || { total: 0, pages: 0 };
@@ -242,7 +226,7 @@ function UserManagement() {
                                 <IconButton
                                   color="success"
                                   onClick={() => handleApprove(user._id)}
-                                  disabled={approveMutation.isLoading}
+                                  disabled={approveMutation.isPending}
                                   size="small"
                                   title="승인"
                                 >
@@ -251,7 +235,7 @@ function UserManagement() {
                                 <IconButton
                                   color="error"
                                   onClick={() => handleReject(user._id)}
-                                  disabled={rejectMutation.isLoading}
+                                  disabled={rejectMutation.isPending}
                                   size="small"
                                   title="거절"
                                 >
@@ -309,9 +293,9 @@ function UserManagement() {
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
-            disabled={deleteMutation.isLoading}
+            disabled={deleteMutation.isPending}
           >
-            {deleteMutation.isLoading ? '삭제 중...' : '삭제'}
+            {deleteMutation.isPending ? '삭제 중...' : '삭제'}
           </Button>
         </DialogActions>
       </Dialog>

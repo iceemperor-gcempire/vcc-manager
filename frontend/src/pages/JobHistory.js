@@ -33,7 +33,7 @@ import {
   CheckCircle,
   Close,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -365,23 +365,11 @@ function JobHistory() {
   const [limit, setLimit] = useState(20);
 
   // 데이터
-  const { data: jobsRes, isLoading: jobsLoading } = useQuery(
-    ['historyJobs', limit],
-    () => jobAPI.getMy({ limit }),
-    { refetchInterval: config.monitoring.recentJobsInterval, keepPreviousData: true }
-  );
-  const { data: convsRes, isLoading: convsLoading } = useQuery(
-    ['historyConvs', limit],
-    () => conversationAPI.getMy({ limit }),
-    { keepPreviousData: true }
-  );
-  const { data: runsRes, isLoading: runsLoading } = useQuery(
-    ['historyRuns', limit],
-    () => dashboardAPI.getAllPipelineRuns({ limit }),
-    { refetchInterval: config.monitoring.recentJobsInterval, keepPreviousData: true }
-  );
+  const { data: jobsRes, isLoading: jobsLoading } = useQuery({ queryKey: ['historyJobs', limit], queryFn: () => jobAPI.getMy({ limit }), refetchInterval: config.monitoring.recentJobsInterval, placeholderData: keepPreviousData });
+  const { data: convsRes, isLoading: convsLoading } = useQuery({ queryKey: ['historyConvs', limit], queryFn: () => conversationAPI.getMy({ limit }), placeholderData: keepPreviousData });
+  const { data: runsRes, isLoading: runsLoading } = useQuery({ queryKey: ['historyRuns', limit], queryFn: () => dashboardAPI.getAllPipelineRuns({ limit }), refetchInterval: config.monitoring.recentJobsInterval, placeholderData: keepPreviousData });
 
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
   const loading = jobsLoading || convsLoading || runsLoading;
@@ -424,27 +412,22 @@ function JobHistory() {
   const [textDetail, setTextDetail] = useState(null);
 
   // ---- mutations ----
-  const deleteMutation = useMutation(
-    ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-    {
+  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
       onSuccess: (response) => {
         const { deletedImagesCount = 0, deletedVideosCount = 0 } = response.data || {};
         if (deletedImagesCount > 0 || deletedVideosCount > 0) {
           toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries('generatedImages');
-          queryClient.invalidateQueries('generatedVideos');
+          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
         } else {
           toast.success('작업이 삭제되었습니다');
         }
-        queryClient.invalidateQueries('historyJobs');
+        queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
       },
-      onError: (error) => toast.error('삭제 실패: ' + error.message),
-    }
-  );
-  const savePromptMutation = useMutation(promptDataAPI.create, {
+      onError: (error) => toast.error('삭제 실패: ' + error.message), });
+  const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
-    onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)),
-  });
+    onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)), });
 
   // ---- handlers ----
   const openMedia = (item) => {

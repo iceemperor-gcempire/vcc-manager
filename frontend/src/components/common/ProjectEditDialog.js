@@ -13,7 +13,7 @@ import {
   Tab
 } from '@mui/material';
 import { Image as ImageIcon, Close, ArrowBack } from '@mui/icons-material';
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../../services/api';
 import MediaGrid from './MediaGrid';
@@ -46,22 +46,18 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
     }
   }, [open]);
 
-  const updateMutation = useMutation(
-    (data) => projectAPI.update(project._id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: (data) => projectAPI.update(project._id, data),
       onSuccess: () => {
-        queryClient.invalidateQueries(['project', project._id]);
-        queryClient.invalidateQueries('projects');
-        queryClient.invalidateQueries('favoriteProjects');
+        queryClient.invalidateQueries({ queryKey: ['project', project._id] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
         toast.success('프로젝트가 수정되었습니다');
         onClose();
         if (onSuccess) onSuccess();
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
+      } });
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -241,7 +237,7 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={updateMutation.isLoading}
+          disabled={updateMutation.isPending}
         >
           저장
         </Button>

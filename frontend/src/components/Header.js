@@ -30,7 +30,7 @@ import {
   Dns as DnsIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useColorScheme } from '../contexts/ColorSchemeContext';
 import { serverAPI } from '../services/api';
@@ -53,10 +53,9 @@ const pillSx = {
 // 서버 상태 필 — GET /servers (일반 사용자 접근 가능) 실데이터
 function ServerStatusPill({ isAdmin }) {
   const navigate = useNavigate();
-  const { data } = useQuery('servers', () => serverAPI.getServers(), {
+  const { data } = useQuery({ queryKey: ['servers'], queryFn: () => serverAPI.getServers(),
     staleTime: 30000,
-    refetchInterval: 60000,
-  });
+    refetchInterval: 60000, });
   const servers = data?.data?.data?.servers || [];
   if (!servers.length) return null;
 

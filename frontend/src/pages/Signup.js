@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useMutation, useQuery } from 'react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
@@ -130,9 +130,7 @@ function Signup() {
     return null;
   }, 500);
 
-  const signupMutation = useMutation(
-    authAPI.signup,
-    {
+  const signupMutation = useMutation({ mutationFn: authAPI.signup,
       onSuccess: (response) => {
         toast.success('회원가입이 완료되었습니다!', { duration: 6000 });
         const isApproved = response?.data?.user?.approvalStatus === 'approved';
@@ -159,9 +157,7 @@ function Signup() {
         } else {
           toast.error(errorMessage);
         }
-      }
-    }
-  );
+      } });
 
   const handleGoogleSignup = () => {
     window.location.href = '/api/auth/google';
@@ -366,10 +362,10 @@ function Signup() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={signupMutation.isLoading}
+              disabled={signupMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {signupMutation.isLoading ? (
+              {signupMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '회원가입'

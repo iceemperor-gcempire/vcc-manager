@@ -39,7 +39,7 @@ import {
   Label,
   FolderSpecial
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
@@ -57,20 +57,16 @@ function TagEditDialog({ open, onClose, tag }) {
   const [color, setColor] = useState(tag?.color || '#C96A3B');
   const queryClient = useQueryClient();
 
-  const updateMutation = useMutation(
-    (data) => tagAPI.update(tag._id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: (data) => tagAPI.update(tag._id, data),
       onSuccess: () => {
-        queryClient.invalidateQueries('myTags');
-        queryClient.invalidateQueries('tags');
+        queryClient.invalidateQueries({ queryKey: ['myTags'] });
+        queryClient.invalidateQueries({ queryKey: ['tags'] });
         toast.success('태그가 수정되었습니다');
         onClose();
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
+      } });
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -119,7 +115,7 @@ function TagEditDialog({ open, onClose, tag }) {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={updateMutation.isLoading}
+          disabled={updateMutation.isPending}
         >
           저장
         </Button>
@@ -133,12 +129,10 @@ function TagCreateDialog({ open, onClose }) {
   const [color, setColor] = useState('#C96A3B');
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation(
-    (data) => tagAPI.create(data),
-    {
+  const createMutation = useMutation({ mutationFn: (data) => tagAPI.create(data),
       onSuccess: () => {
-        queryClient.invalidateQueries('myTags');
-        queryClient.invalidateQueries('tags');
+        queryClient.invalidateQueries({ queryKey: ['myTags'] });
+        queryClient.invalidateQueries({ queryKey: ['tags'] });
         toast.success('태그가 생성되었습니다');
         setName('');
         setColor('#C96A3B');
@@ -146,9 +140,7 @@ function TagCreateDialog({ open, onClose }) {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '생성 실패');
-      }
-    }
-  );
+      } });
 
   const handleSubmit = () => {
     if (!name.trim()) {
@@ -190,7 +182,7 @@ function TagCreateDialog({ open, onClose }) {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={createMutation.isLoading}
+          disabled={createMutation.isPending}
         >
           생성
         </Button>
@@ -213,32 +205,21 @@ function TagSearch() {
   const queryClient = useQueryClient();
 
   // 태그 검색 query
-  const { data: searchData, isLoading: searchLoading, error: searchError } = useQuery(
-    ['tagSearch', selectedTags.map(t => t._id).join(',')],
-    () => tagAPI.search({ tags: selectedTags.map(t => t._id).join(',') }),
-    { enabled: selectedTags.length > 0 }
-  );
+  const { data: searchData, isLoading: searchLoading, error: searchError } = useQuery({ queryKey: ['tagSearch', selectedTags.map(t => t._id).join(',')], queryFn: () => tagAPI.search({ tags: selectedTags.map(t => t._id).join(',') }), enabled: selectedTags.length > 0 });
 
   // 태그 관리 query
-  const { data: myTagsData, isLoading: myTagsLoading, error: myTagsError } = useQuery(
-    'myTags',
-    () => tagAPI.getMy()
-  );
+  const { data: myTagsData, isLoading: myTagsLoading, error: myTagsError } = useQuery({ queryKey: ['myTags'], queryFn: () => tagAPI.getMy() });
 
-  const deleteMutation = useMutation(
-    (id) => tagAPI.delete(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => tagAPI.delete(id),
       onSuccess: () => {
-        queryClient.invalidateQueries('myTags');
-        queryClient.invalidateQueries('tags');
+        queryClient.invalidateQueries({ queryKey: ['myTags'] });
+        queryClient.invalidateQueries({ queryKey: ['tags'] });
         toast.success('태그가 삭제되었습니다');
         setDeleteConfirmTag(null);
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '삭제 실패');
-      }
-    }
-  );
+      } });
 
   // 검색 결과
   const results = searchData?.data?.results || {};
@@ -580,7 +561,7 @@ function TagSearch() {
                     color="error"
                     variant="contained"
                     onClick={() => deleteMutation.mutate(deleteConfirmTag._id)}
-                    disabled={deleteMutation.isLoading}
+                    disabled={deleteMutation.isPending}
                   >
                     삭제
                   </Button>

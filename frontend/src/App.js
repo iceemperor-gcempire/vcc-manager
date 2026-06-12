@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { buildVccTheme } from './theme';
@@ -109,10 +109,10 @@ function MainLayout() {
   useEffect(() => {
     const refreshPaths = ['/jobs', '/content'];
     if (refreshPaths.includes(location.pathname)) {
-      queryClient.invalidateQueries('historyJobs');
-      queryClient.invalidateQueries('generatedImages');
-      queryClient.invalidateQueries('uploadedImages');
-      queryClient.invalidateQueries('generatedVideos');
+      queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+      queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
+      queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
     }
   }, [location.pathname, queryClient]);
 

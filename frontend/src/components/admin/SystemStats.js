@@ -14,27 +14,17 @@ import {
   LinearProgress,
   Chip
 } from '@mui/material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
 import PageHeader from '../common/PageHeader';
 
 function SystemStats() {
-  const { data: stats, isLoading: statsLoading } = useQuery(
-    'adminStatsDetailed',
-    adminAPI.getStats
-  );
+  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['adminStatsDetailed'], queryFn: adminAPI.getStats });
 
-  const { data: recentJobs, isLoading: jobsLoading } = useQuery(
-    'adminAllJobs',
-    () => adminAPI.getJobs({ limit: 20 })
-  );
+  const { data: recentJobs, isLoading: jobsLoading } = useQuery({ queryKey: ['adminAllJobs'], queryFn: () => adminAPI.getJobs({ limit: 20 }) });
 
-  const { data: queueStats, isLoading: queueLoading } = useQuery(
-    'queueStatsDetailed',
-    jobAPI.getQueueStats,
-    { refetchInterval: config.monitoring.queueStatusInterval }
-  );
+  const { data: queueStats, isLoading: queueLoading } = useQuery({ queryKey: ['queueStatsDetailed'], queryFn: jobAPI.getQueueStats, refetchInterval: config.monitoring.queueStatusInterval });
 
   if (statsLoading || jobsLoading || queueLoading) {
     return (

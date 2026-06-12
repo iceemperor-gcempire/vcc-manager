@@ -32,7 +32,7 @@ import {
   Videocam,
   CheckCircle
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { imageAPI } from '../../services/api';
 import Pagination from './Pagination';
@@ -373,11 +373,7 @@ function MediaGrid({
   // extraQuery 변화 시 자동으로 새 쿼리 — queryKey 에 직렬화 포함
   const extraQueryKey = extraQuery ? JSON.stringify(extraQuery) : '';
   useEffect(() => { setPage(1); }, [extraQueryKey]);
-  const { data, isLoading } = useQuery(
-    [actualQueryKey, search, page, pageSize, extraQueryKey],
-    () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }),
-    { keepPreviousData: true }
-  );
+  const { data, isLoading } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData });
 
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};

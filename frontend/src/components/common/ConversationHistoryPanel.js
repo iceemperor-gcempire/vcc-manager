@@ -30,7 +30,7 @@ import {
   ExpandLess,
   ExpandMore
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-material';
@@ -47,34 +47,22 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
   const navigate = useNavigate();
   const effectiveFetch = fetchFn || ((params) => conversationAPI.getMy(params));
 
-  const { data, isLoading, error } = useQuery(
-    [queryKey, page],
-    () => effectiveFetch({ page, limit: 20 }),
-    { keepPreviousData: true }
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: [queryKey, page], queryFn: () => effectiveFetch({ page, limit: 20 }), placeholderData: keepPreviousData });
 
-  const deleteMutation = useMutation(
-    (id) => conversationAPI.delete(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => conversationAPI.delete(id),
       onSuccess: () => {
         toast.success('대화를 삭제했습니다.');
-        queryClient.invalidateQueries('conversations');
+        queryClient.invalidateQueries({ queryKey: ['conversations'] });
         setDetailItem(null);
       },
-      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'), });
 
-  const saveMessageMutation = useMutation(
-    ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
-    {
+  const saveMessageMutation = useMutation({ mutationFn: ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
       onSuccess: () => {
         toast.success('생성된 텍스트로 저장되었습니다.');
-        queryClient.invalidateQueries('generatedTexts');
+        queryClient.invalidateQueries({ queryKey: ['generatedTexts'] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   const conversations = data?.data?.data?.conversations || [];
   const pagination = data?.data?.data?.pagination || { current: 1, pages: 0, total: 0 };
@@ -287,7 +275,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                       <IconButton
                         size="small"
                         onClick={() => saveMessageMutation.mutate({ conversationJobId: detailItem._id, messageIndex: idx })}
-                        disabled={saveMessageMutation.isLoading}
+                        disabled={saveMessageMutation.isPending}
                       >
                         <BookmarkAddIcon fontSize="small" />
                       </IconButton>

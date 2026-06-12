@@ -15,7 +15,7 @@ import {
   ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
@@ -44,11 +44,7 @@ function PromptGeneration() {
     setUseWorldview(!!initialProjectId);
   }, [initialProjectId, workboardId]);
 
-  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
-    ['workboard', workboardId],
-    () => workboardAPI.getById(workboardId),
-    { enabled: !!workboardId }
-  );
+  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery({ queryKey: ['workboard', workboardId], queryFn: () => workboardAPI.getById(workboardId), enabled: !!workboardId });
 
   const workboard = workboardData?.data?.workboard;
 

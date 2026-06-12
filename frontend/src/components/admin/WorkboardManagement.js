@@ -53,7 +53,7 @@ import {
   PlaylistAdd
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
@@ -71,11 +71,7 @@ import {
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
 function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
   const fetcher = type === 'baseModel' ? serverAPI.getDetailedModels : serverAPI.getLoras;
-  const { data, isLoading } = useQuery(
-    ['adminDefaultValueMetadata', type, serverId],
-    () => fetcher(serverId, { limit: 200, detailed: true }),
-    { enabled: !!serverId, staleTime: 60_000 }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['adminDefaultValueMetadata', type, serverId], queryFn: () => fetcher(serverId, { limit: 200, detailed: true }), enabled: !!serverId, staleTime: 60_000 });
   const items = data?.data?.data?.items
     || data?.data?.data?.models
     || data?.data?.data?.loraModels

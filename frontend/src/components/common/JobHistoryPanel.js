@@ -46,7 +46,7 @@ import {
   ExpandMore,
   ExpandLess
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -101,11 +101,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
   const tagsArePopulated = jobTags.length > 0 && typeof jobTags[0] === 'object';
 
   // populate되지 않은 경우에만 태그 정보 조회
-  const { data: allTagsData } = useQuery(
-    'allTags',
-    () => tagAPI.getAll({ limit: 200 }),
-    { enabled: open && jobTags.length > 0 && !tagsArePopulated }
-  );
+  const { data: allTagsData } = useQuery({ queryKey: ['allTags'], queryFn: () => tagAPI.getAll({ limit: 200 }), enabled: open && jobTags.length > 0 && !tagsArePopulated });
   const allTags = allTagsData?.data?.tags || [];
 
   const resolvedJobTags = tagsArePopulated
@@ -918,14 +914,9 @@ function JobHistoryPanel({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery(
-    [queryKey, { search, status: statusFilter, page, limit: pageSize }],
-    () => fetchFn({ search: search || undefined, status: statusFilter || undefined, page, limit: pageSize }),
-    {
+  const { data, isLoading } = useQuery({ queryKey: [queryKey, { search, status: statusFilter, page, limit: pageSize }], queryFn: () => fetchFn({ search: search || undefined, status: statusFilter || undefined, page, limit: pageSize }),
       refetchInterval: autoRefetch ? config.monitoring.recentJobsInterval : false,
-      keepPreviousData: true
-    }
-  );
+      placeholderData: keepPreviousData });
 
   const defaultExtractor = (data) => {
     // Handle both job route format ({ jobs, pagination }) and project route format ({ data: { jobs, pagination } })
@@ -940,41 +931,34 @@ function JobHistoryPanel({
   const { jobs, pagination } = extractor(data);
 
   // 사용자 설정 가져오기
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
-  const retryMutation = useMutation(jobAPI.retry, {
-    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries(queryKey); },
-    onError: (error) => { toast.error('재시도 실패: ' + error.message); }
-  });
+  const retryMutation = useMutation({ mutationFn: jobAPI.retry,
+    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
+    onError: (error) => { toast.error('재시도 실패: ' + error.message); } });
 
-  const cancelMutation = useMutation(jobAPI.cancel, {
-    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries(queryKey); },
-    onError: (error) => { toast.error('취소 실패: ' + error.message); }
-  });
+  const cancelMutation = useMutation({ mutationFn: jobAPI.cancel,
+    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
+    onError: (error) => { toast.error('취소 실패: ' + error.message); } });
 
-  const deleteMutation = useMutation(
-    ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-    {
+  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
       onSuccess: (response) => {
         const { deletedImagesCount, deletedVideosCount } = response.data;
         if (deletedImagesCount > 0 || deletedVideosCount > 0) {
           toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries('generatedImages');
-          queryClient.invalidateQueries('generatedVideos');
+          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
         } else {
           toast.success('작업이 삭제되었습니다');
         }
-        queryClient.invalidateQueries(queryKey);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
       },
-      onError: (error) => { toast.error('삭제 실패: ' + error.message); }
-    }
-  );
+      onError: (error) => { toast.error('삭제 실패: ' + error.message); } });
 
-  const savePromptMutation = useMutation(promptDataAPI.create, {
+  const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSavePromptOpen(false); setSavingJob(null); },
-    onError: (error) => { toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)); }
-  });
+    onError: (error) => { toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)); } });
 
   const handleView = async (job) => {
     setSelectedJob(job);

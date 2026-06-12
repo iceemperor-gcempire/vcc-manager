@@ -15,17 +15,13 @@ import {
   ListItemText
 } from '@mui/material';
 import { Chat, Check } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from './PromptGeneratorPanel';
 import WorkboardChatPanel from './common/WorkboardChatPanel';
 
 function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
-  const { data, isLoading } = useQuery(
-    ['promptWorkboards'],
-    () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }),
-    { enabled: open }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['promptWorkboards'], queryFn: () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }), enabled: open });
 
   const workboards = data?.data?.workboards || [];
 

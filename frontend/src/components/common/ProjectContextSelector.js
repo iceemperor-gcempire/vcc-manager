@@ -13,7 +13,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import { Public as PublicIcon } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { projectAPI } from '../../services/api';
 
 // 작업판 실행 시 프로젝트 컨텍스트 / 세계관 사용 토글 (#396).
@@ -26,7 +26,7 @@ function ProjectContextSelector({
   onUseWorldviewChange,
   disabled = false,
 }) {
-  const { data: projectsData } = useQuery('projects', () => projectAPI.getAll({ limit: 200 }));
+  const { data: projectsData } = useQuery({ queryKey: ['projects'], queryFn: () => projectAPI.getAll({ limit: 200 }) });
   const projects = projectsData?.data?.data?.projects || projectsData?.data?.projects || [];
 
   return (

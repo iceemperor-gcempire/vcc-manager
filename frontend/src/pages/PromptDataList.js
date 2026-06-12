@@ -11,7 +11,7 @@ import {
   DialogActions
 } from '@mui/material';
 import { Add } from '@mui/icons-material';
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { promptDataAPI } from '../services/api';
@@ -29,37 +29,31 @@ function PromptDataList() {
   const [workboardSelectOpen, setWorkboardSelectOpen] = useState(false);
   const [selectedPromptData, setSelectedPromptData] = useState(null);
 
-  const createMutation = useMutation(promptDataAPI.create, {
+  const createMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => {
       toast.success('프롬프트 데이터가 생성되었습니다');
-      queryClient.invalidateQueries('promptDataList');
+      queryClient.invalidateQueries({ queryKey: ['promptDataList'] });
       setFormOpen(false);
     },
-    onError: () => toast.error('프롬프트 데이터 생성 실패')
-  });
+    onError: () => toast.error('프롬프트 데이터 생성 실패') });
 
-  const updateMutation = useMutation(
-    ({ id, data }) => promptDataAPI.update(id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: ({ id, data }) => promptDataAPI.update(id, data),
       onSuccess: () => {
         toast.success('프롬프트 데이터가 수정되었습니다');
-        queryClient.invalidateQueries('promptDataList');
+        queryClient.invalidateQueries({ queryKey: ['promptDataList'] });
         setFormOpen(false);
         setEditingPromptData(null);
       },
-      onError: () => toast.error('프롬프트 데이터 수정 실패')
-    }
-  );
+      onError: () => toast.error('프롬프트 데이터 수정 실패') });
 
-  const deleteMutation = useMutation(promptDataAPI.delete, {
+  const deleteMutation = useMutation({ mutationFn: promptDataAPI.delete,
     onSuccess: () => {
       toast.success('프롬프트 데이터가 삭제되었습니다');
-      queryClient.invalidateQueries('promptDataList');
+      queryClient.invalidateQueries({ queryKey: ['promptDataList'] });
       setDeleteConfirmOpen(false);
       setDeletingId(null);
     },
-    onError: () => toast.error('프롬프트 데이터 삭제 실패')
-  });
+    onError: () => toast.error('프롬프트 데이터 삭제 실패') });
 
   const handleSave = (data) => {
     if (editingPromptData) {
