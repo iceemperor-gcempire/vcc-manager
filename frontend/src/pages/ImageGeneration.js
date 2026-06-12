@@ -54,6 +54,8 @@ import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
+import config from '../config';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -523,6 +525,32 @@ function ImageGeneration() {
   const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
   const userPreferences = profileData?.data?.user?.preferences || {};
 
+  // 프롬프트의 <lora:이름:가중치> 태그 → 칩 표시용 파싱 (#552, 목업 06)
+  const watchedPrompt = watch('prompt') || '';
+  const promptLoras = React.useMemo(() => {
+    const out = [];
+    for (const m of watchedPrompt.matchAll(/<lora:([^:>]+):([0-9.]+)>/g)) {
+      out.push({ tag: m[0], name: m[1], weight: m[2] });
+    }
+    return out;
+  }, [watchedPrompt]);
+
+  const handleRemoveLoraTag = (tag) => {
+    const next = watchedPrompt
+      .replace(tag, '')
+      .replace(/,\s*,/g, ',')
+      .replace(/(^\s*,\s*)|(\s*,\s*$)/g, '')
+      .replace(/[ \t]{2,}/g, ' ');
+    setValue('prompt', next, { shouldDirty: true });
+  };
+
+  // 대기 큐 — 우측 레일 표시 (#552)
+  const { data: queueStatsData } = useQuery('queueStats', jobAPI.getQueueStats, {
+    refetchInterval: config.monitoring.queueStatusInterval,
+  });
+  const qs = queueStatsData?.data?.stats;
+  const queueStatsText = qs ? `대기 ${qs.waiting ?? 0} · 진행 ${qs.active ?? 0}` : '—';
+
   const generateMutation = useMutation(
     jobAPI.create,
     {
@@ -806,70 +834,66 @@ function ImageGeneration() {
     );
   }
 
-  return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box mb={3}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => navigate('/workboards')}
-          sx={{ mb: 2 }}
-        >
-          작업판 목록으로 돌아가기
-        </Button>
+  // 서버 표시용 host — serverUrl 이 비정상이어도 렌더가 죽지 않게 가드
+  let serverHost = '-';
+  try { serverHost = new URL(workboardData?.serverUrl || '').host; } catch (_) { serverHost = workboardData?.serverUrl || '-'; }
 
-        <Box display="flex" alignItems="center" gap={2}>
-          <Typography variant="h4" gutterBottom>
-            {workboardData?.name}
-          </Typography>
-          {projectContext && (
-            <Chip
-              label={`프로젝트: ${projectContext.name}`}
-              color="primary"
-              variant="outlined"
-              sx={{ mb: 1 }}
-            />
-          )}
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 8 }}>
+      <Button startIcon={<ArrowBack />} onClick={() => navigate('/workboards')} sx={{ mb: 3 }}>
+        작업판 목록
+      </Button>
+
+      {/* 페이지 헤더 — 목업 06 (#552): 아이콘 타일 + h1 + mono ID + 메타 */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap', mb: 5 }}>
+        <Box sx={{
+          width: 56, height: 56, borderRadius: 2, background: BRAND_GRADIENTS[0],
+          color: 'common.white', display: 'grid', placeItems: 'center', boxShadow: 2, flex: '0 0 auto',
+        }}>
+          <ImageIcon />
         </Box>
-        {workboardData?.description && (
-          <Typography variant="body1" color="text.secondary" gutterBottom>
-            {workboardData.description}
-          </Typography>
-        )}
-        <Box display="flex" alignItems="center" gap={0.5} mb={1}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
-            작업판 ID: {workboardData?._id}
-          </Typography>
-          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
-            <ContentCopy fontSize="inherit" />
-          </IconButton>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h1">{workboardData?.name}</Typography>
+            {projectContext && (
+              <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" />
+            )}
+          </Box>
+          {workboardData?.description && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, textWrap: 'pretty' }}>
+              {workboardData.description}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.tertiary' }}>
+              ID: {workboardData?._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
+            <Typography variant="caption" sx={{ color: 'text.tertiary' }}>
+              {serverHost} · v{workboardData?.version || 1} · 사용횟수 {workboardData?.usageCount || 0}회
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
       <form key={workboardData?._id} onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
-            <Paper sx={{ p: 3, mb: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                기본 설정
-              </Typography>
-
-              {/* 프롬프트 */}
-              <Box display="flex" justifyContent="flex-end" gap={1} mb={1}>
-                <Button
-                  startIcon={<FolderOpen />}
-                  onClick={() => setPromptDataDialogOpen(true)}
-                >
+            <Paper variant="outlined" sx={{ mb: 4 }}>
+              {/* 카드 헤더 — 목업 06: 제목 + 우측 텍스트 액션 */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="h6">기본 설정</Typography>
+                <Box sx={{ flex: 1 }} />
+                <Button startIcon={<FolderOpen />} onClick={() => setPromptDataDialogOpen(true)}>
                   프롬프트 불러오기
                 </Button>
-                <Button
-                  color="secondary"
-                  variant="outlined"
-                  startIcon={<AutoAwesome />}
-                  onClick={() => setPromptGeneratorDialogOpen(true)}
-                >
+                <Button color="secondary" startIcon={<AutoAwesome />} onClick={() => setPromptGeneratorDialogOpen(true)}>
                   AI 프롬프트 생성
                 </Button>
               </Box>
+              <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
               <Controller
                 name="prompt"
                 control={control}
@@ -884,23 +908,41 @@ function ImageGeneration() {
                     label="프롬프트"
                     placeholder="생성하고 싶은 이미지에 대한 설명을 입력하세요..."
                     error={!!errors.prompt}
-                    helperText={errors.prompt?.message}
-                    sx={{ mb: 2 }}
+                    helperText={errors.prompt?.message || '명사 위주, 콤마로 구분. 가중치는 (word:1.2) 문법.'}
                     value={field.value || ''}
                   />
                 )}
               />
 
-              {/* LoRA 목록 버튼 — 모델 선택은 customField (type=baseModel) 가 picker 통합. LoRA 는 prompt-insert 모드라 별도 유지 */}
+              {/* LoRA — 프롬프트의 <lora:이름:가중치> 태그를 칩으로 표시 (목업 06, #552). 추가는 기존 prompt-insert 모달 */}
               {isComfyUIWorkboard && (
-                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                  <Button
-                    variant="outlined"
-                    onClick={handleLoraModalOpen}
-                    startIcon={<AutoFixHigh />}
-                  >
-                    LoRA 목록
-                  </Button>
+                <Box>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 1 }}>
+                    LoRA
+                  </Typography>
+                  <Box sx={{
+                    display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center',
+                    p: 2.5, minHeight: 44, border: '1px dashed', borderColor: 'divider', borderRadius: 1.5,
+                  }}>
+                    {promptLoras.map((l) => (
+                      <Chip
+                        key={l.tag}
+                        variant="outlined"
+                        icon={<AutoFixHigh sx={{ fontSize: 13 }} />}
+                        label={(
+                          <Box component="span">
+                            {l.name}
+                            <Box component="span" sx={{ fontFamily: MONO, fontSize: 11, color: 'text.tertiary', ml: 0.5 }}>· {l.weight}</Box>
+                          </Box>
+                        )}
+                        onDelete={() => handleRemoveLoraTag(l.tag)}
+                        sx={{ bgcolor: 'background.paper' }}
+                      />
+                    ))}
+                    <Button startIcon={<Add />} onClick={handleLoraModalOpen} sx={{ height: 26 }}>
+                      LoRA 추가
+                    </Button>
+                  </Box>
                 </Box>
               )}
 
@@ -916,13 +958,12 @@ function ImageGeneration() {
                     rows={2}
                     label="부정 프롬프트 (선택사항)"
                     placeholder="생성하지 않았으면 하는 요소들을 입력하세요..."
-                    sx={{ mb: 3 }}
                   />
                 )}
               />
 
               {/* 시드 값 설정 */}
-              <Paper sx={{ p: 2, mb: 3, bgcolor: 'grey.50' }}>
+              <Paper variant="outlined" sx={{ p: 3 }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                   <Typography variant="subtitle1">시드 (Seed)</Typography>
                   <FormControlLabel
@@ -963,15 +1004,16 @@ function ImageGeneration() {
                   }}
                 />
               </Paper>
+              </Box>
             </Paper>
 
             {/* 추가 설정 — customField 단일 경로 (F2 이후) */}
             {workboardData?.additionalInputFields?.length > 0 && (
-              <Paper sx={{ p: 3, mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  고급 설정
-                </Typography>
-                <Grid container spacing={2}>
+              <Paper variant="outlined" sx={{ mb: 4 }}>
+                <Box sx={{ px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
+                  <Typography variant="h6">고급 설정</Typography>
+                </Box>
+                <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
                     <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
                       <Controller
@@ -1043,23 +1085,25 @@ function ImageGeneration() {
             )}
           </Grid>
 
-          {/* 사이드바 */}
+          {/* 우측 레일 — 목업 06 (#552) */}
           <Grid item xs={12} md={4}>
-            <Paper sx={{ p: 3, position: 'sticky', top: 24 }}>
-              <Typography variant="h6" gutterBottom>
-                작업판 정보
-              </Typography>
+            <Paper variant="outlined" sx={{ p: 4, position: 'sticky', top: 16 }}>
+              <Typography variant="overline" sx={{ color: 'text.tertiary' }}>작업판 정보</Typography>
 
-              <Box mb={2}>
-                <Typography variant="body2" color="text.secondary">
-                  서버: {new URL(workboardData?.serverUrl || '').hostname}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  버전: {workboardData?.version || 1}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  사용횟수: {workboardData?.usageCount || 0}회
-                </Typography>
+              <Box sx={{ mt: 2, mb: 3.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                {[
+                  ['서버', serverHost, true],
+                  ['버전', `v${workboardData?.version || 1}`, false],
+                  ['사용횟수', `${workboardData?.usageCount || 0}회`, false],
+                  ['대기 큐', queueStatsText, false],
+                ].map(([k, v, mono]) => (
+                  <Box key={k} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
+                    <Typography variant="body2" sx={{ color: 'text.tertiary' }}>{k}</Typography>
+                    <Typography variant="body2" sx={{ fontFamily: mono ? MONO : undefined, fontSize: mono ? 12 : undefined, textAlign: 'right' }}>
+                      {v}
+                    </Typography>
+                  </Box>
+                ))}
               </Box>
 
               {generating && (
@@ -1082,7 +1126,7 @@ function ImageGeneration() {
                 {generating ? '생성 중...' : '이미지 생성 시작'}
               </Button>
 
-              <Alert severity="info" sx={{ mt: 2 }}>
+              <Alert severity="info" sx={{ mt: 2.5 }}>
                 이미지 생성은 백그라운드에서 처리됩니다.
                 작업 히스토리에서 진행 상황을 확인할 수 있습니다.
               </Alert>
