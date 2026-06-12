@@ -31,6 +31,7 @@ import { debounce } from 'lodash';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 const validatePassword = (password) => {
   const requirements = {
@@ -180,23 +181,8 @@ function Signup() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        py={4}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              회원가입
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              Visual Content Creator에 오신 것을 환영합니다
-            </Typography>
-          </Box>
+    <AuthLayout>
+          <AuthTitle title="회원가입" sub="가입 후 관리자 승인을 거쳐 이용할 수 있습니다" />
 
           {/* Email/Password Signup Form */}
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -424,12 +410,14 @@ function Signup() {
             </Typography>
           </Box>
 
+          <Alert severity="info" sx={{ mt: 4 }}>
+            가입 신청 후 관리자가 승인하면 로그인할 수 있습니다. 승인 상태는 로그인 시 안내됩니다.
+          </Alert>
+
           <Typography variant="caption" display="block" mt={3} textAlign="center" color="text.secondary">
             회원가입함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
           </Typography>
-        </Paper>
-      </Box>
-    </Container>
+        </AuthLayout>
   );
 }
 
