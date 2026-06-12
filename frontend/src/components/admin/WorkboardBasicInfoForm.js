@@ -12,7 +12,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Controller, useWatch } from 'react-hook-form';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { serverAPI } from '../../services/api';
 import {
   getCapableOutputFormats,
@@ -24,11 +24,7 @@ function WorkboardBasicInfoForm({ control, setValue, errors, showActiveSwitch = 
   const selectedServerId = useWatch({ control, name: 'serverId' });
   const outputFormat = useWatch({ control, name: 'outputFormat' }) || 'image';
 
-  const { data: serversData } = useQuery(
-    ['servers', { includeInactive: false }],
-    () => serverAPI.getServers({ includeInactive: false }),
-    { enabled: isDialogOpen }
-  );
+  const { data: serversData } = useQuery({ queryKey: ['servers', { includeInactive: false }], queryFn: () => serverAPI.getServers({ includeInactive: false }), enabled: isDialogOpen });
 
   const servers = serversData?.data?.data?.servers || [];
   const selectedServer = servers.find((s) => s._id === selectedServerId);

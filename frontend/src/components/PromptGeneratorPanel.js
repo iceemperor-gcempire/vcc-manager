@@ -25,7 +25,7 @@ import {
   Chat,
   ContentCopy
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
@@ -156,11 +156,7 @@ function PromptGeneratorPanel({
     }
   });
 
-  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
-    ['workboard', workboardId],
-    () => workboardAPI.getById(workboardId),
-    { enabled: !!workboardId && !externalWorkboard }
-  );
+  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery({ queryKey: ['workboard', workboardId], queryFn: () => workboardAPI.getById(workboardId), enabled: !!workboardId && !externalWorkboard });
 
   const workboard = externalWorkboard || workboardData?.data?.workboard;
 

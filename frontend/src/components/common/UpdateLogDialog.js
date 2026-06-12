@@ -11,16 +11,12 @@ import {
   IconButton
 } from '@mui/material';
 import { Close } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import { updatelogAPI } from '../../services/api';
 
 function UpdateLogDialog({ open, onClose, majorVersion }) {
-  const { data, isLoading, isError } = useQuery(
-    ['updatelog', majorVersion],
-    () => updatelogAPI.get(majorVersion),
-    { enabled: open && majorVersion != null }
-  );
+  const { data, isLoading, isError } = useQuery({ queryKey: ['updatelog', majorVersion], queryFn: () => updatelogAPI.get(majorVersion), enabled: open && majorVersion != null });
 
   const content = data?.data?.data?.content;
 

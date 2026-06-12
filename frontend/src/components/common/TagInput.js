@@ -6,7 +6,7 @@ import {
   Box,
   CircularProgress
 } from '@mui/material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { tagAPI } from '../../services/api';
 
 function TagInput({ 
@@ -20,25 +20,16 @@ function TagInput({
   const [inputValue, setInputValue] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: tagsData, isLoading } = useQuery(
-    ['tags', inputValue],
-    () => tagAPI.getAll({ search: inputValue, limit: 20 }),
-    { 
+  const { data: tagsData, isLoading } = useQuery({ queryKey: ['tags', inputValue], queryFn: () => tagAPI.getAll({ search: inputValue, limit: 20 }), 
       enabled: true,
-      keepPreviousData: true
-    }
-  );
+      placeholderData: keepPreviousData });
 
-  const createTagMutation = useMutation(
-    (name) => tagAPI.create({ name }),
-    {
+  const createTagMutation = useMutation({ mutationFn: (name) => tagAPI.create({ name }),
       onSuccess: (response) => {
-        queryClient.invalidateQueries('tags');
+        queryClient.invalidateQueries({ queryKey: ['tags'] });
         const newTag = response.data.tag;
         onChange([...value, newTag]);
-      }
-    }
-  );
+      } });
 
   const availableTags = tagsData?.data?.tags || [];
 
@@ -112,7 +103,7 @@ function TagInput({
             ...params.InputProps,
             endAdornment: (
               <>
-                {isLoading || createTagMutation.isLoading ? (
+                {isLoading || createTagMutation.isPending ? (
                   <CircularProgress color="inherit" size={20} />
                 ) : null}
                 {params.InputProps.endAdornment}

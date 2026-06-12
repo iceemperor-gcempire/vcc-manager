@@ -27,7 +27,7 @@ import {
   ExpandMore,
   LockOutlined as LockIcon,
 } from '@mui/icons-material';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { conversationAPI, textAPI, imageAPI } from '../../services/api';
@@ -71,11 +71,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
   useEffect(() => { reset(formDefaults); }, [formDefaults, reset]);
 
   // 대화 시작 후 messages 동기화용 — 시작 전엔 비활성
-  const { data: convData } = useQuery(
-    ['conversation', conversationId],
-    () => conversationAPI.getById(conversationId),
-    { enabled: !!conversationId }
-  );
+  const { data: convData } = useQuery({ queryKey: ['conversation', conversationId], queryFn: () => conversationAPI.getById(conversationId), enabled: !!conversationId });
   const conversation = convData?.data?.data;
   const messages = conversation?.messages || [];
 
@@ -135,14 +131,14 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
             setSettingsOpen(false);
           }
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', newCid || cid || conversationId]);
-          queryClient.invalidateQueries('conversations');
+          queryClient.invalidateQueries({ queryKey: ['conversation', newCid || cid || conversationId] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
         },
         onError: (err) => {
           toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
           setPendingUserMsg(null);
           if (cid || conversationId) {
-            queryClient.invalidateQueries(['conversation', cid || conversationId]);
+            queryClient.invalidateQueries({ queryKey: ['conversation', cid || conversationId] });
           }
         },
       }
@@ -150,16 +146,12 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
     setAttachImages([]);
   };
 
-  const saveMessageMutation = useMutation(
-    ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
-    {
+  const saveMessageMutation = useMutation({ mutationFn: ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
       onSuccess: () => {
         toast.success('생성된 텍스트로 저장되었습니다.');
-        queryClient.invalidateQueries('generatedTexts');
+        queryClient.invalidateQueries({ queryKey: ['generatedTexts'] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   // 스트리밍 중 자동 스크롤
   useEffect(() => {
@@ -343,7 +335,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
                       <IconButton
                         size="small"
                         onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
-                        disabled={saveMessageMutation.isLoading}
+                        disabled={saveMessageMutation.isPending}
                       >
                         <BookmarkAddIcon fontSize="small" />
                       </IconButton>

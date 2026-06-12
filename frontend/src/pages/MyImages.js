@@ -28,7 +28,7 @@ import {
   SelectAll,
   Deselect
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { imageAPI, userAPI, textAPI, projectAPI, tagAPI } from '../services/api';
@@ -188,20 +188,16 @@ function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = fals
     return 'generatedImages';
   };
 
-  const updateMutation = useMutation(
-    (data) => getUpdateFn()(image._id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: (data) => getUpdateFn()(image._id, data),
       onSuccess: () => {
-        queryClient.invalidateQueries(getQueryKey());
+        queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKey()) ? getQueryKey() : [getQueryKey()] });
         toast.success(`${isVideo ? '동영상' : '이미지'} 정보가 수정되었습니다`);
         onSuccess?.();
         onClose();
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
+      } });
 
   const handleSave = () => {
     updateMutation.mutate({
@@ -246,7 +242,7 @@ function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = fals
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={updateMutation.isLoading}
+          disabled={updateMutation.isPending}
         >
           저장
         </Button>
@@ -361,72 +357,52 @@ function MyImages() {
   const queryClient = useQueryClient();
 
   // 사용자 설정 가져오기
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
-  const deleteUploadedMutation = useMutation(
-    imageAPI.deleteUploaded,
-    {
+  const deleteUploadedMutation = useMutation({ mutationFn: imageAPI.deleteUploaded,
       onSuccess: () => {
         toast.success('이미지가 삭제되었습니다');
-        queryClient.invalidateQueries('uploadedImages');
+        queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
       },
-      onError: () => toast.error('삭제 실패')
-    }
-  );
+      onError: () => toast.error('삭제 실패') });
 
-  const deleteGeneratedMutation = useMutation(
-    ({ id, deleteJob }) => imageAPI.deleteGenerated(id, deleteJob),
-    {
+  const deleteGeneratedMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteGenerated(id, deleteJob),
       onSuccess: () => {
         toast.success('이미지가 삭제되었습니다');
-        queryClient.invalidateQueries('generatedImages');
+        queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
       },
-      onError: () => toast.error('삭제 실패')
-    }
-  );
+      onError: () => toast.error('삭제 실패') });
 
-  const deleteVideoMutation = useMutation(
-    ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
-    {
+  const deleteVideoMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
       onSuccess: () => {
         toast.success('동영상이 삭제되었습니다');
-        queryClient.invalidateQueries('generatedVideos');
+        queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
       },
-      onError: () => toast.error('삭제 실패')
-    }
-  );
+      onError: () => toast.error('삭제 실패') });
 
   // Bulk delete mutations
-  const bulkDeleteMutation = useMutation(
-    ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
-    {
+  const bulkDeleteMutation = useMutation({ mutationFn: ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
       onSuccess: (response) => {
         const result = response.data?.data || response.data;
         toast.success(`${result.deleted}개 항목이 삭제되었습니다${result.failed ? ` (${result.failed}개 실패)` : ''}`);
-        queryClient.invalidateQueries(getQueryKeyForTab());
+        queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKeyForTab()) ? getQueryKeyForTab() : [getQueryKeyForTab()] });
         setBulkMode(false);
         setSelectedIds(new Set());
         setConfirmOpen(false);
       },
-      onError: () => toast.error('일괄 삭제 실패')
-    }
-  );
+      onError: () => toast.error('일괄 삭제 실패') });
 
-  const bulkDeleteByFilterMutation = useMutation(
-    ({ type, filters }) => imageAPI.bulkDeleteByFilter(type, filters),
-    {
+  const bulkDeleteByFilterMutation = useMutation({ mutationFn: ({ type, filters }) => imageAPI.bulkDeleteByFilter(type, filters),
       onSuccess: (response) => {
         const result = response.data?.data || response.data;
         toast.success(`${result.deleted}개 항목이 삭제되었습니다${result.failed ? ` (${result.failed}개 실패)` : ''}`);
-        queryClient.invalidateQueries(getQueryKeyForTab());
+        queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKeyForTab()) ? getQueryKeyForTab() : [getQueryKeyForTab()] });
         setBulkMode(false);
         setSelectedIds(new Set());
         setConfirmOpen(false);
       },
-      onError: () => toast.error('일괄 삭제 실패')
-    }
-  );
+      onError: () => toast.error('일괄 삭제 실패') });
 
   const handleEdit = (image) => {
     setEditImage(image);
@@ -464,7 +440,7 @@ function MyImages() {
   };
 
   const handleUploadSuccess = () => {
-    queryClient.invalidateQueries('uploadedImages');
+    queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
   };
 
   const getTypeForTab = () => {
@@ -525,13 +501,13 @@ function MyImages() {
     setConfirmOpen(true);
   };
 
-  const isBulkDeleting = bulkDeleteMutation.isLoading || bulkDeleteByFilterMutation.isLoading;
+  const isBulkDeleting = bulkDeleteMutation.isPending || bulkDeleteByFilterMutation.isPending;
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
 
   // 5c 후속 — 필터 레일 source. 프로젝트 목록 + 사용자 태그.
-  const { data: projectsData } = useQuery(['filterRail', 'projects'], () => projectAPI.getAll({ limit: 200 }), { staleTime: 60_000 });
-  const { data: myTagsData }   = useQuery(['filterRail', 'tags'],     () => tagAPI.getMy(),                   { staleTime: 60_000 });
+  const { data: projectsData } = useQuery({ queryKey: ['filterRail', 'projects'], queryFn: () => projectAPI.getAll({ limit: 200 }), staleTime: 60_000 });
+  const { data: myTagsData }   = useQuery({ queryKey: ['filterRail', 'tags'], queryFn: () => tagAPI.getMy(), staleTime: 60_000 });
   const filterProjects = (projectsData?.data?.data?.projects || projectsData?.data?.projects || []).filter((p) => !!p.tagId);
   const filterTags = (myTagsData?.data?.data?.tags || myTagsData?.data?.tags || []).filter((t) => !t.isProjectTag);
 
@@ -554,11 +530,11 @@ function MyImages() {
   // 탭 count badge 용 — 각 탭 limit:1 query (Phase 5c 후속).
   // staleTime 60s 로 페이지 진입 시 1회만 fetch. mediaState 와는 독립 — 사용자가 검색
   // 입력하면 mediaState.pagination.total 로 그쪽이 보여줌.
-  const { data: genImagesCountData } = useQuery(['contentCount', 'generated'], () => imageAPI.getGenerated({ limit: 1, page: 1 }), { staleTime: 60_000 });
-  const { data: upImagesCountData }  = useQuery(['contentCount', 'uploaded'],  () => imageAPI.getUploaded({ limit: 1, page: 1 }),  { staleTime: 60_000 });
-  const { data: videosCountData }    = useQuery(['contentCount', 'video'],     () => imageAPI.getVideos({ limit: 1, page: 1 }),    { staleTime: 60_000 });
-  const { data: upTextsCountData }   = useQuery(['contentCount', 'textUp'],    () => textAPI.getUploaded({ limit: 1, page: 1 }),   { staleTime: 60_000 });
-  const { data: genTextsCountData }  = useQuery(['contentCount', 'textGen'],   () => textAPI.getGenerated({ limit: 1, page: 1 }),  { staleTime: 60_000 });
+  const { data: genImagesCountData } = useQuery({ queryKey: ['contentCount', 'generated'], queryFn: () => imageAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: upImagesCountData }  = useQuery({ queryKey: ['contentCount', 'uploaded'], queryFn: () => imageAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: videosCountData }    = useQuery({ queryKey: ['contentCount', 'video'], queryFn: () => imageAPI.getVideos({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: upTextsCountData }   = useQuery({ queryKey: ['contentCount', 'textUp'], queryFn: () => textAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: genTextsCountData }  = useQuery({ queryKey: ['contentCount', 'textGen'], queryFn: () => textAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
   const counts = [
     genImagesCountData?.data?.data?.pagination?.total,
     upImagesCountData?.data?.data?.pagination?.total,

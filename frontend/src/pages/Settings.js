@@ -8,7 +8,7 @@ import {
   Alert,
   CircularProgress
 } from '@mui/material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userAPI } from '../services/api';
 import PageHeader from '../components/common/PageHeader';
 import toast from 'react-hot-toast';
@@ -51,27 +51,19 @@ function SettingCard({ title, description, children }) {
 function Settings() {
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery(
-    'userProfile',
-    () => userAPI.getProfile(),
-    { staleTime: 0 }
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile(), staleTime: 0 });
 
-  const updateMutation = useMutation(
-    (preferences) => userAPI.updateProfile({ preferences }),
-    {
+  const updateMutation = useMutation({ mutationFn: (preferences) => userAPI.updateProfile({ preferences }),
       onSuccess: () => {
-        queryClient.invalidateQueries('userProfile');
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
         toast.success('설정이 저장되었습니다');
       },
       onError: (error) => {
         toast.error('설정 저장 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
   const preferences = data?.data?.user?.preferences || {};
-  const busy = updateMutation.isLoading;
+  const busy = updateMutation.isPending;
 
   const handleToggle = (key) => (event) => {
     updateMutation.mutate({

@@ -28,7 +28,7 @@ import {
   ContentCopy as ContentCopyIcon,
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { textAPI } from '../../services/api';
@@ -65,57 +65,41 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
   const createFn = textAPI.createUploaded;
 
   const tagIds = (filterTags || []).map((t) => t._id || t).filter(Boolean);
-  const { data, isLoading, error } = useQuery(
-    [queryKey, page, search, tagIds.join(',')],
-    () => {
+  const { data, isLoading, error } = useQuery({ queryKey: [queryKey, page, search, tagIds.join(',')], queryFn: () => {
       const params = { page, limit: 20, search };
       if (tagIds.length > 0) params.tags = tagIds.join(',');
       return listFn(params);
-    },
-    { keepPreviousData: true }
-  );
+    }, placeholderData: keepPreviousData });
 
   const items = data?.data?.data?.items || [];
   const pagination = data?.data?.data?.pagination || { current: 1, pages: 0, total: 0 };
 
-  const upsertMutation = useMutation(
-    (payload) => {
+  const upsertMutation = useMutation({ mutationFn: (payload) => {
       if (payload._id) return updateFn(payload._id, { title: payload.title, content: payload.content, tags: (payload.tags || []).map((t) => t._id || t) });
       return createFn({ title: payload.title, content: payload.content, tags: (payload.tags || []).map((t) => t._id || t) });
     },
-    {
       onSuccess: () => {
         toast.success('저장되었습니다.');
-        queryClient.invalidateQueries(queryKey);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
         setEditorOpen(false);
         setEditingItem(null);
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
-  const updateTagsMutation = useMutation(
-    ({ id, tags }) => updateFn(id, { tags: tags.map((t) => t._id || t) }),
-    {
+  const updateTagsMutation = useMutation({ mutationFn: ({ id, tags }) => updateFn(id, { tags: tags.map((t) => t._id || t) }),
       onSuccess: () => {
         toast.success('태그가 갱신되었습니다.');
-        queryClient.invalidateQueries(queryKey);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '태그 갱신 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '태그 갱신 실패'), });
 
-  const deleteMutation = useMutation(
-    (id) => deleteFn(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => deleteFn(id),
       onSuccess: () => {
         toast.success('삭제되었습니다.');
-        queryClient.invalidateQueries(queryKey);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
         setViewerItem(null);
       },
-      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'), });
 
   const openCreate = () => {
     setEditingItem({ title: '', content: '', tags: defaultTags });
@@ -310,7 +294,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
           <Button
             variant="contained"
             onClick={() => upsertMutation.mutate(editingItem)}
-            disabled={!editingItem?.content?.trim() || upsertMutation.isLoading}
+            disabled={!editingItem?.content?.trim() || upsertMutation.isPending}
           >
             저장
           </Button>
@@ -377,7 +361,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         defaultTags={defaultTags}
-        onComplete={() => queryClient.invalidateQueries(queryKey)}
+        onComplete={() => queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] })}
       />
     </Box>
   );

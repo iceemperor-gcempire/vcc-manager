@@ -41,7 +41,7 @@ import {
   ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
@@ -62,11 +62,7 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [search, setSearch] = useState('');
   const limit = 8;
 
-  const { data, isLoading } = useQuery(
-    ['promptDataList', page, limit, search],
-    () => promptDataAPI.getAll({ page, limit, search: search || undefined }),
-    { enabled: open, keepPreviousData: true }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['promptDataList', page, limit, search], queryFn: () => promptDataAPI.getAll({ page, limit, search: search || undefined }), enabled: open, placeholderData: keepPreviousData });
 
   const promptDataList = data?.data?.data?.promptDataList || [];
   const pagination = data?.data?.data?.pagination || { total: 0, pages: 1 };
@@ -395,11 +391,7 @@ function ImageGeneration() {
   const promptInputRef = useRef(null);
 
   // 프로젝트 컨텍스트 조회
-  const { data: projectData } = useQuery(
-    ['project', projectId],
-    () => projectAPI.getById(projectId),
-    { enabled: !!projectId }
-  );
+  const { data: projectData } = useQuery({ queryKey: ['project', projectId], queryFn: () => projectAPI.getById(projectId), enabled: !!projectId });
   const projectContext = projectData?.data?.data?.project;
 
   const handleCopyWorkboardId = async () => {
@@ -516,13 +508,10 @@ function ImageGeneration() {
     shouldFocusError: true
   });
 
-  const { data: workboard, isLoading, error } = useQuery(
-    ['workboard', id],
-    () => workboardAPI.getById(id)
-  );
+  const { data: workboard, isLoading, error } = useQuery({ queryKey: ['workboard', id], queryFn: () => workboardAPI.getById(id) });
 
   // 사용자 설정 가져오기
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
   // 프롬프트의 <lora:이름:가중치> 태그 → 칩 표시용 파싱 (#552, 목업 06)
@@ -545,25 +534,20 @@ function ImageGeneration() {
   };
 
   // 대기 큐 — 우측 레일 표시 (#552)
-  const { data: queueStatsData } = useQuery('queueStats', jobAPI.getQueueStats, {
-    refetchInterval: config.monitoring.queueStatusInterval,
-  });
+  const { data: queueStatsData } = useQuery({ queryKey: ['queueStats'], queryFn: jobAPI.getQueueStats,
+    refetchInterval: config.monitoring.queueStatusInterval, });
   const qs = queueStatsData?.data?.stats;
   const queueStatsText = qs ? `대기 ${qs.waiting ?? 0} · 진행 ${qs.active ?? 0}` : '—';
 
-  const generateMutation = useMutation(
-    jobAPI.create,
-    {
+  const generateMutation = useMutation({ mutationFn: jobAPI.create,
       onSuccess: (data) => {
         toast.success('이미지 생성 작업이 시작되었습니다');
-        queryClient.invalidateQueries('historyJobs');
+        queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
         navigate('/jobs');
       },
       onError: (error) => {
         toast.error('작업 생성 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
   const workboardData = workboard?.data?.workboard;
   const isComfyUIWorkboard = workboardData?.serverId?.serverType === 'ComfyUI';
@@ -1120,7 +1104,7 @@ function ImageGeneration() {
                 fullWidth
                 variant="contained"
                 size="large"
-                disabled={generating || generateMutation.isLoading}
+                disabled={generating || generateMutation.isPending}
                 startIcon={generating ? <CircularProgress size={20} /> : <Send />}
               >
                 {generating ? '생성 중...' : '이미지 생성 시작'}

@@ -17,7 +17,7 @@ import {
   Refresh,
   Error as ErrorIcon
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
 import PageHeader from '../common/PageHeader';
@@ -48,16 +48,9 @@ function StatCard({ title, value, subtitle, icon, color = 'primary' }) {
 }
 
 function AdminDashboard() {
-  const { data: stats, isLoading: statsLoading, refetch } = useQuery(
-    'adminStats',
-    adminAPI.getStats
-  );
+  const { data: stats, isLoading: statsLoading, refetch } = useQuery({ queryKey: ['adminStats'], queryFn: adminAPI.getStats });
 
-  const { data: queueStats, isLoading: queueLoading } = useQuery(
-    'queueStatsAdmin',
-    jobAPI.getQueueStats,
-    { refetchInterval: config.monitoring.queueStatusInterval }
-  );
+  const { data: queueStats, isLoading: queueLoading } = useQuery({ queryKey: ['queueStatsAdmin'], queryFn: jobAPI.getQueueStats, refetchInterval: config.monitoring.queueStatusInterval });
 
   if (statsLoading) {
     return (

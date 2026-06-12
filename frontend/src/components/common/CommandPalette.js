@@ -20,7 +20,7 @@ import {
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { projectAPI, workboardAPI } from '../../services/api';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -57,16 +57,8 @@ export default function CommandPalette({ open, onClose }) {
   const inputRef = useRef(null);
   const listRef = useRef(null);
 
-  const { data: projData, isLoading: projLoading } = useQuery(
-    'cmdk-projects',
-    () => projectAPI.getAll({ limit: 100 }),
-    { enabled: open, staleTime: 60_000 }
-  );
-  const { data: wbData, isLoading: wbLoading } = useQuery(
-    'cmdk-workboards',
-    () => workboardAPI.getAll(),
-    { enabled: open, staleTime: 60_000 }
-  );
+  const { data: projData, isLoading: projLoading } = useQuery({ queryKey: ['cmdk-projects'], queryFn: () => projectAPI.getAll({ limit: 100 }), enabled: open, staleTime: 60_000 });
+  const { data: wbData, isLoading: wbLoading } = useQuery({ queryKey: ['cmdk-workboards'], queryFn: () => workboardAPI.getAll(), enabled: open, staleTime: 60_000 });
 
   const projects = projData?.data?.data?.projects || projData?.data?.projects || [];
   const workboards = wbData?.data?.workboards || wbData?.data?.data?.workboards || [];

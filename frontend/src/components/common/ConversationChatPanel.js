@@ -20,7 +20,7 @@ import {
   Settings as SystemIcon,
   BookmarkAdd as BookmarkAddIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
@@ -35,11 +35,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
   const transcriptRef = useRef(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery(
-    ['conversation', conversationId],
-    () => conversationAPI.getById(conversationId),
-    { enabled: !!conversationId }
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: ['conversation', conversationId], queryFn: () => conversationAPI.getById(conversationId), enabled: !!conversationId });
 
   const conversation = data?.data?.data;
   const messages = conversation?.messages || [];
@@ -50,16 +46,12 @@ function ConversationChatPanel({ workboard, conversationId }) {
     }
   }, [messages.length]);
 
-  const saveMessageMutation = useMutation(
-    ({ conversationJobId: cid, messageIndex }) => textAPI.createGenerated({ conversationJobId: cid, messageIndex }),
-    {
+  const saveMessageMutation = useMutation({ mutationFn: ({ conversationJobId: cid, messageIndex }) => textAPI.createGenerated({ conversationJobId: cid, messageIndex }),
       onSuccess: () => {
         toast.success('생성된 텍스트로 저장되었습니다.');
-        queryClient.invalidateQueries('generatedTexts');
+        queryClient.invalidateQueries({ queryKey: ['generatedTexts'] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   // 스트리밍 전송 (#490)
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
@@ -112,13 +104,13 @@ function ConversationChatPanel({ workboard, conversationId }) {
       {
         onDone: () => {
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', conversationId]);
-          queryClient.invalidateQueries('conversations');
+          queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
         },
         onError: (err) => {
           toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', conversationId]);
+          queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
         },
       }
     );
@@ -182,7 +174,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
                   <IconButton
                     size="small"
                     onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
-                    disabled={saveMessageMutation.isLoading}
+                    disabled={saveMessageMutation.isPending}
                   >
                     <BookmarkAddIcon fontSize="small" />
                   </IconButton>

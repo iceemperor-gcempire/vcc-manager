@@ -36,7 +36,7 @@ import {
   Pending,
   Refresh
 } from '@mui/icons-material';
-import { useQuery, useMutation } from 'react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { backupAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
@@ -100,18 +100,10 @@ function BackupRestorePage() {
   const fileInputRef = useRef(null);
 
   // 백업 목록 조회
-  const { data: backupData, isLoading: backupsLoading, refetch: refetchBackups } = useQuery(
-    ['backups', backupPage],
-    () => backupAPI.list({ page: backupPage, limit: 10 }),
-    { refetchInterval: activeJobId ? 2000 : false }
-  );
+  const { data: backupData, isLoading: backupsLoading, refetch: refetchBackups } = useQuery({ queryKey: ['backups', backupPage], queryFn: () => backupAPI.list({ page: backupPage, limit: 10 }), refetchInterval: activeJobId ? 2000 : false });
 
   // 복구 목록 조회
-  const { data: restoreData, isLoading: restoresLoading, refetch: refetchRestores } = useQuery(
-    ['restores', restorePage],
-    () => backupAPI.listRestores({ page: restorePage, limit: 10 }),
-    { refetchInterval: activeJobId ? 2000 : false }
-  );
+  const { data: restoreData, isLoading: restoresLoading, refetch: refetchRestores } = useQuery({ queryKey: ['restores', restorePage], queryFn: () => backupAPI.listRestores({ page: restorePage, limit: 10 }), refetchInterval: activeJobId ? 2000 : false });
 
   // 진행 중인 작업 상태 polling
   useEffect(() => {
@@ -144,9 +136,7 @@ function BackupRestorePage() {
   }, [activeJobId, tabValue, refetchBackups, refetchRestores]);
 
   // 백업 생성
-  const createBackupMutation = useMutation(
-    () => backupAPI.create(),
-    {
+  const createBackupMutation = useMutation({ mutationFn: () => backupAPI.create(),
       onSuccess: (response) => {
         const jobId = response.data.data.jobId;
         setActiveJobId(jobId);
@@ -155,14 +145,10 @@ function BackupRestorePage() {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '백업 생성에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 백업 삭제
-  const deleteBackupMutation = useMutation(
-    (id) => backupAPI.delete(id),
-    {
+  const deleteBackupMutation = useMutation({ mutationFn: (id) => backupAPI.delete(id),
       onSuccess: () => {
         toast.success('백업이 삭제되었습니다.');
         setDeleteDialogOpen(false);
@@ -171,14 +157,10 @@ function BackupRestorePage() {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '백업 삭제에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   // 파일 검증
-  const validateMutation = useMutation(
-    (file) => backupAPI.validate(file),
-    {
+  const validateMutation = useMutation({ mutationFn: (file) => backupAPI.validate(file),
       onSuccess: (response) => {
         setValidationResult(response.data.data);
         if (response.data.data.validationResult.isValid) {
@@ -190,14 +172,10 @@ function BackupRestorePage() {
       onError: (error) => {
         toast.error(error.response?.data?.message || '파일 검증에 실패했습니다.');
         setUploadedFile(null);
-      }
-    }
-  );
+      } });
 
   // 복구 실행
-  const restoreMutation = useMutation(
-    ({ jobId, options }) => backupAPI.restore({ jobId, options }),
-    {
+  const restoreMutation = useMutation({ mutationFn: ({ jobId, options }) => backupAPI.restore({ jobId, options }),
       onSuccess: (response) => {
         const jobId = response.data.data.jobId;
         setActiveJobId(jobId);
@@ -209,9 +187,7 @@ function BackupRestorePage() {
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '복구 실행에 실패했습니다.');
-      }
-    }
-  );
+      } });
 
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
@@ -284,7 +260,7 @@ function BackupRestorePage() {
             variant="contained"
             startIcon={<Backup />}
             onClick={() => createBackupMutation.mutate()}
-            disabled={createBackupMutation.isLoading || !!activeJobId}
+            disabled={createBackupMutation.isPending || !!activeJobId}
           >
             백업 생성
           </Button>
@@ -506,7 +482,7 @@ function BackupRestorePage() {
             color="error"
             variant="contained"
             onClick={() => deleteBackupMutation.mutate(selectedBackup._id)}
-            disabled={deleteBackupMutation.isLoading}
+            disabled={deleteBackupMutation.isPending}
           >
             삭제
           </Button>
@@ -546,12 +522,12 @@ function BackupRestorePage() {
               fullWidth
               startIcon={<CloudUpload />}
               onClick={() => fileInputRef.current?.click()}
-              disabled={validateMutation.isLoading}
+              disabled={validateMutation.isPending}
             >
               {uploadedFile ? uploadedFile.name : '백업 파일 선택 (.zip)'}
             </Button>
 
-            {validateMutation.isLoading && (
+            {validateMutation.isPending && (
               <Box sx={{ mt: 2 }}>
                 <LinearProgress />
                 <Typography variant="caption" color="text.secondary">
@@ -676,7 +652,7 @@ function BackupRestorePage() {
             onClick={handleRestoreExecute}
             disabled={
               !validationResult?.validationResult?.isValid ||
-              restoreMutation.isLoading ||
+              restoreMutation.isPending ||
               (restoreOptions.skipDatabase && restoreOptions.skipFiles)
             }
             startIcon={<Restore />}

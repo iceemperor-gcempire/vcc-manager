@@ -33,7 +33,7 @@ import {
   ViewList as ListViewIcon,
   ViewStream as ImageListIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, workboardAPI, userAPI } from '../../services/api';
 import Pagination from './Pagination';
@@ -169,9 +169,8 @@ function MetadataPickerModal({
 
   const queryClient = useQueryClient();
 
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile(), {
-    enabled: open && !isAdmin
-  });
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile(),
+    enabled: open && !isAdmin });
   const userPreferences = profileData?.data?.user?.preferences || {};
   const nsfwImageFilter = isAdmin ? false : (userPreferences.nsfwImageFilter ?? true);
   // nsfwModelFilter 우선, 없으면 legacy nsfwLoraFilter fallback (#346)
@@ -179,12 +178,8 @@ function MetadataPickerModal({
     ? (userPreferences[adapter.nsfwItemPreference] ?? userPreferences.nsfwLoraFilter ?? true)
     : false;
 
-  const updatePreferencesMutation = useMutation(
-    (preferences) => userAPI.updateProfile({ preferences }),
-    {
-      onSuccess: () => queryClient.invalidateQueries('userProfile')
-    }
-  );
+  const updatePreferencesMutation = useMutation({ mutationFn: (preferences) => userAPI.updateProfile({ preferences }),
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ['userProfile'] }) });
 
   const handleNsfwImageToggle = () => {
     updatePreferencesMutation.mutate({ nsfwImageFilter: !nsfwImageFilter });
@@ -387,7 +382,7 @@ function MetadataPickerModal({
                   size="small"
                   checked={nsfwImageFilter}
                   onChange={handleNsfwImageToggle}
-                  disabled={updatePreferencesMutation.isLoading}
+                  disabled={updatePreferencesMutation.isPending}
                 />
               }
               label={<Typography variant="caption">NSFW 미리보기 이미지 숨기기</Typography>}
@@ -399,7 +394,7 @@ function MetadataPickerModal({
                     size="small"
                     checked={nsfwItemFilter}
                     onChange={handleNsfwItemToggle}
-                    disabled={updatePreferencesMutation.isLoading}
+                    disabled={updatePreferencesMutation.isPending}
                   />
                 }
                 label={<Typography variant="caption">{adapter.nsfwItemLabel || `NSFW ${adapter.label} 숨기기`}</Typography>}

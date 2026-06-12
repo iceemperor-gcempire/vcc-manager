@@ -17,7 +17,7 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
@@ -29,9 +29,7 @@ function ForgotPassword() {
 
   const { control, handleSubmit, formState: { errors } } = useForm();
 
-  const forgotPasswordMutation = useMutation(
-    (email) => authAPI.requestPasswordReset(email),
-    {
+  const forgotPasswordMutation = useMutation({ mutationFn: (email) => authAPI.requestPasswordReset(email),
       onSuccess: (response, email) => {
         setEmailSent(true);
         setSentEmail(email);
@@ -40,9 +38,7 @@ function ForgotPassword() {
       onError: (error) => {
         const message = error.response?.data?.message || '요청 처리 중 오류가 발생했습니다';
         toast.error(message);
-      }
-    }
-  );
+      } });
 
   const onSubmit = (data) => {
     forgotPasswordMutation.mutate(data.email);
@@ -131,10 +127,10 @@ function ForgotPassword() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={forgotPasswordMutation.isLoading}
+              disabled={forgotPasswordMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {forgotPasswordMutation.isLoading ? (
+              {forgotPasswordMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '비밀번호 재설정 이메일 발송'

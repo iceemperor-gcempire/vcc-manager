@@ -22,7 +22,7 @@ import {
   TrendingUp,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   dashboardAPI,
   projectAPI,
@@ -145,30 +145,14 @@ function Dashboard() {
   const { user, isAdmin } = useAuth();
   const [updateLogOpen, setUpdateLogOpen] = useState(false);
 
-  const { data: activeRunsRes } = useQuery(
-    'dashboardActiveRuns',
-    dashboardAPI.getActivePipelineRuns,
-    { refetchInterval: config.monitoring.recentJobsInterval }
-  );
-  const { data: projectsRes, isLoading: projectsLoading } = useQuery(
-    'dashboardProjects',
-    () => projectAPI.getAll()
-  );
-  const { data: imagesRes, isLoading: imagesLoading } = useQuery(
-    'dashboardRecentImages',
-    () => imageAPI.getGenerated({ limit: 12 })
-  );
-  const { data: trendRes } = useQuery('dashboardImageTrend', () =>
-    dashboardAPI.getImageTrend(7)
-  );
-  const { data: serversRes } = useQuery(
-    'dashboardServers',
-    () => serverAPI.getServers(),
-    { refetchInterval: config.monitoring.queueStatusInterval }
-  );
-  const { data: workboardsRes } = useQuery('dashboardWorkboardUsage', () =>
-    dashboardAPI.getWorkboardUsage(4)
-  );
+  const { data: activeRunsRes } = useQuery({ queryKey: ['dashboardActiveRuns'], queryFn: dashboardAPI.getActivePipelineRuns, refetchInterval: config.monitoring.recentJobsInterval });
+  const { data: projectsRes, isLoading: projectsLoading } = useQuery({ queryKey: ['dashboardProjects'], queryFn: () => projectAPI.getAll() });
+  const { data: imagesRes, isLoading: imagesLoading } = useQuery({ queryKey: ['dashboardRecentImages'], queryFn: () => imageAPI.getGenerated({ limit: 12 }) });
+  const { data: trendRes } = useQuery({ queryKey: ['dashboardImageTrend'], queryFn: () =>
+    dashboardAPI.getImageTrend(7) });
+  const { data: serversRes } = useQuery({ queryKey: ['dashboardServers'], queryFn: () => serverAPI.getServers(), refetchInterval: config.monitoring.queueStatusInterval });
+  const { data: workboardsRes } = useQuery({ queryKey: ['dashboardWorkboardUsage'], queryFn: () =>
+    dashboardAPI.getWorkboardUsage(4) });
 
   const activeRuns = activeRunsRes?.data?.data?.runs || [];
   const projects = (projectsRes?.data?.data?.projects || []).slice(0, 4);

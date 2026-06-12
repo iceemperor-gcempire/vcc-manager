@@ -28,7 +28,7 @@ import {
   Delete,
 } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { workboardAPI, projectAPI } from '../services/api';
 import toast from 'react-hot-toast';
 import {
@@ -127,20 +127,12 @@ function WorkboardCatalogPage({ admin = false }) {
   const [menuWb, setMenuWb] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
 
-  const { data: projectData } = useQuery(
-    ['project', projectId],
-    () => projectAPI.getById(projectId),
-    { enabled: !!projectId }
-  );
+  const { data: projectData } = useQuery({ queryKey: ['project', projectId], queryFn: () => projectAPI.getById(projectId), enabled: !!projectId });
   const projectContext = projectData?.data?.data?.project;
 
-  const { data, isLoading } = useQuery(
-    ['workboardCatalog', admin],
-    () => workboardAPI.getAll(admin
+  const { data, isLoading } = useQuery({ queryKey: ['workboardCatalog', admin], queryFn: () => workboardAPI.getAll(admin
       ? { limit: 500, includeAll: true, includeInactive: true }
-      : { limit: 500 }),
-    { keepPreviousData: true }
-  );
+      : { limit: 500 }), placeholderData: keepPreviousData });
   const workboards = data?.data?.workboards || [];
 
   // admin: 상태(전체/게시됨/보관) 필터를 먼저 적용
@@ -158,24 +150,15 @@ function WorkboardCatalogPage({ admin = false }) {
   // ── admin mutations ──
   // 작업판 관련 캐시 전체 무효화 (#498) — 목록/상세/실행화면/대시보드 일괄 갱신
   const invalidate = () => invalidateWorkboardQueries(queryClient);
-  const deleteMutation = useMutation(workboardAPI.delete, {
+  const deleteMutation = useMutation({ mutationFn: workboardAPI.delete,
     onSuccess: () => { toast.success('작업판이 삭제되었습니다'); invalidate(); },
-    onError: (e) => toast.error('삭제 실패: ' + e.message),
-  });
-  const toggleMutation = useMutation(
-    ({ id, isActive }) => (isActive ? workboardAPI.deactivate(id) : workboardAPI.activate(id)),
-    {
+    onError: (e) => toast.error('삭제 실패: ' + e.message), });
+  const toggleMutation = useMutation({ mutationFn: ({ id, isActive }) => (isActive ? workboardAPI.deactivate(id) : workboardAPI.activate(id)),
       onSuccess: (res) => { toast.success(`작업판이 ${res.data.workboard.isActive ? '활성화' : '비활성화'}되었습니다`); invalidate(); },
-      onError: (e) => toast.error('상태 변경 실패: ' + e.message),
-    }
-  );
-  const duplicateMutation = useMutation(
-    ({ id, name }) => workboardAPI.duplicate(id, { name }),
-    {
+      onError: (e) => toast.error('상태 변경 실패: ' + e.message), });
+  const duplicateMutation = useMutation({ mutationFn: ({ id, name }) => workboardAPI.duplicate(id, { name }),
       onSuccess: () => { toast.success('작업판이 복제되었습니다'); invalidate(); },
-      onError: (e) => toast.error('복제 실패: ' + e.message),
-    }
-  );
+      onError: (e) => toast.error('복제 실패: ' + e.message), });
 
   // ── handlers ──
   const handleSelect = (wb) => { setDetailWb(null); selectWorkboard(wb, projectId, navigate); };
