@@ -95,7 +95,7 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: vcc-frontend
     restart: unless-stopped
     logging: *default-logging

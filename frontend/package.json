@@ -28,32 +28,14 @@
   "devDependencies": {
     "@types/js-cookie": "^3.0.6",
     "@types/lodash": "^4.14.202",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "vite": "^7.3.0",
+    "@vitejs/plugin-react": "^5.1.0"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  },
-  "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
-  },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "start": "vite",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "proxy": "http://localhost:3000"
 }
