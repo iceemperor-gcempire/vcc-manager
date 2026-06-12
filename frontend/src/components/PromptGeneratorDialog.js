@@ -18,6 +18,7 @@ import { Chat, Check } from '@mui/icons-material';
 import { useQuery } from 'react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from './PromptGeneratorPanel';
+import WorkboardChatPanel from './common/WorkboardChatPanel';
 
 function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
   const { data, isLoading } = useQuery(
@@ -69,6 +70,9 @@ function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
 
 function PromptGeneratorDialog({ open, onClose, onApply }) {
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
+  // #574: 대상 작업판이 채팅 모드면 다이얼로그 안에서 멀티턴 — 응답별 '이 응답을 프롬프트로 사용' 으로 반환
+  const conversationMode = !!(selectedWorkboard?.additionalInputFields || [])
+    .find((f) => f.name === 'conversation_mode')?.defaultValue;
   const [selectDialogOpen, setSelectDialogOpen] = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState(null);
 
@@ -169,6 +173,14 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
                 작업판 선택
               </Button>
             </Box>
+          ) : conversationMode ? (
+            <WorkboardChatPanel
+              workboard={selectedWorkboard}
+              onUseMessage={(content) => {
+                if (onApply) onApply(content);
+                handleClose();
+              }}
+            />
           ) : (
             <PromptGeneratorPanel
               workboard={selectedWorkboard}
@@ -181,15 +193,17 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>취소</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleApply}
-            disabled={!generatedPrompt}
-            startIcon={<Check />}
-          >
-            적용
-          </Button>
+          {!conversationMode && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleApply}
+              disabled={!generatedPrompt}
+              startIcon={<Check />}
+            >
+              적용
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

@@ -40,7 +40,7 @@ import ChatBubble from './chat/ChatBubble';
 // PromptGeneration 페이지에서 workboard.conversation_mode = true 일 때 PromptGeneratorPanel 대신 렌더.
 // 매번 새 대화로 시작. 첫 메시지 전송 전엔 설정 (model / temperature / system_prompt 등) 편집 가능,
 // 전송 후엔 lock + collapse.
-function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
+function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }) {
   const [conversationId, setConversationId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [newMessage, setNewMessage] = useState('');
@@ -332,15 +332,23 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
                 content={msg.content}
                 attachments={msg.attachments}
                 actions={msg.role === 'assistant' && (
-                  <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
-                    <IconButton
-                      size="small"
-                      onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
-                      disabled={saveMessageMutation.isLoading}
-                    >
-                      <BookmarkAddIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                  <>
+                    {/* 호출 모드 (#574): 이 응답을 호출측 프롬프트로 반환 */}
+                    {onUseMessage && (
+                      <Button variant="outlined" color="primary" onClick={() => onUseMessage(msg.content)}>
+                        이 응답을 프롬프트로 사용
+                      </Button>
+                    )}
+                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                      <IconButton
+                        size="small"
+                        onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
+                        disabled={saveMessageMutation.isLoading}
+                      >
+                        <BookmarkAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
                 )}
               />
             ))}
