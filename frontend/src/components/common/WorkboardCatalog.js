@@ -68,10 +68,10 @@ export function TagChip({ label, mono, sx }) {
       variant="outlined"
       label={label}
       sx={{
-        height: 22, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
+        height: 24, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
         borderColor: 'divider', color: 'grey.600',
         ...(mono && { fontFamily: MONO }),
-        '& .MuiChip-label': { px: '9px' }, ...sx,
+        '& .MuiChip-label': { px: '11px' }, ...sx,
       }}
     />
   );
