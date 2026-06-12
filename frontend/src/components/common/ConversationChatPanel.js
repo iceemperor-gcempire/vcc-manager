@@ -25,6 +25,7 @@ import toast from 'react-hot-toast';
 import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
 import ImageUploadField from './ImageUploadField';
+import ChatBubble from './chat/ChatBubble';
 
 // 멀티턴 대화 모드 패널 (#375).
 // `conversationId` 가 주어졌을 때 PromptGeneration 페이지에서 PromptGeneratorPanel 대신 렌더.
@@ -141,7 +142,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
   const isSending = isStreaming;
 
   return (
-    <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
+    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 } }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Chip label="대화 이어가기" color="secondary" />
         {conversation.model && <Chip label={conversation.model} variant="outlined" />}
@@ -166,36 +167,17 @@ function ConversationChatPanel({ workboard, conversationId }) {
           overflow: 'auto',
           mb: 2,
           p: 2,
-          bgcolor: 'grey.50',
           borderRadius: 1,
         }}
       >
-        <Stack spacing={1.5} divider={<Divider flexItem />}>
+        <Stack spacing={3.5}>
           {messages.map((msg, idx) => (
-            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}>
-                {msg.role === 'user' && <PersonIcon fontSize="small" color="primary" />}
-                {msg.role === 'assistant' && <AssistantIcon fontSize="small" color="action" />}
-                {msg.role === 'system' && <SystemIcon fontSize="small" color="action" />}
-              </Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  {msg.role}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {msg.content}
-                </Typography>
-                {/* 첨부 이미지 썸네일 (#517) */}
-                {msg.attachments?.length > 0 && (
-                  <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.75 }}>
-                    {msg.attachments.map((a, ai) => (
-                      <Box key={ai} component="img" src={a.url} alt="첨부 이미지"
-                        sx={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }} />
-                    ))}
-                  </Box>
-                )}
-              </Box>
-              {msg.role === 'assistant' && (
+            <ChatBubble
+              key={idx}
+              role={msg.role}
+              content={msg.content}
+              attachments={msg.attachments}
+              actions={msg.role === 'assistant' && (
                 <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
                   <IconButton
                     size="small"
@@ -206,37 +188,11 @@ function ConversationChatPanel({ workboard, conversationId }) {
                   </IconButton>
                 </Tooltip>
               )}
-            </Box>
+            />
           ))}
           {/* 낙관적 사용자 말풍선 + 실시간 어시스턴트 말풍선 (#490) */}
-          {pendingUserMsg && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}><PersonIcon fontSize="small" color="primary" /></Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  user
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {pendingUserMsg}
-                </Typography>
-              </Box>
-            </Box>
-          )}
-          {isStreaming && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}><AssistantIcon fontSize="small" color="action" /></Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  assistant
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {streamingText}
-                  {!streamingText && <CircularProgress size={14} color="secondary" sx={{ ml: 0.5 }} />}
-                  {streamingText && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
-                </Typography>
-              </Box>
-            </Box>
-          )}
+          {pendingUserMsg && <ChatBubble role="user" content={pendingUserMsg} />}
+          {isStreaming && <ChatBubble role="assistant" streaming streamingText={streamingText} />}
         </Stack>
         {conversation.status === 'processing' && !isStreaming && (
           <Alert severity="info" sx={{ mt: 2 }}>
