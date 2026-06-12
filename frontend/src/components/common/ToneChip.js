@@ -20,9 +20,9 @@ export function ToneChip({ tone, label, mono, sx }) {
       variant="filled"
       label={label}
       sx={{
-        height: 22, fontSize: '11.5px', fontWeight: 500, border: 0,
+        height: 24, fontSize: '11.5px', fontWeight: 600, border: 0,
         ...(mono && { fontFamily: MONO, fontSize: '11px' }),
-        '& .MuiChip-label': { px: '9px' },
+        '& .MuiChip-label': { px: '11px' },
         ...ts, ...sx,
       }}
     />

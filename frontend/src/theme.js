@@ -107,7 +107,11 @@ export function buildVccTheme(mode = 'light') {
       },
       MuiChip: {
         defaultProps: { size: 'small', variant: 'outlined' },
-        styleOverrides: { root: { borderRadius: 999, fontWeight: 600, fontSize: 11.5 } },
+        styleOverrides: {
+          root: { borderRadius: 999, fontWeight: 600, fontSize: 11.5 },
+          sizeSmall: { height: 25 },
+          label: { paddingInline: 11 }, // 텍스트 주변 여유 (#556)
+        },
       },
       MuiPaper: {
         styleOverrides: {
