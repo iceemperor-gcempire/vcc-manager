@@ -273,6 +273,52 @@ function Dashboard() {
       >
         {/* Left column */}
         <Stack spacing={4}>
+          {/* Recent generations */}
+          <SectionCard
+            icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
+            title="최근 생성 이미지"
+            action="컨텐츠 라이브러리 →"
+            onAction={() => navigate('/content')}
+          >
+            {imagesLoading ? (
+              <GridSkeleton n={6} cols={{ xs: 3, sm: 6 }} height={0} aspect />
+            ) : images.length === 0 ? (
+              <EmptyHint text="아직 생성된 이미지가 없습니다." />
+            ) : (
+              <Box
+                sx={{
+                  p: 3,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' },
+                  gap: 1.5,
+                }}
+              >
+                {images.slice(0, 12).map((img) => (
+                  <Box
+                    key={img._id}
+                    onClick={() => navigate('/content')}
+                    sx={{
+                      position: 'relative',
+                      aspectRatio: '1 / 1',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      bgcolor: 'grey.100',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={img.url}
+                      alt=""
+                      loading="lazy"
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </SectionCard>
+
           {/* Running pipelines */}
           <SectionCard
             icon={
@@ -413,51 +459,6 @@ function Dashboard() {
             )}
           </SectionCard>
 
-          {/* Recent generations */}
-          <SectionCard
-            icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
-            title="최근 생성 이미지"
-            action="컨텐츠 라이브러리 →"
-            onAction={() => navigate('/content')}
-          >
-            {imagesLoading ? (
-              <GridSkeleton n={6} cols={{ xs: 3, sm: 6 }} height={0} aspect />
-            ) : images.length === 0 ? (
-              <EmptyHint text="아직 생성된 이미지가 없습니다." />
-            ) : (
-              <Box
-                sx={{
-                  p: 3,
-                  display: 'grid',
-                  gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' },
-                  gap: 1.5,
-                }}
-              >
-                {images.slice(0, 12).map((img) => (
-                  <Box
-                    key={img._id}
-                    onClick={() => navigate('/content')}
-                    sx={{
-                      position: 'relative',
-                      aspectRatio: '1 / 1',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      bgcolor: 'grey.100',
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={img.url}
-                      alt=""
-                      loading="lazy"
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </SectionCard>
         </Stack>
 
         {/* Right column */}
