@@ -251,7 +251,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   {detailItem.worldviewContext && (
                     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(156, 39, 176, 0.04)' }}>
                       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                        <PublicIcon fontSize="small" sx={{ color: '#9c27b0' }} />
+                        <PublicIcon fontSize="small" sx={{ color: 'secondary.main' }} />
                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>사전 컨텍스트 (세계관)</Typography>
                       </Stack>
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
