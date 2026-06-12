@@ -9,7 +9,7 @@ const TONE_SX = {
   info: { bgcolor: 'info.light', color: 'info.main' },
   warning: { bgcolor: 'warning.light', color: 'warning.main' },
   error: { bgcolor: 'error.light', color: 'error.main' },
-  accent: { bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(118,118,224,0.22)' : 'rgba(91,91,214,0.12)'), color: 'primary.main' },
+  accent: { bgcolor: 'primary.light', color: 'primary.main' }, // v2 — .light 토큰이 모드별 틴트 (#562)
   neutral: { bgcolor: 'grey.100', color: 'text.secondary' },
 };
 
