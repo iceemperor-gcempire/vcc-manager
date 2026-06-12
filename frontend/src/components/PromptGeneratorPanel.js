@@ -289,7 +289,7 @@ function PromptGeneratorPanel({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={compact ? 2 : 3}>
           <Grid item xs={12} md={compact ? 12 : 6}>
-            <Paper sx={{ p: compact ? 2 : 3 }} elevation={compact ? 0 : 1}>
+            <Paper sx={{ p: compact ? 2 : 4 }} variant={compact ? 'elevation' : 'outlined'} elevation={0}>
               {!compact && (
                 <Typography variant="h6" gutterBottom>
                   입력 설정
@@ -404,7 +404,7 @@ function PromptGeneratorPanel({
           </Grid>
 
           <Grid item xs={12} md={compact ? 12 : 6}>
-            <Paper sx={{ p: compact ? 2 : 3, minHeight: compact ? 200 : 400 }} elevation={compact ? 0 : 1}>
+            <Paper sx={{ p: compact ? 2 : 4, minHeight: compact ? 200 : 400 }} variant={compact ? 'elevation' : 'outlined'} elevation={0}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant={compact ? 'subtitle1' : 'h6'}>
                   생성된 프롬프트
