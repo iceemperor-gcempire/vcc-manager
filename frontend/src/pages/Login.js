@@ -27,6 +27,7 @@ import { useMutation } from 'react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 function Login() {
   const theme = useTheme();
@@ -125,22 +126,8 @@ function Login() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              Visual Content Creator
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              AI 이미지 생성 도구에 액세스하려면 로그인하세요
-            </Typography>
-          </Box>
+    <AuthLayout>
+      <AuthTitle title="로그인" sub="VCC Manager 계정으로 계속하기" />
 
           {/* Email/Password Login Form */}
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -273,12 +260,10 @@ function Login() {
             </Typography>
           </Box>
 
-          <Typography variant="caption" display="block" mt={3} textAlign="center" color="text.secondary">
-            로그인함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
-          </Typography>
-        </Paper>
-      </Box>
-    </Container>
+      <Typography variant="caption" display="block" mt={4} textAlign="center" color="text.secondary">
+        로그인함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
+      </Typography>
+    </AuthLayout>
   );
 }
 

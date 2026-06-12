@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useMutation } from 'react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -49,19 +50,8 @@ function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-            <Box textAlign="center" mb={3}>
-              <Typography variant="h4" gutterBottom>
-                이메일 발송 완료
-              </Typography>
-            </Box>
+      <AuthLayout>
+            <AuthTitle title="이메일 발송 완료" />
 
             <Alert severity="success" sx={{ mb: 3 }}>
               <Typography variant="body2">
@@ -87,29 +77,13 @@ function ForgotPassword() {
             >
               로그인 페이지로 돌아가기
             </Button>
-          </Paper>
-        </Box>
-      </Container>
+          </AuthLayout>
     );
   }
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              비밀번호 찾기
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              가입하신 이메일 주소를 입력해주세요
-            </Typography>
-          </Box>
+    <AuthLayout>
+          <AuthTitle title="비밀번호 찾기" sub="가입하신 이메일 주소를 입력해주세요" />
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box mb={3}>
@@ -179,9 +153,7 @@ function ForgotPassword() {
               로그인 페이지로 돌아가기
             </Link>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
+        </AuthLayout>
   );
 }
 

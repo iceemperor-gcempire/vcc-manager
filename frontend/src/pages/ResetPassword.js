@@ -26,6 +26,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery } from 'react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 const validatePassword = (password) => {
   const requirements = {
@@ -142,33 +143,19 @@ function ResetPassword() {
   // Token verification loading state
   if (isVerifying) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <Paper elevation={3} sx={{ p: 4, width: '100%', textAlign: 'center' }}>
-            <CircularProgress sx={{ mb: 2 }} />
-            <Typography>토큰 검증 중...</Typography>
-          </Paper>
+      <AuthLayout>
+        <Box sx={{ textAlign: 'center' }}>
+          <CircularProgress sx={{ mb: 2 }} />
+          <Typography>토큰 검증 중...</Typography>
         </Box>
-      </Container>
+      </AuthLayout>
     );
   }
 
   // Invalid or expired token
   if (isTokenError || (tokenData && !tokenData.data?.valid)) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+      <AuthLayout>
             <Box textAlign="center" mb={3}>
               <Typography variant="h4" gutterBottom color="error">
                 링크 만료
@@ -203,23 +190,14 @@ function ResetPassword() {
             >
               로그인 페이지로 돌아가기
             </Button>
-          </Paper>
-        </Box>
-      </Container>
+          </AuthLayout>
     );
   }
 
   // Reset success state
   if (resetSuccess) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+      <AuthLayout>
             <Box textAlign="center" mb={3}>
               <CheckCircle color="success" sx={{ fontSize: 64, mb: 2 }} />
               <Typography variant="h4" gutterBottom>
@@ -245,31 +223,14 @@ function ResetPassword() {
             >
               로그인 페이지로 이동
             </Button>
-          </Paper>
-        </Box>
-      </Container>
+          </AuthLayout>
     );
   }
 
   // Password reset form
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        py={4}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              새 비밀번호 설정
-            </Typography>
-            <Typography variant="body1" color="text.secondary">
-              새로운 비밀번호를 입력해주세요
-            </Typography>
-          </Box>
+    <AuthLayout>
+          <AuthTitle title="새 비밀번호 설정" sub="새로운 비밀번호를 입력해주세요" />
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box mb={3}>
@@ -407,9 +368,7 @@ function ResetPassword() {
               로그인 페이지로 돌아가기
             </Link>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
+        </AuthLayout>
   );
 }
 
