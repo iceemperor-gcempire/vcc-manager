@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/jetbrains-mono@5/index.min.css">
+<style>
+/* ===== VCC Design v2 토큰 스펙 — Light "Warm Studio" / Dark "Console" =====
+   구조 토큰(radius/spacing/type)은 모드 공통, 컬러 팔레트만 모드별. */
+*{box-sizing:border-box;margin:0}
+body{font-family:"Pretendard Variable",sans-serif;font-size:13.5px;letter-spacing:-0.005em;display:grid;grid-template-columns:1fr 1fr}
+.mode{padding:28px 30px;min-height:100vh}
+.light{--bg:#F6F2EC;--surface:#FFFDFA;--inset:#F0EAE0;--line:#E8E0D4;--line-strong:#D6CBB9;
+  --t1:#2A241C;--t2:#6E6557;--t3:#A39A8A;
+  --accent:#C96A3B;--accent-deep:#A04E26;--accent-weak:#F7E8DF;--on-accent:#FFFFFF;
+  --ok:#4D8A4D;--ok-w:#E8F1E4;--run:#7A5CC4;--run-w:#EFE9F9;--warn:#B07514;--warn-w:#F9EFD9;--err:#C73E44;--err-w:#FAE7E7;
+  --shadow:0 2px 10px rgba(90,70,40,.07),0 1px 2px rgba(90,70,40,.05);
+  background:var(--bg);color:var(--t1)}
+.dark{--bg:#101216;--surface:#181B21;--inset:#13161B;--line:#262B34;--line-strong:#343B47;
+  --t1:#E9EBEF;--t2:#9AA1AD;--t3:#5F6671;
+  --accent:#3DD6B8;--accent-deep:#2AA890;--accent-weak:rgba(61,214,184,.12);--on-accent:#06231D;
+  --ok:#3DD68C;--ok-w:rgba(61,214,140,.14);--run:#5C9CE8;--run-w:rgba(92,156,232,.14);--warn:#E0B341;--warn-w:rgba(224,179,65,.14);--err:#E85C64;--err-w:rgba(232,92,100,.14);
+  --shadow:0 2px 10px rgba(0,0,0,.35);
+  background:var(--bg);color:var(--t1)}
+:root{--mono:"JetBrains Mono",monospace;--r-card:10px;--r-ctl:8px;--r-pill:999px}
+h2{font-size:16px;font-weight:800;margin-bottom:4px}
+.cap{font-size:11.5px;color:var(--t3);margin-bottom:18px;font-family:var(--mono)}
+h4{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin:18px 0 8px}
+.sw{display:flex;gap:6px;flex-wrap:wrap}
+.s{width:86px;border-radius:8px;border:1px solid var(--line);overflow:hidden;background:var(--surface)}
+.s i{display:block;height:34px}
+.s b{display:block;font-size:9.5px;font-family:var(--mono);font-weight:500;padding:4px 6px;color:var(--t2)}
+.type div{margin-bottom:6px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{font:inherit;font-weight:700;font-size:13px;border-radius:var(--r-pill);padding:8px 17px;border:1px solid var(--line-strong);background:var(--surface);color:var(--t1);cursor:pointer;box-shadow:var(--shadow)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.ghost{border:0;box-shadow:none;background:transparent;color:var(--accent-deep)}
+.btn.sm{font-size:12px;padding:5px 12px}
+.chip{font-size:11.5px;font-weight:700;border-radius:var(--r-pill);padding:3px 10px;display:inline-block}
+.input{font:inherit;font-size:13px;border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:8px 12px;background:var(--surface);color:var(--t1);width:200px}
+.input:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:transparent}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-card);box-shadow:var(--shadow);max-width:360px}
+.card h3{font-size:13.5px;font-weight:700;padding:13px 16px 0;display:flex;gap:8px;align-items:center}
+.card h3 .sp{flex:1}.card h3 a{font-size:12px;color:var(--accent-deep);text-decoration:none;font-weight:600}
+.card .bd{padding:10px 16px 14px}
+.kv{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px dashed var(--line);font-size:12.5px}
+.kv:last-child{border:0}.kv .k{color:var(--t3)}.kv .mono{font-family:var(--mono);font-size:11.5px}
+.empty{color:var(--t3);font-size:12.5px;text-align:center;padding:16px;border:1.5px dashed var(--line-strong);border-radius:9px}
+.tabs{display:flex;gap:18px;border-bottom:1px solid var(--line);max-width:360px}
+.tab{padding:8px 2px;font-size:13px;font-weight:600;color:var(--t2);border-bottom:2px solid transparent}
+.tab.on{color:var(--accent-deep);border-color:var(--accent)}
+.tab .n{font-family:var(--mono);font-size:11px;color:var(--t3);margin-left:5px}
+.dark .btn.ghost{color:var(--accent)} .dark .card h3 a{color:var(--accent)} .dark .tab.on{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="mode light">
+  <h2>Light — Warm Studio</h2>
+  <div class="cap">bg #F6F2EC · surface #FFFDFA · accent #C96A3B · radius 10/8/pill · Pretendard + JetBrains Mono</div>
+  <h4>Palette</h4>
+  <div class="sw">
+    <div class="s"><i style="background:#F6F2EC"></i><b>bg F6F2EC</b></div>
+    <div class="s"><i style="background:#FFFDFA"></i><b>surface FFFDFA</b></div>
+    <div class="s"><i style="background:#E8E0D4"></i><b>line E8E0D4</b></div>
+    <div class="s"><i style="background:#C96A3B"></i><b>accent C96A3B</b></div>
+    <div class="s"><i style="background:#A04E26"></i><b>deep A04E26</b></div>
+    <div class="s"><i style="background:#2A241C"></i><b>text1 2A241C</b></div>
+    <div class="s"><i style="background:#6E6557"></i><b>text2 6E6557</b></div>
+    <div class="s"><i style="background:#4D8A4D"></i><b>ok 4D8A4D</b></div>
+    <div class="s"><i style="background:#7A5CC4"></i><b>run 7A5CC4</b></div>
+    <div class="s"><i style="background:#C73E44"></i><b>err C73E44</b></div>
+  </div>
+  <h4>Type Scale</h4>
+  <div class="type">
+    <div style="font-size:24px;font-weight:800;letter-spacing:-0.02em">페이지 타이틀 24 / 800</div>
+    <div style="font-size:18px;font-weight:700">섹션 타이틀 18 / 700</div>
+    <div style="font-size:13.5px;font-weight:700">카드 타이틀 13.5 / 700</div>
+    <div style="font-size:13.5px">본문 13.5 / 400 — 한국어 letter-spacing -0.005em</div>
+    <div style="font-size:12.5px;color:var(--t2)">보조 12.5 — text2</div>
+    <div style="font-family:var(--mono);font-size:11.5px;color:var(--t2)">mono 11.5 — id · 메타 · 숫자</div>
+  </div>
+  <h4>Buttons & Chips (pill)</h4>
+  <div class="row">
+    <button class="btn pri">작업판 실행</button>
+    <button class="btn">새 프로젝트</button>
+    <button class="btn ghost">프롬프트 불러오기</button>
+    <button class="btn sm">선택</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <span class="chip" style="background:var(--ok-w);color:var(--ok)">완료</span>
+    <span class="chip" style="background:var(--run-w);color:var(--run)">진행 중</span>
+    <span class="chip" style="background:var(--warn-w);color:var(--warn)">대기</span>
+    <span class="chip" style="background:var(--err-w);color:var(--err)">실패</span>
+    <span class="chip" style="background:var(--accent-weak);color:var(--accent-deep)">이미지</span>
+  </div>
+  <h4>Input / Tabs</h4>
+  <div class="row"><input class="input" placeholder="히스토리 검색…"><input class="input" value="7598157339176202" style="font-family:var(--mono);font-size:12px"></div>
+  <div class="tabs" style="margin-top:12px">
+    <div class="tab on">전체<span class="n">47</span></div>
+    <div class="tab">이미지<span class="n">20</span></div>
+    <div class="tab">텍스트<span class="n">20</span></div>
+  </div>
+  <h4>Card / KV / Empty</h4>
+  <div class="card">
+    <h3>작업판 정보 <span class="sp"></span><a>관리 →</a></h3>
+    <div class="bd">
+      <div class="kv"><span class="k">서버</span><span class="mono">192.168.1.51:8188</span></div>
+      <div class="kv"><span class="k">버전</span><span>v2</span></div>
+      <div class="kv"><span class="k">대기 큐</span><span>대기 0 · 진행 0</span></div>
+      <div class="empty" style="margin-top:10px">실행 중인 작업이 없습니다</div>
+    </div>
+  </div>
+</div>
+
+<div class="mode dark">
+  <h2>Dark — Console</h2>
+  <div class="cap">bg #101216 · surface #181B21 · accent #3DD6B8 · 구조 토큰은 라이트와 동일</div>
+  <h4>Palette</h4>
+  <div class="sw">
+    <div class="s"><i style="background:#101216"></i><b>bg 101216</b></div>
+    <div class="s"><i style="background:#181B21"></i><b>surface 181B21</b></div>
+    <div class="s"><i style="background:#262B34"></i><b>line 262B34</b></div>
+    <div class="s"><i style="background:#3DD6B8"></i><b>accent 3DD6B8</b></div>
+    <div class="s"><i style="background:#2AA890"></i><b>deep 2AA890</b></div>
+    <div class="s"><i style="background:#E9EBEF"></i><b>text1 E9EBEF</b></div>
+    <div class="s"><i style="background:#9AA1AD"></i><b>text2 9AA1AD</b></div>
+    <div class="s"><i style="background:#3DD68C"></i><b>ok 3DD68C</b></div>
+    <div class="s"><i style="background:#5C9CE8"></i><b>run 5C9CE8</b></div>
+    <div class="s"><i style="background:#E85C64"></i><b>err E85C64</b></div>
+  </div>
+  <h4>Type Scale</h4>
+  <div class="type">
+    <div style="font-size:24px;font-weight:800;letter-spacing:-0.02em">페이지 타이틀 24 / 800</div>
+    <div style="font-size:18px;font-weight:700">섹션 타이틀 18 / 700</div>
+    <div style="font-size:13.5px;font-weight:700">카드 타이틀 13.5 / 700</div>
+    <div style="font-size:13.5px">본문 13.5 / 400 — 모드 간 타입 동일</div>
+    <div style="font-size:12.5px;color:var(--t2)">보조 12.5 — text2</div>
+    <div style="font-family:var(--mono);font-size:11.5px;color:var(--t2)">mono 11.5 — id · 메타 · 숫자</div>
+  </div>
+  <h4>Buttons & Chips (pill — 라이트와 동일 구조)</h4>
+  <div class="row">
+    <button class="btn pri">작업판 실행</button>
+    <button class="btn">새 프로젝트</button>
+    <button class="btn ghost">프롬프트 불러오기</button>
+    <button class="btn sm">선택</button>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <span class="chip" style="background:var(--ok-w);color:var(--ok)">완료</span>
+    <span class="chip" style="background:var(--run-w);color:var(--run)">진행 중</span>
+    <span class="chip" style="background:var(--warn-w);color:var(--warn)">대기</span>
+    <span class="chip" style="background:var(--err-w);color:var(--err)">실패</span>
+    <span class="chip" style="background:var(--accent-weak);color:var(--accent)">이미지</span>
+  </div>
+  <h4>Input / Tabs</h4>
+  <div class="row"><input class="input" placeholder="히스토리 검색…"><input class="input" value="7598157339176202" style="font-family:var(--mono);font-size:12px"></div>
+  <div class="tabs" style="margin-top:12px">
+    <div class="tab on">전체<span class="n">47</span></div>
+    <div class="tab">이미지<span class="n">20</span></div>
+    <div class="tab">텍스트<span class="n">20</span></div>
+  </div>
+  <h4>Card / KV / Empty</h4>
+  <div class="card">
+    <h3>작업판 정보 <span class="sp"></span><a>관리 →</a></h3>
+    <div class="bd">
+      <div class="kv"><span class="k">서버</span><span class="mono">192.168.1.51:8188</span></div>
+      <div class="kv"><span class="k">버전</span><span>v2</span></div>
+      <div class="kv"><span class="k">대기 큐</span><span>대기 0 · 진행 0</span></div>
+      <div class="empty" style="margin-top:10px">실행 중인 작업이 없습니다</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

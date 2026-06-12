@@ -1,3 +1,9 @@
+> # ⚠️ DEPRECATED (2026-06-12)
+> **이 핸드오프(v1)는 폐기되었습니다.** 앱에 존재하지 않는 기능이 디자인에 다수 포함되어 있어 기준 문서 자격을 상실했습니다 (#554).
+> 현행 디자인 기준은 **`docs/design-v2/TOKENS.md`** (Warm Studio 라이트 / Console 다크) 와
+> `frontend/src/theme.js` (구현 단일 소스), `frontend/src/components/common/` 컴포넌트 라이브러리입니다.
+> 이 폴더는 이력 보존용으로만 남깁니다 — **새 작업의 기준으로 사용 금지.**
+
 # Handoff: VCC Manager Design System v1
 
 ## Overview
