@@ -202,7 +202,7 @@ function RowVisual({ item }) {
   return (
     <Box sx={{
       width: size, height: size, borderRadius: 2, flex: '0 0 auto',
-      bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(118,118,224,0.18)' : 'rgba(91,91,214,0.10)',
+      bgcolor: 'primary.light', // v2 토큰 틴트 (#562)
       color: 'primary.main', display: 'grid', placeItems: 'center',
     }}>
       {icon}

@@ -19,12 +19,13 @@ import {
 
 
 // 작업판 종류(생성 엔진) — outputFormat + serverType 로 유도. 카드 좌측 아이콘.
+// 틴트는 시맨틱 .light 토큰 — 라이트(솔리드 틴트)/다크(rgba) 자동 전환 (#562, v1 rgba 잔재 제거)
 export const KIND_META = {
-  'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',     tint: 'rgba(47,119,228,0.12)' },
-  'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: '#5B2DBF',      tint: 'rgba(91,45,191,0.10)' },
-  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',  tint: 'rgba(91,91,214,0.10)' },
-  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',  tint: 'rgba(190,116,21,0.14)' },
-  'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',  tint: 'rgba(31,157,85,0.12)' },
+  'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',      tint: 'info.light' },
+  'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: 'secondary.main', tint: 'secondary.light' },
+  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',   tint: 'primary.light' },
+  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
+  'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
 };
 
 export function deriveOut(wb) {
