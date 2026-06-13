@@ -27,7 +27,10 @@ function VideoViewerDialog({
 
   if (!videos || videos.length === 0) return null;
 
-  const currentVideo = videos[currentIndex];
+  // 이전 항목의 인덱스가 더 짧은 목록으로 이월돼 범위를 벗어나면
+  // 빈 플레이어가 뜨므로 유효 범위로 보정한다.
+  const safeIndex = Math.min(Math.max(currentIndex, 0), videos.length - 1);
+  const currentVideo = videos[safeIndex];
 
   const handleDownload = async () => {
     if (!currentVideo) return;
@@ -65,11 +68,11 @@ function VideoViewerDialog({
   };
 
   const handlePrev = () => {
-    setCurrentIndex(prev => Math.max(0, prev - 1));
+    setCurrentIndex(Math.max(0, safeIndex - 1));
   };
 
   const handleNext = () => {
-    setCurrentIndex(prev => Math.min(videos.length - 1, prev + 1));
+    setCurrentIndex(Math.min(videos.length - 1, safeIndex + 1));
   };
 
   return (
@@ -85,7 +88,7 @@ function VideoViewerDialog({
       <DialogTitle sx={{ color: 'white', pb: 1 }}>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">
-            {title} {videos.length > 1 && `(${currentIndex + 1}/${videos.length})`}
+            {title} {videos.length > 1 && `(${safeIndex + 1}/${videos.length})`}
           </Typography>
           <Box>
             <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
@@ -99,7 +102,7 @@ function VideoViewerDialog({
       </DialogTitle>
       <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
         <video
-          key={currentVideo?._id || currentIndex}
+          key={currentVideo?._id || safeIndex}
           src={currentVideo?.url}
           controls
           autoPlay
@@ -115,7 +118,7 @@ function VideoViewerDialog({
             <Button
               variant="outlined"
               onClick={handlePrev}
-              disabled={currentIndex === 0}
+              disabled={safeIndex === 0}
               startIcon={<NavigateBefore />}
               sx={{ color: 'white', borderColor: 'white' }}
             >
@@ -124,7 +127,7 @@ function VideoViewerDialog({
             <Button
               variant="outlined"
               onClick={handleNext}
-              disabled={currentIndex === videos.length - 1}
+              disabled={safeIndex === videos.length - 1}
               endIcon={<NavigateNext />}
               sx={{ color: 'white', borderColor: 'white' }}
             >

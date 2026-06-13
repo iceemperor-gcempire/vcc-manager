@@ -44,7 +44,10 @@ function ImageViewerDialog({
     return img;
   });
 
-  const currentImage = normalizedImages[currentIndex];
+  // 이전 항목에서 선택했던 인덱스가 더 짧은 이미지 목록으로 이월돼
+  // 범위를 벗어나면 흰 화면이 뜨므로 유효 범위로 보정한다.
+  const safeIndex = Math.min(Math.max(currentIndex, 0), normalizedImages.length - 1);
+  const currentImage = normalizedImages[safeIndex];
   
   const handleDownload = async () => {
     try {
@@ -54,7 +57,7 @@ function ImageViewerDialog({
       
       const link = document.createElement('a');
       link.href = blobUrl;
-      link.download = currentImage.originalName || `image_${currentIndex + 1}.png`;
+      link.download = currentImage.originalName || `image_${safeIndex + 1}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -70,8 +73,8 @@ function ImageViewerDialog({
     }
   };
 
-  const displayTitle = normalizedImages.length > 1 
-    ? `${title} (${currentIndex + 1} / ${normalizedImages.length})`
+  const displayTitle = normalizedImages.length > 1
+    ? `${title} (${safeIndex + 1} / ${normalizedImages.length})`
     : title;
 
   return (
@@ -102,7 +105,7 @@ function ImageViewerDialog({
       <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
         <img
           src={currentImage.url}
-          alt={`Image ${currentIndex + 1}`}
+          alt={`Image ${safeIndex + 1}`}
           style={{
             maxWidth: '100%',
             maxHeight: '70vh',
@@ -137,8 +140,8 @@ function ImageViewerDialog({
                   width: 60,
                   height: 60,
                   cursor: 'pointer',
-                  border: index === currentIndex ? '2px solid white' : 'none',
-                  opacity: index === currentIndex ? 1 : 0.7,
+                  border: index === safeIndex ? '2px solid white' : 'none',
+                  opacity: index === safeIndex ? 1 : 0.7,
                   '&:hover': { opacity: 1 }
                 }}
                 variant="rounded"
