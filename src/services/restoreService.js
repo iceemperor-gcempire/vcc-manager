@@ -5,31 +5,9 @@ const unzipper = require('unzipper');
 const RestoreJob = require('../models/RestoreJob');
 const { ENCRYPTION_KEY } = require('./backupService');
 
-// MongoDB 모델들
-const User = require('../models/User');
-const Server = require('../models/Server');
-const Workboard = require('../models/Workboard');
-const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const PromptData = require('../models/PromptData');
-const Tag = require('../models/Tag');
-const LoraCache = require('../models/LoraCache');
-
-// 복구할 컬렉션 목록 (순서 중요 - 의존성 고려)
-const COLLECTIONS = {
-  User: { model: User },
-  Server: { model: Server, decryptFields: ['configuration.apiKey'] },
-  Tag: { model: Tag },
-  Workboard: { model: Workboard },
-  UploadedImage: { model: UploadedImage },
-  PromptData: { model: PromptData },
-  ImageGenerationJob: { model: ImageGenerationJob },
-  GeneratedImage: { model: GeneratedImage },
-  GeneratedVideo: { model: GeneratedVideo },
-  LoraCache: { model: LoraCache }
-};
+// 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
+// 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
+const { BACKUP_COLLECTIONS } = require('./backupCollections');
 
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
@@ -176,11 +154,11 @@ async function validateBackup(zipPath, userId) {
       }
     }
 
-    // 컬렉션 확인
-    const requiredCollections = Object.keys(COLLECTIONS);
+    // 컬렉션 확인 — 보강된 단일 소스 목록 기준으로 누락 경고 (#588)
+    const requiredCollections = BACKUP_COLLECTIONS.map((c) => c.name);
     for (const col of requiredCollections) {
       if (metadata.collections && metadata.collections[col] === undefined) {
-        warnings.push(`${col} 컬렉션이 백업에 없습니다.`);
+        warnings.push(`${col} 컬렉션이 백업에 없습니다. (구버전 백업일 수 있음 — 해당 데이터는 복원되지 않습니다)`);
       }
     }
 
@@ -228,7 +206,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
     errors: 0
   };
 
-  const totalSteps = Object.keys(COLLECTIONS).length + 3; // 컬렉션 + 파일 디렉토리 3개
+  const totalSteps = BACKUP_COLLECTIONS.length + 3; // 컬렉션 + 파일 디렉토리 3개
   let currentStep = 0;
 
   // 임시 디렉토리 생성
@@ -250,7 +228,8 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
     // 데이터베이스 복구
     if (!options.skipDatabase) {
-      for (const [name, config] of Object.entries(COLLECTIONS)) {
+      for (const config of BACKUP_COLLECTIONS) {
+        const name = config.name;
         currentStep++;
         await job.updateProgress(currentStep, totalSteps, `${name} 컬렉션 복구 중...`);
 
@@ -263,10 +242,10 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
             for (const doc of data) {
               try {
-                // 암호화 필드 복호화
+                // 암호화 필드 복호화 (백업 시 암호화한 encryptFields 와 동일)
                 let processedDoc = doc;
-                if (config.decryptFields) {
-                  processedDoc = decryptFields(doc, config.decryptFields);
+                if (config.encryptFields) {
+                  processedDoc = decryptFields(doc, config.encryptFields);
                 }
 
                 // _id와 날짜 필드 변환
