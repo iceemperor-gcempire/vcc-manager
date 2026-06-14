@@ -25,7 +25,11 @@ jest.mock('../middleware/backupLock', () => ({
   startBackupLock: jest.fn(),
   endBackupLock: jest.fn(),
   isBackupInProgress: jest.fn(() => false),
-  getCurrentBackupJobId: jest.fn(() => null)
+  getCurrentBackupJobId: jest.fn(() => null),
+  startRestoreLock: jest.fn(),
+  endRestoreLock: jest.fn(),
+  isRestoreInProgress: jest.fn(() => false),
+  getCurrentRestoreJobId: jest.fn(() => null)
 }));
 
 jest.mock('../services/restoreService', () => ({

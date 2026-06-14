@@ -134,7 +134,7 @@ async function exportCollection(collectionName, config, job) {
 /**
  * 백업 작업 초기화 (DB에 작업 기록만 생성)
  */
-async function initBackupJob(userId) {
+async function initBackupJob(userId, type = 'full') {
   // 암호화 키 유효성 검사
   validateEncryptionKey();
 
@@ -143,10 +143,10 @@ async function initBackupJob(userId) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
   }
 
-  // 백업 작업 생성
+  // 백업 작업 생성 (type: 'full' 수동 / 'snapshot' 복원 직전 자동 #590)
   const job = new BackupJob({
     status: 'pending',
-    type: 'full',
+    type,
     createdBy: userId,
     progress: {
       current: 0,
@@ -174,7 +174,8 @@ async function executeBackup(jobId) {
   await job.save();
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `vcc-backup-${timestamp}.zip`;
+  const prefix = job.type === 'snapshot' ? 'vcc-presnapshot' : 'vcc-backup';
+  const fileName = `${prefix}-${timestamp}.zip`;
   const filePath = path.join(BACKUP_DIR, fileName);
 
   try {
@@ -362,6 +363,8 @@ async function deleteBackup(jobId) {
 async function getLastBackupTime(userId) {
   const lastBackup = await BackupJob.findOne({
     createdBy: userId,
+    // 복원 직전 자동 스냅샷(#590)은 수동 백업 rate limit 계산에서 제외
+    type: { $ne: 'snapshot' },
     status: { $in: ['pending', 'processing', 'completed'] }
   }).sort({ createdAt: -1 });
 
