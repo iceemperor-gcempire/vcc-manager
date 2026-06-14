@@ -4,31 +4,8 @@ const crypto = require('crypto');
 const archiver = require('archiver');
 const BackupJob = require('../models/BackupJob');
 
-// MongoDB 모델들
-const User = require('../models/User');
-const Server = require('../models/Server');
-const Workboard = require('../models/Workboard');
-const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const PromptData = require('../models/PromptData');
-const Tag = require('../models/Tag');
-const LoraCache = require('../models/LoraCache');
-
-// 백업할 컬렉션 목록
-const COLLECTIONS = {
-  User: { model: User, sensitiveFields: ['googleId'] },
-  Server: { model: Server, encryptFields: ['configuration.apiKey'] },
-  Workboard: { model: Workboard },
-  ImageGenerationJob: { model: ImageGenerationJob },
-  GeneratedImage: { model: GeneratedImage },
-  GeneratedVideo: { model: GeneratedVideo },
-  UploadedImage: { model: UploadedImage },
-  PromptData: { model: PromptData },
-  Tag: { model: Tag },
-  LoraCache: { model: LoraCache }
-};
+// 백업 대상 컬렉션 — backup/restore 공유 단일 소스 (#588)
+const { BACKUP_COLLECTIONS } = require('./backupCollections');
 
 // 백업 디렉토리
 const BACKUP_DIR = process.env.BACKUP_PATH || './backups';
@@ -173,7 +150,7 @@ async function initBackupJob(userId) {
     createdBy: userId,
     progress: {
       current: 0,
-      total: Object.keys(COLLECTIONS).length + 3, // 컬렉션 + 파일 디렉토리 3개
+      total: BACKUP_COLLECTIONS.length + 3, // 컬렉션 + 파일 디렉토리 3개
       stage: '대기 중...'
     }
   });
@@ -228,7 +205,8 @@ async function executeBackup(jobId) {
 
     // 컬렉션 백업
     let progress = 0;
-    for (const [name, config] of Object.entries(COLLECTIONS)) {
+    for (const config of BACKUP_COLLECTIONS) {
+      const name = config.name;
       await job.updateProgress(progress, job.progress.total, `${name} 컬렉션 백업 중...`);
 
       const documents = await exportCollection(name, config, job);
