@@ -3,7 +3,8 @@ const path = require('path');
 const crypto = require('crypto');
 const unzipper = require('unzipper');
 const RestoreJob = require('../models/RestoreJob');
-const { ENCRYPTION_KEY } = require('./backupService');
+const backupService = require('./backupService');
+const { ENCRYPTION_KEY } = backupService;
 
 // 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
 // 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
@@ -194,6 +195,23 @@ async function executeRestore(jobId, zipPath, options = {}) {
   job.status = 'processing';
   job.options = options;
   await job.save();
+
+  // 복원 직전 자동 스냅샷 (#590) — 잘못된 복원 시 롤백 경로 확보.
+  // best-effort: 실패해도 복원은 진행하되 RestoreJob 에 경고를 남긴다 (options.skipSnapshot 로 명시 생략 가능).
+  if (!options.skipSnapshot) {
+    try {
+      await job.updateProgress(0, 1, '복원 전 스냅샷 생성 중...');
+      const snapshot = await backupService.initBackupJob(job.createdBy, 'snapshot');
+      await backupService.executeBackup(snapshot._id);
+      job.preRestoreSnapshotId = snapshot._id;
+      await job.save();
+      console.log(`📸 복원 전 스냅샷 생성 완료: ${snapshot._id}`);
+    } catch (snapErr) {
+      job.snapshotWarning = `복원 전 스냅샷 생성 실패: ${snapErr.message} (롤백 스냅샷 없이 복원이 진행됩니다)`;
+      await job.save();
+      console.error(`⚠️ 복원 전 스냅샷 생성 실패: ${snapErr.message}`);
+    }
+  }
 
   const statistics = {
     collectionsRestored: {},

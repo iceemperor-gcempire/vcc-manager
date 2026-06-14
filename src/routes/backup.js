@@ -5,7 +5,10 @@ const fs = require('fs');
 const { requireAdmin } = require('../middleware/auth');
 const backupService = require('../services/backupService');
 const restoreService = require('../services/restoreService');
-const { startBackupLock, endBackupLock, isBackupInProgress, getCurrentBackupJobId } = require('../middleware/backupLock');
+const {
+  startBackupLock, endBackupLock, isBackupInProgress, getCurrentBackupJobId,
+  startRestoreLock, endRestoreLock, isRestoreInProgress, getCurrentRestoreJobId
+} = require('../middleware/backupLock');
 const { generateBackupSignedUrl } = require('../utils/signedUrl');
 
 const router = express.Router();
@@ -62,7 +65,9 @@ router.get('/lock-status', requireAdmin, (req, res) => {
     success: true,
     data: {
       isBackupInProgress: isBackupInProgress(),
-      currentBackupJobId: getCurrentBackupJobId()
+      currentBackupJobId: getCurrentBackupJobId(),
+      isRestoreInProgress: isRestoreInProgress(),
+      currentRestoreJobId: getCurrentRestoreJobId()
     }
   });
 });
@@ -79,6 +84,15 @@ router.post('/', requireAdmin, async (req, res) => {
         success: false,
         message: '이미 백업이 진행 중입니다.',
         backupJobId: getCurrentBackupJobId()
+      });
+    }
+
+    // 복원 진행 중에는 백업 금지 (상호배타)
+    if (isRestoreInProgress()) {
+      return res.status(409).json({
+        success: false,
+        message: '복원이 진행 중입니다. 복원 완료 후 백업을 시작해주세요.',
+        restoreJobId: getCurrentRestoreJobId()
       });
     }
 
@@ -299,6 +313,15 @@ router.post('/restore', requireAdmin, async (req, res) => {
       });
     }
 
+    // 이미 복원 진행 중인지 확인 (중복 실행 방지 #589)
+    if (isRestoreInProgress()) {
+      return res.status(409).json({
+        success: false,
+        message: '이미 복원이 진행 중입니다.',
+        restoreJobId: getCurrentRestoreJobId()
+      });
+    }
+
     const { jobId, options = {} } = req.body;
 
     if (!jobId) {
@@ -336,6 +359,9 @@ router.post('/restore', requireAdmin, async (req, res) => {
       });
     }
 
+    // 복원 잠금 시작 — 복원 중 동시 쓰기 차단 (#589)
+    startRestoreLock(jobId);
+
     // 복구 실행 (비동기로 시작하고 바로 응답)
     restoreService.executeRestore(jobId, filePath, options)
       .then(() => {
@@ -349,6 +375,10 @@ router.post('/restore', requireAdmin, async (req, res) => {
         if (fs.existsSync(filePath)) {
           fs.unlinkSync(filePath);
         }
+      })
+      .finally(() => {
+        // 복원 완료/실패 시 잠금 해제
+        endRestoreLock();
       });
 
     res.json({
