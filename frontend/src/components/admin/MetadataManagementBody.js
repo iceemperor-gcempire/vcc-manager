@@ -41,6 +41,7 @@ import MetadataDetailDialog from '../common/MetadataDetailDialog';
 import MetadataImageListItem from './MetadataImageListItem';
 import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
 import { serverAPI } from '../../services/api';
+import { MONO } from '../../theme';
 
 const VIEW_MODE_KEY_PREFIX = 'vcc.metadataAdmin.viewMode.';
 const PAGE_SIZE = 24;
@@ -468,7 +469,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
                         </Typography>
                       )}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace', display: 'block' }}>
+                    <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: MONO, display: 'block' }}>
                       {item.filename}
                     </Typography>
                   </Box>

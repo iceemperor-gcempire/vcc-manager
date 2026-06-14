@@ -13,6 +13,7 @@ import {
   IconButton,
   CircularProgress
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import {
   Google as GoogleIcon,
   Visibility,
@@ -22,12 +23,14 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 function Login() {
+  const theme = useTheme();
   const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
@@ -63,9 +66,7 @@ function Login() {
 
   const { control, handleSubmit, formState: { errors } } = useForm();
 
-  const signinMutation = useMutation(
-    authAPI.signin,
-    {
+  const signinMutation = useMutation({ mutationFn: authAPI.signin,
       onSuccess: async (response) => {
         console.log('🔐 Login success, token received:', !!response.data.token);
         
@@ -99,16 +100,14 @@ function Login() {
             duration: 6000,
             icon: '❌',
             style: {
-              background: '#ffebee',
-              color: '#c62828',
+              background: theme.palette.error.light,
+              color: theme.palette.error.main,
             },
           });
         } else {
           toast.error(errorData?.message || '로그인 실패');
         }
-      }
-    }
-  );
+      } });
 
   const handleGoogleLogin = () => {
     window.location.href = '/api/auth/google';
@@ -123,22 +122,8 @@ function Login() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              Visual Content Creator
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              AI 이미지 생성 도구에 액세스하려면 로그인하세요
-            </Typography>
-          </Box>
+    <AuthLayout>
+      <AuthTitle title="로그인" sub="VCC Manager 계정으로 계속하기" />
 
           {/* Email/Password Login Form */}
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -227,10 +212,10 @@ function Login() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={signinMutation.isLoading}
+              disabled={signinMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {signinMutation.isLoading ? (
+              {signinMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '로그인'
@@ -239,7 +224,7 @@ function Login() {
           </form>
 
           <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               또는
             </Typography>
           </Divider>
@@ -258,7 +243,7 @@ function Login() {
 
           {/* Sign Up Link */}
           <Box textAlign="center">
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               계정이 없으신가요?{' '}
               <Link
                 component="button"
@@ -271,12 +256,10 @@ function Login() {
             </Typography>
           </Box>
 
-          <Typography variant="caption" display="block" mt={3} textAlign="center" color="textSecondary">
-            로그인함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
-          </Typography>
-        </Paper>
-      </Box>
-    </Container>
+      <Typography variant="caption" display="block" mt={4} textAlign="center" color="text.secondary">
+        로그인함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
+      </Typography>
+    </AuthLayout>
   );
 }
 

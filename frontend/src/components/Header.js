@@ -8,7 +8,7 @@ import {
   MenuItem,
   IconButton,
   Box,
-  Chip,
+  ButtonBase,
   ListItemIcon,
   ListItemText,
   Divider,
@@ -26,12 +26,65 @@ import {
   LightMode as LightModeIcon,
   DarkMode as DarkModeIcon,
   BrightnessAuto as SystemModeIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Dns as DnsIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useColorScheme } from '../contexts/ColorSchemeContext';
+import { serverAPI } from '../services/api';
+import { MONO } from '../theme';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import NotificationsPopover from './common/NotificationsPopover';
+
+// 탑바 필 공통 스타일 — v2 셸 (#558)
+const pillSx = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 2,
+  bgcolor: 'background.paper',
+  border: 1,
+  borderColor: 'divider',
+  borderRadius: 999,
+  boxShadow: 1,
+};
+
+// 서버 상태 필 — GET /servers (일반 사용자 접근 가능) 실데이터
+function ServerStatusPill({ isAdmin }) {
+  const navigate = useNavigate();
+  const { data } = useQuery({ queryKey: ['servers'], queryFn: () => serverAPI.getServers(),
+    staleTime: 30000,
+    refetchInterval: 60000, });
+  const servers = data?.data?.data?.servers || [];
+  if (!servers.length) return null;
+
+  const healthy = servers.filter((s) => s.healthCheck?.status === 'healthy').length;
+  const allOk = healthy === servers.length;
+
+  return (
+    <ButtonBase
+      onClick={isAdmin ? () => navigate('/admin/servers') : undefined}
+      disabled={!isAdmin}
+      sx={{
+        ...pillSx,
+        gap: 1.5,
+        px: 3,
+        py: 1.25,
+        bgcolor: allOk ? 'success.light' : 'warning.light',
+        borderColor: 'transparent',
+        boxShadow: 'none',
+        display: { xs: 'none', sm: 'flex' },
+      }}
+      title={isAdmin ? '서버 관리로 이동' : undefined}
+    >
+      <DnsIcon sx={{ fontSize: 13, color: allOk ? 'success.main' : 'warning.main' }} />
+      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: allOk ? 'success.main' : 'warning.main' }}>
+        서버 {healthy}/{servers.length} {allOk ? '정상' : '점검 필요'}
+      </Typography>
+    </ButtonBase>
+  );
+}
 
 function Header({ onMobileToggle, onOpenPalette }) {
   const { user, logout, isAdmin } = useAuth();
@@ -73,68 +126,81 @@ function Header({ onMobileToggle, onOpenPalette }) {
 
   return (
     <AppBar position="static" sx={{ bgcolor: 'navbar.main' }}>
-      <Toolbar>
-        {/* 모바일 메뉴 버튼 */}
-        {isMobile && onMobileToggle && (
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={onMobileToggle}
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
+      <Toolbar sx={{ gap: 3 }}>
+        {/* 모바일 메뉴 버튼 + 로고 (데스크탑 로고는 사이드바로 이동, #558) */}
+        {isMobile && (
+          <>
+            {onMobileToggle && (
+              <IconButton color="inherit" aria-label="open drawer" edge="start" onClick={onMobileToggle}>
+                <MenuIcon />
+              </IconButton>
+            )}
+            <Typography
+              variant="h6"
+              component="div"
+              sx={{ cursor: 'pointer', fontWeight: 800 }}
+              onClick={() => navigate('/dashboard')}
+            >
+              VCCM
+            </Typography>
+          </>
         )}
-        
-        <Typography 
-          variant="h6" 
-          component="div" 
-          sx={{ flexGrow: 1, cursor: 'pointer' }}
-          onClick={() => navigate('/dashboard')}
-        >
-          {isMobile ? 'VCCM' : 'Visual Content Creator'}
-        </Typography>
-        
+
         {user && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {/* ⌘K 명령 팔레트 트리거 */}
-            {onOpenPalette && (
-              <IconButton
-                color="inherit"
-                onClick={onOpenPalette}
-                title="검색 (⌘K)"
-              >
-                <SearchIcon />
-              </IconButton>
+          <>
+            {/* 검색 필 — 기존 ⌘K 명령 팔레트의 가시화 (프로젝트·작업판 검색 + 페이지 이동) */}
+            {onOpenPalette && !isMobile && (
+              <ButtonBase onClick={onOpenPalette} sx={{ ...pillSx, flexBasis: 320, px: 4, py: 1.75, justifyContent: 'flex-start' }}>
+                <SearchIcon sx={{ fontSize: 15, color: 'text.tertiary' }} />
+                <Typography sx={{ fontSize: 12.5, color: 'text.tertiary', flex: 1, textAlign: 'left' }}>
+                  작업판 · 프로젝트 검색
+                </Typography>
+                <Box component="span" sx={{
+                  fontFamily: MONO, fontSize: 10, color: 'text.tertiary',
+                  border: 1, borderColor: 'divider', borderRadius: 1, px: 1.25, py: 0.25,
+                }}>
+                  ⌘K
+                </Box>
+              </ButtonBase>
             )}
 
-            {/* 알림 popover */}
-            <NotificationsPopover />
+            <Box sx={{ flexGrow: 1 }} />
 
-            {isAdmin && (
-              <Chip
-                label="Admin"
-                color="secondary"
-                variant="outlined"
-                sx={{ color: 'navbar.contrastText', borderColor: 'navbar.contrastText' }}
-              />
-            )}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+              <ServerStatusPill isAdmin={isAdmin} />
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' } }}>
-                {user.nickname}
-              </Typography>
-              <IconButton
-                onClick={handleMenuOpen}
-                color="inherit"
-              >
+              {/* 모바일에선 검색 아이콘으로 대체 */}
+              {onOpenPalette && isMobile && (
+                <IconButton color="inherit" onClick={onOpenPalette} title="검색 (⌘K)">
+                  <SearchIcon />
+                </IconButton>
+              )}
+
+              {/* 알림 popover */}
+              <NotificationsPopover />
+
+              {/* 프로필 필 — 아바타 + 닉네임 + Admin 칩 (#558) */}
+              <ButtonBase onClick={handleMenuOpen} sx={{ ...pillSx, gap: 2, pl: 1, pr: 3, py: 0.75 }}>
                 {user.avatar ? (
-                  <Avatar src={user.avatar} sx={{ width: 32, height: 32 }} />
+                  <Avatar src={user.avatar} sx={{ width: 24, height: 24 }} />
                 ) : (
-                  <AccountCircle />
+                  <Avatar sx={{ width: 24, height: 24, background: BRAND_GRADIENTS[0] }}>
+                    <AccountCircle sx={{ fontSize: 18 }} />
+                  </Avatar>
                 )}
-              </IconButton>
+                <Typography sx={{ fontSize: 12.5, fontWeight: 700, color: 'text.primary', display: { xs: 'none', sm: 'block' } }}>
+                  {user.nickname}
+                </Typography>
+                {isAdmin && (
+                  <Box component="span" sx={{
+                    fontSize: 10, fontWeight: 700, borderRadius: 999, px: 1.75, py: 0.25,
+                    bgcolor: 'primary.light',
+                    color: theme.palette.mode === 'dark' ? 'primary.main' : 'primary.dark',
+                  }}>
+                    Admin
+                  </Box>
+                )}
+              </ButtonBase>
             </Box>
 
             <Menu
@@ -167,7 +233,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
                   <ListItemText>대시보드</ListItemText>
                 </MenuItem>
               )}
-              
+
               <MenuItem onClick={handleProfile}>
                 <ListItemIcon>
                   <Settings fontSize="small" />
@@ -212,7 +278,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
                 <ListItemText>로그아웃</ListItemText>
               </MenuItem>
             </Menu>
-          </Box>
+          </>
         )}
       </Toolbar>
     </AppBar>

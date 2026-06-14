@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Container } from '@mui/material';
 import toast from 'react-hot-toast';
 import { workboardAPI } from '../../services/api';
@@ -13,9 +13,7 @@ function WorkboardCreatePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation(
-    workboardAPI.create,
-    {
+  const createMutation = useMutation({ mutationFn: workboardAPI.create,
       onSuccess: (response) => {
         toast.success('작업판이 생성되었습니다');
         invalidateWorkboardQueries(queryClient);
@@ -28,9 +26,7 @@ function WorkboardCreatePage() {
       },
       onError: (err) => {
         toast.error('생성 실패: ' + (err?.message || ''));
-      }
-    }
-  );
+      } });
 
   const handleSave = (data) => {
     const serverType = data.serverType || 'ComfyUI';

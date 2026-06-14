@@ -13,6 +13,12 @@ const conversationMessageSchema = new mongoose.Schema({
     type: String,
     default: '',
   },
+  // 비전 LLM 첨부 이미지 (#517). imageId 참조 + 표시용 url 스냅샷.
+  // LLM 호출 시엔 imageId 로 원본을 읽어 base64 로 변환해 전송, 다시보기는 url 로 표시.
+  attachments: [new mongoose.Schema({
+    imageId: { type: mongoose.Schema.Types.ObjectId, ref: 'UploadedImage' },
+    url: String,
+  }, { _id: false })],
   createdAt: {
     type: Date,
     default: Date.now,

@@ -28,7 +28,7 @@ import {
   Image as ImageIcon,
   ContentCopy
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import Pagination from './Pagination';
 import ImageViewerDialog from './ImageViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
@@ -58,11 +58,7 @@ function PromptDataPanel({
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const [viewerImageUrl, setViewerImageUrl] = useState('');
 
-  const { data, isLoading, error } = useQuery(
-    [queryKey, page, pageSize, search],
-    () => fetchFn({ page, limit: pageSize, search: search || undefined }),
-    { keepPreviousData: true }
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: [queryKey, page, pageSize, search], queryFn: () => fetchFn({ page, limit: pageSize, search: search || undefined }), placeholderData: keepPreviousData });
 
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};

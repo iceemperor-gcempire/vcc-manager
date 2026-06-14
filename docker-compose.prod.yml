@@ -1,8 +1,16 @@
+# 컨테이너 로그 로테이션 — 무제한 누적으로 인한 디스크 고갈 방지 (#522)
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   mongodb:
     image: mongo:7.0
     container_name: vcc-mongodb
     restart: unless-stopped
+    logging: *default-logging
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER:?MONGO_ROOT_USER is required}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:?MONGO_ROOT_PASSWORD is required}
@@ -20,6 +28,7 @@ services:
     image: redis:7.2-alpine
     container_name: vcc-redis
     restart: unless-stopped
+    logging: *default-logging
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     # 🔒 포트 노출 제거 (내부 네트워크에서만 접근 가능)
     # ports:
@@ -35,6 +44,7 @@ services:
       dockerfile: Dockerfile.backend
     container_name: vcc-backend
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s
@@ -85,9 +95,10 @@ services:
       context: .
       dockerfile: Dockerfile.frontend
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        VITE_API_URL: ${VITE_API_URL:-/api}
     container_name: vcc-frontend
     restart: unless-stopped
+    logging: *default-logging
     ports:
       - "${FRONTEND_PORT:-8136}:80"
     depends_on:
@@ -101,6 +112,7 @@ services:
       dockerfile: Dockerfile.mcp
     container_name: vcc-mcp-server
     restart: unless-stopped
+    logging: *default-logging
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3100/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
       interval: 30s

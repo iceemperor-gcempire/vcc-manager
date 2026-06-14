@@ -14,8 +14,6 @@ import {
   Select,
   MenuItem,
   Divider,
-  Card,
-  CardContent,
   Alert,
   Dialog,
   DialogTitle,
@@ -43,28 +41,29 @@ import {
   Add
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { MONO } from '../theme';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 
+// v2 스탯 카드 — outlined + mono 숫자 (#564)
 function StatCard({ title, value, subtitle }) {
   return (
-    <Card>
-      <CardContent sx={{ textAlign: 'center' }}>
-        <Typography variant="h4" component="div" gutterBottom>
-          {value}
+    <Paper variant="outlined" sx={{ p: 4, height: '100%' }}>
+      <Typography variant="caption" sx={{ color: 'text.tertiary', fontWeight: 600 }}>
+        {title}
+      </Typography>
+      <Typography sx={{ fontSize: 22, fontWeight: 800, fontFamily: MONO, mt: 0.5 }}>
+        {value}
+      </Typography>
+      {subtitle && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {subtitle}
         </Typography>
-        <Typography color="textSecondary" gutterBottom>
-          {title}
-        </Typography>
-        {subtitle && (
-          <Typography variant="caption" color="textSecondary">
-            {subtitle}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
+      )}
+    </Paper>
   );
 }
 
@@ -93,27 +92,23 @@ function AccountSettings() {
     setIsDirty(hasChanges);
   }, [watchedValues, user]);
 
-  const updateMutation = useMutation(
-    userAPI.updateProfile,
-    {
+  const updateMutation = useMutation({ mutationFn: userAPI.updateProfile,
       onSuccess: (data) => {
         updateProfile(data.data.user);
-        queryClient.invalidateQueries('userProfile');
+        queryClient.invalidateQueries({ queryKey: ['userProfile'] });
         toast.success('프로필이 업데이트되었습니다');
         setIsDirty(false);
       },
       onError: (error) => {
         toast.error('업데이트 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
   const onSubmit = (data) => {
     updateMutation.mutate(data);
   };
 
   return (
-    <Paper sx={{ p: 3 }}>
+    <Paper variant="outlined" sx={{ p: 4 }}>
       <Typography variant="h6" gutterBottom>
         계정 설정
       </Typography>
@@ -217,10 +212,10 @@ function AccountSettings() {
           <Button
             type="submit"
             variant="contained"
-            disabled={!isDirty || updateMutation.isLoading}
+            disabled={!isDirty || updateMutation.isPending}
             startIcon={<Save />}
           >
-            {updateMutation.isLoading ? '저장 중...' : '변경사항 저장'}
+            {updateMutation.isPending ? '저장 중...' : '변경사항 저장'}
           </Button>
         </Box>
       </form>
@@ -240,47 +235,35 @@ function SecuritySettings() {
   const queryClient = useQueryClient();
 
   // API Key 목록 조회
-  const { data: apiKeysData } = useQuery('apiKeys', () => apiKeyAPI.getAll());
+  const { data: apiKeysData } = useQuery({ queryKey: ['apiKeys'], queryFn: () => apiKeyAPI.getAll() });
   const apiKeys = apiKeysData?.data?.data || [];
   const activeKeyCount = apiKeys.filter(k => !k.isRevoked).length;
 
-  const deleteMutation = useMutation(
-    userAPI.deleteAccount,
-    {
+  const deleteMutation = useMutation({ mutationFn: userAPI.deleteAccount,
       onSuccess: () => {
         toast.success('계정이 삭제되었습니다');
         logout();
       },
       onError: (error) => {
         toast.error('계정 삭제 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
-  const createKeyMutation = useMutation(
-    (data) => apiKeyAPI.create(data),
-    {
+  const createKeyMutation = useMutation({ mutationFn: (data) => apiKeyAPI.create(data),
       onSuccess: (response) => {
         setCreatedKey(response.data.data);
         setCreateKeyDialogOpen(false);
         setShowKeyDialogOpen(true);
         setNewKeyName('');
-        queryClient.invalidateQueries('apiKeys');
-      }
-    }
-  );
+        queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
+      } });
 
-  const revokeKeyMutation = useMutation(
-    (id) => apiKeyAPI.revoke(id),
-    {
+  const revokeKeyMutation = useMutation({ mutationFn: (id) => apiKeyAPI.revoke(id),
       onSuccess: () => {
         toast.success('API Key가 파기되었습니다');
         setRevokeDialogOpen(false);
         setRevokeTarget(null);
-        queryClient.invalidateQueries('apiKeys');
-      }
-    }
-  );
+        queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
+      } });
 
   const handleDeleteAccount = () => {
     deleteMutation.mutate();
@@ -315,7 +298,7 @@ function SecuritySettings() {
 
   return (
     <>
-      <Paper sx={{ p: 3 }}>
+      <Paper variant="outlined" sx={{ p: 4 }}>
         <Typography variant="h6" gutterBottom>
           보안 설정
         </Typography>
@@ -378,7 +361,7 @@ function SecuritySettings() {
                           <Chip label="파기됨" color="error" variant="outlined" />
                         )}
                       </Box>
-                      <Typography variant="caption" color="textSecondary" component="div">
+                      <Typography variant="caption" color="text.secondary" component="div">
                         {apiKey.prefix}... | 생성: {formatDate(apiKey.createdAt)}
                         {apiKey.lastUsedAt && ` | 마지막 사용: ${formatDate(apiKey.lastUsedAt)}`}
                         {apiKey.isRevoked && apiKey.revokedAt && ` | 파기: ${formatDate(apiKey.revokedAt)}`}
@@ -454,9 +437,9 @@ function SecuritySettings() {
           <Button
             onClick={handleCreateKey}
             variant="contained"
-            disabled={!newKeyName.trim() || createKeyMutation.isLoading}
+            disabled={!newKeyName.trim() || createKeyMutation.isPending}
           >
-            {createKeyMutation.isLoading ? '생성 중...' : '생성'}
+            {createKeyMutation.isPending ? '생성 중...' : '생성'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -525,9 +508,9 @@ function SecuritySettings() {
             onClick={handleRevokeKey}
             color="error"
             variant="contained"
-            disabled={revokeKeyMutation.isLoading}
+            disabled={revokeKeyMutation.isPending}
           >
-            {revokeKeyMutation.isLoading ? '파기 중...' : '파기'}
+            {revokeKeyMutation.isPending ? '파기 중...' : '파기'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -560,9 +543,9 @@ function SecuritySettings() {
             onClick={handleDeleteAccount}
             color="error"
             variant="contained"
-            disabled={deleteMutation.isLoading}
+            disabled={deleteMutation.isPending}
           >
-            {deleteMutation.isLoading ? '삭제 중...' : '계정 삭제'}
+            {deleteMutation.isPending ? '삭제 중...' : '계정 삭제'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -574,10 +557,7 @@ function Profile() {
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState(0);
 
-  const { data: userStats, isLoading } = useQuery(
-    'userStats',
-    userAPI.getStats
-  );
+  const { data: userStats, isLoading } = useQuery({ queryKey: ['userStats'], queryFn: userAPI.getStats });
 
   const stats = userStats?.data || {};
 
@@ -588,23 +568,18 @@ function Profile() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" alignItems="center" mb={4}>
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
+      <Box display="flex" alignItems="center" gap={4} mb={5}>
         <Avatar
           src={user?.avatar}
-          sx={{ width: 80, height: 80, mr: 3 }}
+          sx={{ width: 72, height: 72, fontSize: 26, fontWeight: 800, background: BRAND_GRADIENTS[0] }}
         >
           {user?.nickname?.charAt(0).toUpperCase()}
         </Avatar>
         <Box>
-          <Typography variant="h4" gutterBottom>
-            {user?.nickname || '사용자'}
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            {user?.email}
-          </Typography>
-          <Typography variant="body2" color="textSecondary">
-            가입일: {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
+          <Typography variant="h1">{user?.nickname || '사용자'}</Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {user?.email} · 가입일 {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : '-'}
           </Typography>
         </Box>
       </Box>

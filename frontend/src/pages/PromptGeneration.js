@@ -15,7 +15,7 @@ import {
   ContentCopy
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 import PromptGeneratorPanel from '../components/PromptGeneratorPanel';
@@ -23,6 +23,9 @@ import ConversationChatPanel from '../components/common/ConversationChatPanel';
 import WorkboardChatPanel from '../components/common/WorkboardChatPanel';
 import ProjectContextSelector from '../components/common/ProjectContextSelector';
 import toast from 'react-hot-toast';
+import { MONO } from '../theme';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
+import { ToneChip } from '../components/common/ToneChip';
 
 function PromptGeneration() {
   const { workboardId } = useParams();
@@ -41,11 +44,7 @@ function PromptGeneration() {
     setUseWorldview(!!initialProjectId);
   }, [initialProjectId, workboardId]);
 
-  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
-    ['workboard', workboardId],
-    () => workboardAPI.getById(workboardId),
-    { enabled: !!workboardId }
-  );
+  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery({ queryKey: ['workboard', workboardId], queryFn: () => workboardAPI.getById(workboardId), enabled: !!workboardId });
 
   const workboard = workboardData?.data?.workboard;
 
@@ -88,35 +87,46 @@ function PromptGeneration() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => navigate(conversationId ? '/jobs' : '/prompt-workboards')}
-        >
-          {conversationId ? '히스토리로' : '작업판 선택'}
-        </Button>
-        <Box display="flex" alignItems="center" gap={1}>
-          <Chat color="secondary" />
-          <Typography variant="h5">{workboard.name}</Typography>
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
+      <Button
+        startIcon={<ArrowBack />}
+        onClick={() => navigate(conversationId ? '/jobs' : '/prompt-workboards')}
+        sx={{ mb: 3 }}
+      >
+        {conversationId ? '히스토리로' : '작업판 선택'}
+      </Button>
+
+      {/* 페이지 헤더 — 작업판 실행과 동일 패턴 (#572) */}
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 4, flexWrap: 'wrap', mb: 5 }}>
+        <Box sx={{
+          width: 48, height: 48, borderRadius: 2, background: BRAND_GRADIENTS[2],
+          color: 'common.white', display: 'grid', placeItems: 'center', boxShadow: 2, flex: '0 0 auto',
+        }}>
+          <Chat fontSize="small" />
         </Box>
-        <Chip label={conversationId ? '대화 이어가기' : '프롬프트 생성'} color="secondary" />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="h1">{workboard.name}</Typography>
+            <ToneChip tone="info" label={conversationId ? '대화 이어가기' : '텍스트 생성'} />
+          </Box>
+          {workboard.description && !conversationId && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, textWrap: 'pretty' }}>
+              {workboard.description}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.tertiary' }}>
+              ID: {workboard._id}
+            </Typography>
+            <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
+              <ContentCopy fontSize="inherit" />
+            </IconButton>
+            <Typography variant="caption" sx={{ color: 'text.tertiary' }}>
+              {workboard.serverId?.name || '서버 미설정'} · v{workboard.version || 1} · 사용횟수 {workboard.usageCount || 0}회
+            </Typography>
+          </Box>
+        </Box>
       </Box>
-
-      <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
-          작업판 ID: {workboard._id}
-        </Typography>
-        <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
-          <ContentCopy fontSize="inherit" />
-        </IconButton>
-      </Box>
-
-      {workboard.description && !conversationId && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          {workboard.description}
-        </Alert>
-      )}
 
       {/* 프로젝트 컨텍스트 / 세계관 토글 (#396). 멀티턴 이어가기 (conversationId 진입) 시엔 숨김 — 이미 첫 턴에 주입됨. */}
       {!conversationId && (

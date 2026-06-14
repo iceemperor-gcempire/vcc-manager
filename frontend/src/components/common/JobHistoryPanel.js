@@ -46,7 +46,7 @@ import {
   ExpandMore,
   ExpandLess
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
@@ -101,18 +101,14 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
   const tagsArePopulated = jobTags.length > 0 && typeof jobTags[0] === 'object';
 
   // populate되지 않은 경우에만 태그 정보 조회
-  const { data: allTagsData } = useQuery(
-    'allTags',
-    () => tagAPI.getAll({ limit: 200 }),
-    { enabled: open && jobTags.length > 0 && !tagsArePopulated }
-  );
+  const { data: allTagsData } = useQuery({ queryKey: ['allTags'], queryFn: () => tagAPI.getAll({ limit: 200 }), enabled: open && jobTags.length > 0 && !tagsArePopulated });
   const allTags = allTagsData?.data?.tags || [];
 
   const resolvedJobTags = tagsArePopulated
     ? jobTags
     : jobTags.map(tagId => {
         const found = allTags.find(t => t._id === tagId);
-        return found || { _id: tagId, name: tagId, color: '#1976d2' };
+        return found || { _id: tagId, name: tagId, color: '#C96A3B' };
       });
 
   // 태그 ID 배열 (프롬프트 저장 시 전달용)
@@ -161,7 +157,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
                   ) : (
                     <Box textAlign="center">
                       <ImageIcon sx={{ fontSize: 40, color: 'grey.400' }} />
-                      <Typography variant="caption" color="textSecondary" display="block">
+                      <Typography variant="caption" color="text.secondary" display="block">
                         클릭하여 선택
                       </Typography>
                     </Box>
@@ -254,7 +250,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
 
               {resolvedJobTags.length > 0 && (
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                     프로젝트 태그 (자동 적용)
                   </Typography>
                   <Box display="flex" gap={0.5}>
@@ -359,7 +355,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           <Box display="flex" alignItems="center" gap={1}>
             <Typography
               variant="caption"
-              color="textSecondary"
+              color="text.secondary"
               sx={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -515,19 +511,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             }}
           >
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">생성 시간</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">생성 시간</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {new Date(job.createdAt).toLocaleDateString()}
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">소요 시간</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">소요 시간</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatDuration(job.actualTime)}
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">AI 모델</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">AI 모델</Typography>
               <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                   ? (job.inputData.aiModel.key === 'UserSelected'
@@ -537,7 +533,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">크기</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">크기</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                   ? job.inputData.imageSize.key
@@ -545,7 +541,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" color="textSecondary" display="block">시드</Typography>
+              <Typography variant="caption" color="text.secondary" display="block">시드</Typography>
               <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {job.inputData?.seed !== undefined
                   ? (job.inputData.seed.toString().length > 8
@@ -694,15 +690,15 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
 
         <Grid container spacing={2} mb={3}>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">상태</Typography>
+            <Typography variant="body2" color="text.secondary">상태</Typography>
             <JobStatusChip status={job.status} />
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">작업판</Typography>
+            <Typography variant="body2" color="text.secondary">작업판</Typography>
             <Typography variant="body1">{job.workboardId?.name || '알 수 없음'}</Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">AI 모델</Typography>
+            <Typography variant="body2" color="text.secondary">AI 모델</Typography>
             <Typography variant="body1" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''}>
               {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                 ? (job.inputData.aiModel.key === 'UserSelected'
@@ -712,7 +708,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">요청 크기</Typography>
+            <Typography variant="body2" color="text.secondary">요청 크기</Typography>
             <Typography variant="body1">
               {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                 ? job.inputData.imageSize.key
@@ -720,13 +716,13 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">시드 (Seed)</Typography>
+            <Typography variant="body2" color="text.secondary">시드 (Seed)</Typography>
             <Typography variant="body1" sx={{ fontFamily: 'monospace' }}>
               {job.inputData?.seed !== undefined ? job.inputData.seed : '-'}
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">실제 이미지 크기</Typography>
+            <Typography variant="body2" color="text.secondary">실제 이미지 크기</Typography>
             <Typography variant="body1">
               {job.resultImages?.length > 0 && job.resultImages[0].metadata?.width && job.resultImages[0].metadata?.height
                 ? `${job.resultImages[0].metadata.width} x ${job.resultImages[0].metadata.height}`
@@ -734,25 +730,25 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">생성 시간</Typography>
+            <Typography variant="body2" color="text.secondary">생성 시간</Typography>
             <Typography variant="body1">{new Date(job.createdAt).toLocaleString()}</Typography>
           </Grid>
           <Grid item xs={6}>
-            <Typography variant="body2" color="textSecondary">완료 시간</Typography>
+            <Typography variant="body2" color="text.secondary">완료 시간</Typography>
             <Typography variant="body1">
               {job.completedAt ? new Date(job.completedAt).toLocaleString() : '-'}
             </Typography>
           </Grid>
           {job.costEstimate?.amount !== undefined && (
             <Grid item xs={12}>
-              <Typography variant="body2" color="textSecondary">
+              <Typography variant="body2" color="text.secondary">
                 추정 비용 ({job.costEstimate.pricingVersion || 'unknown'})
               </Typography>
               <Typography variant="body1">
                 ${job.costEstimate.amount?.toFixed(6) || '0.000000'} {job.costEstimate.currency || 'USD'}
               </Typography>
               {job.usage && (
-                <Typography variant="caption" color="textSecondary" component="div" sx={{ mt: 0.5 }}>
+                <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 0.5 }}>
                   토큰: 입력 텍스트 {job.usage.inputTextTokens ?? 0} · 입력 이미지 {job.usage.inputImageTokens ?? 0} · 출력 {job.usage.outputTokens ?? 0} (총 {job.usage.totalTokens ?? 0})
                 </Typography>
               )}
@@ -918,14 +914,9 @@ function JobHistoryPanel({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery(
-    [queryKey, { search, status: statusFilter, page, limit: pageSize }],
-    () => fetchFn({ search: search || undefined, status: statusFilter || undefined, page, limit: pageSize }),
-    {
+  const { data, isLoading } = useQuery({ queryKey: [queryKey, { search, status: statusFilter, page, limit: pageSize }], queryFn: () => fetchFn({ search: search || undefined, status: statusFilter || undefined, page, limit: pageSize }),
       refetchInterval: autoRefetch ? config.monitoring.recentJobsInterval : false,
-      keepPreviousData: true
-    }
-  );
+      placeholderData: keepPreviousData });
 
   const defaultExtractor = (data) => {
     // Handle both job route format ({ jobs, pagination }) and project route format ({ data: { jobs, pagination } })
@@ -940,41 +931,34 @@ function JobHistoryPanel({
   const { jobs, pagination } = extractor(data);
 
   // 사용자 설정 가져오기
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
-  const retryMutation = useMutation(jobAPI.retry, {
-    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries(queryKey); },
-    onError: (error) => { toast.error('재시도 실패: ' + error.message); }
-  });
+  const retryMutation = useMutation({ mutationFn: jobAPI.retry,
+    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
+    onError: (error) => { toast.error('재시도 실패: ' + error.message); } });
 
-  const cancelMutation = useMutation(jobAPI.cancel, {
-    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries(queryKey); },
-    onError: (error) => { toast.error('취소 실패: ' + error.message); }
-  });
+  const cancelMutation = useMutation({ mutationFn: jobAPI.cancel,
+    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
+    onError: (error) => { toast.error('취소 실패: ' + error.message); } });
 
-  const deleteMutation = useMutation(
-    ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-    {
+  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
       onSuccess: (response) => {
         const { deletedImagesCount, deletedVideosCount } = response.data;
         if (deletedImagesCount > 0 || deletedVideosCount > 0) {
           toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries('generatedImages');
-          queryClient.invalidateQueries('videos');
+          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
         } else {
           toast.success('작업이 삭제되었습니다');
         }
-        queryClient.invalidateQueries(queryKey);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
       },
-      onError: (error) => { toast.error('삭제 실패: ' + error.message); }
-    }
-  );
+      onError: (error) => { toast.error('삭제 실패: ' + error.message); } });
 
-  const savePromptMutation = useMutation(promptDataAPI.create, {
+  const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSavePromptOpen(false); setSavingJob(null); },
-    onError: (error) => { toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)); }
-  });
+    onError: (error) => { toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)); } });
 
   const handleView = async (job) => {
     setSelectedJob(job);

@@ -33,7 +33,7 @@ import {
   CheckCircle,
   Close,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -50,8 +50,12 @@ import VideoViewerDialog from '../components/common/VideoViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
 import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
+import PageHeader from '../components/common/PageHeader';
+import SegmentTabs from '../components/common/SegmentTabs';
+import EmptyState from '../components/common/EmptyState';
+import { MONO } from '../theme';
+import { relativeTime } from '../utils/relativeTime';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
 
 // ---- 상태 매핑 ----------------------------------------------------------
@@ -98,18 +102,6 @@ function extractSize(job) {
 function projectFromTags(tags = []) {
   const t = tags.find((x) => typeof x === 'object' && x.name);
   return t?.name || '';
-}
-function relativeTime(time) {
-  const diff = Date.now() - time.getTime();
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  return `${String(time.getFullYear()).slice(2)}. ${time.getMonth() + 1}. ${time.getDate()}.`;
 }
 
 // ---- 정규화 -------------------------------------------------------------
@@ -210,7 +202,7 @@ function RowVisual({ item }) {
   return (
     <Box sx={{
       width: size, height: size, borderRadius: 2, flex: '0 0 auto',
-      bgcolor: (t) => t.palette.mode === 'dark' ? 'rgba(118,118,224,0.18)' : 'rgba(91,91,214,0.10)',
+      bgcolor: 'primary.light', // v2 토큰 틴트 (#562)
       color: 'primary.main', display: 'grid', placeItems: 'center',
     }}>
       {icon}
@@ -306,16 +298,16 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
             {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
               <>
-                <Button size="small" variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
+                <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
                   계속하기
                 </Button>
-                <Button size="small" variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>
+                <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>
                   다른 작업
                 </Button>
               </>
             )}
             {item.type === 'text' && item.workboardId && item.status !== 'error' && (
-              <Button size="small" variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>
+              <Button variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>
                 이어가기
               </Button>
             )}
@@ -373,23 +365,11 @@ function JobHistory() {
   const [limit, setLimit] = useState(20);
 
   // 데이터
-  const { data: jobsRes, isLoading: jobsLoading } = useQuery(
-    ['historyJobs', limit],
-    () => jobAPI.getMy({ limit }),
-    { refetchInterval: config.monitoring.recentJobsInterval, keepPreviousData: true }
-  );
-  const { data: convsRes, isLoading: convsLoading } = useQuery(
-    ['historyConvs', limit],
-    () => conversationAPI.getMy({ limit }),
-    { keepPreviousData: true }
-  );
-  const { data: runsRes, isLoading: runsLoading } = useQuery(
-    ['historyRuns', limit],
-    () => dashboardAPI.getAllPipelineRuns({ limit }),
-    { refetchInterval: config.monitoring.recentJobsInterval, keepPreviousData: true }
-  );
+  const { data: jobsRes, isLoading: jobsLoading } = useQuery({ queryKey: ['historyJobs', limit], queryFn: () => jobAPI.getMy({ limit }), refetchInterval: config.monitoring.recentJobsInterval, placeholderData: keepPreviousData });
+  const { data: convsRes, isLoading: convsLoading } = useQuery({ queryKey: ['historyConvs', limit], queryFn: () => conversationAPI.getMy({ limit }), placeholderData: keepPreviousData });
+  const { data: runsRes, isLoading: runsLoading } = useQuery({ queryKey: ['historyRuns', limit], queryFn: () => dashboardAPI.getAllPipelineRuns({ limit }), refetchInterval: config.monitoring.recentJobsInterval, placeholderData: keepPreviousData });
 
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
   const loading = jobsLoading || convsLoading || runsLoading;
@@ -432,27 +412,22 @@ function JobHistory() {
   const [textDetail, setTextDetail] = useState(null);
 
   // ---- mutations ----
-  const deleteMutation = useMutation(
-    ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-    {
+  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
       onSuccess: (response) => {
         const { deletedImagesCount = 0, deletedVideosCount = 0 } = response.data || {};
         if (deletedImagesCount > 0 || deletedVideosCount > 0) {
           toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries('generatedImages');
-          queryClient.invalidateQueries('videos');
+          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
         } else {
           toast.success('작업이 삭제되었습니다');
         }
-        queryClient.invalidateQueries('historyJobs');
+        queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
       },
-      onError: (error) => toast.error('삭제 실패: ' + error.message),
-    }
-  );
-  const savePromptMutation = useMutation(promptDataAPI.create, {
+      onError: (error) => toast.error('삭제 실패: ' + error.message), });
+  const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
-    onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)),
-  });
+    onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)), });
 
   // ---- handlers ----
   const openMedia = (item) => {
@@ -529,17 +504,13 @@ function JobHistory() {
 
   return (
     <Box>
-      {/* 헤더 */}
-      <Box sx={{ mb: 4.5 }}>
-        <Typography variant="h1">작업 히스토리</Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-          파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순.
-        </Typography>
-      </Box>
+      <PageHeader
+        title="작업 히스토리"
+        description="파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순."
+      />
 
       {/* 검색 */}
       <TextField
-        size="small"
         placeholder="히스토리 검색…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -547,39 +518,24 @@ function JobHistory() {
         InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
       />
 
-      {/* 세그먼트 */}
-      <Stack direction="row" spacing={1} sx={{ mb: 4.5, overflowX: 'auto', pb: 0.5 }}>
-        {[
-          { k: 'all', l: '전체' },
-          { k: 'pipeline', l: '파이프라인' },
-          { k: 'image', l: '이미지' },
-          { k: 'video', l: '영상' },
-          { k: 'text', l: '텍스트' },
-        ].map((s) => (
-          <Button
-            key={s.k}
-            onClick={() => setSeg(s.k)}
-            variant={seg === s.k ? 'contained' : 'text'}
-            color={seg === s.k ? 'primary' : 'inherit'}
-            sx={{ flex: '0 0 auto', color: seg === s.k ? undefined : 'text.secondary' }}
-          >
-            {s.l}
-            <Box component="span" sx={{ ml: 0.75, fontFamily: MONO, fontSize: 11, opacity: 0.8 }}>
-              {counts[s.k]}
-            </Box>
-          </Button>
-        ))}
-      </Stack>
+      {/* 세그먼트 — 언더라인 탭 (목업 28, #548) */}
+      <SegmentTabs
+        value={seg}
+        onChange={setSeg}
+        items={[
+          { value: 'all', label: '전체', count: counts.all },
+          { value: 'pipeline', label: '파이프라인', count: counts.pipeline },
+          { value: 'image', label: '이미지', count: counts.image },
+          { value: 'video', label: '영상', count: counts.video },
+          { value: 'text', label: '텍스트', count: counts.text },
+        ]}
+      />
 
       {/* 피드 */}
       {loading && items.length === 0 ? (
         <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
       ) : visible.length === 0 ? (
-        <Paper variant="outlined" sx={{ p: 5, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            {search ? '검색 결과가 없습니다.' : '아직 작업 기록이 없습니다.'}
-          </Typography>
-        </Paper>
+        <EmptyState description={search ? '검색 결과가 없습니다.' : '아직 작업 기록이 없습니다.'} />
       ) : (
         <Stack spacing={2}>
           {visible.map((item) => (
@@ -665,8 +621,8 @@ function JobHistory() {
           {textDetail && (
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                {textDetail.model && <Chip size="small" variant="outlined" label={textDetail.model} />}
-                {textDetail.tokens != null && <Chip size="small" variant="outlined" label={`${textDetail.tokens.toLocaleString()} 토큰`} />}
+                {textDetail.model && <Chip variant="outlined" label={textDetail.model} />}
+                {textDetail.tokens != null && <Chip variant="outlined" label={`${textDetail.tokens.toLocaleString()} 토큰`} />}
                 <StatusChip status={textDetail.status} />
               </Stack>
               {(textDetail.raw?.messages || []).filter((m) => m.role !== 'system').map((m, i) => (

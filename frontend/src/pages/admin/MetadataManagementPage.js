@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Box, Typography, Tabs, Tab } from '@mui/material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import LoraManagementPage from './LoraManagementPage';
 import ModelManagementPage from './ModelManagementPage';
 import CivitaiAdminHeader from '../../components/admin/CivitaiAdminHeader';
 import { serverAPI, adminAPI } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
 
 const MODEL_SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
 const LORA_SERVER_TYPES = ['ComfyUI'];
@@ -23,10 +24,7 @@ function MetadataManagementPage() {
   const [hasCivitaiApiKey, setHasCivitaiApiKey] = useState(false);
 
   // 전체 서버 목록
-  const { data: serversData } = useQuery(
-    ['servers', { includeInactive: false }],
-    () => serverAPI.getServers({ includeInactive: false })
-  );
+  const { data: serversData } = useQuery({ queryKey: ['servers', { includeInactive: false }], queryFn: () => serverAPI.getServers({ includeInactive: false }) });
   const allServers = serversData?.data?.data?.servers || [];
 
   // 현재 탭에 호환되는 서버 목록
@@ -64,10 +62,8 @@ function MetadataManagementPage() {
   }, []);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3, overflow: 'hidden' }}>
-      <Typography variant="h5" gutterBottom>
-        모델 관리
-      </Typography>
+    <Container maxWidth="xl" sx={{ mb: 8, overflow: 'hidden' }}>
+      <PageHeader title="모델 관리" description="모델 · LoRA 메타데이터와 Civitai 연동을 관리합니다." />
 
       <CivitaiAdminHeader
         selectedServerId={selectedServerId}

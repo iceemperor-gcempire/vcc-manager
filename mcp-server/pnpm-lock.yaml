@@ -9,13 +9,13 @@ importers:
   .:
     dependencies:
       '@modelcontextprotocol/sdk':
-        specifier: ^1.12.1
-        version: 1.26.0(zod@3.25.76)
+        specifier: ^1.29.0
+        version: 1.29.0(zod@3.25.76)
       express:
         specifier: ^5.2.1
         version: 5.2.1
       zod:
-        specifier: ^3.24.2
+        specifier: ^3.25.76
         version: 3.25.76
 
 packages:
@@ -26,8 +26,8 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@modelcontextprotocol/sdk@1.26.0':
-    resolution: {integrity: sha512-Y5RmPncpiDtTXDbLKswIJzTqu2hyBKxTNsgKqKclDbhIgg1wgtf1fRuvxgTnRfcnxtvvgbIEcqUOzZrJ6iSReg==}
+  '@modelcontextprotocol/sdk@1.29.0':
+    resolution: {integrity: sha512-zo37mZA9hJWpULgkRpowewez1y6ML5GsXJPY8FI0tBBCd77HEvza4jDqRKOXgHNn867PVGCyTdzqpz0izu5ZjQ==}
     engines: {node: '>=18'}
     peerDependencies:
       '@cfworker/json-schema': ^4.1.1
@@ -392,7 +392,7 @@ snapshots:
     dependencies:
       hono: 4.11.8
 
-  '@modelcontextprotocol/sdk@1.26.0(zod@3.25.76)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@3.25.76)':
     dependencies:
       '@hono/node-server': 1.19.9(hono@4.11.8)
       ajv: 8.17.1

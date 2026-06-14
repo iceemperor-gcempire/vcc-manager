@@ -13,7 +13,6 @@
 // 예: 'workboard' → ['workboard', id] 매칭, 'workboardCatalog' → ['workboardCatalog', true|false] 매칭.
 const WORKBOARD_QUERY_ROOTS = [
   'workboardCatalog',          // admin/사용자 작업판 목록 (catalog 페이지)
-  'adminWorkboards',           // 레거시 admin 목록 (일부 잔존 경로 호환)
   'adminWorkboard',            // 편집기 단일 상세
   'workboard',                 // 실행/프롬프트 화면의 단일 작업판
   'workboards',                // 작업판 선택 다이얼로그 등

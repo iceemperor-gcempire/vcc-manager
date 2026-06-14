@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
+import { MONO } from '../../theme';
+import { ToneChip } from './ToneChip';
 import {
   Search,
   Close,
@@ -15,15 +17,15 @@ import {
   Info,
 } from '@mui/icons-material';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
 
 // 작업판 종류(생성 엔진) — outputFormat + serverType 로 유도. 카드 좌측 아이콘.
+// 틴트는 시맨틱 .light 토큰 — 라이트(솔리드 틴트)/다크(rgba) 자동 전환 (#562, v1 rgba 잔재 제거)
 export const KIND_META = {
-  'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',     tint: 'rgba(47,119,228,0.12)' },
-  'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: '#5B2DBF',      tint: 'rgba(91,45,191,0.10)' },
-  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',  tint: 'rgba(91,91,214,0.10)' },
-  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',  tint: 'rgba(190,116,21,0.14)' },
-  'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',  tint: 'rgba(31,157,85,0.12)' },
+  'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',      tint: 'info.light' },
+  'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: 'secondary.main', tint: 'secondary.light' },
+  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',   tint: 'primary.light' },
+  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
+  'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
 };
 
 export function deriveOut(wb) {
@@ -57,43 +59,20 @@ export const SERVER_AXIS = [
 const OUT_TONE = { image: 'accent', video: 'warning', text: 'info' };
 
 // 원본 .chip--tag 톤 칩 — 은은한 틴트 배경 + 진한 글씨 (height 20, padding 0 7px, 11.5px).
-// 상태/출력 등 의미 색이 있는 칩에 사용. light/dark 양쪽 테마 토큰 기반.
-const TONE_SX = {
-  success: { bgcolor: 'success.light', color: 'success.main' },
-  info: { bgcolor: 'info.light', color: 'info.main' },
-  warning: { bgcolor: 'warning.light', color: 'warning.main' },
-  error: { bgcolor: 'error.light', color: 'error.main' },
-  accent: { bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(118,118,224,0.22)' : 'rgba(91,91,214,0.12)'), color: 'primary.main' },
-  neutral: { bgcolor: 'grey.100', color: 'text.secondary' },
-};
-export function ToneChip({ tone, label, mono, sx }) {
-  const ts = TONE_SX[tone] || TONE_SX.neutral;
-  return (
-    <Chip
-      size="small"
-      variant="filled"
-      label={label}
-      sx={{
-        height: 22, fontSize: '11.5px', fontWeight: 500, border: 0,
-        ...(mono && { fontFamily: MONO, fontSize: '11px' }),
-        '& .MuiChip-label': { px: '9px' },
-        ...ts, ...sx,
-      }}
-    />
-  );
-}
+// ToneChip 은 common/ToneChip 으로 승격 (#548) — 기존 import 호환 재export
+export { ToneChip };
+
 // 의미 색 없는 태그 칩 — 투명 배경 + 옅은 테두리 + tertiary 글씨 (종류 라벨 등).
 export function TagChip({ label, mono, sx }) {
   return (
     <Chip
-      size="small"
       variant="outlined"
       label={label}
       sx={{
-        height: 22, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
+        height: 24, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
         borderColor: 'divider', color: 'grey.600',
         ...(mono && { fontFamily: MONO }),
-        '& .MuiChip-label': { px: '9px' }, ...sx,
+        '& .MuiChip-label': { px: '11px' }, ...sx,
       }}
     />
   );
@@ -194,7 +173,7 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
         {anyActive && (
           <>
             <Box sx={{ flex: 1 }} />
-            <Button size="small" variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.disabled' }}>초기화</Button>
+            <Button variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.disabled' }}>초기화</Button>
           </>
         )}
       </Box>
@@ -280,13 +259,13 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
             {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
           </Typography>
           <Box sx={{ flex: 1 }} />
-          <Button size="small" variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
+          <Button variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
           <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>
           {onInfo && (
-            <Button size="small" variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
+            <Button variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
               상세정보
             </Button>
           )}

@@ -26,11 +26,12 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useMutation, useQuery } from 'react-query';
-import { debounce } from 'lodash';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { debounce } from '../utils/debounce';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 const validatePassword = (password) => {
   const requirements = {
@@ -129,9 +130,7 @@ function Signup() {
     return null;
   }, 500);
 
-  const signupMutation = useMutation(
-    authAPI.signup,
-    {
+  const signupMutation = useMutation({ mutationFn: authAPI.signup,
       onSuccess: (response) => {
         toast.success('회원가입이 완료되었습니다!', { duration: 6000 });
         const isApproved = response?.data?.user?.approvalStatus === 'approved';
@@ -158,9 +157,7 @@ function Signup() {
         } else {
           toast.error(errorMessage);
         }
-      }
-    }
-  );
+      } });
 
   const handleGoogleSignup = () => {
     window.location.href = '/api/auth/google';
@@ -180,23 +177,8 @@ function Signup() {
   };
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-        py={4}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              회원가입
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              Visual Content Creator에 오신 것을 환영합니다
-            </Typography>
-          </Box>
+    <AuthLayout>
+          <AuthTitle title="회원가입" sub="가입 후 관리자 승인을 거쳐 이용할 수 있습니다" />
 
           {/* Email/Password Signup Form */}
           <form onSubmit={handleSubmit(onSubmit)}>
@@ -380,10 +362,10 @@ function Signup() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={signupMutation.isLoading}
+              disabled={signupMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {signupMutation.isLoading ? (
+              {signupMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '회원가입'
@@ -392,7 +374,7 @@ function Signup() {
           </form>
 
           <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="textSecondary" sx={{ whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               또는
             </Typography>
           </Divider>
@@ -411,7 +393,7 @@ function Signup() {
 
           {/* Sign In Link */}
           <Box textAlign="center">
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               이미 계정이 있으신가요?{' '}
               <Link
                 component="button"
@@ -424,12 +406,14 @@ function Signup() {
             </Typography>
           </Box>
 
-          <Typography variant="caption" display="block" mt={3} textAlign="center" color="textSecondary">
+          <Alert severity="info" sx={{ mt: 4 }}>
+            가입 신청 후 관리자가 승인하면 로그인할 수 있습니다. 승인 상태는 로그인 시 안내됩니다.
+          </Alert>
+
+          <Typography variant="caption" display="block" mt={3} textAlign="center" color="text.secondary">
             회원가입함으로써 서비스 약관 및 개인정보 보호정책에 동의합니다
           </Typography>
-        </Paper>
-      </Box>
-    </Container>
+        </AuthLayout>
   );
 }
 

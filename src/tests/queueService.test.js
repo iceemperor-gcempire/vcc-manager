@@ -1,5 +1,3 @@
-const { escapeForJsonString } = require('../services/queueService');
-
 // queueService 모듈에서 내부 함수들을 테스트하기 위한 모의 함수들
 // 실제로는 private 함수이지만 테스트를 위해 동일한 로직으로 구현
 function escapeForJsonString(value) {

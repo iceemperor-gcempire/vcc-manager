@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
-const { addImageGenerationJob, getQueueStats } = require('../services/queueService');
+const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
@@ -18,6 +18,7 @@ const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/prici
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const UploadedText = require('../models/UploadedText');
+const { loadVisionImages } = require('../utils/visionImages');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -417,10 +418,18 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     if (!['pending', 'processing'].includes(job.status)) {
       return res.status(400).json({ message: 'Job cannot be cancelled' });
     }
-    
+
+    // DB 상태를 먼저 cancelled 로 — active 잡은 worker 체크포인트가 이 상태를 보고 중단 (#521)
     await job.updateStatus('cancelled');
-    
-    res.json({ message: 'Job cancelled successfully' });
+
+    // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단)
+    const { removed, state } = await cancelQueueJob(job.queueJobId);
+
+    // active 잡의 진행 중 외부 API HTTP 호출 즉시 중단 (Gemini/GPT — ComfyUI 는 비대상) (#539)
+    const aborted = abortActiveJob(job._id);
+    console.log(`🚫 Job ${job._id} cancelled (queue: ${removed ? 'removed' : state || 'not found'}, http aborted: ${aborted})`);
+
+    res.json({ message: 'Job cancelled successfully', queueRemoved: removed, httpAborted: aborted });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -480,6 +489,26 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       isContinuation: !!conversationId,
     });
 
+    // 비전 첨부 (#517 → #519 통합): 작업판의 image 타입 customField 값(imageId)을 비전 입력으로.
+    // 별도 토글 없이 image 필드가 있으면 동작하고, 첨부가 없으면 그냥 일반 채팅으로 진행.
+    // turnImages = LLM 전송용 base64, turnAttachments = 대화 저장용 imageId/url 참조.
+    let turnImages = [];
+    let turnAttachments = [];
+    const imageFieldNames = (workboard.additionalInputFields || [])
+      .filter((f) => f.type === 'image')
+      .map((f) => f.name);
+    const collectedImageIds = [];
+    for (const fname of imageFieldNames) {
+      const v = inputData[fname];
+      if (Array.isArray(v)) collectedImageIds.push(...v.filter(Boolean));
+      else if (v) collectedImageIds.push(v);
+    }
+    if (collectedImageIds.length > 0) {
+      const loaded = await loadVisionImages(collectedImageIds, req.user._id);
+      turnImages = loaded.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
+      turnAttachments = loaded.map((v) => ({ imageId: v.imageId, url: v.url }));
+    }
+
     // 멀티턴 (#375): conversationId 가 있으면 기존 대화 로드 후 append.
     // 없으면 신규 대화 생성 (#373 Phase 1 동일 흐름).
     let conversation;
@@ -502,13 +531,21 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       conversation.messages.push({
         role: 'user',
         content: inputData.userPrompt,
+        attachments: turnAttachments,
         createdAt: new Date(),
       });
       conversation.status = 'processing';
       conversation.error = undefined;
       await conversation.save();
-      // LLM 에는 전체 시퀀스 전달
-      messages = conversation.messages.map((m) => ({ role: m.role, content: m.content }));
+      // LLM 에는 전체 시퀀스 전달. 첨부 있는 메시지는 base64 로 로드해 비전 콘텐츠로 전송 (#517).
+      messages = await Promise.all(conversation.messages.map(async (m) => {
+        const base = { role: m.role, content: m.content };
+        if (m.attachments && m.attachments.length > 0) {
+          const imgs = await loadVisionImages(m.attachments.map((a) => a.imageId), conversation.userId);
+          if (imgs.length > 0) base.images = imgs.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
+        }
+        return base;
+      }));
     } else {
       // 신규 대화 — 세계관 / 사전 컨텍스트 / 시스템 프롬프트 문서 주입 (#396, #401).
       // 우선순위:
@@ -542,7 +579,14 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       if (composedSystem) {
         messages.push({ role: 'system', content: composedSystem });
       }
-      messages.push({ role: 'user', content: inputData.userPrompt });
+      // 단발: 사용자 메시지에 첨부 이미지 동봉 (#517). attachments 는 영속(스키마), images 는
+      // LLM 전송용이라 ConversationJob.create 시 mongoose strict 가 떨궈낸다(스키마 미정의).
+      messages.push({
+        role: 'user',
+        content: inputData.userPrompt,
+        attachments: turnAttachments,
+        images: turnImages,
+      });
       // 프로젝트 작업 시 자동으로 프로젝트 태그 주입 (이미지 작업과 통일된 필터 메커니즘, #397 후속)
       let projectTagIds = [];
       if (projectId) {

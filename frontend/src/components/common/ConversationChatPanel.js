@@ -20,10 +20,12 @@ import {
   Settings as SystemIcon,
   BookmarkAdd as BookmarkAddIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { conversationAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
+import ImageUploadField from './ImageUploadField';
+import ChatBubble from './chat/ChatBubble';
 
 // 멀티턴 대화 모드 패널 (#375).
 // `conversationId` 가 주어졌을 때 PromptGeneration 페이지에서 PromptGeneratorPanel 대신 렌더.
@@ -33,11 +35,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
   const transcriptRef = useRef(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading, error } = useQuery(
-    ['conversation', conversationId],
-    () => conversationAPI.getById(conversationId),
-    { enabled: !!conversationId }
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: ['conversation', conversationId], queryFn: () => conversationAPI.getById(conversationId), enabled: !!conversationId });
 
   const conversation = data?.data?.data;
   const messages = conversation?.messages || [];
@@ -48,20 +46,18 @@ function ConversationChatPanel({ workboard, conversationId }) {
     }
   }, [messages.length]);
 
-  const saveMessageMutation = useMutation(
-    ({ conversationJobId: cid, messageIndex }) => textAPI.createGenerated({ conversationJobId: cid, messageIndex }),
-    {
+  const saveMessageMutation = useMutation({ mutationFn: ({ conversationJobId: cid, messageIndex }) => textAPI.createGenerated({ conversationJobId: cid, messageIndex }),
       onSuccess: () => {
         toast.success('생성된 텍스트로 저장되었습니다.');
-        queryClient.invalidateQueries('generatedTexts');
+        queryClient.invalidateQueries({ queryKey: ['generatedTexts'] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   // 스트리밍 전송 (#490)
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
   const [pendingUserMsg, setPendingUserMsg] = useState(null);
+  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#519)
+  const imageField = (workboard.additionalInputFields || []).find((f) => f.type === 'image');
 
   // 스트리밍 중 자동 스크롤
   useEffect(() => {
@@ -70,31 +66,55 @@ function ConversationChatPanel({ workboard, conversationId }) {
     }
   }, [streamingText, pendingUserMsg]);
 
-  const handleSend = (e) => {
+  const handleSend = async (e) => {
     e.preventDefault();
     const trimmed = newMessage.trim();
     if (!trimmed || isStreaming) return;
     setPendingUserMsg(trimmed);
     setNewMessage('');
+
+    // 비전 첨부 이미지 업로드 (#519) — image 필드가 있을 때만
+    let attachedImageIds = [];
+    if (imageField && attachImages.length > 0) {
+      try {
+        for (const img of attachImages) {
+          if (img.file) {
+            const fd = new FormData();
+            fd.append('image', img.file);
+            fd.append('imageType', 'reference');
+            const resp = await imageAPI.upload(fd);
+            attachedImageIds.push(resp.data.image._id);
+          } else if (img._id) {
+            attachedImageIds.push(img._id);
+          }
+        }
+      } catch (err) {
+        toast.error('이미지 업로드 실패: ' + (err.response?.data?.message || err.message));
+        setPendingUserMsg(null);
+        return;
+      }
+    }
+
     streamSend(
       {
         workboardId: workboard._id,
         conversationId,
-        inputData: { userPrompt: trimmed },
+        inputData: { userPrompt: trimmed, ...(attachedImageIds.length && imageField ? { [imageField.name]: attachedImageIds } : {}) },
       },
       {
         onDone: () => {
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', conversationId]);
-          queryClient.invalidateQueries('conversations');
+          queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
         },
         onError: (err) => {
           toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', conversationId]);
+          queryClient.invalidateQueries({ queryKey: ['conversation', conversationId] });
         },
       }
     );
+    setAttachImages([]);
   };
 
   if (isLoading) {
@@ -114,7 +134,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
   const isSending = isStreaming;
 
   return (
-    <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
+    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 } }}>
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Chip label="대화 이어가기" color="secondary" />
         {conversation.model && <Chip label={conversation.model} variant="outlined" />}
@@ -139,68 +159,32 @@ function ConversationChatPanel({ workboard, conversationId }) {
           overflow: 'auto',
           mb: 2,
           p: 2,
-          bgcolor: 'grey.50',
           borderRadius: 1,
         }}
       >
-        <Stack spacing={1.5} divider={<Divider flexItem />}>
+        <Stack spacing={3.5}>
           {messages.map((msg, idx) => (
-            <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}>
-                {msg.role === 'user' && <PersonIcon fontSize="small" color="primary" />}
-                {msg.role === 'assistant' && <AssistantIcon fontSize="small" color="action" />}
-                {msg.role === 'system' && <SystemIcon fontSize="small" color="action" />}
-              </Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  {msg.role}
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {msg.content}
-                </Typography>
-              </Box>
-              {msg.role === 'assistant' && (
+            <ChatBubble
+              key={idx}
+              role={msg.role}
+              content={msg.content}
+              attachments={msg.attachments}
+              actions={msg.role === 'assistant' && (
                 <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
                   <IconButton
                     size="small"
                     onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
-                    disabled={saveMessageMutation.isLoading}
+                    disabled={saveMessageMutation.isPending}
                   >
                     <BookmarkAddIcon fontSize="small" />
                   </IconButton>
                 </Tooltip>
               )}
-            </Box>
+            />
           ))}
           {/* 낙관적 사용자 말풍선 + 실시간 어시스턴트 말풍선 (#490) */}
-          {pendingUserMsg && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}><PersonIcon fontSize="small" color="primary" /></Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  user
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {pendingUserMsg}
-                </Typography>
-              </Box>
-            </Box>
-          )}
-          {isStreaming && (
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-              <Box sx={{ pt: 0.5 }}><AssistantIcon fontSize="small" color="action" /></Box>
-              <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  assistant
-                </Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                  {streamingText}
-                  {!streamingText && <CircularProgress size={14} color="secondary" sx={{ ml: 0.5 }} />}
-                  {streamingText && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
-                </Typography>
-              </Box>
-            </Box>
-          )}
+          {pendingUserMsg && <ChatBubble role="user" content={pendingUserMsg} />}
+          {isStreaming && <ChatBubble role="assistant" streaming streamingText={streamingText} />}
         </Stack>
         {conversation.status === 'processing' && !isStreaming && (
           <Alert severity="info" sx={{ mt: 2 }}>
@@ -213,6 +197,20 @@ function ConversationChatPanel({ workboard, conversationId }) {
           </Alert>
         )}
       </Box>
+
+      {/* 비전 이미지 첨부 (#519) — image 필드가 있을 때 턴별 첨부 */}
+      {imageField && (
+        <Box sx={{ mb: 1.5 }}>
+          <ImageUploadField
+            label={imageField.label}
+            description={imageField.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
+            images={attachImages}
+            onImagesChange={setAttachImages}
+            maxImages={imageField.imageConfig?.maxImages || 4}
+            disabled={isSending}
+          />
+        </Box>
+      )}
 
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 채워 상단 정렬 맞춤 (#503) */}

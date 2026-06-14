@@ -46,10 +46,16 @@ describe('customFieldHelpers (#199 Phase F4)', () => {
       expect(getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL)).toBe('SDXL/illustrious.safetensors');
     });
 
-    test('legacy well-known 키 fallback (aiModel)', () => {
-      const inputData = { aiModel: 'legacy-model-id' };
+    test('well-known 키 fallback (base_model)', () => {
+      const inputData = { additionalParams: { base_model: 'legacy-model-id' } };
       const wbEmpty = { additionalInputFields: [] };
       expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.MODEL)).toBe('legacy-model-id');
+    });
+
+    test('aiModel camelCase 별칭은 미지원 — snake_case 단일화 (0d72b24), legacy 복원은 프론트 매핑 담당', () => {
+      const inputData = { aiModel: 'legacy-model-id' };
+      const wbEmpty = { additionalInputFields: [] };
+      expect(getFieldValueByRole(wbEmpty, inputData, FIELD_ROLES.MODEL)).toBeUndefined();
     });
 
     test('type 매치 필드가 well-known fallback 보다 우선', () => {
@@ -96,7 +102,7 @@ describe('customFieldHelpers (#199 Phase F4)', () => {
     test('legacy systemPrompt / referenceImageMethod / temperature / maxTokens 매핑', () => {
       const inputData = {
         systemPrompt: 'You are helpful',
-        referenceImageMethods: 'inpaint',
+        referenceImageMethod: 'inpaint',
         temperature: 0.5,
         maxTokens: 1024
       };

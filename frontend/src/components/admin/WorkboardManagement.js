@@ -53,33 +53,25 @@ import {
   PlaylistAdd
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
-import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
 import MetadataPickerModal from '../common/MetadataPickerModal';
 import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
+import { MONO } from '../../theme';
+import { BRAND_GRADIENTS } from '../../utils/brandGradients';
 import {
   getServerTypeLabel,
   getOutputFormatLabel,
   getServerTypeColor,
 } from '../../templates/capabilities';
-import {
-  WorkboardCard as CatalogCard,
-  WorkboardFilters,
-  useWorkboardFilter,
-} from '../common/WorkboardCatalog';
 
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
 function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
   const fetcher = type === 'baseModel' ? serverAPI.getDetailedModels : serverAPI.getLoras;
-  const { data, isLoading } = useQuery(
-    ['adminDefaultValueMetadata', type, serverId],
-    () => fetcher(serverId, { limit: 200, detailed: true }),
-    { enabled: !!serverId, staleTime: 60_000 }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['adminDefaultValueMetadata', type, serverId], queryFn: () => fetcher(serverId, { limit: 200, detailed: true }), enabled: !!serverId, staleTime: 60_000 });
   const items = data?.data?.data?.items
     || data?.data?.data?.models
     || data?.data?.data?.loraModels
@@ -190,14 +182,14 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
         </Box>
 
         {workboard.description && (
-          <Typography variant="body2" color="textSecondary" paragraph>
+          <Typography variant="body2" color="text.secondary" paragraph>
             {workboard.description}
           </Typography>
         )}
 
         <Box display="flex" alignItems="center" gap={1} mb={1}>
           <Computer fontSize="small" />
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             {workboard.serverId ? 
               `${workboard.serverId.name} (${workboard.serverId.serverType})` :
               workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 미설정'
@@ -207,13 +199,13 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
 
         <Box display="flex" alignItems="center" gap={1} mb={2}>
           <TrendingUp fontSize="small" />
-          <Typography variant="caption" color="textSecondary">
+          <Typography variant="caption" color="text.secondary">
             사용횟수: {workboard.usageCount || 0}회
           </Typography>
         </Box>
 
         <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
             ID: {workboard._id}
           </Typography>
           <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
@@ -238,11 +230,11 @@ function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onV
           />
         </Box>
 
-        <Typography variant="caption" color="textSecondary">
+        <Typography variant="caption" color="text.secondary">
           생성자: {workboard.createdBy?.nickname || '알 수 없음'}
         </Typography>
         <br />
-        <Typography variant="caption" color="textSecondary">
+        <Typography variant="caption" color="text.secondary">
           생성일: {new Date(workboard.createdAt).toLocaleDateString()}
         </Typography>
       </CardContent>
@@ -679,7 +671,7 @@ function PreviewField({ field }) {
       <Box>
         {label}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
-          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: 'linear-gradient(135deg, #7B4DD8, #5B5BD6)', color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
+          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: BRAND_GRADIENTS[0], color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
             M
           </Box>
           <Typography variant="caption" sx={{ flex: 1 }}>모델 선택…</Typography>
@@ -1012,7 +1004,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           py: 2, mb: 2,
           display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
         }}>
-          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Button onClick={handleCancel} sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
           <Typography variant="h6" sx={{ fontWeight: 700, wordBreak: 'break-word' }}>
             {workboard?.name || '작업판 편집'}
           </Typography>
@@ -1042,7 +1034,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           ) : (
             <>
           <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
               작업판 ID: {workboard?._id}
             </Typography>
             <IconButton
@@ -1095,7 +1087,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
               </Box>
               <Box sx={{ minWidth: 0 }}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="body2" color="textSecondary">
+                <Typography variant="body2" color="text.secondary">
                   작업판의 입력 필드를 자유롭게 정의합니다. 타입별로 사용자에게 다른 입력 UI 가 제공됩니다.
                 </Typography>
                 <Button
@@ -1145,13 +1137,13 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                 <Chip
                                   label={field.type}
                                   variant="outlined"
-                                  sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
+                                  sx={{ fontFamily: MONO, fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.04em', fontWeight: 600 }}
                                 />
                                 <Typography sx={{ fontWeight: selectedFieldIdx === index ? 600 : 500 }}>
                                   {field.label || `커스텀 필드 ${index + 1}`}
                                 </Typography>
                                 {field.name && (
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
                                     {field.name}
                                   </Typography>
                                 )}
@@ -1173,7 +1165,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   fullWidth
                                   label="필드명 (영문)"
                                   placeholder="예: customField1"
-                                  sx={{ fontFamily: 'monospace' }}
+                                  sx={{ fontFamily: MONO }}
                                 />
                               )}
                             />
@@ -1224,7 +1216,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   fullWidth
                                   label="Workflow 형식 문자열"
                                   placeholder={`예: {{##${field.name || 'field_name'}##}}`}
-                                  sx={{ fontFamily: 'monospace' }}
+                                  sx={{ fontFamily: MONO }}
                                 />
                               )}
                             />
@@ -1362,7 +1354,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                                   </TextField>
                                 )}
                               />
-                              <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                                 사용자가 선택할 수 있는 참고 이미지의 최대 개수를 설정합니다.
                               </Typography>
                             </Grid>
@@ -1490,7 +1482,9 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           {/* LLM 파라미터 탭 - 텍스트(LLM) 작업판만 (#495). ComfyUI 워크플로우 탭과 동일 위치(index 3) */}
           {outputFormat === 'text' && tabValue === 3 && (
             <Box>
-              <Typography variant="body2" color="textSecondary" paragraph>
+              {/* 이미지 입력은 입력 양식 탭에서 'image' 타입 필드를 추가하면 자동 활성화됩니다 (#519).
+                  비전(멀티모달) 모델을 베이스 모델로 선택해야 분석됩니다. */}
+              <Typography variant="body2" color="text.secondary" paragraph>
                 LLM 요청에 추가로 전달할 파라미터를 JSON 으로 지정합니다. 모델/서버별 thinking 비활성화나
                 창작용 temperature 등을 작업판마다 다르게 설정할 수 있습니다. 비워두면 모델 기본값으로 동작합니다.
               </Typography>
@@ -1506,7 +1500,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                     label="추가 LLM 파라미터 (JSON)"
                     placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
                     helperText="OpenAI 계열은 요청 본문 최상위, Gemini 는 generationConfig 에 병합됩니다. thinking 끄는 방식은 모델/서버마다 달라 가이드 문서를 참고하세요."
-                    InputProps={{ sx: { fontFamily: 'monospace', fontSize: '0.85rem' } }}
+                    InputProps={{ sx: { fontFamily: MONO, fontSize: '0.85rem' } }}
                   />
                 )}
               />
@@ -1515,7 +1509,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                   <Typography variant="subtitle2" fontWeight="bold">자주 쓰는 예시</Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography variant="caption" component="div" sx={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                  <Typography variant="caption" component="div" sx={{ fontFamily: MONO, whiteSpace: 'pre-wrap' }}>
                     {'// 창작용 — 무작위성 높이고 thinking 끄기 (서버에 따라 키가 다름)\n'}
                     {'{ "temperature": 1.0, "chat_template_kwargs": { "enable_thinking": false } }\n\n'}
                     {'// reasoning 모델(gpt-5/o1 등) — temperature 미지원이니 비워두기\n'}
@@ -1537,7 +1531,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                   </Typography>
                 </AccordionSummary>
                 <AccordionDetails>
-                  <Typography variant="body2" color="textSecondary" paragraph>
+                  <Typography variant="body2" color="text.secondary" paragraph>
                     아래 변수들을 워크플로우 JSON에서 사용할 수 있습니다. 변수는 작업 실행 시 실제 값으로 치환됩니다.
                   </Typography>
 
@@ -1582,7 +1576,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                       </tbody>
                     </Box>
                   ) : (
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       "입력 양식" 탭에서 항목을 정의하면 여기에 표시됩니다.
                     </Typography>
                   )}
@@ -1650,7 +1644,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
                         label="ComfyUI Workflow JSON"
                         error={!!errors.workflowData}
                         helperText={errors.workflowData?.message || "위 변수 목록을 참고하여 워크플로우를 작성하세요"}
-                        sx={{ fontFamily: 'monospace' }}
+                        sx={{ fontFamily: MONO }}
                       />
                     )}
                   />
@@ -1731,7 +1725,7 @@ export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, o
           py: 2, mb: 2,
           display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
         }}>
-          <Button onClick={handleCancel} size="small" sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
+          <Button onClick={handleCancel} sx={{ flexShrink: 0 }}>← 작업판 관리</Button>
           <Typography variant="h6" sx={{ fontWeight: 700 }}>새 작업판</Typography>
           <Box sx={{ flex: 1 }} />
           <Button onClick={handleCancel}>취소</Button>
@@ -1892,7 +1886,7 @@ export function WorkboardImportDialog({ open, onClose, onSuccess }) {
             <Typography variant="body1" gutterBottom>
               JSON 파일을 드래그하거나 클릭하여 선택
             </Typography>
-            <Typography variant="caption" color="textSecondary">
+            <Typography variant="caption" color="text.secondary">
               작업판 내보내기로 생성된 .json 파일
             </Typography>
             <input
@@ -1917,7 +1911,7 @@ export function WorkboardImportDialog({ open, onClose, onSuccess }) {
                 </Typography>
               )}
               {parsedData.exportedAt && (
-                <Typography variant="caption" color="textSecondary">
+                <Typography variant="caption" color="text.secondary">
                   내보낸 날짜: {new Date(parsedData.exportedAt).toLocaleString()}
                 </Typography>
               )}
@@ -1991,280 +1985,3 @@ export function WorkboardImportDialog({ open, onClose, onSuccess }) {
   );
 }
 
-// 사용자용 Workboards 와 별도 prefix 로 충돌 회피 (#370)
-const ADMIN_WB_SEARCH_KEY = 'vcc.adminWorkboards.search';
-const ADMIN_WB_SERVER_KEY = 'vcc.adminWorkboards.serverType';
-const ADMIN_WB_OUTPUT_KEY = 'vcc.adminWorkboards.outputFormat';
-
-function WorkboardManagement() {
-  const navigate = useNavigate();
-  // 상태 필터(전체/게시됨/보관) + 2축 필터(출력×서버, 공유)는 클라이언트 측에서 적용.
-  const [status, setStatus] = useState('all'); // all | active | inactive
-  // create / update / 편집 dialog 상태는 #437 Phase A 에서 페이지로 이전됨
-  // (WorkboardEditorPage / WorkboardCreatePage 가 own mutation + 페이지 라우팅).
-  // 본 컴포넌트는 목록 / 가져오기 / delete / duplicate / toggleActive / export 만 담당.
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [menuAnchor, setMenuAnchor] = useState(null);
-  const [menuWb, setMenuWb] = useState(null);
-
-  const queryClient = useQueryClient();
-
-  const { data, isLoading } = useQuery(
-    'adminWorkboards',
-    () => workboardAPI.getAll({ limit: 500, includeAll: true, includeInactive: true }),
-    { keepPreviousData: true }
-  );
-
-  const deleteMutation = useMutation(
-    workboardAPI.delete,
-    {
-      onSuccess: (response, deletedId) => {
-        console.log('🗑️ Workboard delete success, immediately updating cache');
-        toast.success('작업판이 삭제되었습니다');
-
-        // 즉시 캐시 업데이트 - 삭제된 작업판을 목록에서 제거
-        queryClient.setQueryData('adminWorkboards', (oldData) => {
-          if (!oldData?.data?.workboards) return oldData;
-
-          const updatedWorkboards = oldData.data.workboards.filter(wb => wb._id !== deletedId);
-
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              workboards: updatedWorkboards,
-              pagination: {
-                ...oldData.data.pagination,
-                total: Math.max(0, oldData.data.pagination.total - 1)
-              }
-            }
-          };
-        });
-
-        // 강제 리패치로 정확한 데이터 보장
-        queryClient.refetchQueries('adminWorkboards');
-
-        console.log('✅ Cache updated immediately - workboard removed from list');
-      },
-      onError: (error) => {
-        console.error('❌ Workboard deletion failed:', error);
-        toast.error('삭제 실패: ' + error.message);
-      }
-    }
-  );
-
-  const toggleActiveMutation = useMutation(
-    ({ id, isActive }) => isActive ? workboardAPI.deactivate(id) : workboardAPI.activate(id),
-    {
-      onSuccess: (response) => {
-        const workboard = response.data.workboard;
-        const action = workboard.isActive ? '활성화' : '비활성화';
-        toast.success(`작업판이 ${action}되었습니다`);
-        queryClient.refetchQueries('adminWorkboards');
-      },
-      onError: (error) => {
-        console.error('❌ Toggle active failed:', error);
-        toast.error('상태 변경 실패: ' + error.message);
-      }
-    }
-  );
-
-  const duplicateMutation = useMutation(
-    ({ id, name }) => workboardAPI.duplicate(id, { name }),
-    {
-      onSuccess: (response) => {
-        console.log('📋 Workboard duplicate success, immediately updating cache');
-        toast.success('작업판이 복제되었습니다');
-        
-        // 즉시 캐시 업데이트 - 새로 복제된 작업판을 목록에 추가
-        queryClient.setQueryData('adminWorkboards', (oldData) => {
-          if (!oldData?.data?.workboards || !response.data?.workboard) {
-            queryClient.refetchQueries('adminWorkboards');
-            return oldData;
-          }
-          
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              workboards: [response.data.workboard, ...oldData.data.workboards],
-              pagination: {
-                ...oldData.data.pagination,
-                total: oldData.data.pagination.total + 1
-              }
-            }
-          };
-        });
-        
-        // 강제 리패치로 정확한 데이터 보장
-        queryClient.refetchQueries('adminWorkboards');
-        
-        console.log('✅ Cache updated immediately with duplicated workboard');
-      },
-      onError: (error) => {
-        console.error('❌ Workboard duplication failed:', error);
-        toast.error('복제 실패: ' + error.message);
-      }
-    }
-  );
-
-  const workboards = data?.data?.workboards || [];
-
-  const statusCounts = {
-    all: workboards.length,
-    active: workboards.filter((w) => w.isActive).length,
-    inactive: workboards.filter((w) => !w.isActive).length,
-  };
-  const statusFiltered = workboards.filter((w) =>
-    status === 'all' ? true : status === 'active' ? w.isActive : !w.isActive
-  );
-  const { q, setQ, outSel, svcSel, toggleOut, toggleSvc, clear, counts, filtered } = useWorkboardFilter(statusFiltered);
-
-  const handleCreate = () => {
-    navigate('/admin/workboards/new');
-  };
-
-  const handleEdit = (workboard /* editType ignored — 단일 편집 페이지로 통합 (#437 Phase A) */) => {
-    navigate(`/admin/workboards/${workboard._id}/edit`);
-  };
-
-  const handleDelete = (workboard) => {
-    if (window.confirm(`"${workboard.name}" 작업판을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-      deleteMutation.mutate(workboard._id);
-    }
-  };
-
-  const handleToggleActive = (workboard) => {
-    const action = workboard.isActive ? '비활성화' : '활성화';
-    if (window.confirm(`"${workboard.name}" 작업판을 ${action}하시겠습니까?`)) {
-      toggleActiveMutation.mutate({ id: workboard._id, isActive: workboard.isActive });
-    }
-  };
-
-  const handleDuplicate = (workboard) => {
-    const name = prompt('복제할 작업판의 이름을 입력하세요:', `${workboard.name} (복제)`);
-    if (name) {
-      duplicateMutation.mutate({ id: workboard._id, name });
-    }
-  };
-
-  const handleExport = async (workboard) => {
-    try {
-      const response = await workboardAPI.export(workboard._id);
-      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${workboard.name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_backup.json`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast.success('작업판을 내보냈습니다.');
-    } catch (error) {
-      console.error('Export error:', error);
-    }
-  };
-
-  const handleImportSuccess = () => {
-    queryClient.refetchQueries('adminWorkboards');
-  };
-
-  const handleView = (workboard) => {
-    // 상세 보기 구현
-    console.log('View workboard:', workboard);
-  };
-
-  return (
-    <Box>
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, flexWrap: 'wrap', mb: 2 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography variant="h1">작업판 관리</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-            작업판 정의 · 출력 형식 · 접근 권한 · 서버 매핑을 관리합니다.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          <Button variant="outlined" startIcon={<FileUpload />} onClick={() => setImportDialogOpen(true)}>가져오기</Button>
-          <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
-        </Box>
-      </Box>
-
-      {/* 상태 필터 (관리 전용 축) */}
-      <Stack direction="row" spacing={0.75} sx={{ mb: 1.5, overflowX: 'auto', pb: 0.5 }}>
-        {[
-          { k: 'all', l: '전체', c: statusCounts.all },
-          { k: 'active', l: '게시됨', c: statusCounts.active },
-          { k: 'inactive', l: '보관', c: statusCounts.inactive },
-        ].map((s) => (
-          <Button
-            key={s.k}
-            onClick={() => setStatus(s.k)}
-            variant={status === s.k ? 'contained' : 'outlined'}
-            color={status === s.k ? 'primary' : 'inherit'}
-            sx={{ flex: '0 0 auto', color: status === s.k ? undefined : 'text.secondary' }}
-          >
-            {s.l}
-            <Box component="span" sx={{ ml: 0.75, fontFamily: 'monospace', fontSize: 11, opacity: 0.8 }}>{s.c}</Box>
-          </Button>
-        ))}
-      </Stack>
-
-      <WorkboardFilters
-        q={q} setQ={setQ}
-        outSel={outSel} toggleOut={toggleOut}
-        svcSel={svcSel} toggleSvc={toggleSvc}
-        counts={counts} total={statusFiltered.length} shown={filtered.length}
-        onClear={clear}
-      />
-
-      {isLoading ? (
-        <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
-      ) : filtered.length === 0 ? (
-        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>조건에 맞는 작업판이 없습니다</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>필터를 줄이거나 새 작업판을 만들어 보세요.</Typography>
-          <Button variant="contained" size="small" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
-        </Box>
-      ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(320px, 1fr))' }, gap: 1.5 }}>
-          {filtered.map((wb) => (
-            <CatalogCard
-              key={wb._id}
-              wb={wb}
-              admin
-              onEdit={handleEdit}
-              onMenu={(e, w) => { setMenuAnchor(e.currentTarget); setMenuWb(w); }}
-              groupNames={(wb.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g.name : null)).filter(Boolean)}
-            />
-          ))}
-        </Box>
-      )}
-
-      <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
-        <MenuItem onClick={() => { handleEdit(menuWb); setMenuAnchor(null); }}><Edit sx={{ mr: 1 }} fontSize="small" />편집</MenuItem>
-        <MenuItem onClick={() => { handleDuplicate(menuWb); setMenuAnchor(null); }}><ContentCopy sx={{ mr: 1 }} fontSize="small" />복제</MenuItem>
-        <MenuItem onClick={() => { handleExport(menuWb); setMenuAnchor(null); }}><FileDownload sx={{ mr: 1 }} fontSize="small" />내보내기</MenuItem>
-        <MenuItem
-          onClick={() => { handleToggleActive(menuWb); setMenuAnchor(null); }}
-          sx={{ color: menuWb?.isActive ? 'warning.main' : 'success.main' }}
-        >
-          {menuWb?.isActive
-            ? <><ToggleOff sx={{ mr: 1 }} fontSize="small" />비활성화</>
-            : <><ToggleOn sx={{ mr: 1 }} fontSize="small" />활성화</>}
-        </MenuItem>
-        <MenuItem onClick={() => { handleDelete(menuWb); setMenuAnchor(null); }} sx={{ color: 'error.main' }}>
-          <Delete sx={{ mr: 1 }} fontSize="small" />삭제
-        </MenuItem>
-      </Menu>
-
-      <WorkboardImportDialog
-        open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
-        onSuccess={handleImportSuccess}
-      />
-    </Box>
-  );
-}
-
-export default WorkboardManagement;

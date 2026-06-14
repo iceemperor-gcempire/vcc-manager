@@ -53,6 +53,8 @@ const imageGenerationJobSchema = new mongoose.Schema({
     required: false
   },
   comfyJobId: String,
+  // Bull 큐 잡 ID — 취소 시 큐에서 제거하기 위해 보존 (#521)
+  queueJobId: String,
   progress: {
     type: Number,
     min: 0,
@@ -108,8 +110,13 @@ const imageGenerationJobSchema = new mongoose.Schema({
 });
 
 imageGenerationJobSchema.methods.updateStatus = function(status, data = {}) {
+  // cancelled 는 종결 상태 — worker 의 active/completed/failed 이벤트가 덮어쓰지 않음 (#521)
+  if (this.status === 'cancelled' && status !== 'cancelled') {
+    return this;
+  }
+
   this.status = status;
-  
+
   if (status === 'processing') {
     this.startedAt = new Date();
   } else if (status === 'completed' || status === 'failed') {
@@ -130,7 +137,11 @@ imageGenerationJobSchema.methods.updateStatus = function(status, data = {}) {
   if (data.comfyJobId) {
     this.comfyJobId = data.comfyJobId;
   }
-  
+
+  if (data.queueJobId) {
+    this.queueJobId = String(data.queueJobId);
+  }
+
   if (data.resultImages) {
     this.resultImages = data.resultImages;
   }

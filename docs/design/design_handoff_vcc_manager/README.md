@@ -1,3 +1,9 @@
+> # ⚠️ DEPRECATED (2026-06-12)
+> **이 핸드오프(v1)는 폐기되었습니다.** 앱에 존재하지 않는 기능이 디자인에 다수 포함되어 있어 기준 문서 자격을 상실했습니다 (#554).
+> 현행 디자인 기준은 **`docs/design-v2/TOKENS.md`** (Warm Studio 라이트 / Console 다크) 와
+> `frontend/src/theme.js` (구현 단일 소스), `frontend/src/components/common/` 컴포넌트 라이브러리입니다.
+> 이 폴더는 이력 보존용으로만 남깁니다 — **새 작업의 기준으로 사용 금지.**
+
 # Handoff: VCC Manager Design System v1
 
 ## Overview
@@ -14,6 +20,21 @@ VCC Manager는 ComfyUI / OpenAI / Gemini 백엔드 위에 이미지·텍스트·
 1. **`theme.ts`** — MUI `ThemeOptions` 객체. `createTheme(vccTheme)`로 즉시 적용 가능. (단일 진입점)
 2. **`tokens.css`** — 모든 디자인 토큰을 CSS variables로. light + dark 두 모드 포함. MUI 외부 영역에서도 사용 가능 (예: 커스텀 CSS-in-JS, 비-MUI 컴포넌트).
 3. **`prototypes/VCC Manager Migration Guide.html`** — 현재 코드 → 새 디자인 8단계 PR 분해. 단계별 before/after 코드 스니펫. **이 문서를 먼저 읽으세요.**
+
+## Deviations from v1 (코드 측 확정 변경 — 목업보다 이 섹션이 우선)
+
+구현 과정에서 의도적으로 디자인과 다르게 결정된 항목들. **이 패키지의 목업/스크린샷과 코드가 다를 때, 아래 항목은 코드가 정답이다.** 새 항목은 결정이 내려진 PR 에서 함께 추가할 것.
+
+| 항목 | v1 디자인 | 확정 동작 | 근거 |
+|---|---|---|---|
+| 사이드바/헤더 (라이트 모드) | 다크 네이비 고정 | **라이트 모드에선 밝은 navbar** (흰 표면 + 옅은 primary 틴트), 다크 모드에서만 네이비 | #514, 2026-06-12 사용자 확정 |
+| 관리자 메뉴 구분 | (디자인에 별도 명시 없음) | 중립 색상 + overline 섹션 라벨 "관리자 메뉴" 로 구분 (빨강 일괄 적용 폐지) | #542, 2026-06-12 |
+| 작업 히스토리 상단 필터 | 프로젝트 / 기간 필터 버튼 | **프로젝트 필터 도입 안 함** (프로젝트 화면이 별도 존재). 기간 필터는 추후 후보 | 2026-06-12 사용자 확정 |
+| 작업판 카탈로그 카드 | 즐겨찾기 별 | **출력 type 칩 추가** (image/text/video) — 라이브 추가 요소 유지 | #463 계열 |
+| MuiPaper `defaultProps variant:'outlined'` | 테마 일괄 적용 | **페이지 리디자인 시 점진 적용** (legacy 페이지 일괄 변경 회피) | 2026-06-12 사용자 확정 |
+| 서버 타입 색 | (토큰 외) | `templates/capabilities.js` 의 **브랜드 컬러 유지** (OpenAI teal `#10a37f`, Google blue `#4285f4` 등 — 의도된 토큰 외 예외) | 주석 명시 |
+| 폰트 로딩 | 자체 호스팅 권장 | 현재 CDN (jsdelivr + Google Fonts) — 자체 호스팅 전환은 추후 | - |
+| 대시보드 통계 블록 | v1 포함 → v1.1 제거 | v1.1 기준 (제거) — `11-dark-dashboard.png` 의 통계 블록은 구버전 | v1.1 |
 
 ## Fidelity
 

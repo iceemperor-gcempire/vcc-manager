@@ -30,49 +30,24 @@ import {
   GridView,
   ViewList,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../services/api';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
+import { MONO } from '../theme';
+import { gradientForId } from '../utils/brandGradients';
+import { relativeTime } from '../utils/relativeTime';
+import PageHeader from '../components/common/PageHeader';
+import EmptyState from '../components/common/EmptyState';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
-
-const GRADIENTS = [
-  'linear-gradient(135deg, #7B4DD8 0%, #5B5BD6 50%, #2F77E4 100%)',
-  'linear-gradient(135deg, #2F77E4 0%, #4E8EE8 100%)',
-  'linear-gradient(135deg, #BE7415 0%, #D69021 100%)',
-  'linear-gradient(135deg, #1F9D55 0%, #2EBA6B 100%)',
-  'linear-gradient(135deg, #D5383E 0%, #BE7415 100%)',
-  'linear-gradient(135deg, #5B616E 0%, #8A8F9A 100%)',
-];
-function gradientFor(id = '') {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return GRADIENTS[h % GRADIENTS.length];
-}
-function relativeTime(iso) {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const min = Math.floor((Date.now() - then) / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  const d = new Date(then);
-  return `${String(d.getFullYear()).slice(2)}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-}
 
 function TagPill({ tag }) {
   if (!tag?.name) return null;
   return (
     <Box component="span" sx={{
-      display: 'inline-flex', alignItems: 'center', height: 18, px: '7px', borderRadius: 999,
-      fontSize: 10.5, fontWeight: 600, color: '#fff', bgcolor: tag.color || '#7c4dff', whiteSpace: 'nowrap',
+      display: 'inline-flex', alignItems: 'center', height: 21, px: '10px', borderRadius: 999,
+      fontSize: 10.5, fontWeight: 600, color: '#fff', bgcolor: tag.color || '#C96A3B', whiteSpace: 'nowrap',
     }}>
       {tag.name}
     </Box>
@@ -96,15 +71,14 @@ function ProjectCreateDialog({ open, onClose }) {
   const [tagName, setTagName] = useState('');
   const queryClient = useQueryClient();
 
-  const createMutation = useMutation((data) => projectAPI.create(data), {
+  const createMutation = useMutation({ mutationFn: (data) => projectAPI.create(data),
     onSuccess: () => {
-      queryClient.invalidateQueries('projects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('프로젝트가 생성되었습니다');
       setName(''); setDescription(''); setTagName('');
       onClose();
     },
-    onError: (error) => toast.error(error.response?.data?.message || '생성 실패'),
-  });
+    onError: (error) => toast.error(error.response?.data?.message || '생성 실패'), });
 
   const handleSubmit = () => {
     if (!name.trim()) return toast.error('프로젝트 이름을 입력해주세요');
@@ -125,7 +99,7 @@ function ProjectCreateDialog({ open, onClose }) {
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>취소</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isLoading}>생성</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>생성</Button>
       </DialogActions>
     </Dialog>
   );
@@ -138,7 +112,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
       sx={{ p: 0, overflow: 'hidden', cursor: 'pointer', transition: 'all 150ms', height: '100%', display: 'flex', flexDirection: 'column',
         '&:hover': { borderColor: 'primary.main', boxShadow: 2 } }}>
       {/* cover — 설정된 커버 이미지가 있으면 그걸, 없으면 그라데이션 */}
-      <Box sx={{ position: 'relative', height: 120, background: gradientFor(String(project._id)), overflow: 'hidden' }}>
+      <Box sx={{ position: 'relative', height: 120, background: gradientForId(String(project._id)), overflow: 'hidden' }}>
         {project.coverImage?.url && (
           <Box component="img" src={project.coverImage.url} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -184,7 +158,7 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
   return (
     <Box onClick={onOpen} sx={{ px: 3.5, py: 3, display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
-      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientFor(String(project._id)),
+      <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientForId(String(project._id)),
         color: '#fff', fontWeight: 700, display: 'grid', placeItems: 'center' }}>
         {project.coverImage?.url
           ? <Box component="img" src={project.coverImage.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -234,22 +208,20 @@ function ProjectList() {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuProject, setMenuProject] = useState(null);
 
-  const { data, isLoading, error } = useQuery('projects', () => projectAPI.getAll());
+  const { data, isLoading, error } = useQuery({ queryKey: ['projects'], queryFn: () => projectAPI.getAll() });
 
-  const deleteMutation = useMutation((id) => projectAPI.delete(id), {
+  const deleteMutation = useMutation({ mutationFn: (id) => projectAPI.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries('projects'); queryClient.invalidateQueries('favoriteProjects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
       toast.success('프로젝트가 삭제되었습니다'); setDeleteProject(null);
     },
-    onError: (e) => toast.error(e.response?.data?.message || '삭제 실패'),
-  });
-  const favoriteMutation = useMutation((id) => projectAPI.toggleFavorite(id), {
+    onError: (e) => toast.error(e.response?.data?.message || '삭제 실패'), });
+  const favoriteMutation = useMutation({ mutationFn: (id) => projectAPI.toggleFavorite(id),
     onSuccess: (res) => {
-      queryClient.invalidateQueries('projects'); queryClient.invalidateQueries('favoriteProjects');
+      queryClient.invalidateQueries({ queryKey: ['projects'] }); queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
       toast.success(res.data?.data?.isFavorite ? '즐겨찾기에 추가되었습니다' : '즐겨찾기에서 제거되었습니다');
     },
-    onError: (e) => toast.error(e.response?.data?.message || '즐겨찾기 변경 실패'),
-  });
+    onError: (e) => toast.error(e.response?.data?.message || '즐겨찾기 변경 실패'), });
 
   const projects = data?.data?.data?.projects || [];
   const favoriteIds = data?.data?.data?.favoriteIds || [];
@@ -271,19 +243,17 @@ function ProjectList() {
 
   return (
     <Box>
-      {/* 헤더 */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, flexWrap: 'wrap', mb: 5 }}>
-        <Box sx={{ flex: '1 1 360px', minWidth: 0 }}>
-          <Typography variant="h1">프로젝트</Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ textWrap: 'pretty', mt: 0.5 }}>
-            세계관, 캠페인, 실험 모음을 프로젝트 단위로 묶어 관리합니다.
-          </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
-          <ViewToggle view={view} setView={setView} />
-          <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
-        </Box>
-      </Box>
+      <PageHeader
+        title="프로젝트"
+        description="세계관, 캠페인, 실험 모음을 프로젝트 단위로 묶어 관리합니다."
+        sx={{ mb: 5 }}
+        actions={(
+          <>
+            <ViewToggle view={view} setView={setView} />
+            <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
+          </>
+        )}
+      />
 
       {/* 검색 / 필터 */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4.5, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -304,11 +274,11 @@ function ProjectList() {
       </Box>
 
       {projects.length === 0 ? (
-        <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2 }}>
-          <Typography sx={{ fontWeight: 600, mb: 0.5 }}>아직 프로젝트가 없습니다</Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>첫 프로젝트를 만들어 보세요.</Typography>
-          <Button variant="contained" size="small" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
-        </Box>
+        <EmptyState
+          title="아직 프로젝트가 없습니다"
+          description="첫 프로젝트를 만들어 보세요."
+          action={<Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>}
+        />
       ) : view === 'list' ? (
         <Paper variant="outlined">
           {visible.map((p, i) => (
@@ -356,7 +326,7 @@ function ProjectList() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteProject(null)}>취소</Button>
-          <Button color="error" variant="contained" onClick={() => deleteMutation.mutate(deleteProject._id)} disabled={deleteMutation.isLoading}>삭제</Button>
+          <Button color="error" variant="contained" onClick={() => deleteMutation.mutate(deleteProject._id)} disabled={deleteMutation.isPending}>삭제</Button>
         </DialogActions>
       </Dialog>
     </Box>

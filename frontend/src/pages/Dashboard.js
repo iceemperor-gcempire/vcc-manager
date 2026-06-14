@@ -22,7 +22,7 @@ import {
   TrendingUp,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
   dashboardAPI,
   projectAPI,
@@ -32,40 +32,10 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import config from '../config';
 import UpdateLogDialog from '../components/common/UpdateLogDialog';
+import { MONO } from '../theme';
+import { gradientForId } from '../utils/brandGradients';
+import { relativeTime } from '../utils/relativeTime';
 
-const MONO = '"JetBrains Mono","SF Mono",Menlo,monospace';
-
-// 프로젝트 아바타 그라데이션 — 디자인 핸드오프 팔레트에서 id 해시로 결정적 선택
-const GRADIENTS = [
-  'linear-gradient(135deg, #7B4DD8, #5B5BD6)',
-  'linear-gradient(135deg, #2F77E4, #4E8EE8)',
-  'linear-gradient(135deg, #BE7415, #D69021)',
-  'linear-gradient(135deg, #1F9D55, #2EBA6B)',
-  'linear-gradient(135deg, #5B616E, #8A8F9A)',
-];
-function gradientFor(id = '') {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return GRADIENTS[h % GRADIENTS.length];
-}
-
-// 상대 시각 — "방금 / N분 전 / N시간 전 / 어제 / N일 전 / yy.M.d"
-function relativeTime(iso) {
-  if (!iso) return '';
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return '';
-  const diff = Date.now() - then;
-  const min = Math.floor(diff / 60000);
-  if (min < 1) return '방금';
-  if (min < 60) return `${min}분 전`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr}시간 전`;
-  const day = Math.floor(hr / 24);
-  if (day === 1) return '어제';
-  if (day < 7) return `${day}일 전`;
-  const d = new Date(then);
-  return `${String(d.getFullYear()).slice(2)}. ${d.getMonth() + 1}. ${d.getDate()}.`;
-}
 
 function dateHeroLine() {
   const now = new Date();
@@ -175,30 +145,14 @@ function Dashboard() {
   const { user, isAdmin } = useAuth();
   const [updateLogOpen, setUpdateLogOpen] = useState(false);
 
-  const { data: activeRunsRes } = useQuery(
-    'dashboardActiveRuns',
-    dashboardAPI.getActivePipelineRuns,
-    { refetchInterval: config.monitoring.recentJobsInterval }
-  );
-  const { data: projectsRes, isLoading: projectsLoading } = useQuery(
-    'dashboardProjects',
-    () => projectAPI.getAll()
-  );
-  const { data: imagesRes, isLoading: imagesLoading } = useQuery(
-    'dashboardRecentImages',
-    () => imageAPI.getGenerated({ limit: 12 })
-  );
-  const { data: trendRes } = useQuery('dashboardImageTrend', () =>
-    dashboardAPI.getImageTrend(7)
-  );
-  const { data: serversRes } = useQuery(
-    'dashboardServers',
-    () => serverAPI.getServers(),
-    { refetchInterval: config.monitoring.queueStatusInterval }
-  );
-  const { data: workboardsRes } = useQuery('dashboardWorkboardUsage', () =>
-    dashboardAPI.getWorkboardUsage(4)
-  );
+  const { data: activeRunsRes } = useQuery({ queryKey: ['dashboardActiveRuns'], queryFn: dashboardAPI.getActivePipelineRuns, refetchInterval: config.monitoring.recentJobsInterval });
+  const { data: projectsRes, isLoading: projectsLoading } = useQuery({ queryKey: ['dashboardProjects'], queryFn: () => projectAPI.getAll() });
+  const { data: imagesRes, isLoading: imagesLoading } = useQuery({ queryKey: ['dashboardRecentImages'], queryFn: () => imageAPI.getGenerated({ limit: 12 }) });
+  const { data: trendRes } = useQuery({ queryKey: ['dashboardImageTrend'], queryFn: () =>
+    dashboardAPI.getImageTrend(7) });
+  const { data: serversRes } = useQuery({ queryKey: ['dashboardServers'], queryFn: () => serverAPI.getServers(), refetchInterval: config.monitoring.queueStatusInterval });
+  const { data: workboardsRes } = useQuery({ queryKey: ['dashboardWorkboardUsage'], queryFn: () =>
+    dashboardAPI.getWorkboardUsage(4) });
 
   const activeRuns = activeRunsRes?.data?.data?.runs || [];
   const projects = (projectsRes?.data?.data?.projects || []).slice(0, 4);
@@ -303,6 +257,52 @@ function Dashboard() {
       >
         {/* Left column */}
         <Stack spacing={4}>
+          {/* Recent generations */}
+          <SectionCard
+            icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
+            title="최근 생성 이미지"
+            action="컨텐츠 라이브러리 →"
+            onAction={() => navigate('/content')}
+          >
+            {imagesLoading ? (
+              <GridSkeleton n={6} cols={{ xs: 3, sm: 6 }} height={0} aspect />
+            ) : images.length === 0 ? (
+              <EmptyHint text="아직 생성된 이미지가 없습니다." />
+            ) : (
+              <Box
+                sx={{
+                  p: 3,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' },
+                  gap: 1.5,
+                }}
+              >
+                {images.slice(0, 12).map((img) => (
+                  <Box
+                    key={img._id}
+                    onClick={() => navigate('/content')}
+                    sx={{
+                      position: 'relative',
+                      aspectRatio: '1 / 1',
+                      borderRadius: 1,
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      bgcolor: 'grey.100',
+                    }}
+                  >
+                    <Box
+                      component="img"
+                      src={img.url}
+                      alt=""
+                      loading="lazy"
+                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                    />
+                  </Box>
+                ))}
+              </Box>
+            )}
+          </SectionCard>
+
           {/* Running pipelines */}
           <SectionCard
             icon={
@@ -419,7 +419,7 @@ function Dashboard() {
                         width: 36,
                         height: 36,
                         borderRadius: 2,
-                        background: gradientFor(String(p._id)),
+                        background: gradientForId(String(p._id)),
                         color: '#fff',
                         fontWeight: 700,
                         fontSize: 16,
@@ -443,51 +443,6 @@ function Dashboard() {
             )}
           </SectionCard>
 
-          {/* Recent generations */}
-          <SectionCard
-            icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
-            title="최근 생성 이미지"
-            action="컨텐츠 라이브러리 →"
-            onAction={() => navigate('/content')}
-          >
-            {imagesLoading ? (
-              <GridSkeleton n={6} cols={{ xs: 3, sm: 6 }} height={0} aspect />
-            ) : images.length === 0 ? (
-              <EmptyHint text="아직 생성된 이미지가 없습니다." />
-            ) : (
-              <Box
-                sx={{
-                  p: 3,
-                  display: 'grid',
-                  gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' },
-                  gap: 1.5,
-                }}
-              >
-                {images.slice(0, 12).map((img) => (
-                  <Box
-                    key={img._id}
-                    onClick={() => navigate('/content')}
-                    sx={{
-                      position: 'relative',
-                      aspectRatio: '1 / 1',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      bgcolor: 'grey.100',
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={img.url}
-                      alt=""
-                      loading="lazy"
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  </Box>
-                ))}
-              </Box>
-            )}
-          </SectionCard>
         </Stack>
 
         {/* Right column */}
@@ -615,7 +570,6 @@ function Dashboard() {
           <Tooltip title="이번 버전에서 달라진 점 보기">
             <Button
               variant="text"
-              size="small"
               startIcon={<NewReleases />}
               onClick={() => setUpdateLogOpen(true)}
               sx={{ alignSelf: 'flex-start', color: 'text.secondary' }}

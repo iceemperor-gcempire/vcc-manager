@@ -1,8 +1,7 @@
 import React from 'react';
 import {
   Box,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   Grid,
   CircularProgress,
@@ -15,26 +14,17 @@ import {
   LinearProgress,
   Chip
 } from '@mui/material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
+import PageHeader from '../common/PageHeader';
 
 function SystemStats() {
-  const { data: stats, isLoading: statsLoading } = useQuery(
-    'adminStatsDetailed',
-    adminAPI.getStats
-  );
+  const { data: stats, isLoading: statsLoading } = useQuery({ queryKey: ['adminStatsDetailed'], queryFn: adminAPI.getStats });
 
-  const { data: recentJobs, isLoading: jobsLoading } = useQuery(
-    'adminAllJobs',
-    () => adminAPI.getJobs({ limit: 20 })
-  );
+  const { data: recentJobs, isLoading: jobsLoading } = useQuery({ queryKey: ['adminAllJobs'], queryFn: () => adminAPI.getJobs({ limit: 20 }) });
 
-  const { data: queueStats, isLoading: queueLoading } = useQuery(
-    'queueStatsDetailed',
-    jobAPI.getQueueStats,
-    { refetchInterval: config.monitoring.queueStatusInterval }
-  );
+  const { data: queueStats, isLoading: queueLoading } = useQuery({ queryKey: ['queueStatsDetailed'], queryFn: jobAPI.getQueueStats, refetchInterval: config.monitoring.queueStatusInterval });
 
   if (statsLoading || jobsLoading || queueLoading) {
     return (
@@ -68,15 +58,12 @@ function SystemStats() {
 
   return (
     <Box>
-      <Typography variant="h5" gutterBottom>
-        시스템 통계
-      </Typography>
+      <PageHeader title="시스템 통계" description="사용자 · 작업판 단위 사용량 집계" />
 
       <Grid container spacing={3}>
         {/* 사용자 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 사용자 통계
               </Typography>
@@ -118,14 +105,12 @@ function SystemStats() {
                   color="secondary"
                 />
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 작업 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 작업 통계
               </Typography>
@@ -175,20 +160,18 @@ function SystemStats() {
                   color="info"
                 />
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 저장소 통계 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 저장소 통계
               </Typography>
 
               <Box mb={3}>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   총 이미지 수
                 </Typography>
                 <Typography variant="h4">
@@ -197,21 +180,19 @@ function SystemStats() {
               </Box>
 
               <Box>
-                <Typography variant="body2" color="textSecondary" gutterBottom>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   사용 중인 저장 공간
                 </Typography>
                 <Typography variant="h5">
                   {formatBytes(systemStats.images?.totalSize || 0)}
                 </Typography>
               </Box>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 큐 상태 */}
         <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 현재 큐 상태
               </Typography>
@@ -222,7 +203,7 @@ function SystemStats() {
                     <Typography variant="h4" color="warning.main">
                       {queue.waiting || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       대기 중
                     </Typography>
                   </Box>
@@ -232,7 +213,7 @@ function SystemStats() {
                     <Typography variant="h4" color="info.main">
                       {queue.active || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       처리 중
                     </Typography>
                   </Box>
@@ -242,7 +223,7 @@ function SystemStats() {
                     <Typography variant="h4" color="success.main">
                       {queue.completed || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       완료됨
                     </Typography>
                   </Box>
@@ -252,20 +233,18 @@ function SystemStats() {
                     <Typography variant="h4" color="error.main">
                       {queue.failed || 0}
                     </Typography>
-                    <Typography variant="body2" color="textSecondary">
+                    <Typography variant="body2" color="text.secondary">
                       실패함
                     </Typography>
                   </Box>
                 </Grid>
               </Grid>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
 
         {/* 최근 작업 목록 */}
         <Grid item xs={12}>
-          <Card>
-            <CardContent>
+          <Paper variant="outlined" sx={{ p: 4 }}>
               <Typography variant="h6" gutterBottom>
                 최근 작업 목록
               </Typography>
@@ -311,8 +290,7 @@ function SystemStats() {
                   </TableBody>
                 </Table>
               </TableContainer>
-            </CardContent>
-          </Card>
+            </Paper>
         </Grid>
       </Grid>
     </Box>

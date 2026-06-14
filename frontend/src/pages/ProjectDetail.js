@@ -42,7 +42,7 @@ import {
   Deselect
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { projectAPI, imageAPI, userAPI, promptDataAPI, tagAPI, workboardAPI, pipelineAPI, pipelineRunAPI } from '../services/api';
 import TextContentPanel from '../components/common/TextContentPanel';
@@ -56,6 +56,7 @@ import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import JobHistoryPanel from '../components/common/JobHistoryPanel';
 import TagInput from '../components/common/TagInput';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
+import { BRAND_GRADIENTS } from '../utils/brandGradients';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -68,22 +69,18 @@ function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
     }
   }, [image]);
 
-  const updateMutation = useMutation(
-    (data) => (isVideo ? imageAPI.updateVideo : imageAPI.updateGenerated)(image._id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: (data) => (isVideo ? imageAPI.updateVideo : imageAPI.updateGenerated)(image._id, data),
       onSuccess: () => {
-        queryClient.invalidateQueries(`projectImages-${projectId}`);
-        queryClient.invalidateQueries(`projectVideos-${projectId}`);
-        queryClient.invalidateQueries(isVideo ? 'generatedVideos' : 'generatedImages');
-        queryClient.invalidateQueries(['project', projectId]);
+        queryClient.invalidateQueries({ queryKey: [`projectImages-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: [`projectVideos-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: Array.isArray(isVideo ? 'generatedVideos' : 'generatedImages') ? isVideo ? 'generatedVideos' : 'generatedImages' : [isVideo ? 'generatedVideos' : 'generatedImages'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
         toast.success(`${isVideo ? '동영상' : '이미지'} 정보가 수정되었습니다`);
         onClose();
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '수정 실패');
-      }
-    }
-  );
+      } });
 
   const handleSave = () => {
     updateMutation.mutate({
@@ -128,7 +125,7 @@ function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
         <Button
           variant="contained"
           onClick={handleSave}
-          disabled={updateMutation.isLoading}
+          disabled={updateMutation.isPending}
         >
           저장
         </Button>
@@ -153,54 +150,42 @@ function ImagesTab({ projectId }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleteJobChecked, setDeleteJobChecked] = useState(false);
 
-  const { data: profileData } = useQuery('userProfile', () => userAPI.getProfile());
+  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
   const userPreferences = profileData?.data?.user?.preferences || {};
 
-  const deleteGeneratedMutation = useMutation(
-    ({ id, deleteJob }) => imageAPI.deleteGenerated(id, deleteJob),
-    {
+  const deleteGeneratedMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteGenerated(id, deleteJob),
       onSuccess: () => {
         toast.success('이미지가 삭제되었습니다');
-        queryClient.invalidateQueries(`projectImages-${projectId}`);
-        queryClient.invalidateQueries('generatedImages');
-        queryClient.invalidateQueries(['project', projectId]);
+        queryClient.invalidateQueries({ queryKey: [`projectImages-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       },
-      onError: () => toast.error('삭제 실패')
-    }
-  );
+      onError: () => toast.error('삭제 실패') });
 
-  const deleteVideoMutation = useMutation(
-    ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
-    {
+  const deleteVideoMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
       onSuccess: () => {
         toast.success('동영상이 삭제되었습니다');
-        queryClient.invalidateQueries(`projectVideos-${projectId}`);
-        queryClient.invalidateQueries('generatedVideos');
-        queryClient.invalidateQueries(['project', projectId]);
+        queryClient.invalidateQueries({ queryKey: [`projectVideos-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       },
-      onError: () => toast.error('삭제 실패')
-    }
-  );
+      onError: () => toast.error('삭제 실패') });
 
-  const bulkDeleteMutation = useMutation(
-    ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
-    {
+  const bulkDeleteMutation = useMutation({ mutationFn: ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
       onSuccess: (response) => {
         const result = response.data?.data || response.data;
         toast.success(`${result.deleted}개 항목이 삭제되었습니다${result.failed ? ` (${result.failed}개 실패)` : ''}`);
-        queryClient.invalidateQueries(`projectImages-${projectId}`);
-        queryClient.invalidateQueries(`projectVideos-${projectId}`);
-        queryClient.invalidateQueries('generatedImages');
-        queryClient.invalidateQueries('generatedVideos');
-        queryClient.invalidateQueries(['project', projectId]);
+        queryClient.invalidateQueries({ queryKey: [`projectImages-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: [`projectVideos-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+        queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
         setBulkMode(false);
         setImageSelectedIds(new Set());
         setVideoSelectedIds(new Set());
         setConfirmOpen(false);
       },
-      onError: () => toast.error('일괄 삭제 실패')
-    }
-  );
+      onError: () => toast.error('일괄 삭제 실패') });
 
   const handleEditImage = (image) => {
     setEditImage(image);
@@ -398,14 +383,14 @@ function ImagesTab({ projectId }) {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)} disabled={bulkDeleteMutation.isLoading}>취소</Button>
+          <Button onClick={() => setConfirmOpen(false)} disabled={bulkDeleteMutation.isPending}>취소</Button>
           <Button
             variant="contained"
             color="error"
             onClick={handleBulkDeleteConfirm}
-            disabled={bulkDeleteMutation.isLoading}
+            disabled={bulkDeleteMutation.isPending}
           >
-            {bulkDeleteMutation.isLoading ? '삭제 중...' : '삭제'}
+            {bulkDeleteMutation.isPending ? '삭제 중...' : '삭제'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -424,32 +409,27 @@ function PromptDataTab({ projectId }) {
   const [workboardSelectOpen, setWorkboardSelectOpen] = useState(false);
   const [selectedPromptData, setSelectedPromptData] = useState(null);
 
-  const updateMutation = useMutation(
-    ({ id, data }) => promptDataAPI.update(id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: ({ id, data }) => promptDataAPI.update(id, data),
       onSuccess: () => {
         toast.success('프롬프트 데이터가 수정되었습니다');
-        queryClient.invalidateQueries(`projectPromptData-${projectId}`);
-        queryClient.invalidateQueries('promptDataList');
-        queryClient.invalidateQueries(['project', projectId]);
+        queryClient.invalidateQueries({ queryKey: [`projectPromptData-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: ['promptDataList'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
         setFormOpen(false);
         setEditingPromptData(null);
       },
-      onError: () => toast.error('프롬프트 데이터 수정 실패')
-    }
-  );
+      onError: () => toast.error('프롬프트 데이터 수정 실패') });
 
-  const deleteMutation = useMutation(promptDataAPI.delete, {
+  const deleteMutation = useMutation({ mutationFn: promptDataAPI.delete,
     onSuccess: () => {
       toast.success('프롬프트 데이터가 삭제되었습니다');
-      queryClient.invalidateQueries(`projectPromptData-${projectId}`);
-      queryClient.invalidateQueries('promptDataList');
-      queryClient.invalidateQueries(['project', projectId]);
+      queryClient.invalidateQueries({ queryKey: [`projectPromptData-${projectId}`] });
+      queryClient.invalidateQueries({ queryKey: ['promptDataList'] });
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       setDeleteConfirmOpen(false);
       setDeletingId(null);
     },
-    onError: () => toast.error('프롬프트 데이터 삭제 실패')
-  });
+    onError: () => toast.error('프롬프트 데이터 삭제 실패') });
 
   const handleSave = (data) => {
     updateMutation.mutate({ id: editingPromptData._id, data });
@@ -545,8 +525,8 @@ function PromptDataTab({ projectId }) {
 // 프로젝트 + 타입(세계관/시스템 프롬프트/등) 태그 조합으로 문서를 분류.
 // 상단 chip 필터로 타입 전환. 문서 생성 시 현재 타입 태그가 자동 부여됨.
 function WorldviewTab({ projectTag }) {
-  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
-  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const { data: wvTagData } = useQuery({ queryKey: ['worldviewTag'], queryFn: () => tagAPI.getWorldview(), staleTime: 60_000 });
+  const { data: spTagData } = useQuery({ queryKey: ['systemPromptTag'], queryFn: () => tagAPI.getSystemPrompt(), staleTime: 60_000 });
   const worldviewTag = wvTagData?.data?.tag;
   const systemPromptTag = spTagData?.data?.tag;
 
@@ -600,34 +580,23 @@ function WorkboardsTab({ projectId }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
-  const { data, isLoading } = useQuery(
-    ['projectWorkboards', projectId],
-    () => projectAPI.getWorkboards(projectId),
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['projectWorkboards', projectId], queryFn: () => projectAPI.getWorkboards(projectId) });
   const workboards = data?.data?.data?.workboards || [];
 
-  const addMutation = useMutation(
-    (workboardId) => projectAPI.addWorkboard(projectId, workboardId),
-    {
+  const addMutation = useMutation({ mutationFn: (workboardId) => projectAPI.addWorkboard(projectId, workboardId),
       onSuccess: () => {
         toast.success('작업판이 추가되었습니다.');
-        queryClient.invalidateQueries(['projectWorkboards', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['projectWorkboards', projectId] });
         setPickerOpen(false);
       },
-      onError: (err) => toast.error(err.response?.data?.message || '추가 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '추가 실패'), });
 
-  const removeMutation = useMutation(
-    (workboardId) => projectAPI.removeWorkboard(projectId, workboardId),
-    {
+  const removeMutation = useMutation({ mutationFn: (workboardId) => projectAPI.removeWorkboard(projectId, workboardId),
       onSuccess: () => {
         toast.success('작업판이 제거되었습니다.');
-        queryClient.invalidateQueries(['projectWorkboards', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['projectWorkboards', projectId] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '제거 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '제거 실패'), });
 
   if (isLoading) return <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>;
 
@@ -703,11 +672,7 @@ function WorkboardsTab({ projectId }) {
 // 모든 작업판 중 골라 프로젝트에 추가하는 다이얼로그 (#396).
 function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
   const [search, setSearch] = useState('');
-  const { data, isLoading } = useQuery(
-    ['allWorkboardsForPicker'],
-    () => workboardAPI.getAll(),
-    { enabled: open }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['allWorkboardsForPicker'], queryFn: () => workboardAPI.getAll(), enabled: open });
   const all = data?.data?.workboards || data?.data?.data?.workboards || [];
   const filtered = all.filter((wb) => {
     if (existingIds.includes(wb._id)) return false;
@@ -801,7 +766,7 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
           overflow: 'hidden',
           backgroundImage: hasCover
             ? `url(${project.coverImage.url})`
-            : 'linear-gradient(135deg, #7B4DD8 0%, #5B5BD6 50%, #2F77E4 100%)',
+            : BRAND_GRADIENTS[0],
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           boxShadow: 1,
@@ -925,63 +890,40 @@ function ProjectDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
-  const { data, isLoading, error } = useQuery(
-    ['project', id],
-    () => projectAPI.getById(id)
-  );
+  const { data, isLoading, error } = useQuery({ queryKey: ['project', id], queryFn: () => projectAPI.getById(id) });
 
   // 탭 라벨용 가벼운 count 조회 (Phase 5a 후속). staleTime 길게 — 새로고침 부담 회피.
-  const { data: pipelinesData } = useQuery(
-    ['pipelines', id],
-    () => pipelineAPI.list(id),
-    { enabled: !!id, staleTime: 60_000 }
-  );
+  const { data: pipelinesData } = useQuery({ queryKey: ['pipelines', id], queryFn: () => pipelineAPI.list(id), enabled: !!id, staleTime: 60_000 });
   const pipelinesCount = (pipelinesData?.data?.data?.pipelines || []).length;
-  const { data: runsData } = useQuery(
-    ['pipelineRuns', id],
-    () => pipelineRunAPI.list(id, { limit: 50 }),
-    { enabled: !!id, staleTime: 30_000 }
-  );
+  const { data: runsData } = useQuery({ queryKey: ['pipelineRuns', id], queryFn: () => pipelineRunAPI.list(id, { limit: 50 }), enabled: !!id, staleTime: 30_000 });
   const runsCount = (runsData?.data?.data?.runs || []).length;
-  const { data: convData } = useQuery(
-    ['projectConversations', id, { limit: 1 }],
-    () => projectAPI.getConversations(id, { limit: 1, page: 1 }),
-    { enabled: !!id, staleTime: 60_000 }
-  );
+  const { data: convData } = useQuery({ queryKey: ['projectConversations', id, { limit: 1 }], queryFn: () => projectAPI.getConversations(id, { limit: 1, page: 1 }), enabled: !!id, staleTime: 60_000 });
   // 백엔드가 pagination.total 을 반환하므로 그쪽이 진실. 없으면 fetch 한 개수 fallback.
   const convCount = convData?.data?.data?.pagination?.total
     ?? (convData?.data?.data?.conversations || []).length;
 
-  const deleteMutation = useMutation(
-    () => projectAPI.delete(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: () => projectAPI.delete(id),
       onSuccess: () => {
-        queryClient.invalidateQueries('projects');
-        queryClient.invalidateQueries('favoriteProjects');
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
         toast.success('프로젝트가 삭제되었습니다');
         navigate('/projects');
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '삭제 실패');
-      }
-    }
-  );
+      } });
 
-  const favoriteMutation = useMutation(
-    () => projectAPI.toggleFavorite(id),
-    {
+  const favoriteMutation = useMutation({ mutationFn: () => projectAPI.toggleFavorite(id),
       onSuccess: (response) => {
-        queryClient.invalidateQueries(['project', id]);
-        queryClient.invalidateQueries('projects');
-        queryClient.invalidateQueries('favoriteProjects');
+        queryClient.invalidateQueries({ queryKey: ['project', id] });
+        queryClient.invalidateQueries({ queryKey: ['projects'] });
+        queryClient.invalidateQueries({ queryKey: ['favoriteProjects'] });
         const isFav = response.data?.data?.isFavorite;
         toast.success(isFav ? '즐겨찾기에 추가되었습니다' : '즐겨찾기에서 제거되었습니다');
       },
       onError: (error) => {
         toast.error(error.response?.data?.message || '즐겨찾기 변경 실패');
-      }
-    }
-  );
+      } });
 
   const project = data?.data?.data?.project;
 
@@ -1117,7 +1059,7 @@ function ProjectDetail() {
             color="error"
             variant="contained"
             onClick={() => deleteMutation.mutate()}
-            disabled={deleteMutation.isLoading}
+            disabled={deleteMutation.isPending}
           >
             삭제
           </Button>

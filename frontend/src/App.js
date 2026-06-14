@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { QueryClient, QueryClientProvider, useQueryClient } from 'react-query';
+import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Box } from '@mui/material';
 import { buildVccTheme } from './theme';
@@ -43,8 +43,6 @@ import {
   GroupManagementPage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
-
-import './App.css';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,9 +109,10 @@ function MainLayout() {
   useEffect(() => {
     const refreshPaths = ['/jobs', '/content'];
     if (refreshPaths.includes(location.pathname)) {
-      queryClient.invalidateQueries('recentJobs');
-      queryClient.invalidateQueries('generatedImages');
-      queryClient.invalidateQueries('uploadedImages');
+      queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
+      queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+      queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
+      queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
     }
   }, [location.pathname, queryClient]);
 
@@ -134,11 +133,12 @@ function MainLayout() {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
+    // v2 셸 (#558): 사이드바 전고(全高) — 로고가 좌상단 앵커, 헤더는 콘텐츠 컬럼 폭만 차지
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-      <Box sx={{ display: 'flex', flex: 1 }}>
-        <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
+      <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+        <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
         <Box component="main" sx={{
           flexGrow: 1,
           minWidth: 0, // flex item 이 content intrinsic width 로 늘어나 body 가로 스크롤 유발하는 것 방지 (#383)

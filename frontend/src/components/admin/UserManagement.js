@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
+  Paper,
   Typography,
   Table,
   TableBody,
@@ -38,9 +37,12 @@ import {
   Close,
   HourglassEmpty
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { adminAPI } from '../../services/api';
+import PageHeader from '../common/PageHeader';
+import EmptyState from '../common/EmptyState';
+import { ToneChip } from '../common/ToneChip';
 
 function UserManagement() {
   const [search, setSearch] = useState('');
@@ -52,51 +54,35 @@ function UserManagement() {
 
   const queryClient = useQueryClient();
 
-  const { data, isLoading, refetch } = useQuery(
-    ['adminUsers', { search, approvalStatus, page: page + 1, limit: rowsPerPage }],
-    () => adminAPI.getUsers({ search, approvalStatus, page: page + 1, limit: rowsPerPage }),
-    { keepPreviousData: true }
-  );
+  const { data, isLoading, refetch } = useQuery({ queryKey: ['adminUsers', { search, approvalStatus, page: page + 1, limit: rowsPerPage }], queryFn: () => adminAPI.getUsers({ search, approvalStatus, page: page + 1, limit: rowsPerPage }), placeholderData: keepPreviousData });
 
-  const deleteMutation = useMutation(
-    adminAPI.deleteUser,
-    {
+  const deleteMutation = useMutation({ mutationFn: adminAPI.deleteUser,
       onSuccess: () => {
         toast.success('사용자가 삭제되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
         setDeleteDialogOpen(false);
       },
       onError: (error) => {
         toast.error('삭제 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
-  const approveMutation = useMutation(
-    adminAPI.approveUser,
-    {
+  const approveMutation = useMutation({ mutationFn: adminAPI.approveUser,
       onSuccess: () => {
         toast.success('사용자가 승인되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       },
       onError: (error) => {
         toast.error('승인 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
-  const rejectMutation = useMutation(
-    adminAPI.rejectUser,
-    {
+  const rejectMutation = useMutation({ mutationFn: adminAPI.rejectUser,
       onSuccess: () => {
         toast.success('사용자 승인이 거절되었습니다');
-        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
       },
       onError: (error) => {
         toast.error('거절 실패: ' + error.message);
-      }
-    }
-  );
+      } });
 
   const users = data?.data?.users || [];
   const pagination = data?.data?.pagination || { total: 0, pages: 0 };
@@ -120,33 +106,16 @@ function UserManagement() {
     rejectMutation.mutate(userId);
   };
 
+  // 상태 표기는 ToneChip 단일화 (#568)
   const getApprovalStatusChip = (user) => {
     switch (user.approvalStatus) {
       case 'approved':
-        return (
-          <Chip
-            label="승인됨"
-            color="success"
-            icon={<Check fontSize="small" />}
-          />
-        );
+        return <ToneChip tone="success" label="승인됨" />;
       case 'rejected':
-        return (
-          <Chip
-            label="거절됨"
-            color="error"
-            icon={<Close fontSize="small" />}
-          />
-        );
+        return <ToneChip tone="error" label="거절됨" />;
       case 'pending':
       default:
-        return (
-          <Chip
-            label="대기중"
-            color="warning"
-            icon={<HourglassEmpty fontSize="small" />}
-          />
-        );
+        return <ToneChip tone="warning" label="대기중" />;
     }
   };
 
@@ -161,19 +130,13 @@ function UserManagement() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5">사용자 관리</Typography>
-        <Button
-          variant="outlined"
-          onClick={() => refetch()}
-          startIcon={<Refresh />}
-        >
-          새로고침
-        </Button>
-      </Box>
+      <PageHeader
+        title="사용자 관리"
+        description="가입 승인 · 권한 · 계정 상태를 관리합니다."
+        actions={<Button variant="outlined" onClick={() => refetch()} startIcon={<Refresh />}>새로고침</Button>}
+      />
 
-      <Card>
-        <CardContent>
+      <Paper variant="outlined" sx={{ p: 4 }}>
           <Box mb={3} display="flex" gap={2} flexWrap="wrap">
             <TextField
               placeholder="이메일 또는 닉네임으로 검색..."
@@ -208,9 +171,7 @@ function UserManagement() {
               <CircularProgress />
             </Box>
           ) : users.length === 0 ? (
-            <Alert severity="info">
-              {search ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'}
-            </Alert>
+            <EmptyState description={search ? '검색 결과가 없습니다.' : '등록된 사용자가 없습니다.'} />
           ) : (
             <>
               <TableContainer>
@@ -242,26 +203,12 @@ function UserManagement() {
                         </TableCell>
                         <TableCell>{user.email}</TableCell>
                         <TableCell>
-                          {user.isAdmin ? (
-                            <Chip
-                              label="관리자"
-                              color="secondary"
-                              icon={<AdminPanelSettings fontSize="small" />}
-                            />
-                          ) : (
-                            <Chip
-                              label="일반 사용자"
-                              color="default"
-                              icon={<Person fontSize="small" />}
-                            />
-                          )}
+                          {user.isAdmin
+                            ? <ToneChip tone="accent" label="관리자" />
+                            : <ToneChip tone="neutral" label="일반 사용자" />}
                         </TableCell>
                         <TableCell>
-                          <Chip
-                            label={user.isActive ? '활성' : '비활성'}
-                            color={user.isActive ? 'success' : 'default'}
-                            variant="outlined"
-                          />
+                          <ToneChip tone={user.isActive ? 'success' : 'neutral'} label={user.isActive ? '활성' : '비활성'} />
                         </TableCell>
                         <TableCell>
                           {getApprovalStatusChip(user)}
@@ -279,7 +226,7 @@ function UserManagement() {
                                 <IconButton
                                   color="success"
                                   onClick={() => handleApprove(user._id)}
-                                  disabled={approveMutation.isLoading}
+                                  disabled={approveMutation.isPending}
                                   size="small"
                                   title="승인"
                                 >
@@ -288,7 +235,7 @@ function UserManagement() {
                                 <IconButton
                                   color="error"
                                   onClick={() => handleReject(user._id)}
-                                  disabled={rejectMutation.isLoading}
+                                  disabled={rejectMutation.isPending}
                                   size="small"
                                   title="거절"
                                 >
@@ -324,8 +271,7 @@ function UserManagement() {
               />
             </>
           )}
-        </CardContent>
-      </Card>
+      </Paper>
 
       {/* 삭제 확인 다이얼로그 */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
@@ -337,7 +283,7 @@ function UserManagement() {
           <Typography>
             <strong>{selectedUser?.nickname}</strong> 사용자를 삭제하시겠습니까?
           </Typography>
-          <Typography variant="body2" color="textSecondary" mt={1}>
+          <Typography variant="body2" color="text.secondary" mt={1}>
             사용자의 모든 데이터(이미지, 작업 히스토리 등)가 함께 삭제됩니다.
           </Typography>
         </DialogContent>
@@ -347,9 +293,9 @@ function UserManagement() {
             onClick={handleDeleteConfirm}
             color="error"
             variant="contained"
-            disabled={deleteMutation.isLoading}
+            disabled={deleteMutation.isPending}
           >
-            {deleteMutation.isLoading ? '삭제 중...' : '삭제'}
+            {deleteMutation.isPending ? '삭제 중...' : '삭제'}
           </Button>
         </DialogActions>
       </Dialog>

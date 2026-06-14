@@ -15,16 +15,13 @@ import {
   ListItemText
 } from '@mui/material';
 import { Chat, Check } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from './PromptGeneratorPanel';
+import WorkboardChatPanel from './common/WorkboardChatPanel';
 
 function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
-  const { data, isLoading } = useQuery(
-    ['promptWorkboards'],
-    () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }),
-    { enabled: open }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['promptWorkboards'], queryFn: () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }), enabled: open });
 
   const workboards = data?.data?.workboards || [];
 
@@ -69,6 +66,9 @@ function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
 
 function PromptGeneratorDialog({ open, onClose, onApply }) {
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
+  // #574: 대상 작업판이 채팅 모드면 다이얼로그 안에서 멀티턴 — 응답별 '이 응답을 프롬프트로 사용' 으로 반환
+  const conversationMode = !!(selectedWorkboard?.additionalInputFields || [])
+    .find((f) => f.name === 'conversation_mode')?.defaultValue;
   const [selectDialogOpen, setSelectDialogOpen] = useState(false);
   const [generatedPrompt, setGeneratedPrompt] = useState(null);
 
@@ -158,7 +158,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
               minHeight={300}
             >
               <Chat sx={{ fontSize: 64, color: 'grey.300', mb: 2 }} />
-              <Typography variant="body1" color="textSecondary" mb={3}>
+              <Typography variant="body1" color="text.secondary" mb={3}>
                 프롬프트 작업판을 선택해주세요
               </Typography>
               <Button
@@ -169,6 +169,14 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
                 작업판 선택
               </Button>
             </Box>
+          ) : conversationMode ? (
+            <WorkboardChatPanel
+              workboard={selectedWorkboard}
+              onUseMessage={(content) => {
+                if (onApply) onApply(content);
+                handleClose();
+              }}
+            />
           ) : (
             <PromptGeneratorPanel
               workboard={selectedWorkboard}
@@ -181,15 +189,17 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={handleClose}>취소</Button>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleApply}
-            disabled={!generatedPrompt}
-            startIcon={<Check />}
-          >
-            적용
-          </Button>
+          {!conversationMode && (
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleApply}
+              disabled={!generatedPrompt}
+              startIcon={<Check />}
+            >
+              적용
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
 

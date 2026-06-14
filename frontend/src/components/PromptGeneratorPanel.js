@@ -25,13 +25,14 @@ import {
   Chat,
   ContentCopy
 } from '@mui/icons-material';
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, imageAPI } from '../services/api';
 import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
 import MetadataFieldInput from './common/MetadataFieldInput';
+import { MONO } from '../theme';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
   const onDrop = useCallback((acceptedFiles) => {
@@ -73,7 +74,7 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
         {label}
       </Typography>
       {description && (
-        <Typography variant="caption" color="textSecondary" display="block" mb={1}>
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
           {description}
         </Typography>
       )}
@@ -155,11 +156,7 @@ function PromptGeneratorPanel({
     }
   });
 
-  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery(
-    ['workboard', workboardId],
-    () => workboardAPI.getById(workboardId),
-    { enabled: !!workboardId && !externalWorkboard }
-  );
+  const { data: workboardData, isLoading: workboardLoading, error: workboardError } = useQuery({ queryKey: ['workboard', workboardId], queryFn: () => workboardAPI.getById(workboardId), enabled: !!workboardId && !externalWorkboard });
 
   const workboard = externalWorkboard || workboardData?.data?.workboard;
 
@@ -237,6 +234,7 @@ function PromptGeneratorPanel({
           setGeneratedResult({ ...info, result: info.result ?? fullText });
           toast.success('프롬프트가 생성되었습니다!');
           setIsGenerating(false);
+          setReferenceImages({}); // 첨부 초기화 — 재생성 시 중복 업로드 방지 (#519)
         },
         onError: (error) => {
           toast.error('생성 실패: ' + (error.message || '알 수 없는 오류'));
@@ -287,7 +285,7 @@ function PromptGeneratorPanel({
       <form onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={compact ? 2 : 3}>
           <Grid item xs={12} md={compact ? 12 : 6}>
-            <Paper sx={{ p: compact ? 2 : 3 }} elevation={compact ? 0 : 1}>
+            <Paper sx={{ p: compact ? 2 : 4 }} variant={compact ? 'elevation' : 'outlined'} elevation={0}>
               {!compact && (
                 <Typography variant="h6" gutterBottom>
                   입력 설정
@@ -354,6 +352,16 @@ function PromptGeneratorPanel({
                       )}
                     />
                   )}
+                  {/* 이미지 입력 (#519) — image 타입 필드. 첨부 시 비전 입력으로 사용 */}
+                  {field.type === 'image' && (
+                    <ImageUploadField
+                      label={field.label}
+                      description={field.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
+                      images={referenceImages[field.name] || []}
+                      onImagesChange={(imgs) => setReferenceImages((prev) => ({ ...prev, [field.name]: imgs }))}
+                      maxImages={field.imageConfig?.maxImages || 4}
+                    />
+                  )}
                 </Box>
               ))}
 
@@ -392,7 +400,7 @@ function PromptGeneratorPanel({
           </Grid>
 
           <Grid item xs={12} md={compact ? 12 : 6}>
-            <Paper sx={{ p: compact ? 2 : 3, minHeight: compact ? 200 : 400 }} elevation={compact ? 0 : 1}>
+            <Paper sx={{ p: compact ? 2 : 4, minHeight: compact ? 200 : 400 }} variant={compact ? 'elevation' : 'outlined'} elevation={0}>
               <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                 <Typography variant={compact ? 'subtitle1' : 'h6'}>
                   생성된 프롬프트
@@ -407,7 +415,7 @@ function PromptGeneratorPanel({
               {isGenerating && !streamingText && (
                 <Box>
                   <LinearProgress color="secondary" sx={{ mb: 2 }} />
-                  <Typography variant="body2" color="textSecondary" textAlign="center">
+                  <Typography variant="body2" color="text.secondary" textAlign="center">
                     AI가 프롬프트를 생성하고 있습니다...
                   </Typography>
                 </Box>
@@ -424,7 +432,7 @@ function PromptGeneratorPanel({
                       borderRadius: 1,
                       maxHeight: compact ? 200 : 500,
                       overflow: 'auto',
-                      fontFamily: 'monospace',
+                      fontFamily: MONO,
                       fontSize: compact ? '0.875rem' : '1rem'
                     }}
                   >
@@ -434,7 +442,7 @@ function PromptGeneratorPanel({
 
                   {!isStreaming && generatedResult?.usage && (
                     <Box mt={1}>
-                      <Typography variant="caption" color="textSecondary">
+                      <Typography variant="caption" color="text.secondary">
                         토큰: 입력 {generatedResult.usage.promptTokens} / 출력 {generatedResult.usage.completionTokens}
                       </Typography>
                     </Box>

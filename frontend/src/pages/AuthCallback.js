@@ -64,7 +64,7 @@ function AuthCallback() {
             <Alert severity="error" sx={{ mb: 2 }}>
               로그인 중 오류가 발생했습니다: {error}
             </Alert>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               잠시 후 로그인 페이지로 이동합니다...
             </Typography>
           </>
@@ -74,7 +74,7 @@ function AuthCallback() {
             <Typography variant="h6" gutterBottom>
               로그인 중...
             </Typography>
-            <Typography variant="body2" color="textSecondary">
+            <Typography variant="body2" color="text.secondary">
               Google 계정으로 로그인을 처리하고 있습니다.
             </Typography>
           </>

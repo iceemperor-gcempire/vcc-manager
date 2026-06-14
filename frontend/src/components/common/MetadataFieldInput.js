@@ -44,7 +44,7 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
               <InputAdornment position="end">
                 {value && (
                   <Tooltip title="해제">
-                    <IconButton size="small" onClick={() => { onChange(''); setDisplayName(''); }}>
+                    <IconButton onClick={() => { onChange(''); setDisplayName(''); }}>
                       <ClearIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>

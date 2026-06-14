@@ -27,27 +27,35 @@ import {
   ExpandMore,
   LockOutlined as LockIcon,
 } from '@mui/icons-material';
-import { useMutation, useQuery, useQueryClient } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { conversationAPI, textAPI } from '../../services/api';
+import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
 import MetadataFieldInput from './MetadataFieldInput';
+import ImageUploadField from './ImageUploadField';
+import ChatBubble from './chat/ChatBubble';
 
 // 텍스트 작업판의 멀티턴 대화 모드 패널 (#391).
 // PromptGeneration 페이지에서 workboard.conversation_mode = true 일 때 PromptGeneratorPanel 대신 렌더.
 // 매번 새 대화로 시작. 첫 메시지 전송 전엔 설정 (model / temperature / system_prompt 등) 편집 가능,
 // 전송 후엔 lock + collapse.
-function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
+function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }) {
   const [conversationId, setConversationId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const transcriptRef = useRef(null);
   const queryClient = useQueryClient();
 
-  // admin 이 설정하는 conversation_mode 외 customField 를 settings 폼으로 노출
+  // 비전 이미지 입력 필드 (#519) — image 타입은 "설정"이 아니라 턴별 첨부로 다룬다(잠금 분리).
+  const imageField = useMemo(
+    () => (workboard.additionalInputFields || []).find((f) => f.type === 'image'),
+    [workboard]
+  );
+
+  // admin 이 설정하는 conversation_mode / image 외 customField 를 settings 폼으로 노출
   const settingsFields = useMemo(
-    () => (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode'),
+    () => (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode' && f.type !== 'image'),
     [workboard]
   );
 
@@ -63,11 +71,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
   useEffect(() => { reset(formDefaults); }, [formDefaults, reset]);
 
   // 대화 시작 후 messages 동기화용 — 시작 전엔 비활성
-  const { data: convData } = useQuery(
-    ['conversation', conversationId],
-    () => conversationAPI.getById(conversationId),
-    { enabled: !!conversationId }
-  );
+  const { data: convData } = useQuery({ queryKey: ['conversation', conversationId], queryFn: () => conversationAPI.getById(conversationId), enabled: !!conversationId });
   const conversation = convData?.data?.data;
   const messages = conversation?.messages || [];
 
@@ -81,9 +85,34 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
   // 완료되면 저장된 메시지를 refetch 하고 낙관적 상태를 정리.
   const { send: streamSend, streamingText, isStreaming } = useStreamingPrompt();
   const [pendingUserMsg, setPendingUserMsg] = useState(null);
+  const [attachImages, setAttachImages] = useState([]); // 비전 첨부 (#517)
 
-  const doSend = ({ text, settings, cid }) => {
+  const doSend = async ({ text, settings, cid }) => {
     setPendingUserMsg(text);
+    setNewMessage('');
+
+    // 비전 첨부 이미지 업로드 (#519) — image 필드가 있을 때만
+    let attachedImageIds = [];
+    if (imageField && attachImages.length > 0) {
+      try {
+        for (const img of attachImages) {
+          if (img.file) {
+            const fd = new FormData();
+            fd.append('image', img.file);
+            fd.append('imageType', 'reference');
+            const resp = await imageAPI.upload(fd);
+            attachedImageIds.push(resp.data.image._id);
+          } else if (img._id) {
+            attachedImageIds.push(img._id);
+          }
+        }
+      } catch (e) {
+        toast.error('이미지 업로드 실패: ' + (e.response?.data?.message || e.message));
+        setPendingUserMsg(null);
+        return;
+      }
+    }
+
     streamSend(
       {
         workboardId: workboard._id,
@@ -92,7 +121,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
         // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
         projectId: cid ? undefined : (projectId || undefined),
         useWorldview: cid ? undefined : !!useWorldview,
-        inputData: { ...settings, userPrompt: text },
+        inputData: { ...settings, userPrompt: text, ...(attachedImageIds.length && imageField ? { [imageField.name]: attachedImageIds } : {}) },
       },
       {
         onDone: (info) => {
@@ -102,31 +131,27 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
             setSettingsOpen(false);
           }
           setPendingUserMsg(null);
-          queryClient.invalidateQueries(['conversation', newCid || cid || conversationId]);
-          queryClient.invalidateQueries('conversations');
+          queryClient.invalidateQueries({ queryKey: ['conversation', newCid || cid || conversationId] });
+          queryClient.invalidateQueries({ queryKey: ['conversations'] });
         },
         onError: (err) => {
           toast.error('전송 실패: ' + (err.message || '알 수 없는 오류'));
           setPendingUserMsg(null);
           if (cid || conversationId) {
-            queryClient.invalidateQueries(['conversation', cid || conversationId]);
+            queryClient.invalidateQueries({ queryKey: ['conversation', cid || conversationId] });
           }
         },
       }
     );
-    setNewMessage('');
+    setAttachImages([]);
   };
 
-  const saveMessageMutation = useMutation(
-    ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
-    {
+  const saveMessageMutation = useMutation({ mutationFn: ({ conversationJobId, messageIndex }) => textAPI.createGenerated({ conversationJobId, messageIndex }),
       onSuccess: () => {
         toast.success('생성된 텍스트로 저장되었습니다.');
-        queryClient.invalidateQueries('generatedTexts');
+        queryClient.invalidateQueries({ queryKey: ['generatedTexts'] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   // 스트리밍 중 자동 스크롤
   useEffect(() => {
@@ -222,7 +247,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
   };
 
   return (
-    <Paper elevation={1} sx={{ p: { xs: 2, md: 3 } }}>
+    <Paper variant="outlined" sx={{ p: { xs: 3, md: 4 } }}>
       {/* 헤더 */}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Chip label="대화 모드" color="secondary" />
@@ -283,7 +308,6 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
           overflow: 'auto',
           mb: 2,
           p: 2,
-          bgcolor: 'grey.50',
           borderRadius: 1,
         }}
       >
@@ -292,65 +316,38 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
             아래 입력창에 메시지를 입력해 대화를 시작하세요.
           </Typography>
         ) : (
-          <Stack spacing={1.5} divider={<Divider flexItem />}>
+          <Stack spacing={3.5}>
             {messages.map((msg, idx) => (
-              <Box key={idx} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <Box sx={{ pt: 0.5 }}>
-                  {msg.role === 'user' && <PersonIcon fontSize="small" color="primary" />}
-                  {msg.role === 'assistant' && <AssistantIcon fontSize="small" color="action" />}
-                  {msg.role === 'system' && <SystemIcon fontSize="small" color="action" />}
-                </Box>
-                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    {msg.role}
-                  </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                    {msg.content}
-                  </Typography>
-                </Box>
-                {msg.role === 'assistant' && (
-                  <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
-                    <IconButton
-                      size="small"
-                      onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
-                      disabled={saveMessageMutation.isLoading}
-                    >
-                      <BookmarkAddIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+              <ChatBubble
+                key={idx}
+                role={msg.role}
+                content={msg.content}
+                attachments={msg.attachments}
+                actions={msg.role === 'assistant' && (
+                  <>
+                    {/* 호출 모드 (#574): 이 응답을 호출측 프롬프트로 반환 */}
+                    {onUseMessage && (
+                      <Button variant="outlined" color="primary" onClick={() => onUseMessage(msg.content)}>
+                        이 응답을 프롬프트로 사용
+                      </Button>
+                    )}
+                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                      <IconButton
+                        size="small"
+                        onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}
+                        disabled={saveMessageMutation.isPending}
+                      >
+                        <BookmarkAddIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </>
                 )}
-              </Box>
+              />
             ))}
             {/* 낙관적 사용자 말풍선 — 보낸 직후 ~ 저장본 refetch 전까지 (#490) */}
-            {pendingUserMsg && (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <Box sx={{ pt: 0.5 }}><PersonIcon fontSize="small" color="primary" /></Box>
-                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    user
-                  </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                    {pendingUserMsg}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
+            {pendingUserMsg && <ChatBubble role="user" content={pendingUserMsg} />}
             {/* 실시간 어시스턴트 말풍선 — 토큰 스트리밍 (#490) */}
-            {isStreaming && (
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <Box sx={{ pt: 0.5 }}><AssistantIcon fontSize="small" color="action" /></Box>
-                <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                    assistant
-                  </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.25 }}>
-                    {streamingText}
-                    {!streamingText && <CircularProgress size={14} color="secondary" sx={{ ml: 0.5 }} />}
-                    {streamingText && <Box component="span" sx={{ opacity: 0.5 }}>▍</Box>}
-                  </Typography>
-                </Box>
-              </Box>
-            )}
+            {isStreaming && <ChatBubble role="assistant" streaming streamingText={streamingText} />}
           </Stack>
         )}
         {conversation?.status === 'failed' && conversation?.error?.message && (
@@ -359,6 +356,20 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview }) {
           </Alert>
         )}
       </Box>
+
+      {/* 비전 이미지 첨부 (#519) — image 필드가 있을 때 턴별 첨부 */}
+      {imageField && (
+        <Box sx={{ mb: 1.5 }}>
+          <ImageUploadField
+            label={imageField.label}
+            description={imageField.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
+            images={attachImages}
+            onImagesChange={setAttachImages}
+            maxImages={imageField.imageConfig?.maxImages || 4}
+            disabled={isSending}
+          />
+        </Box>
+      )}
 
       <form onSubmit={handleSend}>
         {/* 전송 버튼을 입력창 높이만큼 위아래 꽉 채워 상단 정렬 맞춤 (#503).

@@ -48,9 +48,10 @@ import useMediaQuery from '@mui/material/useMediaQuery';
 import MetadataFieldInput from './MetadataFieldInput';
 import ImageViewerDialog from './ImageViewerDialog';
 import PromptDataPickerDialog from './PromptDataPickerDialog';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI, promptDataAPI } from '../../services/api';
+import { MONO } from '../../theme';
 
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
@@ -108,23 +109,15 @@ function PipelinePanel({ projectId }) {
   const [runningPipelineId, setRunningPipelineId] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data, isLoading } = useQuery(
-    ['pipelines', projectId],
-    () => pipelineAPI.list(projectId),
-    { enabled: !!projectId }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['pipelines', projectId], queryFn: () => pipelineAPI.list(projectId), enabled: !!projectId });
   const pipelines = data?.data?.data?.pipelines || [];
 
-  const deleteMutation = useMutation(
-    (pid) => pipelineAPI.delete(projectId, pid),
-    {
+  const deleteMutation = useMutation({ mutationFn: (pid) => pipelineAPI.delete(projectId, pid),
       onSuccess: () => {
         toast.success('파이프라인이 삭제되었습니다.');
-        queryClient.invalidateQueries(['pipelines', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['pipelines', projectId] });
       },
-      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'), });
 
   if (view === 'builder') {
     return (
@@ -238,7 +231,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
               color="text.secondary"
               noWrap
               sx={{
-                fontFamily: '"JetBrains Mono", monospace',
+                fontFamily: MONO,
                 minWidth: 0,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
@@ -306,7 +299,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
                     placeItems: 'center',
                     fontSize: 10,
                     fontWeight: 700,
-                    fontFamily: '"JetBrains Mono", monospace',
+                    fontFamily: MONO,
                     flexShrink: 0,
                   }}
                 >
@@ -317,7 +310,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
                     {s.workboardId?.name || '(삭제됨)'}
                   </Typography>
                   {s.workboardId?.outputFormat && (
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10, fontFamily: '"JetBrains Mono", monospace' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', fontSize: 10, fontFamily: MONO }}>
                       out: {s.workboardId.outputFormat}
                     </Typography>
                   )}
@@ -478,7 +471,7 @@ function StepLaneCard({
             placeItems: 'center',
             fontSize: 12,
             fontWeight: 700,
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: MONO,
           }}
         >
           {index + 1}
@@ -487,7 +480,7 @@ function StepLaneCard({
           <Chip
             label={`out: ${step.workboard.outputFormat}`}
             variant="outlined"
-            sx={{ fontFamily: '"JetBrains Mono", monospace', letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
+            sx={{ fontFamily: MONO, letterSpacing: '0.04em', textTransform: 'uppercase', fontWeight: 600 }}
           />
         )}
         <Box sx={{ flex: 1 }} />
@@ -658,7 +651,7 @@ function LaneConnector({ isMobile, prevOutput, autoInject }) {
       {prevOutput && (
         <Typography
           variant="caption"
-          sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
+          sx={{ fontFamily: MONO, fontSize: 10, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.04em' }}
         >
           {prevOutput}
         </Typography>
@@ -705,27 +698,15 @@ function AddStepCard({ isMobile, onAdd }) {
 // 프로젝트의 worldview / system prompt 태그 docs 를 보여주고, 클릭으로
 // 현재 선택된 단계에 add/toggle. drag-drop 라이브러리 없이 click-to-add 패턴.
 function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc }) {
-  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
-  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
-  const { data: projectData } = useQuery(
-    ['project', projectId],
-    () => projectAPI.getById(projectId),
-    { enabled: !!projectId, staleTime: 60_000 }
-  );
+  const { data: wvTagData } = useQuery({ queryKey: ['worldviewTag'], queryFn: () => tagAPI.getWorldview(), staleTime: 60_000 });
+  const { data: spTagData } = useQuery({ queryKey: ['systemPromptTag'], queryFn: () => tagAPI.getSystemPrompt(), staleTime: 60_000 });
+  const { data: projectData } = useQuery({ queryKey: ['project', projectId], queryFn: () => projectAPI.getById(projectId), enabled: !!projectId, staleTime: 60_000 });
   const worldviewTag = wvTagData?.data?.tag;
   const systemPromptTag = spTagData?.data?.tag;
   const projectTag = projectData?.data?.data?.project?.tagId;
 
-  const { data: wvDocsData } = useQuery(
-    ['paletteWvDocs', projectId, worldviewTag?._id],
-    () => textAPI.getUploaded({ tags: [projectTag?._id, worldviewTag?._id].filter(Boolean).join(','), limit: 50 }),
-    { enabled: !!projectTag && !!worldviewTag, staleTime: 60_000 }
-  );
-  const { data: spDocsData } = useQuery(
-    ['paletteSpDocs', projectId, systemPromptTag?._id],
-    () => textAPI.getUploaded({ tags: [projectTag?._id, systemPromptTag?._id].filter(Boolean).join(','), limit: 50 }),
-    { enabled: !!projectTag && !!systemPromptTag, staleTime: 60_000 }
-  );
+  const { data: wvDocsData } = useQuery({ queryKey: ['paletteWvDocs', projectId, worldviewTag?._id], queryFn: () => textAPI.getUploaded({ tags: [projectTag?._id, worldviewTag?._id].filter(Boolean).join(','), limit: 50 }), enabled: !!projectTag && !!worldviewTag, staleTime: 60_000 });
+  const { data: spDocsData } = useQuery({ queryKey: ['paletteSpDocs', projectId, systemPromptTag?._id], queryFn: () => textAPI.getUploaded({ tags: [projectTag?._id, systemPromptTag?._id].filter(Boolean).join(','), limit: 50 }), enabled: !!projectTag && !!systemPromptTag, staleTime: 60_000 });
   // 백엔드 texts 라우트는 { success, data: { items, pagination } } shape
   const wvDocs = wvDocsData?.data?.data?.items || [];
   const spDocs = spDocsData?.data?.data?.items || [];
@@ -813,7 +794,7 @@ function PaletteDocList({ docs, selectedIds, disabled, onClickDoc, singleSelect 
               <Typography variant="body2" noWrap sx={{ fontWeight: active ? 600 : 500 }}>
                 {d.title || '(제목 없음)'}
               </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace', fontSize: 10, display: 'block' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO, fontSize: 10, display: 'block' }}>
                 {(d.content || '').length.toLocaleString()}자
               </Typography>
             </Box>
@@ -889,7 +870,7 @@ function PipelineDiagnosticStrip({ steps }) {
         <Typography
           variant="caption"
           sx={{
-            fontFamily: '"JetBrains Mono", monospace',
+            fontFamily: MONO,
             fontSize: 11,
             color: 'text.secondary',
             flexShrink: 0,
@@ -907,18 +888,11 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
   const isNew = !pipelineId;
   const queryClient = useQueryClient();
 
-  const { data: pipelineData, isLoading } = useQuery(
-    ['pipeline', projectId, pipelineId],
-    () => pipelineAPI.get(projectId, pipelineId),
-    { enabled: !!pipelineId }
-  );
+  const { data: pipelineData, isLoading } = useQuery({ queryKey: ['pipeline', projectId, pipelineId], queryFn: () => pipelineAPI.get(projectId, pipelineId), enabled: !!pipelineId });
   const loaded = pipelineData?.data?.data?.pipeline;
 
   // 전체 작업판 목록 — 단계 picker 가 프로젝트 미가입 작업판도 보여줘야 함 (#407).
-  const { data: wbData } = useQuery(
-    ['allWorkboards'],
-    () => workboardAPI.getAll(),
-  );
+  const { data: wbData } = useQuery({ queryKey: ['allWorkboards'], queryFn: () => workboardAPI.getAll() });
   const allWorkboards = wbData?.data?.workboards || wbData?.data?.data?.workboards || [];
 
   const [name, setName] = useState('');
@@ -949,23 +923,19 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
     }
   }, [loaded]);
 
-  const saveMutation = useMutation(
-    (payload) => isNew
+  const saveMutation = useMutation({ mutationFn: (payload) => isNew
       ? pipelineAPI.create(projectId, payload)
       : pipelineAPI.update(projectId, pipelineId, payload),
-    {
       onSuccess: () => {
         toast.success('저장되었습니다.');
         // list + single 모두 invalidate — 재진입 시 stale cache 방지
-        queryClient.invalidateQueries(['pipelines', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['pipelines', projectId] });
         if (pipelineId) {
-          queryClient.invalidateQueries(['pipeline', projectId, pipelineId]);
+          queryClient.invalidateQueries({ queryKey: ['pipeline', projectId, pipelineId] });
         }
         onClose();
       },
-      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '저장 실패'), });
 
   const handleSave = () => {
     if (!name.trim()) {
@@ -1059,7 +1029,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
           <Button onClick={onClose}>취소</Button>
-          <Button variant="contained" onClick={handleSave} disabled={saveMutation.isLoading}>저장</Button>
+          <Button variant="contained" onClick={handleSave} disabled={saveMutation.isPending}>저장</Button>
         </Box>
       </Box>
 
@@ -1291,7 +1261,6 @@ function StepInputsForm({ workboard, values, onChange, projectId }) {
       {projectId && (
         <Box>
           <Button
-            size="small"
             variant="outlined"
             onClick={() => setPickerOpen(true)}
             disabled={!canLoadPromptData}
@@ -1482,32 +1451,20 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
   const [systemPromptDocId, setSystemPromptDocId] = useState(null);
 
   // 빌트인 태그 (세계관 / 시스템 프롬프트)
-  const { data: wvTagData } = useQuery('worldviewTag', () => tagAPI.getWorldview(), { staleTime: 60_000 });
-  const { data: spTagData } = useQuery('systemPromptTag', () => tagAPI.getSystemPrompt(), { staleTime: 60_000 });
+  const { data: wvTagData } = useQuery({ queryKey: ['worldviewTag'], queryFn: () => tagAPI.getWorldview(), staleTime: 60_000 });
+  const { data: spTagData } = useQuery({ queryKey: ['systemPromptTag'], queryFn: () => tagAPI.getSystemPrompt(), staleTime: 60_000 });
   const worldviewTag = wvTagData?.data?.tag;
   const systemPromptTag = spTagData?.data?.tag;
 
   // 프로젝트 정보 (project tagId 필요)
-  const { data: projectData } = useQuery(
-    ['project', projectId],
-    () => projectAPI.getById(projectId),
-    { enabled: !!projectId }
-  );
+  const { data: projectData } = useQuery({ queryKey: ['project', projectId], queryFn: () => projectAPI.getById(projectId), enabled: !!projectId });
   const projectTagId = projectData?.data?.data?.project?.tagId?._id || projectData?.data?.data?.project?.tagId;
 
   // 프로젝트의 세계관 / 시스템 프롬프트 문서 목록 조회
-  const { data: contextDocsData } = useQuery(
-    ['projectContextDocs', projectId, projectTagId, worldviewTag?._id],
-    () => textAPI.getUploaded({ tags: [projectTagId, worldviewTag._id].join(','), limit: 100 }),
-    { enabled: !!(projectTagId && worldviewTag?._id && open) }
-  );
+  const { data: contextDocsData } = useQuery({ queryKey: ['projectContextDocs', projectId, projectTagId, worldviewTag?._id], queryFn: () => textAPI.getUploaded({ tags: [projectTagId, worldviewTag._id].join(','), limit: 100 }), enabled: !!(projectTagId && worldviewTag?._id && open) });
   const contextDocs = contextDocsData?.data?.data?.items || [];
 
-  const { data: spDocsData } = useQuery(
-    ['projectSystemPromptDocs', projectId, projectTagId, systemPromptTag?._id],
-    () => textAPI.getUploaded({ tags: [projectTagId, systemPromptTag._id].join(','), limit: 100 }),
-    { enabled: !!(projectTagId && systemPromptTag?._id && open) }
-  );
+  const { data: spDocsData } = useQuery({ queryKey: ['projectSystemPromptDocs', projectId, projectTagId, systemPromptTag?._id], queryFn: () => textAPI.getUploaded({ tags: [projectTagId, systemPromptTag._id].join(','), limit: 100 }), enabled: !!(projectTagId && systemPromptTag?._id && open) });
   const spDocs = spDocsData?.data?.data?.items || [];
 
   React.useEffect(() => {
@@ -1636,19 +1593,11 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
   const queryClient = useQueryClient();
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
-  const { data: pipelineData, isLoading } = useQuery(
-    ['pipeline', projectId, pipelineId],
-    () => pipelineAPI.get(projectId, pipelineId),
-    { enabled: !!pipelineId }
-  );
+  const { data: pipelineData, isLoading } = useQuery({ queryKey: ['pipeline', projectId, pipelineId], queryFn: () => pipelineAPI.get(projectId, pipelineId), enabled: !!pipelineId });
   const pipeline = pipelineData?.data?.data?.pipeline;
 
   // 사이드 레일용 — 같은 프로젝트의 최근 run 들 (Phase 5b 후속). client 에서 same-pipeline filter.
-  const { data: recentRunsData } = useQuery(
-    ['pipelineRuns', projectId],
-    () => pipelineRunAPI.list(projectId, { limit: 20 }),
-    { enabled: !!projectId, staleTime: 30_000 }
-  );
+  const { data: recentRunsData } = useQuery({ queryKey: ['pipelineRuns', projectId], queryFn: () => pipelineRunAPI.list(projectId, { limit: 20 }), enabled: !!projectId, staleTime: 30_000 });
   const recentRuns = (recentRunsData?.data?.data?.runs || [])
     .filter((r) => (r.pipelineId?._id || r.pipelineId) === pipelineId)
     .slice(0, 6);
@@ -1657,46 +1606,34 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
   const [runId, setRunId] = useState(null);
 
   // 활성 run 의 상태 polling
-  const { data: runData } = useQuery(
-    ['pipelineRun', projectId, runId],
-    () => pipelineRunAPI.get(projectId, runId),
-    {
+  const { data: runData } = useQuery({ queryKey: ['pipelineRun', projectId, runId], queryFn: () => pipelineRunAPI.get(projectId, runId),
       enabled: !!runId,
-      refetchInterval: (data) => {
-        const run = data?.data?.data?.run;
+      // v5: refetchInterval (query) 시그니처 (#526)
+      refetchInterval: (query) => {
+        const run = query.state.data?.data?.data?.run;
         if (!run) return 3000;
         if (run.status === 'pending' || run.status === 'running') return 2000;
         return false; // 종료된 run 은 더 이상 polling 안 함
-      },
-    }
-  );
+      }, });
   const run = runData?.data?.data?.run;
 
-  const startMutation = useMutation(
-    (payload) => pipelineRunAPI.start(projectId, payload),
-    {
+  const startMutation = useMutation({ mutationFn: (payload) => pipelineRunAPI.start(projectId, payload),
       onSuccess: (response) => {
         const newRunId = response.data?.data?.run?._id;
         if (newRunId) {
           setRunId(newRunId);
-          queryClient.invalidateQueries(['pipelineRuns', projectId]);
+          queryClient.invalidateQueries({ queryKey: ['pipelineRuns', projectId] });
         }
       },
-      onError: (err) => toast.error(err.response?.data?.message || '시작 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '시작 실패'), });
 
-  const retryMutation = useMutation(
-    ({ fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
-    {
+  const retryMutation = useMutation({ mutationFn: ({ fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
       onSuccess: () => {
-        queryClient.invalidateQueries(['pipelineRun', projectId, runId]);
-        queryClient.invalidateQueries(['pipelineRuns', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['pipelineRun', projectId, runId] });
+        queryClient.invalidateQueries({ queryKey: ['pipelineRuns', projectId] });
         toast.success('재시작 요청됨');
       },
-      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'), });
 
   const handleStart = () => {
     if (!initialPrompt.trim()) {
@@ -1740,7 +1677,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           {run && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 1.5, flexWrap: 'wrap', fontSize: 13, color: 'text.secondary' }}>
               <span>실행 ID</span>
-              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: '"JetBrains Mono", monospace', fontSize: 12, color: 'text.primary' }}>
+              <Box component="code" sx={{ px: 1, py: 0.25, bgcolor: 'action.hover', borderRadius: 0.5, fontFamily: MONO, fontSize: 12, color: 'text.primary' }}>
                 {String(run._id).slice(-8)}
               </Box>
               {run.startedAt && (
@@ -1780,9 +1717,9 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
             <Button
               variant="contained"
               color="success"
-              startIcon={startMutation.isLoading ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
+              startIcon={startMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
               onClick={handleStart}
-              disabled={startMutation.isLoading || !initialPrompt.trim()}
+              disabled={startMutation.isPending || !initialPrompt.trim()}
             >
               시작
             </Button>
@@ -1793,7 +1730,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
               color="warning"
               startIcon={<PlayArrowIcon />}
               onClick={() => retryMutation.mutate({ fromStep: firstFailedIdx })}
-              disabled={retryMutation.isLoading}
+              disabled={retryMutation.isPending}
             >
               {firstFailedIdx + 1}단계부터 재시작
             </Button>
@@ -1832,7 +1769,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                 sx={{ height: 6, borderRadius: 1 }}
               />
             </Box>
-            <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
+            <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.secondary', minWidth: 36, textAlign: 'right' }}>
               {progressPct}%
             </Typography>
           </Box>
@@ -1875,7 +1812,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                     )}
                     {runStep.status === 'completed' && runStep.output && (
                       <Paper variant="outlined" sx={{ borderColor: (t) => alpha(t.palette.success.main, 0.35), bgcolor: (t) => alpha(t.palette.success.main, 0.06), overflow: 'hidden' }}>
-                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: '"JetBrains Mono", monospace' }}>
+                        <Box sx={{ px: 1.5, py: 1, display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px dashed', borderColor: 'divider', fontSize: 11.5, color: 'text.secondary', fontFamily: MONO }}>
                           결과 ({runStep.output.type})
                         </Box>
                         <Box sx={{ p: 1.5 }}>
@@ -1969,7 +1906,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                         <Typography variant="body2" noWrap sx={{ flex: 1, fontWeight: isCurrent ? 600 : 500 }}>
                           {r.initialPrompt?.slice(0, 30) || '(빈 입력)'}
                         </Typography>
-                        <Typography variant="caption" sx={{ fontFamily: '"JetBrains Mono", monospace', color: 'text.secondary', flexShrink: 0 }}>
+                        <Typography variant="caption" sx={{ fontFamily: MONO, color: 'text.secondary', flexShrink: 0 }}>
                           {formatRunTime(r.createdAt)}
                         </Typography>
                       </Box>
@@ -2027,50 +1964,34 @@ export function PipelineHistoryPanel({ projectId }) {
   const queryClient = useQueryClient();
   const [selectedRunId, setSelectedRunId] = useState(null);
 
-  const { data, isLoading } = useQuery(
-    ['pipelineRuns', projectId],
-    () => pipelineRunAPI.list(projectId, { limit: 50 }),
-    { refetchInterval: 5000 }
-  );
+  const { data, isLoading } = useQuery({ queryKey: ['pipelineRuns', projectId], queryFn: () => pipelineRunAPI.list(projectId, { limit: 50 }), refetchInterval: 5000 });
   const runs = data?.data?.data?.runs || [];
 
-  const { data: detailData } = useQuery(
-    ['pipelineRun', projectId, selectedRunId],
-    () => pipelineRunAPI.get(projectId, selectedRunId),
-    {
+  const { data: detailData } = useQuery({ queryKey: ['pipelineRun', projectId, selectedRunId], queryFn: () => pipelineRunAPI.get(projectId, selectedRunId),
       enabled: !!selectedRunId,
-      refetchInterval: (data) => {
-        const run = data?.data?.data?.run;
+      // v5: refetchInterval (query) 시그니처 (#526)
+      refetchInterval: (query) => {
+        const run = query.state.data?.data?.data?.run;
         if (!run) return 3000;
         return (run.status === 'pending' || run.status === 'running') ? 2000 : false;
-      },
-    }
-  );
+      }, });
   const detail = detailData?.data?.data?.run;
 
-  const retryMutation = useMutation(
-    ({ runId, fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
-    {
+  const retryMutation = useMutation({ mutationFn: ({ runId, fromStep }) => pipelineRunAPI.retry(projectId, runId, { fromStep }),
       onSuccess: (_, vars) => {
-        queryClient.invalidateQueries(['pipelineRuns', projectId]);
-        queryClient.invalidateQueries(['pipelineRun', projectId, vars.runId]);
+        queryClient.invalidateQueries({ queryKey: ['pipelineRuns', projectId] });
+        queryClient.invalidateQueries({ queryKey: ['pipelineRun', projectId, vars.runId] });
         toast.success('재시작 요청됨');
       },
-      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '재시작 실패'), });
 
-  const deleteMutation = useMutation(
-    (id) => pipelineRunAPI.delete(projectId, id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => pipelineRunAPI.delete(projectId, id),
       onSuccess: () => {
-        queryClient.invalidateQueries(['pipelineRuns', projectId]);
+        queryClient.invalidateQueries({ queryKey: ['pipelineRuns', projectId] });
         if (selectedRunId) setSelectedRunId(null);
         toast.success('삭제되었습니다.');
       },
-      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'),
-    }
-  );
+      onError: (err) => toast.error(err.response?.data?.message || '삭제 실패'), });
 
   if (selectedRunId && detail) {
     const firstFailedIdx = (detail.steps || []).findIndex((s) => s.status === 'failed');
@@ -2090,7 +2011,7 @@ export function PipelineHistoryPanel({ projectId }) {
               color="warning"
               startIcon={<PlayArrowIcon />}
               onClick={() => retryMutation.mutate({ runId: selectedRunId, fromStep: firstFailedIdx })}
-              disabled={retryMutation.isLoading}
+              disabled={retryMutation.isPending}
             >
               {firstFailedIdx + 1}단계부터 재시작
             </Button>
@@ -2134,7 +2055,7 @@ export function PipelineHistoryPanel({ projectId }) {
               </StepLabel>
               <StepContent>
                 {runStep.status === 'completed' && runStep.output && (
-                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'rgba(76, 175, 80, 0.08)' }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'success.light' }}>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
                       결과 ({runStep.output.type})
                     </Typography>
@@ -2218,7 +2139,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
             <Chip label={`재시도 ${run.triggerCount - 1}회`} variant="outlined" />
           )}
           <Box sx={{ flex: 1 }} />
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: '"JetBrains Mono", monospace' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
             {new Date(run.createdAt).toLocaleString('ko-KR')}
           </Typography>
         </Box>
@@ -2246,7 +2167,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
               const isFail = s.status === 'failed';
               const isRunning = s.status === 'running';
               const bg = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'transparent';
-              const fg = isDone || isFail || isRunning ? '#FFFFFF' : 'text.secondary';
+              const fg = isDone || isFail || isRunning ? 'common.white' : 'text.secondary';
               const border = isDone ? 'success.main' : isFail ? 'error.main' : isRunning ? 'info.main' : 'divider';
               return (
                 <Box
@@ -2263,7 +2184,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
                     placeItems: 'center',
                     fontSize: 10,
                     fontWeight: 700,
-                    fontFamily: '"JetBrains Mono", monospace',
+                    fontFamily: MONO,
                   }}
                 >
                   {isDone ? <CheckCircleIcon sx={{ fontSize: 12 }} /> : idx + 1}
@@ -2278,7 +2199,7 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
                 value={progressPct}
                 sx={{ height: 4, borderRadius: 1 }}
               />
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', fontFamily: '"JetBrains Mono", monospace', fontSize: 10, mt: 0.25 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'right', fontFamily: MONO, fontSize: 10, mt: 0.25 }}>
                 {progressPct}%
               </Typography>
             </Box>

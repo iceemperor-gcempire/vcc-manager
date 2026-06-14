@@ -17,9 +17,10 @@ import {
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { authAPI } from '../services/api';
+import AuthLayout, { AuthTitle } from '../components/auth/AuthLayout';
 
 function ForgotPassword() {
   const navigate = useNavigate();
@@ -28,9 +29,7 @@ function ForgotPassword() {
 
   const { control, handleSubmit, formState: { errors } } = useForm();
 
-  const forgotPasswordMutation = useMutation(
-    (email) => authAPI.requestPasswordReset(email),
-    {
+  const forgotPasswordMutation = useMutation({ mutationFn: (email) => authAPI.requestPasswordReset(email),
       onSuccess: (response, email) => {
         setEmailSent(true);
         setSentEmail(email);
@@ -39,9 +38,7 @@ function ForgotPassword() {
       onError: (error) => {
         const message = error.response?.data?.message || '요청 처리 중 오류가 발생했습니다';
         toast.error(message);
-      }
-    }
-  );
+      } });
 
   const onSubmit = (data) => {
     forgotPasswordMutation.mutate(data.email);
@@ -49,19 +46,8 @@ function ForgotPassword() {
 
   if (emailSent) {
     return (
-      <Container maxWidth="sm">
-        <Box
-          display="flex"
-          justifyContent="center"
-          alignItems="center"
-          minHeight="100vh"
-        >
-          <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-            <Box textAlign="center" mb={3}>
-              <Typography variant="h4" gutterBottom>
-                이메일 발송 완료
-              </Typography>
-            </Box>
+      <AuthLayout>
+            <AuthTitle title="이메일 발송 완료" />
 
             <Alert severity="success" sx={{ mb: 3 }}>
               <Typography variant="body2">
@@ -69,12 +55,12 @@ function ForgotPassword() {
               </Typography>
             </Alert>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               이메일을 확인하고 링크를 클릭하여 비밀번호를 재설정해주세요.
               링크는 1시간 동안 유효합니다.
             </Typography>
 
-            <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               이메일이 도착하지 않았다면 스팸 폴더를 확인해주세요.
             </Typography>
 
@@ -87,29 +73,13 @@ function ForgotPassword() {
             >
               로그인 페이지로 돌아가기
             </Button>
-          </Paper>
-        </Box>
-      </Container>
+          </AuthLayout>
     );
   }
 
   return (
-    <Container maxWidth="sm">
-      <Box
-        display="flex"
-        justifyContent="center"
-        alignItems="center"
-        minHeight="100vh"
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          <Box textAlign="center" mb={4}>
-            <Typography variant="h4" gutterBottom>
-              비밀번호 찾기
-            </Typography>
-            <Typography variant="body1" color="textSecondary">
-              가입하신 이메일 주소를 입력해주세요
-            </Typography>
-          </Box>
+    <AuthLayout>
+          <AuthTitle title="비밀번호 찾기" sub="가입하신 이메일 주소를 입력해주세요" />
 
           <form onSubmit={handleSubmit(onSubmit)}>
             <Box mb={3}>
@@ -157,10 +127,10 @@ function ForgotPassword() {
               fullWidth
               variant="contained"
               size="large"
-              disabled={forgotPasswordMutation.isLoading}
+              disabled={forgotPasswordMutation.isPending}
               sx={{ mb: 3, py: 1.5 }}
             >
-              {forgotPasswordMutation.isLoading ? (
+              {forgotPasswordMutation.isPending ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
                 '비밀번호 재설정 이메일 발송'
@@ -179,9 +149,7 @@ function ForgotPassword() {
               로그인 페이지로 돌아가기
             </Link>
           </Box>
-        </Paper>
-      </Box>
-    </Container>
+        </AuthLayout>
   );
 }
 

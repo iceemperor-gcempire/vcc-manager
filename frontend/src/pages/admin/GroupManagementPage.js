@@ -33,9 +33,10 @@ import {
   PersonAdd as PersonAddIcon,
   PersonRemove as PersonRemoveIcon
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { groupAPI, adminAPI } from '../../services/api';
+import PageHeader from '../../components/common/PageHeader';
 
 // 그룹 생성/편집 다이얼로그
 function GroupFormDialog({ open, onClose, group, onSave }) {
@@ -111,26 +112,18 @@ function GroupMembersDialog({ open, onClose, group }) {
   const [memberFilter, setMemberFilter] = useState('');
   const queryClient = useQueryClient();
 
-  const { data: usersData, isLoading } = useQuery(
-    ['adminUsers'],
-    () => adminAPI.getUsers({ limit: 1000 }),
-    { enabled: open }
-  );
+  const { data: usersData, isLoading } = useQuery({ queryKey: ['adminUsers'], queryFn: () => adminAPI.getUsers({ limit: 1000 }), enabled: open });
 
   const users = usersData?.data?.users || [];
 
-  const memberMutation = useMutation(
-    ({ userId, action }) => groupAPI.setMember(group._id, userId, action),
-    {
+  const memberMutation = useMutation({ mutationFn: ({ userId, action }) => groupAPI.setMember(group._id, userId, action),
       onSuccess: () => {
-        queryClient.invalidateQueries(['adminUsers']);
-        queryClient.invalidateQueries(['groups']);
+        queryClient.invalidateQueries({ queryKey: ['adminUsers'] });
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
       },
       onError: (err) => {
         toast.error(err.response?.data?.message || '멤버 변경 실패');
-      }
-    }
-  );
+      } });
 
   const isMember = (user) => (user.groupIds || []).some((g) => String(g) === String(group?._id));
 
@@ -177,7 +170,7 @@ function GroupMembersDialog({ open, onClose, group }) {
                         color="warning"
                         startIcon={<PersonRemoveIcon />}
                         onClick={() => memberMutation.mutate({ userId: u._id, action: 'remove' })}
-                        disabled={memberMutation.isLoading}
+                        disabled={memberMutation.isPending}
                       >
                         제거
                       </Button>
@@ -185,7 +178,7 @@ function GroupMembersDialog({ open, onClose, group }) {
                       <Button
                         startIcon={<PersonAddIcon />}
                         onClick={() => memberMutation.mutate({ userId: u._id, action: 'add' })}
-                        disabled={memberMutation.isLoading}
+                        disabled={memberMutation.isPending}
                       >
                         추가
                       </Button>
@@ -216,56 +209,40 @@ function GroupManagementPage() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const queryClient = useQueryClient();
 
-  const { data: groupsData, isLoading } = useQuery(
-    ['groups'],
-    () => groupAPI.getAll(),
-    { refetchInterval: 30000 }
-  );
+  const { data: groupsData, isLoading } = useQuery({ queryKey: ['groups'], queryFn: () => groupAPI.getAll(), refetchInterval: 30000 });
 
   const groups = groupsData?.data?.data?.groups || [];
 
-  const createMutation = useMutation(
-    (data) => groupAPI.create(data),
-    {
+  const createMutation = useMutation({ mutationFn: (data) => groupAPI.create(data),
       onSuccess: () => {
         toast.success('그룹이 생성되었습니다.');
-        queryClient.invalidateQueries(['groups']);
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
         setFormOpen(false);
         setEditingGroup(null);
       },
       onError: (err) => {
         toast.error(err.response?.data?.message || '그룹 생성 실패');
-      }
-    }
-  );
+      } });
 
-  const updateMutation = useMutation(
-    ({ id, data }) => groupAPI.update(id, data),
-    {
+  const updateMutation = useMutation({ mutationFn: ({ id, data }) => groupAPI.update(id, data),
       onSuccess: () => {
         toast.success('그룹이 수정되었습니다.');
-        queryClient.invalidateQueries(['groups']);
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
         setFormOpen(false);
         setEditingGroup(null);
       },
       onError: (err) => {
         toast.error(err.response?.data?.message || '그룹 수정 실패');
-      }
-    }
-  );
+      } });
 
-  const deleteMutation = useMutation(
-    (id) => groupAPI.delete(id),
-    {
+  const deleteMutation = useMutation({ mutationFn: (id) => groupAPI.delete(id),
       onSuccess: () => {
         toast.success('그룹이 삭제되었습니다.');
-        queryClient.invalidateQueries(['groups']);
+        queryClient.invalidateQueries({ queryKey: ['groups'] });
       },
       onError: (err) => {
         toast.error(err.response?.data?.message || '그룹 삭제 실패');
-      }
-    }
-  );
+      } });
 
   const handleNew = () => {
     setEditingGroup(null);
@@ -301,18 +278,18 @@ function GroupManagementPage() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 3 }}>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
-        <Box>
-          <Typography variant="h5">그룹 관리</Typography>
-          <Typography variant="body2" color="text.secondary">
-            사용자 그룹을 정의하고, 작업판 단위 접근 권한을 관리합니다. admin 은 implicit all-access 이므로 그룹과 무관합니다.
-          </Typography>
-        </Box>
+    <Container maxWidth="lg" sx={{ mb: 8 }}>
+      <PageHeader
+        title="그룹 관리"
+        description="사용자 그룹을 정의하고, 작업판 단위 접근 권한을 관리합니다. admin 은 implicit all-access 이므로 그룹과 무관합니다."
+        actions={(
+          <>
         <Button variant="contained" startIcon={<AddIcon />} onClick={handleNew}>
           새 그룹
         </Button>
-      </Stack>
+          </>
+        )}
+      />
 
       {isLoading ? (
         <Box display="flex" justifyContent="center" py={6}>
