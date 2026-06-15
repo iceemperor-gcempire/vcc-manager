@@ -96,15 +96,19 @@ serverSchema.methods.checkHealth = async function() {
         healthEndpoint = this.serverUrl;
     }
 
+    // at-rest 암호화된 apiKey 복호화 (#594)
+    const { decryptSecret } = require('../utils/secretCrypto');
+    const apiKey = decryptSecret(this.configuration?.apiKey);
+
     const requestConfig = {
       timeout: Math.min(timeout, 10000), // 최대 10초
-      headers: this.configuration?.apiKey ? {
-        'Authorization': `Bearer ${this.configuration.apiKey}`
+      headers: apiKey ? {
+        'Authorization': `Bearer ${apiKey}`
       } : {}
     };
 
-    if (this.serverType === 'Gemini' && this.configuration?.apiKey) {
-      requestConfig.params = { key: this.configuration.apiKey };
+    if (this.serverType === 'Gemini' && apiKey) {
+      requestConfig.params = { key: apiKey };
       requestConfig.headers = {};
     }
 

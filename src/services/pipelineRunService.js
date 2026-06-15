@@ -10,6 +10,7 @@ const Tag = require('../models/Tag');
 const openAIChatService = require('./openAIChatService');
 const geminiService = require('./geminiService');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
+const { decryptSecret } = require('../utils/secretCrypto');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const queueService = require('./queueService');
@@ -164,7 +165,7 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   try {
     ({ content: result, usage } = await chatService.complete(
       server.serverUrl,
-      server.configuration?.apiKey,
+      decryptSecret(server.configuration?.apiKey), // at-rest 복호화 (#594)
       messages,
       { model: resolvedModel, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams }
     ));

@@ -8,7 +8,8 @@ const backupJobSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['full', 'database', 'files'],
+    // snapshot: 복원 직전 자동 생성되는 롤백용 스냅샷 (#590)
+    enum: ['full', 'database', 'files', 'snapshot'],
     default: 'full'
   },
   fileName: {

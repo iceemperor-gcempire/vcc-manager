@@ -1,35 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const readline = require('readline');
 const unzipper = require('unzipper');
 const RestoreJob = require('../models/RestoreJob');
-const { ENCRYPTION_KEY } = require('./backupService');
+const backupService = require('./backupService');
+const { ENCRYPTION_KEY } = backupService;
 
-// MongoDB 모델들
-const User = require('../models/User');
-const Server = require('../models/Server');
-const Workboard = require('../models/Workboard');
-const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const PromptData = require('../models/PromptData');
-const Tag = require('../models/Tag');
-const LoraCache = require('../models/LoraCache');
-
-// 복구할 컬렉션 목록 (순서 중요 - 의존성 고려)
-const COLLECTIONS = {
-  User: { model: User },
-  Server: { model: Server, decryptFields: ['configuration.apiKey'] },
-  Tag: { model: Tag },
-  Workboard: { model: Workboard },
-  UploadedImage: { model: UploadedImage },
-  PromptData: { model: PromptData },
-  ImageGenerationJob: { model: ImageGenerationJob },
-  GeneratedImage: { model: GeneratedImage },
-  GeneratedVideo: { model: GeneratedVideo },
-  LoraCache: { model: LoraCache }
-};
+// 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
+// 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
+const { BACKUP_COLLECTIONS } = require('./backupCollections');
 
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
@@ -98,6 +78,83 @@ function decryptFields(doc, fieldsToDecrypt) {
   }
 
   return processedDoc;
+}
+
+/**
+ * 단일 문서 복구 (복호화 → _id 보존 create / overwrite upsert). (#591 스트리밍 분리)
+ * 성공 시 true. 통계는 statistics 에 누적.
+ */
+async function restoreOneDoc(doc, config, options, statistics) {
+  try {
+    // 암호화 필드 복호화 (백업 시 암호화한 encryptFields 와 동일)
+    let processedDoc = doc;
+    if (config.encryptFields) {
+      processedDoc = decryptFields(doc, config.encryptFields);
+    }
+
+    const docId = processedDoc._id;
+    delete processedDoc._id;
+
+    if (options.overwriteExisting) {
+      await config.model.findByIdAndUpdate(docId, processedDoc, { upsert: true, new: true });
+    } else {
+      const existing = await config.model.findById(docId);
+      if (!existing) {
+        processedDoc._id = docId;
+        await config.model.create(processedDoc);
+      } else {
+        statistics.skipped++;
+      }
+    }
+    return true;
+  } catch (docError) {
+    console.error(`${config.name} 문서 복구 오류:`, docError.message);
+    statistics.errors++;
+    return false;
+  }
+}
+
+/**
+ * 컬렉션 복구 — NDJSON(#591) 우선 스트리밍, 없으면 구버전 .json 배열 fallback.
+ * 반환: 복구 시도한 문서 수.
+ */
+async function restoreCollection(config, tempExtractDir, options, statistics) {
+  const ndjsonPath = path.join(tempExtractDir, 'database', `${config.name}.ndjson`);
+  const jsonPath = path.join(tempExtractDir, 'database', `${config.name}.json`);
+  let restoredCount = 0;
+
+  if (fs.existsSync(ndjsonPath)) {
+    // 신버전: 한 줄에 문서 1개 — 라인 스트리밍 (메모리 상수)
+    const rl = readline.createInterface({
+      input: fs.createReadStream(ndjsonPath),
+      crlfDelay: Infinity
+    });
+    for await (const line of rl) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let doc;
+      try {
+        doc = JSON.parse(trimmed);
+      } catch (parseErr) {
+        console.error(`${config.name} NDJSON 파싱 오류:`, parseErr.message);
+        statistics.errors++;
+        continue;
+      }
+      await restoreOneDoc(doc, config, options, statistics);
+      restoredCount++;
+    }
+  } else if (fs.existsSync(jsonPath)) {
+    // 구버전 호환: 통째 JSON 배열
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    for (const doc of data) {
+      await restoreOneDoc(doc, config, options, statistics);
+      restoredCount++;
+    }
+  } else {
+    return null; // 해당 컬렉션 파일 없음
+  }
+
+  return restoredCount;
 }
 
 /**
@@ -176,11 +233,11 @@ async function validateBackup(zipPath, userId) {
       }
     }
 
-    // 컬렉션 확인
-    const requiredCollections = Object.keys(COLLECTIONS);
+    // 컬렉션 확인 — 보강된 단일 소스 목록 기준으로 누락 경고 (#588)
+    const requiredCollections = BACKUP_COLLECTIONS.map((c) => c.name);
     for (const col of requiredCollections) {
       if (metadata.collections && metadata.collections[col] === undefined) {
-        warnings.push(`${col} 컬렉션이 백업에 없습니다.`);
+        warnings.push(`${col} 컬렉션이 백업에 없습니다. (구버전 백업일 수 있음 — 해당 데이터는 복원되지 않습니다)`);
       }
     }
 
@@ -217,6 +274,23 @@ async function executeRestore(jobId, zipPath, options = {}) {
   job.options = options;
   await job.save();
 
+  // 복원 직전 자동 스냅샷 (#590) — 잘못된 복원 시 롤백 경로 확보.
+  // best-effort: 실패해도 복원은 진행하되 RestoreJob 에 경고를 남긴다 (options.skipSnapshot 로 명시 생략 가능).
+  if (!options.skipSnapshot) {
+    try {
+      await job.updateProgress(0, 1, '복원 전 스냅샷 생성 중...');
+      const snapshot = await backupService.initBackupJob(job.createdBy, 'snapshot');
+      await backupService.executeBackup(snapshot._id);
+      job.preRestoreSnapshotId = snapshot._id;
+      await job.save();
+      console.log(`📸 복원 전 스냅샷 생성 완료: ${snapshot._id}`);
+    } catch (snapErr) {
+      job.snapshotWarning = `복원 전 스냅샷 생성 실패: ${snapErr.message} (롤백 스냅샷 없이 복원이 진행됩니다)`;
+      await job.save();
+      console.error(`⚠️ 복원 전 스냅샷 생성 실패: ${snapErr.message}`);
+    }
+  }
+
   const statistics = {
     collectionsRestored: {},
     filesRestored: {
@@ -228,7 +302,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
     errors: 0
   };
 
-  const totalSteps = Object.keys(COLLECTIONS).length + 3; // 컬렉션 + 파일 디렉토리 3개
+  const totalSteps = BACKUP_COLLECTIONS.length + 3; // 컬렉션 + 파일 디렉토리 3개
   let currentStep = 0;
 
   // 임시 디렉토리 생성
@@ -250,58 +324,19 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
     // 데이터베이스 복구
     if (!options.skipDatabase) {
-      for (const [name, config] of Object.entries(COLLECTIONS)) {
+      for (const config of BACKUP_COLLECTIONS) {
+        const name = config.name;
         currentStep++;
         await job.updateProgress(currentStep, totalSteps, `${name} 컬렉션 복구 중...`);
 
-        const jsonPath = path.join(tempExtractDir, 'database', `${name}.json`);
-
-        if (fs.existsSync(jsonPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            let restoredCount = 0;
-
-            for (const doc of data) {
-              try {
-                // 암호화 필드 복호화
-                let processedDoc = doc;
-                if (config.decryptFields) {
-                  processedDoc = decryptFields(doc, config.decryptFields);
-                }
-
-                // _id와 날짜 필드 변환
-                const docId = processedDoc._id;
-                delete processedDoc._id;
-
-                if (options.overwriteExisting) {
-                  await config.model.findByIdAndUpdate(
-                    docId,
-                    processedDoc,
-                    { upsert: true, new: true }
-                  );
-                } else {
-                  // 존재 여부 확인
-                  const existing = await config.model.findById(docId);
-                  if (!existing) {
-                    processedDoc._id = docId;
-                    await config.model.create(processedDoc);
-                  } else {
-                    statistics.skipped++;
-                  }
-                }
-
-                restoredCount++;
-              } catch (docError) {
-                console.error(`${name} 문서 복구 오류:`, docError.message);
-                statistics.errors++;
-              }
-            }
-
+        try {
+          const restoredCount = await restoreCollection(config, tempExtractDir, options, statistics);
+          if (restoredCount !== null) {
             statistics.collectionsRestored[name] = restoredCount;
-          } catch (colError) {
-            console.error(`${name} 컬렉션 복구 오류:`, colError.message);
-            statistics.errors++;
           }
+        } catch (colError) {
+          console.error(`${name} 컬렉션 복구 오류:`, colError.message);
+          statistics.errors++;
         }
       }
     }
@@ -398,5 +433,8 @@ module.exports = {
   validateBackup,
   executeRestore,
   getRestoreStatus,
-  listRestores
+  listRestores,
+  // 테스트용 내부 헬퍼 (#591)
+  restoreOneDoc,
+  restoreCollection
 };

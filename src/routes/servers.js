@@ -8,6 +8,7 @@ const { verifyJWT, requireAdmin, userHasWorkboardAccess } = require('../middlewa
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
+const { encryptSecret } = require('../utils/secretCrypto');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
@@ -45,16 +46,18 @@ router.get('/', verifyJWT, async (req, res) => {
 // 서버 상세 조회 (관리자만)
 router.get('/:id', requireAdmin, async (req, res) => {
   try {
+    // apiKey 는 응답에서 제외 (목록 라우트와 동일 — 평문/암호문 모두 프론트로 보내지 않음) (#594)
     const server = await Server.findById(req.params.id)
+      .select('-configuration.apiKey')
       .populate('createdBy', 'email nickname');
-    
+
     if (!server) {
       return res.status(404).json({
         success: false,
         message: '서버를 찾을 수 없습니다.'
       });
     }
-    
+
     res.json({
       success: true,
       data: { server }
@@ -104,6 +107,11 @@ router.post('/', requireAdmin, async (req, res) => {
       });
     }
 
+    // apiKey 는 at-rest 암호화 후 저장 (#594)
+    if (configuration && configuration.apiKey) {
+      configuration.apiKey = encryptSecret(configuration.apiKey);
+    }
+
     const server = new Server({
       name,
       description,
@@ -112,7 +120,7 @@ router.post('/', requireAdmin, async (req, res) => {
       configuration,
       createdBy: req.user.id
     });
-    
+
     await server.save();
     
     // 생성 후 헬스체크 수행
@@ -189,9 +197,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (serverType !== undefined) updateFields.serverType = serverType;
     if (serverUrl !== undefined) updateFields.serverUrl = serverUrl;
     if (configuration !== undefined) {
-      // API 키가 비어있으면 기존 값을 유지
+      // API 키가 비어있으면 기존 값(이미 암호화됨)을 유지, 새 값이면 at-rest 암호화 (#594)
       if (!configuration.apiKey && server.configuration?.apiKey) {
         configuration.apiKey = server.configuration.apiKey;
+      } else if (configuration.apiKey) {
+        configuration.apiKey = encryptSecret(configuration.apiKey); // 이미 enc: 면 멱등
       }
       updateFields.configuration = configuration;
     }

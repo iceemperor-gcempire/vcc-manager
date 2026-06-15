@@ -44,6 +44,7 @@ const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupT
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
 const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
 const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
+const encryptExistingSecrets = require('./migrations/encryptExistingSecrets');
 const ensureWorldviewTag = require('./migrations/ensureWorldviewTag');
 const backfillConversationTags = require('./migrations/backfillConversationTags');
 const alignTagColorsV2 = require('./migrations/alignTagColorsV2');
@@ -249,6 +250,7 @@ const startServer = async () => {
     await backfillCustomFieldRoles();
     await dropBaseInputFieldsSchema();
     await relocateCivitaiApiKey();
+    await encryptExistingSecrets();
     await ensureWorldviewTag();
     await backfillConversationTags();
     await alignTagColorsV2();

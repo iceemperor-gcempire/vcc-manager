@@ -430,6 +430,9 @@ function StepLaneCard({
   const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
   const customFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
   const isImageOrVideoStep = step.workboard?.outputFormat === 'image' || step.workboard?.outputFormat === 'video';
+  // 컨텍스트 / 시스템 프롬프트 문서는 실행 시 LLM(텍스트) 단계에만 주입됨 (runTextStep).
+  // 이미지/영상 단계는 문서를 읽지 않으므로 문서 연결 UI 자체를 숨긴다 (#586).
+  const isLlmStep = step.workboard?.outputFormat === 'text';
   // image/video step 은 customField 가 없더라도 explicit prompt/negativePrompt/seed 폼을 보여줘야 함 (#431)
   const inputFieldCount = customFieldCount + (isImageOrVideoStep ? 3 : 0);
   return (
@@ -564,16 +567,20 @@ function StepLaneCard({
               이 단계는 사전 입력 필드가 없습니다.
             </Typography>
           )}
-          <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              컨텍스트 문서
-            </Typography>
-            <Chip label={`${step.contextDocIds?.length || 0}개`} variant="outlined" />
-            {step.systemPromptDocId && <Chip label="시스템 프롬프트 1" color="info" />}
-          </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-            {isMobile ? '하단 "문서" 버튼으로 편집' : '좌측 팔레트에서 문서 클릭으로 추가 / 제거'}
-          </Typography>
+          {isLlmStep && (
+            <>
+              <Box sx={{ mt: 2.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  컨텍스트 문서
+                </Typography>
+                <Chip label={`${step.contextDocIds?.length || 0}개`} variant="outlined" />
+                {step.systemPromptDocId && <Chip label="시스템 프롬프트 1" color="info" />}
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                {isMobile ? '하단 "문서" 버튼으로 편집' : '좌측 팔레트에서 문서 클릭으로 추가 / 제거'}
+              </Typography>
+            </>
+          )}
         </Box>
       )}
 
@@ -604,8 +611,8 @@ function StepLaneCard({
             {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
           </Button>
         )}
-        {/* 문서 button: 모바일 (팔레트 미사용) 에서만 — 데스크탑은 팔레트로 통일 */}
-        {(isMobile || !isSelected) && (
+        {/* 문서 button: LLM(텍스트) 단계만 — 이미지/영상은 문서 미적용 (#586). 모바일(팔레트 미사용) 또는 비선택 시 노출 */}
+        {isLlmStep && (isMobile || !isSelected) && (
           <Button
             fullWidth
             variant="outlined"
@@ -713,9 +720,14 @@ function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc 
 
   const ctxIds = new Set(selectedStep?.contextDocIds || []);
   const spId = selectedStep?.systemPromptDocId;
+  // 문서는 LLM(텍스트) 단계에만 주입됨 — 이미지/영상 단계 선택 시 추가 비활성 (#586)
+  const selectedIsLlm = selectedStep?.workboard?.outputFormat === 'text';
+  const docsDisabled = selectedStepIdx < 0 || !selectedIsLlm;
   const helpText = selectedStepIdx < 0
     ? '단계 카드를 클릭해 선택한 뒤 문서를 추가하세요.'
-    : '클릭하면 선택 단계에 추가/해제.';
+    : !selectedIsLlm
+      ? '이미지 / 영상 단계에는 문서가 적용되지 않습니다. 문서 연결은 LLM(텍스트) 단계 전용입니다.'
+      : '클릭하면 선택 단계에 추가/해제.';
 
   return (
     <Box sx={{ position: 'sticky', top: 12, display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -732,7 +744,7 @@ function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc 
             </Typography>
           </Box>
         ) : (
-          <PaletteDocList docs={wvDocs} selectedIds={ctxIds} disabled={selectedStepIdx < 0} onClickDoc={(id) => onAddDoc(selectedStepIdx, id, false)} />
+          <PaletteDocList docs={wvDocs} selectedIds={ctxIds} disabled={docsDisabled} onClickDoc={(id) => onAddDoc(selectedStepIdx, id, false)} />
         )}
       </Paper>
 
@@ -752,7 +764,7 @@ function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc 
           <PaletteDocList
             docs={spDocs}
             selectedIds={spId ? new Set([spId]) : new Set()}
-            disabled={selectedStepIdx < 0}
+            disabled={docsDisabled}
             onClickDoc={(id) => onAddDoc(selectedStepIdx, id, true)}
             singleSelect
           />

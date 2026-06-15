@@ -54,6 +54,14 @@ const restoreJobSchema = new mongoose.Schema({
     errors: [String],
     warnings: [String]
   },
+  // 복원 직전 자동 생성된 롤백용 스냅샷 (#590). 스냅샷 생성 실패 시 snapshotWarning 에 사유.
+  preRestoreSnapshotId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'BackupJob'
+  },
+  snapshotWarning: {
+    type: String
+  },
   error: {
     message: String,
     stack: String

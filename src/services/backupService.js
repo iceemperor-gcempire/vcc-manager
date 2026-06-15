@@ -1,34 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { once } = require('events');
 const archiver = require('archiver');
 const BackupJob = require('../models/BackupJob');
 
-// MongoDB 모델들
-const User = require('../models/User');
-const Server = require('../models/Server');
-const Workboard = require('../models/Workboard');
-const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const PromptData = require('../models/PromptData');
-const Tag = require('../models/Tag');
-const LoraCache = require('../models/LoraCache');
-
-// 백업할 컬렉션 목록
-const COLLECTIONS = {
-  User: { model: User, sensitiveFields: ['googleId'] },
-  Server: { model: Server, encryptFields: ['configuration.apiKey'] },
-  Workboard: { model: Workboard },
-  ImageGenerationJob: { model: ImageGenerationJob },
-  GeneratedImage: { model: GeneratedImage },
-  GeneratedVideo: { model: GeneratedVideo },
-  UploadedImage: { model: UploadedImage },
-  PromptData: { model: PromptData },
-  Tag: { model: Tag },
-  LoraCache: { model: LoraCache }
-};
+// 백업 대상 컬렉션 — backup/restore 공유 단일 소스 (#588)
+const { BACKUP_COLLECTIONS } = require('./backupCollections');
 
 // 백업 디렉토리
 const BACKUP_DIR = process.env.BACKUP_PATH || './backups';
@@ -56,7 +34,7 @@ function validateEncryptionKey() {
 function encryptData(text) {
   if (!text) return null;
 
-  const iv = crypto.randomBytes(16);
+  const iv = crypto.randomBytes(12); // AES-GCM 표준 IV 길이 (복호화는 저장된 iv 길이를 사용하므로 구버전 16바이트 백업도 호환)
   const key = Buffer.from(ENCRYPTION_KEY, 'hex').slice(0, 32);
   const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
 
@@ -127,37 +105,49 @@ function encryptFields(doc, encryptFields) {
 }
 
 /**
- * 컬렉션 데이터 추출
+ * 단일 문서 처리 (민감 필드 제거 + 필드 암호화)
  */
-async function exportCollection(collectionName, config, job) {
-  const { model, sensitiveFields = [], encryptFields: fieldsToEncrypt = [] } = config;
-
-  const documents = await model.find({}).lean();
-  const processedDocs = [];
-
-  for (const doc of documents) {
-    let processedDoc = doc;
-
-    // 민감 필드 제거
-    if (sensitiveFields.length > 0) {
-      processedDoc = removeSensitiveFields(processedDoc, sensitiveFields);
-    }
-
-    // 필드 암호화
-    if (fieldsToEncrypt.length > 0) {
-      processedDoc = encryptFields(processedDoc, fieldsToEncrypt);
-    }
-
-    processedDocs.push(processedDoc);
+function processDoc(doc, config) {
+  const { sensitiveFields = [], encryptFields: fieldsToEncrypt = [] } = config;
+  let processedDoc = doc;
+  if (sensitiveFields.length > 0) {
+    processedDoc = removeSensitiveFields(processedDoc, sensitiveFields);
   }
+  if (fieldsToEncrypt.length > 0) {
+    processedDoc = encryptFields(processedDoc, fieldsToEncrypt);
+  }
+  return processedDoc;
+}
 
-  return processedDocs;
+/**
+ * 컬렉션을 cursor 로 스트리밍하며 NDJSON(문서 1개/줄) 파일로 기록 (#591).
+ * 컬렉션 전체를 메모리에 적재하지 않아 대용량에서도 OOM 없이 동작.
+ * 반환: 기록한 문서 수.
+ */
+async function writeCollectionNdjson(config, outPath) {
+  const ws = fs.createWriteStream(outPath);
+  const cursor = config.model.find({}).lean().cursor();
+  let count = 0;
+  try {
+    for await (const doc of cursor) {
+      const line = JSON.stringify(processDoc(doc, config)) + '\n';
+      if (!ws.write(line)) {
+        await once(ws, 'drain'); // backpressure 존중
+      }
+      count++;
+    }
+  } finally {
+    await cursor.close().catch(() => {});
+  }
+  ws.end();
+  await once(ws, 'finish');
+  return count;
 }
 
 /**
  * 백업 작업 초기화 (DB에 작업 기록만 생성)
  */
-async function initBackupJob(userId) {
+async function initBackupJob(userId, type = 'full') {
   // 암호화 키 유효성 검사
   validateEncryptionKey();
 
@@ -166,14 +156,14 @@ async function initBackupJob(userId) {
     fs.mkdirSync(BACKUP_DIR, { recursive: true });
   }
 
-  // 백업 작업 생성
+  // 백업 작업 생성 (type: 'full' 수동 / 'snapshot' 복원 직전 자동 #590)
   const job = new BackupJob({
     status: 'pending',
-    type: 'full',
+    type,
     createdBy: userId,
     progress: {
       current: 0,
-      total: Object.keys(COLLECTIONS).length + 3, // 컬렉션 + 파일 디렉토리 3개
+      total: BACKUP_COLLECTIONS.length + 3, // 컬렉션 + 파일 디렉토리 3개
       stage: '대기 중...'
     }
   });
@@ -197,10 +187,15 @@ async function executeBackup(jobId) {
   await job.save();
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const fileName = `vcc-backup-${timestamp}.zip`;
+  const prefix = job.type === 'snapshot' ? 'vcc-presnapshot' : 'vcc-backup';
+  const fileName = `${prefix}-${timestamp}.zip`;
   const filePath = path.join(BACKUP_DIR, fileName);
 
+  // 컬렉션 NDJSON 임시 디렉토리 (스트리밍 후 아카이브에 추가, 종료 시 정리) (#591)
+  const dbTmpDir = path.join(BACKUP_DIR, `.db-tmp-${job._id}`);
+
   try {
+    fs.mkdirSync(dbTmpDir, { recursive: true });
     // ZIP 파일 생성
     const output = fs.createWriteStream(filePath);
     const archive = archiver('zip', { zlib: { level: 9 } });
@@ -226,17 +221,17 @@ async function executeBackup(jobId) {
       encryptionKeyHash: crypto.createHash('sha256').update(ENCRYPTION_KEY).digest('hex').slice(0, 16)
     };
 
-    // 컬렉션 백업
+    // 컬렉션 백업 — cursor 스트리밍 → NDJSON 임시파일 → 아카이브 (#591)
     let progress = 0;
-    for (const [name, config] of Object.entries(COLLECTIONS)) {
+    for (const config of BACKUP_COLLECTIONS) {
+      const name = config.name;
       await job.updateProgress(progress, job.progress.total, `${name} 컬렉션 백업 중...`);
 
-      const documents = await exportCollection(name, config, job);
-      metadata.collections[name] = documents.length;
+      const ndjsonPath = path.join(dbTmpDir, `${name}.ndjson`);
+      const count = await writeCollectionNdjson(config, ndjsonPath);
+      metadata.collections[name] = count;
 
-      archive.append(JSON.stringify(documents, null, 2), {
-        name: `database/${name}.json`
-      });
+      archive.file(ndjsonPath, { name: `database/${name}.ndjson` });
 
       progress++;
     }
@@ -267,6 +262,9 @@ async function executeBackup(jobId) {
     await archive.finalize();
     await archivePromise;
 
+    // NDJSON 임시 디렉토리 정리 (아카이브에 다 담긴 후)
+    fs.rmSync(dbTmpDir, { recursive: true, force: true });
+
     // 파일 크기 확인
     const stats = fs.statSync(filePath);
 
@@ -282,10 +280,11 @@ async function executeBackup(jobId) {
     console.log(`✅ 백업 완료: ${fileName} (${stats.size} bytes)`);
     return job;
   } catch (error) {
-    // 실패 시 파일 삭제
+    // 실패 시 파일 / 임시 디렉토리 삭제
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
     }
+    fs.rmSync(dbTmpDir, { recursive: true, force: true });
 
     await job.fail(error);
     console.error(`❌ 백업 실패: ${error.message}`);
@@ -384,6 +383,8 @@ async function deleteBackup(jobId) {
 async function getLastBackupTime(userId) {
   const lastBackup = await BackupJob.findOne({
     createdBy: userId,
+    // 복원 직전 자동 스냅샷(#590)은 수동 백업 rate limit 계산에서 제외
+    type: { $ne: 'snapshot' },
     status: { $in: ['pending', 'processing', 'completed'] }
   }).sort({ createdAt: -1 });
 
@@ -399,5 +400,8 @@ module.exports = {
   getBackupFilePath,
   deleteBackup,
   getLastBackupTime,
-  ENCRYPTION_KEY
+  ENCRYPTION_KEY,
+  // 테스트용 내부 헬퍼 (#591)
+  processDoc,
+  writeCollectionNdjson
 };
