@@ -12,6 +12,8 @@
 
 VCC Manager는 여러 생성 백엔드(ComfyUI · OpenAI 호환 · Gemini)를 한 곳에서 관리하고, 프로젝트 단위로 콘텐츠 생성을 자동화하는 종합 웹 애플리케이션입니다.
 
+![대시보드](./docs/images/dashboard.png)
+
 ### 주요 기능
 
 - **작업판(Workboard)** — 생성 작업의 단위. 서버(provider) + 출력 형식(image/video/text) 조합으로 입력 양식·워크플로우·기본값을 정의. 백업/복원(내보내기·가져오기) 지원
