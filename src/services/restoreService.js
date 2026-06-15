@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const readline = require('readline');
 const unzipper = require('unzipper');
 const RestoreJob = require('../models/RestoreJob');
 const backupService = require('./backupService');
@@ -77,6 +78,83 @@ function decryptFields(doc, fieldsToDecrypt) {
   }
 
   return processedDoc;
+}
+
+/**
+ * 단일 문서 복구 (복호화 → _id 보존 create / overwrite upsert). (#591 스트리밍 분리)
+ * 성공 시 true. 통계는 statistics 에 누적.
+ */
+async function restoreOneDoc(doc, config, options, statistics) {
+  try {
+    // 암호화 필드 복호화 (백업 시 암호화한 encryptFields 와 동일)
+    let processedDoc = doc;
+    if (config.encryptFields) {
+      processedDoc = decryptFields(doc, config.encryptFields);
+    }
+
+    const docId = processedDoc._id;
+    delete processedDoc._id;
+
+    if (options.overwriteExisting) {
+      await config.model.findByIdAndUpdate(docId, processedDoc, { upsert: true, new: true });
+    } else {
+      const existing = await config.model.findById(docId);
+      if (!existing) {
+        processedDoc._id = docId;
+        await config.model.create(processedDoc);
+      } else {
+        statistics.skipped++;
+      }
+    }
+    return true;
+  } catch (docError) {
+    console.error(`${config.name} 문서 복구 오류:`, docError.message);
+    statistics.errors++;
+    return false;
+  }
+}
+
+/**
+ * 컬렉션 복구 — NDJSON(#591) 우선 스트리밍, 없으면 구버전 .json 배열 fallback.
+ * 반환: 복구 시도한 문서 수.
+ */
+async function restoreCollection(config, tempExtractDir, options, statistics) {
+  const ndjsonPath = path.join(tempExtractDir, 'database', `${config.name}.ndjson`);
+  const jsonPath = path.join(tempExtractDir, 'database', `${config.name}.json`);
+  let restoredCount = 0;
+
+  if (fs.existsSync(ndjsonPath)) {
+    // 신버전: 한 줄에 문서 1개 — 라인 스트리밍 (메모리 상수)
+    const rl = readline.createInterface({
+      input: fs.createReadStream(ndjsonPath),
+      crlfDelay: Infinity
+    });
+    for await (const line of rl) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      let doc;
+      try {
+        doc = JSON.parse(trimmed);
+      } catch (parseErr) {
+        console.error(`${config.name} NDJSON 파싱 오류:`, parseErr.message);
+        statistics.errors++;
+        continue;
+      }
+      await restoreOneDoc(doc, config, options, statistics);
+      restoredCount++;
+    }
+  } else if (fs.existsSync(jsonPath)) {
+    // 구버전 호환: 통째 JSON 배열
+    const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    for (const doc of data) {
+      await restoreOneDoc(doc, config, options, statistics);
+      restoredCount++;
+    }
+  } else {
+    return null; // 해당 컬렉션 파일 없음
+  }
+
+  return restoredCount;
 }
 
 /**
@@ -251,54 +329,14 @@ async function executeRestore(jobId, zipPath, options = {}) {
         currentStep++;
         await job.updateProgress(currentStep, totalSteps, `${name} 컬렉션 복구 중...`);
 
-        const jsonPath = path.join(tempExtractDir, 'database', `${name}.json`);
-
-        if (fs.existsSync(jsonPath)) {
-          try {
-            const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
-            let restoredCount = 0;
-
-            for (const doc of data) {
-              try {
-                // 암호화 필드 복호화 (백업 시 암호화한 encryptFields 와 동일)
-                let processedDoc = doc;
-                if (config.encryptFields) {
-                  processedDoc = decryptFields(doc, config.encryptFields);
-                }
-
-                // _id와 날짜 필드 변환
-                const docId = processedDoc._id;
-                delete processedDoc._id;
-
-                if (options.overwriteExisting) {
-                  await config.model.findByIdAndUpdate(
-                    docId,
-                    processedDoc,
-                    { upsert: true, new: true }
-                  );
-                } else {
-                  // 존재 여부 확인
-                  const existing = await config.model.findById(docId);
-                  if (!existing) {
-                    processedDoc._id = docId;
-                    await config.model.create(processedDoc);
-                  } else {
-                    statistics.skipped++;
-                  }
-                }
-
-                restoredCount++;
-              } catch (docError) {
-                console.error(`${name} 문서 복구 오류:`, docError.message);
-                statistics.errors++;
-              }
-            }
-
+        try {
+          const restoredCount = await restoreCollection(config, tempExtractDir, options, statistics);
+          if (restoredCount !== null) {
             statistics.collectionsRestored[name] = restoredCount;
-          } catch (colError) {
-            console.error(`${name} 컬렉션 복구 오류:`, colError.message);
-            statistics.errors++;
           }
+        } catch (colError) {
+          console.error(`${name} 컬렉션 복구 오류:`, colError.message);
+          statistics.errors++;
         }
       }
     }
@@ -395,5 +433,8 @@ module.exports = {
   validateBackup,
   executeRestore,
   getRestoreStatus,
-  listRestores
+  listRestores,
+  // 테스트용 내부 헬퍼 (#591)
+  restoreOneDoc,
+  restoreCollection
 };
