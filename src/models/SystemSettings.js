@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { encryptSecret, decryptSecret } = require('../utils/secretCrypto');
 
 /**
  * 시스템 전역 설정 모델
@@ -78,7 +79,8 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
   }
   if (updates.civitaiApiKey !== undefined) {
     // #293 Phase B — 새 위치 우선, legacy 도 동기 갱신 (다른 코드 fallback 대비)
-    const v = updates.civitaiApiKey || null;
+    // #594 — at-rest 암호화 후 저장
+    const v = updates.civitaiApiKey ? encryptSecret(updates.civitaiApiKey) : null;
     settings.external.civitaiApiKey = v;
     settings.lora.civitaiApiKey = v;
   }
@@ -93,9 +95,10 @@ systemSettingsSchema.statics.updateLoraSettings = async function(updates) {
  */
 systemSettingsSchema.statics.getCivitaiApiKey = async function() {
   const settings = await this.getGlobal();
+  // #594 — at-rest 암호화된 값 복호화 (평문/legacy 는 그대로 반환)
   return (
-    settings.external?.civitaiApiKey ||
-    settings.lora?.civitaiApiKey ||
+    decryptSecret(settings.external?.civitaiApiKey) ||
+    decryptSecret(settings.lora?.civitaiApiKey) ||
     process.env.CIVITAI_API_KEY ||
     null
   );

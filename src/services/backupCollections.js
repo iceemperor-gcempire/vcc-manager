@@ -20,7 +20,9 @@
  * 비밀값 저장 형태 메모:
  * - User.password        : bcrypt 해시 (단방향) → 그대로 백업·복원해도 안전 + 로그인 동작
  * - ApiKey.keyHash       : SHA-256 해시 (단방향) → 그대로 백업해도 안전 + 키 검증 동작
- * - Server.configuration.apiKey, SystemSettings.*.civitaiApiKey : 평문 → 백업 시 암호화
+ * - Server.configuration.apiKey, SystemSettings.*.civitaiApiKey : #594 이후 DB 에 at-rest
+ *   암호화(enc:v1:) 문자열로 저장됨. backup encryptFields 는 그대로 두어 백업 안에서 한 번 더
+ *   감싸지만, 복원 시 정확히 round-trip 되고 구버전(평문) 백업도 호환됨 (#594 PR 설명 참고).
  */
 
 const User = require('../models/User');

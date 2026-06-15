@@ -14,6 +14,7 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { decryptSecret } = require('../utils/secretCrypto');
 
 let imageGenerationQueue;
 let redisClient;
@@ -1031,7 +1032,7 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
         serverType: workboard.serverId?.serverType,
         outputFormat: workboard.outputFormat,
         serverUrl: workboard.serverUrl,
-        apiKey: workboard.serverId?.configuration?.apiKey,
+        apiKey: decryptSecret(workboard.serverId?.configuration?.apiKey), // at-rest 복호화 (#594)
         timeout: workboard.serverId?.configuration?.timeout,
         workflowData: workboard.workflowData,
         additionalInputFields: workboard.additionalInputFields

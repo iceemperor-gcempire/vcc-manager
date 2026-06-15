@@ -19,6 +19,7 @@ const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const UploadedText = require('../models/UploadedText');
 const { loadVisionImages } = require('../utils/visionImages');
+const { decryptSecret } = require('../utils/secretCrypto');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -638,13 +639,14 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     }, 15000);
 
     let result, usage;
+    const serverApiKey = decryptSecret(server.configuration?.apiKey); // at-rest 복호화 (#594)
     try {
       if (server.serverType === 'Gemini') {
         // Gemini 는 스트리밍 미구현 — 헤더는 이미 flush 됐으니 TTFB 는 확보됨.
         // 결과를 단일 token 이벤트로 전송해 프론트 SSE 처리 경로를 통일.
         ({ content: result, usage } = await geminiService.complete(
           server.serverUrl,
-          server.configuration?.apiKey,
+          serverApiKey,
           messages,
           { model, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams }
         ));
@@ -652,7 +654,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       } else {
         ({ content: result, usage } = await openAIChatService.completeStream(
           server.serverUrl,
-          server.configuration?.apiKey,
+          serverApiKey,
           messages,
           { model, temperature, timeout: server.configuration?.timeout || 60000, extraParams: workboard.llmExtraParams },
           (delta) => sse('token', { delta })

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const ServerModelCache = require('../models/ServerModelCache');
 const SystemSettings = require('../models/SystemSettings');
+const { decryptSecret } = require('../utils/secretCrypto');
 
 // LoRA service 와 동일한 Civitai rate limit / 재시도 정책.
 // 단순 재구현 (Phase B 에서는 두 서비스가 독립으로 진화할 여지를 두기 위해
@@ -333,7 +334,7 @@ const syncServerProviderModels = async (server, { progressCallback = null } = {}
     throw new Error('Sync already in progress');
   }
 
-  const apiKey = server.configuration?.apiKey;
+  const apiKey = decryptSecret(server.configuration?.apiKey); // at-rest 복호화 (#594)
 
   try {
     await cache.startSync();
