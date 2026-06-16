@@ -7,6 +7,7 @@ const {
   parseWorkflow,
   analyzeNodes,
   analyzeWorkflow,
+  generateDraft,
 } = require('../services/workflowConverterService');
 
 // 표준 txt2img API 포맷 워크플로 (축약)
@@ -119,6 +120,67 @@ describe('#607 analyzeNodes (필요/빠진 노드)', () => {
     const parsed = parseWorkflow(API_WF);
     const objectInfo = { CheckpointLoaderSimple: {}, CLIPTextEncode: {}, KSampler: {}, EmptyLatentImage: {} };
     expect(analyzeNodes(parsed, objectInfo).missingNodes).toEqual([]);
+  });
+});
+
+describe('#608 generateDraft (결정론적 초안)', () => {
+  test('표준 txt2img → 역할 변수 추출 + placeholder 주입', () => {
+    const parsed = parseWorkflow(API_WF);
+    const draft = generateDraft(parsed, API_WF);
+    const byName = Object.fromEntries(draft.additionalInputFields.map((f) => [f.name, f]));
+
+    // 핵심 역할 추출
+    expect(byName.base_model?.type).toBe('baseModel');
+    expect(byName.base_model?.defaultValue).toBe('sdxl.safetensors');
+    expect(byName.prompt).toBeTruthy();
+    expect(byName.negative_prompt).toBeTruthy();
+    expect(byName.seed?.type).toBe('number');
+    expect(byName.width?.type).toBe('number');
+    expect(byName.height?.type).toBe('number');
+
+    // positive/negative 판별 (샘플러 추적): 'a cat'=prompt, 'blurry'=negative_prompt
+    expect(byName.prompt.defaultValue).toBe('a cat');
+    expect(byName.negative_prompt.defaultValue).toBe('blurry');
+  });
+
+  test('workflowData 에 placeholder 가 박히고 링크는 보존', () => {
+    const parsed = parseWorkflow(API_WF);
+    const draft = generateDraft(parsed, API_WF);
+    const wf = JSON.parse(draft.workflowData);
+    expect(wf['4'].inputs.ckpt_name).toBe('{{##base_model##}}');
+    expect(wf['6'].inputs.text).toBe('{{##prompt##}}');
+    expect(wf['7'].inputs.text).toBe('{{##negative_prompt##}}');
+    expect(wf['3'].inputs.seed).toBe('{{##seed##}}');
+    // 링크 입력은 그대로
+    expect(wf['3'].inputs.positive).toEqual(['6', 0]);
+    // 노출 안 한 튜닝값은 원본 유지
+    expect(wf['3'].inputs.steps).toBe(20);
+  });
+
+  test('steps/cfg 등 미노출 튜닝값은 note 로 안내', () => {
+    const parsed = parseWorkflow(API_WF);
+    const draft = generateDraft(parsed, API_WF);
+    expect(draft.notes.join(' ')).toMatch(/튜닝/);
+  });
+
+  test('이름 충돌 시 _2 로 유일화 (LoRA 2개)', () => {
+    const wf = {
+      ...API_WF,
+      '8': { class_type: 'LoraLoader', inputs: { lora_name: 'a.safetensors', model: ['4', 0], clip: ['4', 1] } },
+      '9': { class_type: 'LoraLoader', inputs: { lora_name: 'b.safetensors', model: ['8', 0], clip: ['8', 1] } },
+    };
+    const parsed = parseWorkflow(wf);
+    const draft = generateDraft(parsed, wf);
+    const loraNames = draft.additionalInputFields.filter((f) => f.type === 'lora').map((f) => f.name).sort();
+    expect(loraNames).toEqual(['lora', 'lora_2']);
+  });
+
+  test('커스텀 노드만 있으면 변수 못 찾고 note 안내', () => {
+    const wf = { '1': { class_type: 'SomeCustomNode', inputs: { foo: ['1', 0] } } };
+    const parsed = parseWorkflow(wf);
+    const draft = generateDraft(parsed, wf);
+    expect(draft.additionalInputFields).toHaveLength(0);
+    expect(draft.notes.join(' ')).toMatch(/커스텀|수동/);
   });
 });
 

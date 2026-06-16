@@ -138,6 +138,59 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
   }
 });
 
+// ComfyUI 워크플로 → 작업판 초안 생성 (관리자 전용) — 결정론적 역할 매핑 (#608)
+router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
+  try {
+    const { workflow, serverId } = req.body;
+    if (!workflow) {
+      return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(workflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    // 빠진 노드 검사 (서버 연결 시, 선택)
+    let objectInfo = null;
+    let serverWarning = null;
+    if (serverId) {
+      const server = await Server.findById(serverId);
+      if (server) {
+        try {
+          objectInfo = await comfyUIService.getObjectInfo(server.serverUrl);
+        } catch (e) {
+          serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
+        }
+      }
+    }
+
+    const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
+    const draft = workflowConverter.generateDraft(parsed, workflow);
+
+    res.json({
+      success: true,
+      data: {
+        // 작업판 편집기로 바로 넘길 수 있는 초안
+        draft: {
+          workflowData: draft.workflowData,
+          additionalInputFields: draft.additionalInputFields,
+        },
+        notes: draft.notes,
+        analysis: {
+          requiredNodes: nodeAnalysis.requiredNodes,
+          missingNodes: nodeAnalysis.missingNodes,
+        },
+        serverWarning,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 작업판 가져오기 (관리자 전용)
 router.post('/import', requireAdmin, async (req, res) => {
   try {
