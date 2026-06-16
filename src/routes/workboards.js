@@ -6,6 +6,8 @@ const Server = require('../models/Server');
 const Group = require('../models/Group');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
+const comfyUIService = require('../services/comfyUIService');
+const workflowConverter = require('../services/workflowConverterService');
 const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
@@ -85,6 +87,54 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// ComfyUI 워크플로 분석 (관리자 전용) — 파싱 + 필요/빠진 커스텀 노드 감지 (#607)
+router.post('/analyze-workflow', requireAdmin, async (req, res) => {
+  try {
+    const { workflow, serverId } = req.body;
+    if (!workflow) {
+      return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
+    }
+
+    // 1) 파싱 (서버 없이도 가능). 포맷/파싱 오류는 400.
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(workflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    // 2) serverId 가 있으면 /object_info 로 빠진 노드 비교 (선택, 실패해도 분석은 반환)
+    let objectInfo = null;
+    let serverWarning = null;
+    if (serverId) {
+      const server = await Server.findById(serverId);
+      if (!server) {
+        return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+      }
+      try {
+        objectInfo = await comfyUIService.getObjectInfo(server.serverUrl);
+      } catch (e) {
+        serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
+      }
+    }
+
+    const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
+    res.json({
+      success: true,
+      data: {
+        format: parsed.format,
+        nodeCount: parsed.nodes.length,
+        literalInputCount: parsed.literalInputs.length,
+        ...nodeAnalysis,
+        literalInputs: parsed.literalInputs,
+        serverWarning,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
