@@ -97,6 +97,9 @@ export const workboardAPI = {
   refreshLoraModels: (id) => api.post(`/workboards/${id}/lora-models/refresh`),
   export: (id) => api.get(`/workboards/${id}/export`),
   import: (data, serverId) => api.post('/workboards/import', { data, serverId }),
+  // ComfyUI 워크플로 변환 (#607/#608)
+  analyzeWorkflow: (workflow, serverId) => api.post('/workboards/analyze-workflow', { workflow, serverId }),
+  draftFromWorkflow: (workflow, serverId) => api.post('/workboards/draft-from-workflow', { workflow, serverId }),
 };
 
 export const jobAPI = {
