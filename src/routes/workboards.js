@@ -8,6 +8,9 @@ const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
 const comfyUIService = require('../services/comfyUIService');
 const workflowConverter = require('../services/workflowConverterService');
+const openAIChatService = require('../services/openAIChatService');
+const geminiService = require('../services/geminiService');
+const { decryptSecret } = require('../utils/secretCrypto');
 const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
@@ -141,7 +144,7 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
 // ComfyUI 워크플로 → 작업판 초안 생성 (관리자 전용) — 결정론적 역할 매핑 (#608)
 router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
   try {
-    const { workflow, serverId } = req.body;
+    const { workflow, serverId, llmServerId, llmModel } = req.body;
     if (!workflow) {
       return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
     }
@@ -168,7 +171,34 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
     }
 
     const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
-    const draft = workflowConverter.generateDraft(parsed, workflow);
+
+    // 변수 picks: 결정론적 + (선택) LLM 보조 (#P1)
+    const detPicks = workflowConverter.collectDeterministicPicks(parsed);
+    let allPicks = detPicks;
+    let llmNote = null;
+    if (llmServerId && llmModel) {
+      const llmServer = await Server.findById(llmServerId);
+      if (llmServer) {
+        const svc = llmServer.serverType === 'Gemini' ? geminiService : openAIChatService;
+        const apiKey = decryptSecret(llmServer.configuration?.apiKey);
+        const llmComplete = async (messages) => {
+          const { content } = await svc.complete(llmServer.serverUrl, apiKey, messages, { model: llmModel, temperature: 0.2 });
+          return content;
+        };
+        try {
+          const llmPicks = await workflowConverter.proposeLlmPicks({ parsed, existingPicks: detPicks, llmComplete });
+          allPicks = [...detPicks, ...llmPicks];
+          if (llmPicks.length) llmNote = `AI 보조로 변수 ${llmPicks.length}개를 추가 제안했습니다 (편집기에서 확인하세요).`;
+        } catch (e) {
+          llmNote = `AI 보조에 실패해 기본(결정론적) 추출만 적용했습니다: ${e.message}`;
+        }
+      }
+    } else if (llmServerId && !llmModel) {
+      llmNote = 'AI 보조를 쓰려면 LLM 모델도 지정해야 합니다 — 기본 추출만 적용했습니다.';
+    }
+
+    const draft = workflowConverter.buildDraftFromPicks(parsed, workflow, allPicks);
+    if (llmNote) draft.notes = [llmNote, ...draft.notes];
 
     res.json({
       success: true,

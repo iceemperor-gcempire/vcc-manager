@@ -8,6 +8,9 @@ const {
   analyzeNodes,
   analyzeWorkflow,
   generateDraft,
+  collectDeterministicPicks,
+  buildDraftFromPicks,
+  proposeLlmPicks,
   normalizeManagerMap,
   resolveMissingNodes,
 } = require('../services/workflowConverterService');
@@ -183,6 +186,68 @@ describe('#608 generateDraft (결정론적 초안)', () => {
     const draft = generateDraft(parsed, wf);
     expect(draft.additionalInputFields).toHaveLength(0);
     expect(draft.notes.join(' ')).toMatch(/커스텀|수동/);
+  });
+});
+
+describe('#P1 proposeLlmPicks (LLM 보조)', () => {
+  // 커스텀 노드가 있는 워크플로 — 결정론은 못 잡고 LLM 이 제안
+  const CUSTOM_WF = {
+    '1': { class_type: 'FooSampler', inputs: { my_prompt: 'hello', steps: 8, ref: ['2', 0] } },
+    '2': { class_type: 'BarLoader', inputs: { ckpt: 'x.safetensors' } },
+  };
+
+  test('LLM 제안을 검증해 picks 로 변환 (실재 후보만)', async () => {
+    const parsed = parseWorkflow(CUSTOM_WF);
+    const llmComplete = async () => JSON.stringify([
+      { nodeId: '1', key: 'my_prompt', name: 'prompt', type: 'string', label: '프롬프트' },
+      { nodeId: '9', key: 'ghost', name: 'x', type: 'string' }, // 실재 안 함 → 제거
+    ]);
+    const picks = await proposeLlmPicks({ parsed, existingPicks: [], llmComplete });
+    expect(picks).toHaveLength(1);
+    expect(picks[0]).toMatchObject({ nodeId: '1', key: 'my_prompt', name: 'prompt', type: 'string', source: 'llm' });
+  });
+
+  test('이미 결정론이 잡은 입력은 후보에서 제외', async () => {
+    const parsed = parseWorkflow(CUSTOM_WF);
+    const llmComplete = async () => JSON.stringify([{ nodeId: '1', key: 'my_prompt', name: 'p', type: 'string' }]);
+    const picks = await proposeLlmPicks({ parsed, existingPicks: [{ nodeId: '1', key: 'my_prompt' }], llmComplete });
+    expect(picks).toHaveLength(0);
+  });
+
+  test('잘못된 type 은 string 으로, prose 로 감싼 JSON 도 파싱', async () => {
+    const parsed = parseWorkflow(CUSTOM_WF);
+    const llmComplete = async () => 'Here you go:\n[{"nodeId":"1","key":"steps","name":"steps","type":"bogus"}]\nDone.';
+    const picks = await proposeLlmPicks({ parsed, existingPicks: [], llmComplete });
+    expect(picks).toHaveLength(1);
+    expect(picks[0].type).toBe('string');
+  });
+
+  test('LLM 호출 실패/비JSON 이면 빈 배열', async () => {
+    const parsed = parseWorkflow(CUSTOM_WF);
+    expect(await proposeLlmPicks({ parsed, existingPicks: [], llmComplete: async () => 'no json here' })).toEqual([]);
+    expect(await proposeLlmPicks({ parsed, existingPicks: [], llmComplete: async () => { throw new Error('boom'); } })).toEqual([]);
+    expect(await proposeLlmPicks({ parsed, existingPicks: [], llmComplete: undefined })).toEqual([]);
+  });
+
+  test('buildDraftFromPicks 가 결정론+LLM picks 를 합쳐 placeholder 주입', async () => {
+    const parsed = parseWorkflow(CUSTOM_WF);
+    const det = collectDeterministicPicks(parsed); // 표준 노드 없음 → []
+    const llmPicks = [{ nodeId: '1', key: 'my_prompt', name: 'prompt', type: 'string', source: 'llm' }];
+    const draft = buildDraftFromPicks(parsed, CUSTOM_WF, [...det, ...llmPicks]);
+    const wf = JSON.parse(draft.workflowData);
+    expect(wf['1'].inputs.my_prompt).toBe('{{##prompt##}}');
+    const f = draft.additionalInputFields.find((x) => x.name === 'prompt');
+    expect(f.description).toMatch(/AI 제안/);
+  });
+
+  test('LLM pick 이 결정론과 같은 입력을 가리키면 중복 주입 안 함', () => {
+    const parsed = parseWorkflow(API_WF);
+    const det = collectDeterministicPicks(parsed); // CLIPTextEncode '6' text=prompt 포함
+    const dupe = [{ nodeId: '6', key: 'text', name: 'prompt_dup', type: 'string', source: 'llm' }];
+    const draft = buildDraftFromPicks(parsed, API_WF, [...det, ...dupe]);
+    const wf = JSON.parse(draft.workflowData);
+    expect(wf['6'].inputs.text).toBe('{{##prompt##}}'); // 결정론 우선, dupe 무시
+    expect(draft.additionalInputFields.filter((f) => f.name.startsWith('prompt_dup'))).toHaveLength(0);
   });
 });
 
