@@ -181,11 +181,13 @@ function traceToTextEncoder(nodeMap, startId, depth = 0, seen = new Set()) {
  * 반환: { workflowData(string), additionalInputFields[], notes[] }
  * 표준 노드만 보수적으로 변수화(LLM 없음). 모르는/애매한 건 노출하지 않고 note 로 남긴다.
  */
-function generateDraft(parsed, rawWorkflow) {
-  const nodeMap = buildNodeMap(parsed);
-  const notes = [];
+const ALLOWED_FIELD_TYPES = new Set(['string', 'number', 'boolean', 'select', 'image', 'baseModel', 'lora']);
 
-  // 1) positive/negative 프롬프트 인코더 식별 (샘플러 추적)
+/**
+ * 결정론적 역할 후보 수집: [{nodeId, key, role}]. (표준 노드, class_type 기반)
+ */
+function collectDeterministicPicks(parsed) {
+  const nodeMap = buildNodeMap(parsed);
   const positiveEncoders = new Set();
   const negativeEncoders = new Set();
   for (const node of parsed.nodes) {
@@ -196,13 +198,10 @@ function generateDraft(parsed, rawWorkflow) {
     if (neg) negativeEncoders.add(neg);
   }
 
-  // 2) 역할 후보 수집: [{nodeId, key, role}]
   const picks = [];
-  const promptCounter = { n: 0 };
   for (const node of parsed.nodes) {
     const has = (k) => node.inputs.some((i) => i.key === k && i.kind === 'literal');
     const ct = node.classType;
-
     if (ct === 'CheckpointLoaderSimple' && has('ckpt_name')) picks.push({ nodeId: node.id, key: 'ckpt_name', role: 'base_model' });
     else if (/^LoraLoader/.test(ct) && has('lora_name')) picks.push({ nodeId: node.id, key: 'lora_name', role: 'lora' });
     else if (ct === 'LoadImage' && has('image')) picks.push({ nodeId: node.id, key: 'image', role: 'image' });
@@ -214,11 +213,23 @@ function generateDraft(parsed, rawWorkflow) {
     } else if (isTextEncoder(ct) && has('text')) {
       if (positiveEncoders.has(node.id)) picks.push({ nodeId: node.id, key: 'text', role: 'prompt' });
       else if (negativeEncoders.has(node.id)) picks.push({ nodeId: node.id, key: 'text', role: 'negative_prompt' });
-      else { promptCounter.n += 1; picks.push({ nodeId: node.id, key: 'text', role: 'prompt', extra: true }); }
+      else picks.push({ nodeId: node.id, key: 'text', role: 'prompt' });
     }
   }
+  return picks;
+}
 
-  // 3) 이름 유일화 + 필드/치환 생성
+/**
+ * picks(결정론적 + LLM 보조 혼합) → 작업판 초안.
+ * pick = { nodeId, key, role?, name?, type?, label?, source? }
+ * role 이 ROLE_META 에 있으면 그 메타를 기본값으로, name/type/label 오버라이드 우선.
+ */
+function buildDraftFromPicks(parsed, rawWorkflow, picks) {
+  const nodeMap = buildNodeMap(parsed);
+  const notes = [];
+  const workflowObj = typeof rawWorkflow === 'string' ? JSON.parse(rawWorkflow) : JSON.parse(JSON.stringify(rawWorkflow));
+  const additionalInputFields = [];
+
   const usedNames = new Set();
   const uniqueName = (base) => {
     let name = base; let i = 2;
@@ -227,36 +238,36 @@ function generateDraft(parsed, rawWorkflow) {
     return name;
   };
 
-  // 원본 raw 워크플로 복제 후 placeholder 주입
-  const workflowObj = typeof rawWorkflow === 'string' ? JSON.parse(rawWorkflow) : JSON.parse(JSON.stringify(rawWorkflow));
-  const additionalInputFields = [];
-
+  const usedKeys = new Set();
   for (const pick of picks) {
+    const dedupeKey = `${pick.nodeId}.${pick.key}`;
+    if (usedKeys.has(dedupeKey)) continue; // 같은 입력 중복 방지(LLM 이 결정론과 겹칠 때)
     const meta = ROLE_META[pick.role];
-    if (!meta) continue;
-    // prompt 가 여러 개면 prompt, prompt_2 … / 라벨도 맞춤
-    const name = uniqueName(pick.role);
-    const currentValue = workflowObj?.[pick.nodeId]?.inputs?.[pick.key];
+    const type = pick.type || meta?.type;
+    if (!type || !ALLOWED_FIELD_TYPES.has(type)) continue; // 타입 미상이면 건너뜀
+    if (!workflowObj?.[pick.nodeId]?.inputs || !(pick.key in workflowObj[pick.nodeId].inputs)) continue; // 실재 입력만
+
+    const baseName = pick.name || pick.role || pick.key;
+    const name = uniqueName(baseName);
+    const labelBase = pick.label || meta?.label || baseName;
+    const label = name === baseName ? labelBase : `${labelBase} ${name.split('_').pop()}`;
+    const currentValue = workflowObj[pick.nodeId].inputs[pick.key];
     const classType = nodeMap.get(pick.nodeId)?.classType || '';
 
     additionalInputFields.push({
       name,
-      label: name === pick.role ? meta.label : `${meta.label} ${name.split('_').pop()}`,
-      type: meta.type,
+      label,
+      type,
       required: pick.role === 'prompt' && name === 'prompt',
-      defaultValue: meta.type === 'image' ? undefined : currentValue,
+      defaultValue: type === 'image' ? undefined : currentValue,
       formatString: `{{##${name}##}}`,
-      description: `${classType} 노드(${pick.nodeId})의 ${pick.key} 에서 추출`,
+      description: `${classType} 노드(${pick.nodeId})의 ${pick.key} 에서 추출${pick.source === 'llm' ? ' (AI 제안)' : ''}`,
     });
-
-    // 워크플로 값 자리에 placeholder 주입
-    if (workflowObj[pick.nodeId] && workflowObj[pick.nodeId].inputs) {
-      workflowObj[pick.nodeId].inputs[pick.key] = `{{##${name}##}}`;
-    }
+    workflowObj[pick.nodeId].inputs[pick.key] = `{{##${name}##}}`;
+    usedKeys.add(dedupeKey);
   }
 
-  // 4) note: 노출 안 한 흔한 튜닝 리터럴 안내(steps/cfg/sampler 등) — 편집기에서 추가 가능
-  const exposedKeys = new Set(picks.map((p) => `${p.nodeId}.${p.key}`));
+  const exposedKeys = new Set([...usedKeys]);
   const tunables = parsed.literalInputs.filter(
     (l) => !exposedKeys.has(`${l.nodeId}.${l.key}`) &&
       ['steps', 'cfg', 'denoise', 'sampler_name', 'scheduler', 'batch_size'].includes(l.key)
@@ -268,11 +279,11 @@ function generateDraft(parsed, rawWorkflow) {
     notes.push('표준 노드에서 변수를 찾지 못했습니다. 커스텀 노드 위주 워크플로일 수 있어 편집기에서 수동 지정이 필요합니다.');
   }
 
-  return {
-    workflowData: JSON.stringify(workflowObj, null, 2),
-    additionalInputFields,
-    notes,
-  };
+  return { workflowData: JSON.stringify(workflowObj, null, 2), additionalInputFields, notes };
+}
+
+function generateDraft(parsed, rawWorkflow) {
+  return buildDraftFromPicks(parsed, rawWorkflow, collectDeterministicPicks(parsed));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -330,6 +341,84 @@ function resolveMissingNodes(missingNodes, nodeRepoMap) {
   return { resolutions, unresolved };
 }
 
+// ─────────────────────────────────────────────────────────────
+// P1: LLM 보조 변수 제안 (애매/커스텀 노드)
+// ─────────────────────────────────────────────────────────────
+
+/** content 에서 JSON 배열만 안전하게 추출 (LLM 이 prose/```json 로 감쌀 수 있음) */
+function extractJsonArray(content) {
+  if (typeof content !== 'string') return null;
+  const start = content.indexOf('[');
+  const end = content.lastIndexOf(']');
+  if (start < 0 || end <= start) return null;
+  try {
+    const arr = JSON.parse(content.slice(start, end + 1));
+    return Array.isArray(arr) ? arr : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 결정론으로 못 잡은 리터럴 후보를 LLM 에 태워 추가 변수 제안.
+ * llmComplete(messages) → string(content) 를 주입(테스트/서비스 분리).
+ * 반환: 검증된 추가 picks [{nodeId, key, name, type, label, role?, source:'llm'}]
+ */
+async function proposeLlmPicks({ parsed, existingPicks = [], llmComplete, maxCandidates = 60 }) {
+  if (typeof llmComplete !== 'function') return [];
+  const existing = new Set(existingPicks.map((p) => `${p.nodeId}.${p.key}`));
+  const candidates = parsed.literalInputs
+    .filter((l) => !existing.has(`${l.nodeId}.${l.key}`))
+    .slice(0, maxCandidates);
+  if (candidates.length === 0) return [];
+
+  const candidateView = candidates.map((c) => ({
+    nodeId: c.nodeId, classType: c.classType, key: c.key, valueType: c.valueType,
+    sample: typeof c.value === 'string' ? c.value.slice(0, 80) : c.value,
+  }));
+
+  const messages = [
+    {
+      role: 'system',
+      content: [
+        'You convert ComfyUI workflow inputs into user-facing workboard variables.',
+        'From the given LITERAL input candidates, pick ONLY the ones a user would meaningfully want to control.',
+        'Skip fixed/internal constants unless clearly meaningful.',
+        'Allowed types: string, number, boolean, select, image, baseModel, lora.',
+        'Reply with ONLY a JSON array, each item: {"nodeId","key","name","type","label"}.',
+        'name: snake_case ascii. Reference ONLY the given nodeId+key pairs.',
+      ].join(' '),
+    },
+    { role: 'user', content: `Candidates:\n${JSON.stringify(candidateView, null, 2)}` },
+  ];
+
+  let content;
+  try {
+    content = await llmComplete(messages);
+  } catch {
+    return [];
+  }
+  const proposals = extractJsonArray(content);
+  if (!proposals) return [];
+
+  const candKey = new Set(candidates.map((c) => `${c.nodeId}.${c.key}`));
+  const seen = new Set();
+  const picks = [];
+  for (const p of proposals) {
+    if (!p || typeof p !== 'object') continue;
+    const nodeId = String(p.nodeId);
+    const key = String(p.key);
+    const dk = `${nodeId}.${key}`;
+    if (!candKey.has(dk) || seen.has(dk)) continue; // 실재 후보 + 중복 제거
+    const name = typeof p.name === 'string' ? p.name.trim().replace(/[^a-zA-Z0-9_]/g, '_').replace(/^_+|_+$/g, '') : '';
+    if (!name) continue;
+    const type = ALLOWED_FIELD_TYPES.has(p.type) ? p.type : 'string';
+    seen.add(dk);
+    picks.push({ nodeId, key, name, type, label: typeof p.label === 'string' ? p.label : name, source: 'llm' });
+  }
+  return picks;
+}
+
 module.exports = {
   isLinkInput,
   detectFormat,
@@ -337,7 +426,10 @@ module.exports = {
   analyzeNodes,
   analyzeWorkflow,
   traceToTextEncoder,
+  collectDeterministicPicks,
+  buildDraftFromPicks,
   generateDraft,
+  proposeLlmPicks,
   normalizeManagerMap,
   resolveMissingNodes,
 };
