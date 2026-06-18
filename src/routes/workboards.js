@@ -191,6 +191,40 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
   }
 });
 
+// 빠진 커스텀 노드 → repo 해석 / 설치 안내 (관리자 전용) (#614)
+router.post('/resolve-nodes', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, nodes } = req.body;
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return res.status(400).json({ success: false, message: '해석할 노드 목록(nodes)이 필요합니다.' });
+    }
+    if (!serverId) {
+      return res.status(400).json({ success: false, message: 'serverId 가 필요합니다 (ComfyUI-Manager 매핑 조회용).' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+
+    const raw = await comfyUIService.fetchNodeRepoMap(server.serverUrl);
+    const managerAvailable = !!raw;
+    const nodeRepoMap = workflowConverter.normalizeManagerMap(raw);
+    const { resolutions, unresolved } = workflowConverter.resolveMissingNodes(nodes, nodeRepoMap);
+
+    res.json({
+      success: true,
+      data: {
+        managerAvailable,
+        resolutions,
+        unresolved,
+        ...(managerAvailable ? {} : { note: '대상 서버에서 ComfyUI-Manager 매핑을 조회하지 못했습니다. 노드 이름으로 직접 검색해 설치해야 할 수 있습니다.' }),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 작업판 가져오기 (관리자 전용)
 router.post('/import', requireAdmin, async (req, res) => {
   try {

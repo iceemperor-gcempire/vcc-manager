@@ -8,6 +8,8 @@ const {
   analyzeNodes,
   analyzeWorkflow,
   generateDraft,
+  normalizeManagerMap,
+  resolveMissingNodes,
 } = require('../services/workflowConverterService');
 
 // 표준 txt2img API 포맷 워크플로 (축약)
@@ -181,6 +183,56 @@ describe('#608 generateDraft (결정론적 초안)', () => {
     const draft = generateDraft(parsed, wf);
     expect(draft.additionalInputFields).toHaveLength(0);
     expect(draft.notes.join(' ')).toMatch(/커스텀|수동/);
+  });
+});
+
+describe('#614 normalizeManagerMap', () => {
+  test('형태 A: getmappings { url: [[nodes], meta] }', () => {
+    const raw = {
+      'https://github.com/foo/ComfyUI-IPAdapter': [
+        ['IPAdapterApply', 'IPAdapterEncoder'],
+        { title: 'IPAdapter', url: 'https://github.com/foo/ComfyUI-IPAdapter' },
+      ],
+    };
+    const map = normalizeManagerMap(raw);
+    expect(map.IPAdapterApply).toEqual({ title: 'IPAdapter', url: 'https://github.com/foo/ComfyUI-IPAdapter' });
+    expect(map.IPAdapterEncoder.url).toContain('ComfyUI-IPAdapter');
+  });
+
+  test('형태 A: meta.url 없으면 key(url) 사용', () => {
+    const raw = { 'https://github.com/x/Y': [['NodeX'], { title: 'Y' }] };
+    expect(normalizeManagerMap(raw).NodeX).toEqual({ title: 'Y', url: 'https://github.com/x/Y' });
+  });
+
+  test('형태 B: { className: { url, title } }', () => {
+    const raw = { UltimateSDUpscale: { url: 'https://github.com/a/b', title: 'Ultimate' } };
+    expect(normalizeManagerMap(raw).UltimateSDUpscale.url).toBe('https://github.com/a/b');
+  });
+
+  test('이상한 입력은 빈 맵', () => {
+    expect(normalizeManagerMap(null)).toEqual({});
+    expect(normalizeManagerMap('x')).toEqual({});
+    expect(normalizeManagerMap({ k: 123 })).toEqual({});
+  });
+});
+
+describe('#614 resolveMissingNodes', () => {
+  const map = {
+    IPAdapterApply: { title: 'IPAdapter', url: 'https://github.com/foo/ipadapter' },
+    UltimateSDUpscale: { title: 'Ultimate', url: 'https://github.com/a/ultimate' },
+  };
+  test('해석/미해석 분리', () => {
+    const r = resolveMissingNodes(['IPAdapterApply', 'UnknownCustomNode'], map);
+    expect(r.resolutions).toEqual([{ node: 'IPAdapterApply', repos: [{ title: 'IPAdapter', url: 'https://github.com/foo/ipadapter' }] }]);
+    expect(r.unresolved).toEqual(['UnknownCustomNode']);
+  });
+  test('맵 없으면 전부 미해석', () => {
+    const r = resolveMissingNodes(['A', 'B'], null);
+    expect(r.resolutions).toEqual([]);
+    expect(r.unresolved).toEqual(['A', 'B']);
+  });
+  test('빈 노드 목록', () => {
+    expect(resolveMissingNodes([], map)).toEqual({ resolutions: [], unresolved: [] });
   });
 });
 

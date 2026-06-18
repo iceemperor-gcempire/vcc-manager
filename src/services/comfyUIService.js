@@ -321,6 +321,30 @@ const getObjectInfo = async (serverUrl) => {
   }
 };
 
+/**
+ * ComfyUI-Manager 의 node→repo 매핑 조회 (#614, 방어적).
+ * Manager 미설치/엔드포인트 차이로 실패하면 null 반환(예외 던지지 않음).
+ * 알려진 엔드포인트를 순서대로 시도한다.
+ */
+const fetchNodeRepoMap = async (serverUrl) => {
+  const endpoints = [
+    `${serverUrl}/customnode/getmappings?mode=local`,
+    `${serverUrl}/customnode/getmappings?mode=nickname`,
+    `${serverUrl}/api/customnode/getmappings?mode=local`,
+  ];
+  for (const url of endpoints) {
+    try {
+      const response = await axios.get(url, { timeout: 10000 });
+      if (response.data && typeof response.data === 'object') {
+        return response.data; // 정규화는 workflowConverterService.normalizeManagerMap 가 담당
+      }
+    } catch {
+      // 다음 엔드포인트 시도
+    }
+  }
+  return null; // Manager 없음 / 조회 실패
+};
+
 const validateWorkflow = async (serverUrl, workflowJson) => {
   try {
     const response = await axios.post(`${serverUrl}/prompt`, {
@@ -429,6 +453,7 @@ module.exports = {
   submitWorkflow,
   getServerInfo,
   getObjectInfo,
+  fetchNodeRepoMap,
   validateWorkflow,
   interruptExecution,
   getQueue,

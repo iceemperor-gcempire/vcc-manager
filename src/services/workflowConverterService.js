@@ -275,6 +275,61 @@ function generateDraft(parsed, rawWorkflow) {
   };
 }
 
+// ─────────────────────────────────────────────────────────────
+// P2 (#614): 빠진 커스텀 노드 → repo 해석
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * ComfyUI-Manager 의 node→repo 매핑 응답을 className→repo 로 정규화.
+ * Manager 버전별 shape 차를 흡수한다. 알 수 없는 형태면 {} 반환.
+ *
+ * 지원 형태:
+ *  A) getmappings: { "<git_url>": [ [nodeNames...], { title, ... } ], ... }
+ *  B) flat:        { "<NodeClassName>": { url|reference|files[], title }, ... }
+ */
+function normalizeManagerMap(raw) {
+  const map = {}; // className -> { title, url }
+  if (!raw || typeof raw !== 'object') return map;
+
+  const addEntry = (className, repo) => {
+    if (!className || !repo || !repo.url) return;
+    if (!map[className]) map[className] = repo;
+  };
+
+  for (const [key, val] of Object.entries(raw)) {
+    // 형태 A: key=url, val=[nodeNames, meta]
+    if (Array.isArray(val) && Array.isArray(val[0])) {
+      const meta = (val[1] && typeof val[1] === 'object') ? val[1] : {};
+      const url = meta.url || meta.reference || (/^https?:\/\//.test(key) ? key : null);
+      const title = meta.title || meta.title_aux || null;
+      if (url) for (const node of val[0]) addEntry(node, { title, url });
+      continue;
+    }
+    // 형태 B: key=className, val={url|reference|files, title}
+    if (val && typeof val === 'object' && !Array.isArray(val)) {
+      const url = val.url || val.reference || (Array.isArray(val.files) ? val.files[0] : null);
+      if (url) addEntry(key, { title: val.title || null, url });
+    }
+  }
+  return map;
+}
+
+/**
+ * 빠진 노드(class_type) 들을 repo 로 해석.
+ * 반환: { resolutions: [{node, repos:[{title,url}]}], unresolved: [node...] }
+ */
+function resolveMissingNodes(missingNodes, nodeRepoMap) {
+  const resolutions = [];
+  const unresolved = [];
+  const map = nodeRepoMap || {};
+  for (const node of missingNodes || []) {
+    const repo = map[node];
+    if (repo && repo.url) resolutions.push({ node, repos: [repo] });
+    else unresolved.push(node);
+  }
+  return { resolutions, unresolved };
+}
+
 module.exports = {
   isLinkInput,
   detectFormat,
@@ -283,4 +338,6 @@ module.exports = {
   analyzeWorkflow,
   traceToTextEncoder,
   generateDraft,
+  normalizeManagerMap,
+  resolveMissingNodes,
 };
