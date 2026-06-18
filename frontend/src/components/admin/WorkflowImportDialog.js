@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
-  Box, Typography, Stack, Alert, Chip, MenuItem, CircularProgress, Divider,
+  Box, Typography, Stack, Alert, Chip, MenuItem, CircularProgress, Divider, Link,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ export default function WorkflowImportDialog({ open, onClose }) {
   const [outputFormat, setOutputFormat] = useState('image');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null); // { draft, notes, analysis, serverWarning }
+  const [resolution, setResolution] = useState(null); // { managerAvailable, resolutions, unresolved }
 
   const { data: serversData } = useQuery({
     queryKey: ['servers', 'comfyui-pick'],
@@ -32,7 +33,7 @@ export default function WorkflowImportDialog({ open, onClose }) {
 
   const reset = () => {
     setStep('input'); setWorkflowText(''); setServerId(''); setName('');
-    setOutputFormat('image'); setLoading(false); setResult(null);
+    setOutputFormat('image'); setLoading(false); setResult(null); setResolution(null);
   };
   const handleClose = () => { reset(); onClose(); };
 
@@ -47,8 +48,17 @@ export default function WorkflowImportDialog({ open, onClose }) {
     setLoading(true);
     try {
       const res = await workboardAPI.draftFromWorkflow(parsed, serverId || undefined);
-      setResult(res.data.data);
+      const data = res.data.data;
+      setResult(data);
       setStep('result');
+      // 빠진 노드가 있고 서버가 선택돼 있으면 repo 출처 해석 (best-effort)
+      const miss = data?.analysis?.missingNodes;
+      if (serverId && Array.isArray(miss) && miss.length > 0) {
+        try {
+          const r = await workboardAPI.resolveNodes(serverId, miss);
+          setResolution(r.data.data);
+        } catch { /* 안내는 best-effort — 실패해도 무시 */ }
+      }
     } catch (e) {
       toast.error(e.response?.data?.message || '워크플로 분석에 실패했습니다.');
     } finally {
@@ -121,8 +131,32 @@ export default function WorkflowImportDialog({ open, onClose }) {
           <Stack spacing={2} sx={{ mt: 1 }}>
             {Array.isArray(missing) && missing.length > 0 && (
               <Alert severity="warning">
-                이 서버에 없는 커스텀 노드 {missing.length}개 — 설치하지 않으면 실행이 실패합니다:
-                <Box sx={{ mt: 0.5, fontFamily: MONO, fontSize: 12 }}>{missing.join(', ')}</Box>
+                이 서버에 없는 커스텀 노드 {missing.length}개 — 설치하지 않으면 실행이 실패합니다.
+                {resolution ? (
+                  <Box sx={{ mt: 1 }}>
+                    {(resolution.resolutions || []).map((r) => (
+                      <Box key={r.node} sx={{ fontSize: 13, mb: 0.25 }}>
+                        <Box component="code" sx={{ fontFamily: MONO }}>{r.node}</Box>
+                        {' → '}
+                        <Link href={r.repos[0].url} target="_blank" rel="noopener noreferrer">
+                          {r.repos[0].title || r.repos[0].url}
+                        </Link>
+                      </Box>
+                    ))}
+                    {(resolution.unresolved || []).length > 0 && (
+                      <Box sx={{ mt: 0.5, fontSize: 13 }}>
+                        출처 미확인: <Box component="span" sx={{ fontFamily: MONO }}>{resolution.unresolved.join(', ')}</Box> (노드 이름으로 직접 검색해 설치)
+                      </Box>
+                    )}
+                    {!resolution.managerAvailable && (
+                      <Box sx={{ mt: 0.5, fontSize: 12, opacity: 0.8 }}>
+                        * 대상 서버에서 ComfyUI-Manager 매핑을 조회하지 못해 출처 자동 안내가 제한됩니다.
+                      </Box>
+                    )}
+                  </Box>
+                ) : (
+                  <Box sx={{ mt: 0.5, fontFamily: MONO, fontSize: 12 }}>{missing.join(', ')}</Box>
+                )}
               </Alert>
             )}
             {Array.isArray(missing) && missing.length === 0 && (
