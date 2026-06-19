@@ -6,6 +6,11 @@ const Server = require('../models/Server');
 const Group = require('../models/Group');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
+const comfyUIService = require('../services/comfyUIService');
+const workflowConverter = require('../services/workflowConverterService');
+const openAIChatService = require('../services/openAIChatService');
+const geminiService = require('../services/geminiService');
+const { decryptSecret } = require('../utils/secretCrypto');
 const { escapeRegex } = require('../utils/escapeRegex');
 const router = express.Router();
 
@@ -85,6 +90,168 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// ComfyUI 워크플로 분석 (관리자 전용) — 파싱 + 필요/빠진 커스텀 노드 감지 (#607)
+router.post('/analyze-workflow', requireAdmin, async (req, res) => {
+  try {
+    const { workflow, serverId } = req.body;
+    if (!workflow) {
+      return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
+    }
+
+    // 1) 파싱 (서버 없이도 가능). 포맷/파싱 오류는 400.
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(workflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    // 2) serverId 가 있으면 /object_info 로 빠진 노드 비교 (선택, 실패해도 분석은 반환)
+    let objectInfo = null;
+    let serverWarning = null;
+    if (serverId) {
+      const server = await Server.findById(serverId);
+      if (!server) {
+        return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+      }
+      try {
+        objectInfo = await comfyUIService.getObjectInfo(server.serverUrl);
+      } catch (e) {
+        serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
+      }
+    }
+
+    const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
+    res.json({
+      success: true,
+      data: {
+        format: parsed.format,
+        nodeCount: parsed.nodes.length,
+        literalInputCount: parsed.literalInputs.length,
+        ...nodeAnalysis,
+        literalInputs: parsed.literalInputs,
+        serverWarning,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ComfyUI 워크플로 → 작업판 초안 생성 (관리자 전용) — 결정론적 역할 매핑 (#608)
+router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
+  try {
+    const { workflow, serverId, llmServerId, llmModel } = req.body;
+    if (!workflow) {
+      return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(workflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    // 빠진 노드 검사 (서버 연결 시, 선택)
+    let objectInfo = null;
+    let serverWarning = null;
+    if (serverId) {
+      const server = await Server.findById(serverId);
+      if (server) {
+        try {
+          objectInfo = await comfyUIService.getObjectInfo(server.serverUrl);
+        } catch (e) {
+          serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
+        }
+      }
+    }
+
+    const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
+
+    // 변수 picks: 결정론적 + (선택) LLM 보조 (#P1)
+    const detPicks = workflowConverter.collectDeterministicPicks(parsed);
+    let allPicks = detPicks;
+    let llmNote = null;
+    if (llmServerId && llmModel) {
+      const llmServer = await Server.findById(llmServerId);
+      if (llmServer) {
+        const svc = llmServer.serverType === 'Gemini' ? geminiService : openAIChatService;
+        const apiKey = decryptSecret(llmServer.configuration?.apiKey);
+        const llmComplete = async (messages) => {
+          const { content } = await svc.complete(llmServer.serverUrl, apiKey, messages, { model: llmModel, temperature: 0.2 });
+          return content;
+        };
+        try {
+          const llmPicks = await workflowConverter.proposeLlmPicks({ parsed, existingPicks: detPicks, llmComplete });
+          allPicks = [...detPicks, ...llmPicks];
+          if (llmPicks.length) llmNote = `AI 보조로 변수 ${llmPicks.length}개를 추가 제안했습니다 (편집기에서 확인하세요).`;
+        } catch (e) {
+          llmNote = `AI 보조에 실패해 기본(결정론적) 추출만 적용했습니다: ${e.message}`;
+        }
+      }
+    } else if (llmServerId && !llmModel) {
+      llmNote = 'AI 보조를 쓰려면 LLM 모델도 지정해야 합니다 — 기본 추출만 적용했습니다.';
+    }
+
+    const draft = workflowConverter.buildDraftFromPicks(parsed, workflow, allPicks);
+    if (llmNote) draft.notes = [llmNote, ...draft.notes];
+
+    res.json({
+      success: true,
+      data: {
+        // 작업판 편집기로 바로 넘길 수 있는 초안
+        draft: {
+          workflowData: draft.workflowData,
+          additionalInputFields: draft.additionalInputFields,
+        },
+        notes: draft.notes,
+        analysis: {
+          requiredNodes: nodeAnalysis.requiredNodes,
+          missingNodes: nodeAnalysis.missingNodes,
+        },
+        serverWarning,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 빠진 커스텀 노드 → repo 해석 / 설치 안내 (관리자 전용) (#614)
+router.post('/resolve-nodes', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, nodes } = req.body;
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+      return res.status(400).json({ success: false, message: '해석할 노드 목록(nodes)이 필요합니다.' });
+    }
+    if (!serverId) {
+      return res.status(400).json({ success: false, message: 'serverId 가 필요합니다 (ComfyUI-Manager 매핑 조회용).' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) {
+      return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+    }
+
+    const raw = await comfyUIService.fetchNodeRepoMap(server.serverUrl);
+    const managerAvailable = !!raw;
+    const nodeRepoMap = workflowConverter.normalizeManagerMap(raw);
+    const { resolutions, unresolved } = workflowConverter.resolveMissingNodes(nodes, nodeRepoMap);
+
+    res.json({
+      success: true,
+      data: {
+        managerAvailable,
+        resolutions,
+        unresolved,
+        ...(managerAvailable ? {} : { note: '대상 서버에서 ComfyUI-Manager 매핑을 조회하지 못했습니다. 노드 이름으로 직접 검색해 설치해야 할 수 있습니다.' }),
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

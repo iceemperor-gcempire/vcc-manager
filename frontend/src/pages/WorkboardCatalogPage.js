@@ -21,6 +21,7 @@ import {
   Inventory2,
   Add,
   FileUpload,
+  AutoFixHigh,
   Edit,
   FileDownload,
   ToggleOn,
@@ -42,6 +43,7 @@ import {
   useWorkboardFilter,
 } from '../components/common/WorkboardCatalog';
 import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
+import WorkflowImportDialog from '../components/admin/WorkflowImportDialog';
 import { copyToClipboard } from '../utils/clipboard';
 import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
 import { usePersistedState } from '../hooks/usePersistedState';
@@ -126,6 +128,7 @@ function WorkboardCatalogPage({ admin = false }) {
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuWb, setMenuWb] = useState(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [workflowImportOpen, setWorkflowImportOpen] = useState(false);
 
   const { data: projectData } = useQuery({ queryKey: ['project', projectId], queryFn: () => projectAPI.getById(projectId), enabled: !!projectId });
   const projectContext = projectData?.data?.data?.project;
@@ -200,6 +203,7 @@ function WorkboardCatalogPage({ admin = false }) {
         sx={{ mb: 4 }}
         actions={admin && (
           <>
+            <Button variant="outlined" startIcon={<AutoFixHigh />} onClick={() => setWorkflowImportOpen(true)}>워크플로 변환</Button>
             <Button variant="outlined" startIcon={<FileUpload />} onClick={() => setImportOpen(true)}>가져오기</Button>
             <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button>
           </>
@@ -287,6 +291,7 @@ function WorkboardCatalogPage({ admin = false }) {
             <MenuItem onClick={() => { handleDelete(menuWb); setMenuAnchor(null); }} sx={{ color: 'error.main' }}><Delete sx={{ mr: 1 }} fontSize="small" />삭제</MenuItem>
           </Menu>
           <WorkboardImportDialog open={importOpen} onClose={() => setImportOpen(false)} onSuccess={invalidate} />
+          <WorkflowImportDialog open={workflowImportOpen} onClose={() => setWorkflowImportOpen(false)} />
         </>
       )}
     </Box>
