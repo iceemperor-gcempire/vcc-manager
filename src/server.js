@@ -39,6 +39,7 @@ const dropBackupJobTTL = require('./migrations/dropBackupJobTTL');
 const dropWorkboardApiFormat = require('./migrations/dropWorkboardApiFormat');
 const dropLegacyModelCacheCollection = require('./migrations/dropLegacyModelCacheCollection');
 const cleanupStuckSyncs = require('./migrations/cleanupStuckSyncs');
+const cleanupStuckBackupRestoreJobs = require('./migrations/cleanupStuckBackupRestoreJobs');
 const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
@@ -245,6 +246,7 @@ const startServer = async () => {
     await dropWorkboardApiFormat();
     await dropLegacyModelCacheCollection();
     await cleanupStuckSyncs();
+    await cleanupStuckBackupRestoreJobs();
     await initializeDefaultGroup();
     await assignDefaultGroupToWorkboards();
     await backfillCustomFieldRoles();
