@@ -109,6 +109,17 @@ router.post('/', requireAdmin, async (req, res) => {
       }
     }
 
+    // 디스크 여유 사전 점검 (#622) — 부족하면 백업 시작 거부(디스크를 채워 DB 까지 죽는 사고 방지)
+    const disk = await backupService.checkDiskSpace();
+    if (!disk.ok) {
+      const gb = (n) => (n / 1024 / 1024 / 1024).toFixed(2);
+      return res.status(507).json({
+        success: false,
+        message: `디스크 여유 공간이 부족해 백업을 시작할 수 없습니다. 필요 약 ${gb(disk.requiredBytes)}GB, 가용 ${gb(disk.availableBytes)}GB. 공간을 확보한 뒤 다시 시도해주세요.`,
+        diskCheck: disk
+      });
+    }
+
     // 백업 작업 생성 (DB에만 기록)
     const job = await backupService.initBackupJob(req.user._id);
     const jobId = job._id.toString();
