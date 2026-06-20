@@ -84,7 +84,18 @@ function decryptFields(doc, fieldsToDecrypt) {
  * 단일 문서 복구 (복호화 → _id 보존 create / overwrite upsert). (#591 스트리밍 분리)
  * 성공 시 true. 통계는 statistics 에 누적.
  */
+// 실패 항목 상세 기록 (#631). errorDetails 과다 방지 상한 — 초과분은 카운트만.
+const MAX_ERROR_DETAILS = 100;
+function recordError(statistics, detail) {
+  statistics.errors++;
+  if (detail.type === 'file') statistics.fileErrors = (statistics.fileErrors || 0) + 1;
+  else statistics.dbErrors = (statistics.dbErrors || 0) + 1;
+  if (!statistics.errorDetails) statistics.errorDetails = [];
+  if (statistics.errorDetails.length < MAX_ERROR_DETAILS) statistics.errorDetails.push(detail);
+}
+
 async function restoreOneDoc(doc, config, options, statistics) {
+  let docId;
   try {
     // 암호화 필드 복호화 (백업 시 암호화한 encryptFields 와 동일)
     let processedDoc = doc;
@@ -92,7 +103,7 @@ async function restoreOneDoc(doc, config, options, statistics) {
       processedDoc = decryptFields(doc, config.encryptFields);
     }
 
-    const docId = processedDoc._id;
+    docId = processedDoc._id;
     delete processedDoc._id;
 
     if (options.overwriteExisting) {
@@ -109,7 +120,7 @@ async function restoreOneDoc(doc, config, options, statistics) {
     return true;
   } catch (docError) {
     console.error(`${config.name} 문서 복구 오류:`, docError.message);
-    statistics.errors++;
+    recordError(statistics, { type: 'db', collection: config.name, docId: docId ? String(docId) : undefined, message: docError.message });
     return false;
   }
 }
@@ -137,7 +148,7 @@ async function restoreCollection(config, tempExtractDir, options, statistics) {
         doc = JSON.parse(trimmed);
       } catch (parseErr) {
         console.error(`${config.name} NDJSON 파싱 오류:`, parseErr.message);
-        statistics.errors++;
+        recordError(statistics, { type: 'db', collection: config.name, message: `NDJSON 파싱 오류: ${parseErr.message}` });
         continue;
       }
       await restoreOneDoc(doc, config, options, statistics);
@@ -299,7 +310,10 @@ async function executeRestore(jobId, zipPath, options = {}) {
       videos: 0
     },
     skipped: 0,
-    errors: 0
+    errors: 0,
+    dbErrors: 0,
+    fileErrors: 0,
+    errorDetails: []
   };
 
   const totalSteps = BACKUP_COLLECTIONS.length + 3; // 컬렉션 + 파일 디렉토리 3개
@@ -336,7 +350,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
           }
         } catch (colError) {
           console.error(`${name} 컬렉션 복구 오류:`, colError.message);
-          statistics.errors++;
+          recordError(statistics, { type: 'db', collection: name, message: `컬렉션 복구 오류: ${colError.message}` });
         }
       }
     }
@@ -373,7 +387,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
               }
             } catch (fileError) {
               console.error(`파일 복구 오류 (${file}):`, fileError.message);
-              statistics.errors++;
+              recordError(statistics, { type: 'file', dir, file, message: fileError.message });
             }
           }
         }
@@ -434,7 +448,8 @@ module.exports = {
   executeRestore,
   getRestoreStatus,
   listRestores,
-  // 테스트용 내부 헬퍼 (#591)
+  // 테스트용 내부 헬퍼 (#591, #631)
   restoreOneDoc,
-  restoreCollection
+  restoreCollection,
+  recordError
 };
