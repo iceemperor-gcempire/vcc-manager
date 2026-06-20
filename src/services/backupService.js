@@ -147,6 +147,80 @@ async function writeCollectionNdjson(config, outPath) {
 /**
  * 백업 작업 초기화 (DB에 작업 기록만 생성)
  */
+/**
+ * 디렉토리의 총 바이트 크기 (재귀, 심볼릭링크 무시). 접근 불가 항목은 건너뜀.
+ */
+function dirSizeBytes(dir) {
+  let total = 0;
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return 0;
+  }
+  for (const e of entries) {
+    const p = path.join(dir, e.name);
+    try {
+      if (e.isDirectory()) total += dirSizeBytes(p);
+      else if (e.isFile()) total += fs.statSync(p).size;
+    } catch {
+      // 접근 불가 항목 무시
+    }
+  }
+  return total;
+}
+
+/**
+ * 디스크 점검 판정 (순수 함수, 테스트 용이).
+ * @param {{estimatedBytes:number, availableBytes:number|null, safetyFactor:number}} p
+ */
+function decideDiskSpace({ estimatedBytes, availableBytes, safetyFactor = 1.5 }) {
+  const requiredBytes = Math.ceil(estimatedBytes * safetyFactor);
+  if (availableBytes === null || availableBytes === undefined) {
+    return { ok: true, availableBytes: null, estimatedBytes, requiredBytes, reason: 'disk-unmeasurable' };
+  }
+  if (availableBytes < requiredBytes) {
+    return { ok: false, availableBytes, estimatedBytes, requiredBytes, reason: 'insufficient-space' };
+  }
+  return { ok: true, availableBytes, estimatedBytes, requiredBytes };
+}
+
+/**
+ * 백업 디스크 여유 사전 점검 (#622).
+ * 추정 필요 공간 = (uploads 디렉토리 크기 + DB dataSize) 에 안전 배수 적용.
+ * 반환: { ok, availableBytes|null, estimatedBytes, requiredBytes, reason? }
+ * 가용 공간을 측정할 수 없으면(statfs 미지원 등) ok:true + warning 으로 통과(현행 동작 유지).
+ */
+async function checkDiskSpace({ safetyFactor = 1.5 } = {}) {
+  // 1) 추정 크기: uploads + DB dataSize
+  const uploadsBytes = dirSizeBytes(UPLOAD_DIR);
+  let dbBytes = 0;
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection?.db) {
+      const stats = await mongoose.connection.db.stats();
+      dbBytes = (stats.dataSize || 0);
+    }
+  } catch {
+    // DB stats 실패 시 uploads 만으로 추정
+  }
+  const estimatedBytes = uploadsBytes + dbBytes;
+
+  // 2) 가용 공간 (BACKUP_DIR 가 위치한 파일시스템)
+  let availableBytes = null;
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+    if (typeof fs.statfsSync === 'function') {
+      const fsStats = fs.statfsSync(BACKUP_DIR);
+      availableBytes = fsStats.bavail * fsStats.bsize;
+    }
+  } catch {
+    availableBytes = null;
+  }
+
+  return decideDiskSpace({ estimatedBytes, availableBytes, safetyFactor });
+}
+
 async function initBackupJob(userId, type = 'full') {
   // 암호화 키 유효성 검사
   validateEncryptionKey();
@@ -400,6 +474,8 @@ module.exports = {
   getBackupFilePath,
   deleteBackup,
   getLastBackupTime,
+  checkDiskSpace,
+  decideDiskSpace,
   ENCRYPTION_KEY,
   // 테스트용 내부 헬퍼 (#591)
   processDoc,
