@@ -47,7 +47,18 @@ const restoreJobSchema = new mongoose.Schema({
       videos: { type: Number, default: 0 }
     },
     skipped: { type: Number, default: 0 },
-    errors: { type: Number, default: 0 }
+    errors: { type: Number, default: 0 }, // 총합 (dbErrors + fileErrors) — 호환 유지
+    dbErrors: { type: Number, default: 0 }, // #631
+    fileErrors: { type: Number, default: 0 },
+    // 실패 항목 상세 (사후 규명용). type: 'db'|'file', + collection/docId 또는 dir/file + message
+    errorDetails: [{
+      type: { type: String },
+      collection: String,
+      docId: String,
+      dir: String,
+      file: String,
+      message: String
+    }]
   },
   validationResult: {
     isValid: Boolean,
