@@ -63,6 +63,20 @@ backend:
 
 > `backups_data`·`uploads_data`·`mongodb` 볼륨은 같은 디스크(Docker 데이터 루트)를 공유합니다. 백업이 디스크를 채우면 DB까지 위험하므로, 백업 시작 전 디스크 여유를 자동 점검합니다(아래).
 
+### 백업을 외부/별도 디스크로 분리 (선택, 권장)
+백업이 Docker/OrbStack 가상 디스크나 DB와 같은 디스크를 먹지 않게 하려면, `.env`(.env.production)에 `BACKUP_HOST_PATH`로 호스트 경로를 지정하세요:
+```bash
+# 비워두면 기존 named volume(backups_data) 사용 — 동작 동일
+# 호스트 절대경로를 넣으면 그 경로로 bind mount → 외부/별도 디스크에 저장
+BACKUP_HOST_PATH=/mnt/backup-disk/vcc-backups
+```
+- 지정한 디렉토리는 **미리 만들어 두세요** (`mkdir -p /mnt/backup-disk/vcc-backups`).
+- 적용: `.env` 수정 후 재배포(`./scripts/deploy-prod.sh`).
+- **기존 백업 이전**(named volume → 새 경로로 옮길 때): 재배포 전에 기존 볼륨의 파일을 새 경로로 복사
+  ```bash
+  docker cp $(docker compose ps -q backend):/app/backups/. /mnt/backup-disk/vcc-backups/
+  ```
+
 ## 백업 생성
 
 ### 백업 중 시스템 동작
