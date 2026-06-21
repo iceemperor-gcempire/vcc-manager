@@ -169,31 +169,50 @@ async function restoreCollection(config, tempExtractDir, options, statistics) {
 }
 
 /**
- * ZIP 파일에서 메타데이터 추출
+ * ZIP 파일에서 메타데이터 추출.
+ * unzipper.Open.file (central directory 기반)로 읽어 4GB 초과(ZIP64) 백업도 처리 (#643).
+ * (기존 unzipper.Parse 스트리밍은 대용량/ZIP64 에서 metadata 를 못 찾았음.)
  */
 async function extractMetadata(zipPath) {
-  return new Promise((resolve, reject) => {
-    let metadata = null;
+  const directory = await unzipper.Open.file(zipPath);
+  const entry = directory.files.find((f) => f.path === 'metadata.json');
+  if (!entry) {
+    throw new Error('metadata.json을 찾을 수 없습니다.');
+  }
+  const content = await entry.buffer();
+  return JSON.parse(content.toString());
+}
 
-    fs.createReadStream(zipPath)
-      .pipe(unzipper.Parse())
-      .on('entry', async (entry) => {
-        if (entry.path === 'metadata.json') {
-          const content = await entry.buffer();
-          metadata = JSON.parse(content.toString());
-        } else {
-          entry.autodrain();
-        }
-      })
-      .on('close', () => {
-        if (metadata) {
-          resolve(metadata);
-        } else {
-          reject(new Error('metadata.json을 찾을 수 없습니다.'));
-        }
-      })
-      .on('error', reject);
-  });
+/**
+ * 추출 대상 경로가 기준 디렉토리 하위인지 검증 (zip-slip 방어, #643). 안전하면 절대경로 반환, 아니면 null.
+ */
+function safeExtractPath(baseDir, entryPath) {
+  const dest = path.resolve(baseDir, entryPath);
+  const base = path.resolve(baseDir);
+  if (dest !== base && !dest.startsWith(base + path.sep)) return null;
+  return dest;
+}
+
+/**
+ * ZIP 을 디렉토리로 추출 — Open.file 기반 entry 별 stream (ZIP64/대용량 안전) (#643).
+ */
+async function extractZipToDir(zipPath, destDir) {
+  const directory = await unzipper.Open.file(zipPath);
+  for (const entry of directory.files) {
+    if (entry.type !== 'File') continue; // 디렉토리 엔트리 skip
+    const dest = safeExtractPath(destDir, entry.path);
+    if (!dest) {
+      console.error('zip-slip 차단:', entry.path);
+      continue;
+    }
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    await new Promise((resolve, reject) => {
+      entry.stream()
+        .pipe(fs.createWriteStream(dest))
+        .on('finish', resolve)
+        .on('error', reject);
+    });
+  }
 }
 
 /**
@@ -326,15 +345,11 @@ async function executeRestore(jobId, zipPath, options = {}) {
   }
 
   try {
-    // ZIP 추출
+    // ZIP 추출 — Open.file(central directory) 기반 entry 별 추출로 4GB 초과(ZIP64) 백업 처리 (#643).
+    // (기존 unzipper.Extract 스트리밍은 대용량/ZIP64 에서 실패.)
     await job.updateProgress(currentStep, totalSteps, 'ZIP 파일 추출 중...');
 
-    await new Promise((resolve, reject) => {
-      fs.createReadStream(zipPath)
-        .pipe(unzipper.Extract({ path: tempExtractDir }))
-        .on('close', resolve)
-        .on('error', reject);
-    });
+    await extractZipToDir(zipPath, tempExtractDir);
 
     // 데이터베이스 복구
     if (!options.skipDatabase) {
@@ -448,8 +463,10 @@ module.exports = {
   executeRestore,
   getRestoreStatus,
   listRestores,
-  // 테스트용 내부 헬퍼 (#591, #631)
+  // 테스트용 내부 헬퍼 (#591, #631, #643)
   restoreOneDoc,
   restoreCollection,
-  recordError
+  recordError,
+  extractMetadata,
+  safeExtractPath
 };
