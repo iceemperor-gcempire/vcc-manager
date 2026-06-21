@@ -47,7 +47,11 @@ jest.mock('../services/backupService', () => ({
   getBackupStatus: jest.fn(),
   listBackups: jest.fn(),
   deleteBackup: jest.fn(),
-  getBackupFilePath: jest.fn()
+  getBackupFilePath: jest.fn(),
+  // #634 서버사이드 복원 헬퍼 — 이 테스트의 경로들은 모두 BACKUP_DIR 밖이라 false
+  isInBackupDir: jest.fn(() => false),
+  resolveServerBackupPath: jest.fn(() => null),
+  listServerBackupFiles: jest.fn(() => [])
 }));
 
 // multer mock: upload.single() → req.file 주입

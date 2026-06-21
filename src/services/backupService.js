@@ -452,6 +452,46 @@ async function deleteBackup(jobId) {
 }
 
 /**
+ * BACKUP_DIR 의 백업 .zip 파일 목록 (서버사이드 복원용 #634).
+ * BackupJob 레코드 유무와 무관하게 실제 파일을 스캔 (새 머신에 cp 로 넣은 외부 zip 도 포함).
+ */
+function listServerBackupFiles() {
+  if (!fs.existsSync(BACKUP_DIR)) return [];
+  return fs.readdirSync(BACKUP_DIR, { withFileTypes: true })
+    .filter((e) => e.isFile() && e.name.endsWith('.zip'))
+    .map((e) => {
+      const full = path.join(BACKUP_DIR, e.name);
+      let size = 0; let mtime = null;
+      try { const st = fs.statSync(full); size = st.size; mtime = st.mtime; } catch { /* skip */ }
+      return { fileName: e.name, size, mtime };
+    })
+    .sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+}
+
+/**
+ * 서버 백업 파일명을 안전한 절대경로로 해석 (path traversal 방지) (#634).
+ * basename 만 허용하고 BACKUP_DIR 직속 .zip 만. 유효치 않으면 null.
+ */
+function resolveServerBackupPath(fileName) {
+  if (!fileName || typeof fileName !== 'string') return null;
+  if (path.basename(fileName) !== fileName) return null; // 디렉토리 구분자/.. 차단
+  if (!fileName.endsWith('.zip')) return null;
+  const full = path.join(BACKUP_DIR, fileName);
+  const resolved = path.resolve(full);
+  const resolvedDir = path.resolve(BACKUP_DIR);
+  if (path.dirname(resolved) !== resolvedDir) return null;
+  if (!fs.existsSync(resolved)) return null;
+  return resolved;
+}
+
+/** 경로가 BACKUP_DIR 하위인지 (복원 후 삭제 skip 판단용) */
+function isInBackupDir(filePath) {
+  if (!filePath) return false;
+  const resolvedDir = path.resolve(BACKUP_DIR);
+  return path.resolve(filePath).startsWith(resolvedDir + path.sep) || path.dirname(path.resolve(filePath)) === resolvedDir;
+}
+
+/**
  * 최근 백업 시간 확인 (rate limiting)
  */
 async function getLastBackupTime(userId) {
@@ -476,6 +516,9 @@ module.exports = {
   getLastBackupTime,
   checkDiskSpace,
   decideDiskSpace,
+  listServerBackupFiles,
+  resolveServerBackupPath,
+  isInBackupDir,
   ENCRYPTION_KEY,
   // 테스트용 내부 헬퍼 (#591)
   processDoc,
