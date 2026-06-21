@@ -23,6 +23,7 @@ import {
   Tabs,
   Tab,
   Tooltip,
+  TextField,
   CircularProgress
 } from '@mui/material';
 import {
@@ -97,7 +98,12 @@ function BackupRestorePage() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [activeJobId, setActiveJobId] = useState(null);
+  const [restoreMode, setRestoreMode] = useState('server'); // 'server' | 'upload' (#634)
+  const [selectedServerFile, setSelectedServerFile] = useState('');
   const fileInputRef = useRef(null);
+
+  // 업로드 무한 상태 방어: 큰 파일은 브라우저 업로드 대신 서버 백업 방식으로 유도 (#634)
+  const UPLOAD_SOFT_LIMIT = 2 * 1024 * 1024 * 1024; // 2GB
 
   // 백업 목록 조회
   const { data: backupData, isLoading: backupsLoading, refetch: refetchBackups } = useQuery({ queryKey: ['backups', backupPage], queryFn: () => backupAPI.list({ page: backupPage, limit: 10 }), refetchInterval: activeJobId ? 2000 : false });
@@ -192,11 +198,37 @@ function BackupRestorePage() {
   const handleFileSelect = async (event) => {
     const file = event.target.files[0];
     if (file) {
+      // 대용량은 브라우저 업로드가 실패/무한 상태를 유발 → 서버 백업 방식으로 안내 (#634)
+      if (file.size > UPLOAD_SOFT_LIMIT) {
+        toast.error('파일이 너무 큽니다. 대용량 백업은 서버에 올린 뒤 "서버 백업" 탭에서 복원하세요. (scripts/upload-backup-file.sh)');
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        return;
+      }
       setUploadedFile(file);
       setValidationResult(null);
       validateMutation.mutate(file);
     }
   };
+
+  // 서버 백업 파일 목록 (서버 탭에서만 조회) (#634)
+  const { data: serverFilesData, refetch: refetchServerFiles } = useQuery({
+    queryKey: ['serverBackupFiles'],
+    queryFn: () => backupAPI.listServerBackupFiles(),
+    enabled: restoreDialogOpen && restoreMode === 'server',
+  });
+  const serverBackupFiles = serverFilesData?.data?.data?.files || [];
+
+  const validateServerMutation = useMutation({
+    mutationFn: (fileName) => backupAPI.validateServerBackup(fileName),
+    onSuccess: (response) => {
+      setValidationResult(response.data.data);
+      if (response.data.data.validationResult?.isValid) toast.success('백업 파일이 유효합니다.');
+      else toast.error('백업 파일 검증에 실패했습니다.');
+    },
+    onError: (error) => {
+      toast.error(error.response?.data?.message || '서버 백업 검증에 실패했습니다.');
+    },
+  });
 
   const handleDownload = async (backupId) => {
     try {
@@ -507,32 +539,82 @@ function BackupRestorePage() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ mt: 2 }}>
-            {/* 파일 업로드 */}
-            <input
-              type="file"
-              accept=".zip"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              style={{ display: 'none' }}
-            />
-
-            <Button
-              variant="outlined"
-              fullWidth
-              startIcon={<CloudUpload />}
-              onClick={() => fileInputRef.current?.click()}
-              disabled={validateMutation.isPending}
+          <Box sx={{ mt: 1 }}>
+            {/* 복원 방식 선택: 서버 백업(권장) / 파일 업로드 (#634) */}
+            <Tabs
+              value={restoreMode}
+              onChange={(e, v) => { setRestoreMode(v); setValidationResult(null); setUploadedFile(null); setSelectedServerFile(''); }}
+              sx={{ mb: 2 }}
             >
-              {uploadedFile ? uploadedFile.name : '백업 파일 선택 (.zip)'}
-            </Button>
+              <Tab value="server" label="서버 백업 (권장)" />
+              <Tab value="upload" label="파일 업로드" />
+            </Tabs>
 
-            {validateMutation.isPending && (
-              <Box sx={{ mt: 2 }}>
-                <LinearProgress />
-                <Typography variant="caption" color="text.secondary">
-                  파일 검증 중...
+            {restoreMode === 'server' && (
+              <Box>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  서버에 올려둔 백업 파일을 선택해 복원합니다. 대용량 백업은 <code>scripts/upload-backup-file.sh</code> 로 올리세요.
                 </Typography>
+                {serverBackupFiles.length === 0 ? (
+                  <Alert severity="info">서버에 백업 파일이 없습니다. <code>./scripts/upload-backup-file.sh &lt;파일.zip&gt;</code> 로 올린 뒤 새로고침하세요.</Alert>
+                ) : (
+                  <TextField
+                    select fullWidth size="small" label="서버 백업 파일"
+                    value={selectedServerFile}
+                    onChange={(e) => { setSelectedServerFile(e.target.value); setValidationResult(null); }}
+                    SelectProps={{ native: true }} InputLabelProps={{ shrink: true }}
+                  >
+                    <option value="">— 선택 —</option>
+                    {serverBackupFiles.map((f) => (
+                      <option key={f.fileName} value={f.fileName}>
+                        {f.fileName} ({(f.size / 1024 / 1024).toFixed(0)}MB)
+                      </option>
+                    ))}
+                  </TextField>
+                )}
+                <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                  <Button size="small" onClick={() => refetchServerFiles()}>목록 새로고침</Button>
+                  <Button
+                    size="small" variant="outlined"
+                    disabled={!selectedServerFile || validateServerMutation.isPending}
+                    onClick={() => { setValidationResult(null); validateServerMutation.mutate(selectedServerFile); }}
+                  >
+                    검증
+                  </Button>
+                </Box>
+                {validateServerMutation.isPending && (
+                  <Box sx={{ mt: 2 }}><LinearProgress /><Typography variant="caption" color="text.secondary">검증 중...</Typography></Box>
+                )}
+              </Box>
+            )}
+
+            {restoreMode === 'upload' && (
+              <Box>
+                <input
+                  type="file"
+                  accept=".zip"
+                  ref={fileInputRef}
+                  onChange={handleFileSelect}
+                  style={{ display: 'none' }}
+                />
+                <Button
+                  variant="outlined"
+                  fullWidth
+                  startIcon={<CloudUpload />}
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={validateMutation.isPending}
+                >
+                  {uploadedFile ? uploadedFile.name : '백업 파일 선택 (.zip)'}
+                </Button>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                  2GB 이하 백업만 업로드 가능합니다. 더 큰 백업은 "서버 백업" 탭을 사용하세요.
+                </Typography>
+                {validateMutation.isPending && (
+                  <Box sx={{ mt: 2 }}>
+                    <LinearProgress />
+                    <Typography variant="caption" color="text.secondary">파일 검증 중...</Typography>
+                  </Box>
+                )}
               </Box>
             )}
 

@@ -275,8 +275,45 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 });
 
 /**
+ * GET /api/admin/backup/restore/server-files
+ * 서버 BACKUP_DIR 에 있는 백업 .zip 목록 (서버사이드 복원용 #634)
+ */
+router.get('/restore/server-files', requireAdmin, async (req, res) => {
+  try {
+    res.json({ success: true, data: { files: backupService.listServerBackupFiles() } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
+ * POST /api/admin/backup/restore/server-validate
+ * 서버에 있는 백업 파일을 파일명으로 검증 (업로드 우회 #634). body: { fileName }
+ */
+router.post('/restore/server-validate', requireAdmin, async (req, res) => {
+  try {
+    const { fileName } = req.body;
+    const resolved = backupService.resolveServerBackupPath(fileName);
+    if (!resolved) {
+      return res.status(400).json({ success: false, message: '유효한 서버 백업 파일이 아닙니다.' });
+    }
+    const job = await restoreService.validateBackup(resolved, req.user._id);
+    res.json({
+      success: true,
+      data: {
+        jobId: job._id,
+        validationResult: job.validationResult,
+        backupMetadata: job.backupMetadata
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+/**
  * POST /api/admin/restore/validate
- * 백업 파일 검증
+ * 백업 파일 검증 (업로드 방식)
  */
 router.post('/restore/validate', requireAdmin, upload.single('backup'), async (req, res) => {
   try {
@@ -360,32 +397,34 @@ router.post('/restore', requireAdmin, async (req, res) => {
       });
     }
 
-    // 경로 검증: backup-temp 디렉토리 하위인지 확인
+    // 경로 검증: 업로드 임시 디렉토리(backup-temp) 또는 서버 백업 디렉토리(BACKUP_DIR #634) 하위만 허용
     const resolvedPath = path.resolve(filePath);
     const resolvedUploadDir = path.resolve(UPLOAD_DIR);
-    if (!resolvedPath.startsWith(resolvedUploadDir + path.sep) && resolvedPath !== resolvedUploadDir) {
+    const inUploadTemp = resolvedPath.startsWith(resolvedUploadDir + path.sep) || resolvedPath === resolvedUploadDir;
+    const isServerBackup = backupService.isInBackupDir(resolvedPath);
+    if (!inUploadTemp && !isServerBackup) {
       return res.status(403).json({
         success: false,
         message: 'Access denied'
       });
     }
 
+    // 서버 백업 파일(BACKUP_DIR)은 복원 후에도 보존, 업로드 임시파일만 삭제
+    const cleanupTempFile = () => {
+      if (!isServerBackup && fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    };
+
     // 복원 잠금 시작 — 복원 중 동시 쓰기 차단 (#589)
     startRestoreLock(jobId);
 
     // 복구 실행 (비동기로 시작하고 바로 응답)
     restoreService.executeRestore(jobId, filePath, options)
-      .then(() => {
-        // 복구 완료 후 임시 파일 삭제
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
-      })
+      .then(cleanupTempFile)
       .catch((err) => {
         console.error('복구 실행 오류:', err);
-        if (fs.existsSync(filePath)) {
-          fs.unlinkSync(filePath);
-        }
+        cleanupTempFile();
       })
       .finally(() => {
         // 복원 완료/실패 시 잠금 해제

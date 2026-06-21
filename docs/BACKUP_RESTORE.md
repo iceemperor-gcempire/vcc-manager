@@ -94,8 +94,18 @@ vcc-backup-2026-06-20T10-30-00-000Z.zip
 
 ## 복구
 
-### 웹 UI
-관리자 > **백업 / 복구** > **복구하기** → 백업 파일(.zip) 업로드 → 검증 결과 확인 → 옵션 선택 → 복구 실행.
+### 웹 UI — 두 가지 방식
+복구하기 다이얼로그에서 방식을 고릅니다:
+
+- **서버 백업 (권장, 대용량 안전)**: 서버 `/app/backups`에 있는 백업 파일을 목록에서 골라 복원. 업로드가 없어 크기 제한이 없습니다. 백업 파일을 서버에 올릴 때:
+  ```bash
+  ./scripts/upload-backup-file.sh <백업파일.zip>        # 프로덕션
+  ./scripts/upload-backup-file.sh --dev <백업파일.zip>  # 개발
+  ```
+  (한 줄로 backend 컨테이너의 `/app/backups`에 복사 → UI "서버 백업" 탭에 표시)
+- **파일 업로드**: 2GB 이하 백업을 브라우저로 업로드. 그보다 크면 위 "서버 백업" 방식을 쓰세요(대용량 HTTP 업로드는 느리고 실패하기 쉬움).
+
+검증 결과 확인 → 옵션 선택 → 복구 실행.
 
 옵션: 기존 데이터 덮어쓰기 / 데이터베이스 건너뛰기 / 파일 건너뛰기.
 
@@ -149,7 +159,9 @@ vcc-backup-2026-06-20T10-30-00-000Z.zip
 | GET | `/api/admin/backup/list` | 백업 목록 |
 | DELETE | `/api/admin/backup/:id` | 백업 삭제 |
 | GET | `/api/admin/backup/lock-status` | 백업/복원 진행 상태 |
-| POST | `/api/admin/backup/restore/validate` | 복구 파일 검증 |
+| GET | `/api/admin/backup/restore/server-files` | 서버 백업 파일 목록 (서버사이드 복원) |
+| POST | `/api/admin/backup/restore/server-validate` | 서버 백업 파일 검증 (업로드 우회) |
+| POST | `/api/admin/backup/restore/validate` | 복구 파일 검증 (업로드) |
 | POST | `/api/admin/backup/restore` | 복구 실행 |
 | GET | `/api/admin/backup/restore/status/:id` | 복구 상태 조회 |
 | GET | `/api/admin/backup/restore/list` | 복구 히스토리 |
