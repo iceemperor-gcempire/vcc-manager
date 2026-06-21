@@ -204,6 +204,9 @@ export const backupAPI = {
   restore: (data) => api.post('/admin/backup/restore', data),
   getRestoreStatus: (id) => api.get(`/admin/backup/restore/status/${id}`),
   listRestores: (params) => api.get('/admin/backup/restore/list', { params }),
+  // 서버사이드 복원 (업로드 우회 #634)
+  listServerBackupFiles: () => api.get('/admin/backup/restore/server-files'),
+  validateServerBackup: (fileName) => api.post('/admin/backup/restore/server-validate', { fileName }),
 };
 
 export const serverAPI = {
