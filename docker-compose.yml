@@ -82,7 +82,8 @@ services:
       - "${BACKEND_PORT:-3136}:3000"
     volumes:
       - uploads_data:/app/uploads
-      - backups_data:/app/backups
+      # BACKUP_HOST_PATH 미설정 시 named volume(backups_data), 절대경로 설정 시 host bind mount (#637)
+      - ${BACKUP_HOST_PATH:-backups_data}:/app/backups
     depends_on:
       - mongodb
       - redis
