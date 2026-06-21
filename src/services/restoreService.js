@@ -104,15 +104,18 @@ async function restoreOneDoc(doc, config, options, statistics) {
     }
 
     docId = processedDoc._id;
-    delete processedDoc._id;
 
+    // timestamps: false 로 백업 원본 createdAt/updatedAt 을 보존 (#646).
+    // mongoose timestamps:true 기본 동작이 복원 시점으로 덮어쓰던 버그 수정.
+    // new+save / findByIdAndUpdate 모두 스키마 캐스팅(string→ObjectId/Date)은 그대로 적용됨.
     if (options.overwriteExisting) {
-      await config.model.findByIdAndUpdate(docId, processedDoc, { upsert: true, new: true });
+      const { _id, ...rest } = processedDoc;
+      await config.model.findByIdAndUpdate(docId, rest, { upsert: true, new: true, timestamps: false });
     } else {
       const existing = await config.model.findById(docId);
       if (!existing) {
-        processedDoc._id = docId;
-        await config.model.create(processedDoc);
+        const newDoc = new config.model(processedDoc); // _id 포함
+        await newDoc.save({ timestamps: false });
       } else {
         statistics.skipped++;
       }
@@ -132,9 +135,22 @@ async function restoreOneDoc(doc, config, options, statistics) {
 async function restoreCollection(config, tempExtractDir, options, statistics) {
   const ndjsonPath = path.join(tempExtractDir, 'database', `${config.name}.ndjson`);
   const jsonPath = path.join(tempExtractDir, 'database', `${config.name}.json`);
+  const hasNdjson = fs.existsSync(ndjsonPath);
+  const hasJson = !hasNdjson && fs.existsSync(jsonPath);
   let restoredCount = 0;
 
-  if (fs.existsSync(ndjsonPath)) {
+  if (!hasNdjson && !hasJson) {
+    return null; // 해당 컬렉션 파일 없음 — 건드리지 않음
+  }
+
+  // 완전 복제(clean) 모드 (#646): 백업에 포함된 컬렉션만 복원 직전 비우고 백업으로 교체.
+  // 빈 DB 마이그레이션 시 새로 가입한 계정/그룹과 백업의 unique 충돌 제거 + 소유자(_id) 완전 일치.
+  // 파일이 없는 컬렉션은 위에서 이미 return 했으므로 비우지 않음 (구버전 백업 데이터 손실 방지).
+  if (options.cleanRestore) {
+    await config.model.deleteMany({});
+  }
+
+  if (hasNdjson) {
     // 신버전: 한 줄에 문서 1개 — 라인 스트리밍 (메모리 상수)
     const rl = readline.createInterface({
       input: fs.createReadStream(ndjsonPath),
@@ -154,15 +170,13 @@ async function restoreCollection(config, tempExtractDir, options, statistics) {
       await restoreOneDoc(doc, config, options, statistics);
       restoredCount++;
     }
-  } else if (fs.existsSync(jsonPath)) {
-    // 구버전 호환: 통째 JSON 배열
+  } else {
+    // 구버전 호환: 통째 JSON 배열 (hasJson)
     const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     for (const doc of data) {
       await restoreOneDoc(doc, config, options, statistics);
       restoredCount++;
     }
-  } else {
-    return null; // 해당 컬렉션 파일 없음
   }
 
   return restoredCount;

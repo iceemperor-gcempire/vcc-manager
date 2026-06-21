@@ -93,7 +93,9 @@ function BackupRestorePage() {
   const [restoreOptions, setRestoreOptions] = useState({
     overwriteExisting: false,
     skipFiles: false,
-    skipDatabase: false
+    skipDatabase: false,
+    cleanRestore: false, // 완전 교체 모드 (#646)
+    skipSnapshot: false  // 복원 전 자동 스냅샷 생략 (대용량/빈 DB 이전 시) (#646)
   });
   const [uploadedFile, setUploadedFile] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
@@ -450,6 +452,9 @@ function BackupRestorePage() {
                           <TableCell>
                             {restore.options && (
                               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                {restore.options.cleanRestore && (
+                                  <Chip label="완전 교체" color="error" />
+                                )}
                                 {restore.options.overwriteExisting && (
                                   <Chip label="덮어쓰기" />
                                 )}
@@ -458,6 +463,9 @@ function BackupRestorePage() {
                                 )}
                                 {restore.options.skipDatabase && (
                                   <Chip label="DB 제외" />
+                                )}
+                                {restore.options.skipSnapshot && (
+                                  <Chip label="스냅샷 생략" />
                                 )}
                               </Box>
                             )}
@@ -674,7 +682,22 @@ function BackupRestorePage() {
                     <FormControlLabel
                       control={
                         <Checkbox
+                          checked={restoreOptions.cleanRestore}
+                          onChange={(e) => setRestoreOptions({
+                            ...restoreOptions,
+                            cleanRestore: e.target.checked,
+                            // 완전 교체 시 덮어쓰기는 의미 없으므로 함께 해제
+                            overwriteExisting: e.target.checked ? false : restoreOptions.overwriteExisting
+                          })}
+                        />
+                      }
+                      label="기존 데이터를 모두 지우고 완전히 교체 (새 서버 이전 시 권장)"
+                    />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
                           checked={restoreOptions.overwriteExisting}
+                          disabled={restoreOptions.cleanRestore}
                           onChange={(e) => setRestoreOptions({
                             ...restoreOptions,
                             overwriteExisting: e.target.checked
@@ -707,13 +730,35 @@ function BackupRestorePage() {
                       }
                       label="파일 복구 건너뛰기"
                     />
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={restoreOptions.skipSnapshot}
+                          onChange={(e) => setRestoreOptions({
+                            ...restoreOptions,
+                            skipSnapshot: e.target.checked
+                          })}
+                        />
+                      }
+                      label="복원 전 자동 스냅샷 생략 (대용량·빈 서버 이전 시 빠름)"
+                    />
 
-                    <Alert severity="warning" sx={{ mt: 2 }}>
-                      <Typography variant="body2">
-                        복구를 실행하면 선택한 옵션에 따라 기존 데이터가 영향을 받을 수 있습니다.
-                        신중하게 진행해주세요.
-                      </Typography>
-                    </Alert>
+                    {restoreOptions.cleanRestore ? (
+                      <Alert severity="error" sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2">완전 교체 모드</Typography>
+                        <Typography variant="body2">
+                          백업에 포함된 컬렉션의 <strong>현재 데이터를 모두 삭제</strong>하고 백업으로 교체합니다.
+                          새 서버로 이전(빈 DB)할 때 사용하세요. 복원 후에는 <strong>백업에 들어있던 계정/비밀번호</strong>로 로그인해야 합니다.
+                        </Typography>
+                      </Alert>
+                    ) : (
+                      <Alert severity="warning" sx={{ mt: 2 }}>
+                        <Typography variant="body2">
+                          복구를 실행하면 선택한 옵션에 따라 기존 데이터가 영향을 받을 수 있습니다.
+                          신중하게 진행해주세요.
+                        </Typography>
+                      </Alert>
+                    )}
                   </Box>
                 )}
               </Box>
