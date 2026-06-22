@@ -1127,6 +1127,20 @@ const closeQueues = async () => {
   console.log('🛑 Image generation queue closed');
 };
 
+// 복원 완료 후 큐 전체 비우기 (#650) — 복원 중 전면 차단(backupLock)이라 in-flight 없음.
+// 옛 작업/이력이 복원된 새 DB 의 _id 와 안 맞으므로 정리. best-effort.
+const clearImageGenerationQueue = async () => {
+  if (!imageGenerationQueue) return { cleared: false, reason: 'not-initialized' };
+  try {
+    await imageGenerationQueue.obliterate({ force: true });
+    console.log('🧹 image generation 큐 정리 완료 (복원 후)');
+    return { cleared: true };
+  } catch (error) {
+    console.error('image generation 큐 정리 실패:', error.message);
+    return { cleared: false, error: error.message };
+  }
+};
+
 module.exports = {
   initializeQueues,
   addImageGenerationJob,
@@ -1134,5 +1148,6 @@ module.exports = {
   cancelQueueJob,
   abortActiveJob,
   closeQueues,
+  clearImageGenerationQueue,
   imageGenerationQueue
 };

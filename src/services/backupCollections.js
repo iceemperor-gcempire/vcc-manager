@@ -43,6 +43,10 @@ const GeneratedText = require('../models/GeneratedText');
 const PipelineRun = require('../models/PipelineRun');
 const ApiKey = require('../models/ApiKey');
 const SystemSettings = require('../models/SystemSettings');
+// 백업 비대상 캐시 컬렉션 (재생성 가능) — 완전 교체 복원 시 비워 새 DB 와의 불일치 방지 (#650)
+const LoraCache = require('../models/LoraCache');
+const ServerLoraCache = require('../models/ServerLoraCache');
+const ServerModelCache = require('../models/ServerModelCache');
 
 const BACKUP_COLLECTIONS = [
   // 참조 대상 (사용자 / 그룹 / 태그 / 서버)
@@ -69,4 +73,12 @@ const BACKUP_COLLECTIONS = [
   { name: 'SystemSettings', model: SystemSettings, encryptFields: ['external.civitaiApiKey', 'lora.civitaiApiKey'] },
 ];
 
-module.exports = { BACKUP_COLLECTIONS };
+// 백업 비대상 캐시 컬렉션 (#650). 완전 교체(cleanRestore) 복원 시에만 비운다.
+// 서버 모델/LoRA 동기화로 재생성되며, 옛 캐시가 복원된 새 Server 와 불일치하는 것을 방지.
+const CACHE_COLLECTIONS = [
+  { name: 'LoraCache', model: LoraCache },
+  { name: 'ServerLoraCache', model: ServerLoraCache },
+  { name: 'ServerModelCache', model: ServerModelCache },
+];
+
+module.exports = { BACKUP_COLLECTIONS, CACHE_COLLECTIONS };

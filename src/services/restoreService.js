@@ -9,7 +9,7 @@ const { ENCRYPTION_KEY } = backupService;
 
 // 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
 // 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
-const { BACKUP_COLLECTIONS } = require('./backupCollections');
+const { BACKUP_COLLECTIONS, CACHE_COLLECTIONS } = require('./backupCollections');
 
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
@@ -425,6 +425,28 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
     // 임시 디렉토리 정리
     fs.rmSync(tempExtractDir, { recursive: true, force: true });
+
+    // 완전 교체(clean) 복원: 백업 비대상 캐시 컬렉션도 비워 새 DB 와 불일치 방지 (#650).
+    // best-effort — 실패해도 복원 자체는 성공으로 처리. 서버 모델/LoRA 동기화로 재생성됨.
+    if (options.cleanRestore && !options.skipDatabase) {
+      for (const c of CACHE_COLLECTIONS) {
+        try {
+          await c.model.deleteMany({});
+          console.log(`🧹 캐시 컬렉션 비움(완전 교체): ${c.name}`);
+        } catch (cacheErr) {
+          console.error(`캐시 컬렉션 ${c.name} 정리 실패:`, cacheErr.message);
+        }
+      }
+    }
+
+    // 복원 후 작업 큐 비우기 (#650) — 복원 중 전면 차단이라 in-flight 없음.
+    // 옛 큐 작업/이력이 복원된 새 DB 와 안 맞으므로 정리. best-effort, 지연 require 로 순환 회피.
+    try {
+      await require('./queueService').clearImageGenerationQueue();
+      await require('./pipelineRunService').clearPipelineRunQueue();
+    } catch (queueErr) {
+      console.error('복원 후 큐 정리 실패:', queueErr.message);
+    }
 
     await job.complete(statistics);
 

@@ -37,7 +37,7 @@ import {
   Pending,
   Refresh
 } from '@mui/icons-material';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { backupAPI } from '../../services/api';
 import Pagination from '../../components/common/Pagination';
@@ -102,6 +102,9 @@ function BackupRestorePage() {
   const [activeJobId, setActiveJobId] = useState(null);
   // 진행 중인 작업 종류 — 폴링 대상 API 를 현재 탭이 아니라 작업 종류로 결정 (#648)
   const [activeJobType, setActiveJobType] = useState(null); // 'backup' | 'restore'
+  const [activeJobProgress, setActiveJobProgress] = useState(null); // {current,total,stage} 복원 진행 모달용 (#650)
+  const cleanRestoreRef = useRef(false); // 마지막 복원이 완전 교체였는지 (완료 후 안내 분기) (#650)
+  const queryClient = useQueryClient();
   const [restoreMode, setRestoreMode] = useState('server'); // 'server' | 'upload' (#634)
   const [selectedServerFile, setSelectedServerFile] = useState('');
   const fileInputRef = useRef(null);
@@ -127,9 +130,33 @@ function BackupRestorePage() {
           : await backupAPI.getRestoreStatus(activeJobId);
 
         const job = response.data.data;
+        // 복원 진행 모달용 진행률 갱신 (#650)
+        if (activeJobType === 'restore') {
+          setActiveJobProgress({
+            current: job.progress?.current,
+            total: job.progress?.total,
+            stage: job.progress?.stage
+          });
+        }
+
         if (job.status === 'completed' || job.status === 'failed') {
           setActiveJobId(null);
           setActiveJobType(null);
+
+          // 복원 완료: 캐시를 비우고 페이지 리로드 (#650).
+          // 완전 교체였으면 계정 _id 가 백업 것으로 바뀌어 리로드 후 첫 요청이 401 → 자동 /login.
+          if (activeJobType === 'restore' && job.status === 'completed') {
+            queryClient.clear();
+            toast.success(
+              cleanRestoreRef.current
+                ? '복원 완료! 잠시 후 새로고침되며, 백업에 든 계정으로 다시 로그인해주세요.'
+                : '복구 완료! 잠시 후 새로고침됩니다.'
+            );
+            setTimeout(() => window.location.reload(), 1800);
+            return;
+          }
+
+          setActiveJobProgress(null);
           if (job.status === 'completed') {
             toast.success(activeJobType === 'backup' ? '백업이 완료되었습니다!' : '복구가 완료되었습니다!');
           } else {
@@ -145,7 +172,7 @@ function BackupRestorePage() {
 
     const interval = setInterval(checkStatus, 2000);
     return () => clearInterval(interval);
-  }, [activeJobId, activeJobType, refetchBackups, refetchRestores]);
+  }, [activeJobId, activeJobType, queryClient, refetchBackups, refetchRestores]);
 
   // 백업 생성
   const createBackupMutation = useMutation({ mutationFn: () => backupAPI.create(),
@@ -265,6 +292,8 @@ function BackupRestorePage() {
   const handleRestoreExecute = () => {
     if (!validationResult) return;
 
+    cleanRestoreRef.current = !!restoreOptions.cleanRestore; // 완료 후 안내 분기용 (#650)
+    setActiveJobProgress(null);
     restoreMutation.mutate({
       jobId: validationResult.jobId,
       options: restoreOptions
@@ -793,6 +822,41 @@ function BackupRestorePage() {
             복구 실행
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* 복원 진행 모달 (#650) — 닫기 불가, 완료 시 캐시 비우고 자동 리로드 */}
+      <Dialog
+        open={activeJobType === 'restore' && !!activeJobId}
+        disableEscapeKeyDown
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Restore />
+            복원 진행 중
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            데이터를 복원하고 있습니다. 완료될 때까지 이 창을 닫거나 새로고침하지 마세요.
+            {cleanRestoreRef.current && ' 완료 후 백업에 든 계정으로 다시 로그인하게 됩니다.'}
+          </Typography>
+          <LinearProgress
+            variant={activeJobProgress?.total ? 'determinate' : 'indeterminate'}
+            value={
+              activeJobProgress?.total
+                ? Math.min(100, (activeJobProgress.current / activeJobProgress.total) * 100)
+                : undefined
+            }
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            {activeJobProgress?.stage || '준비 중...'}
+            {activeJobProgress?.total
+              ? ` (${activeJobProgress.current || 0}/${activeJobProgress.total})`
+              : ''}
+          </Typography>
+        </DialogContent>
       </Dialog>
     </Box>
   );
