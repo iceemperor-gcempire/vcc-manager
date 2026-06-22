@@ -1,3 +1,7 @@
+# compose 프로젝트명 고정 — 실행 디렉토리명에 의존하지 않도록 (#652).
+# 네트워크/볼륨 prefix 와 UI 그룹명이 실행 위치와 무관하게 항상 vcc-manager 가 된다.
+name: vcc-manager
+
 # 컨테이너 로그 로테이션 — 무제한 누적으로 인한 디스크 고갈 방지 (#522)
 x-logging: &default-logging
   driver: json-file
