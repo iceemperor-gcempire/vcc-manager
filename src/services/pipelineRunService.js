@@ -338,9 +338,23 @@ const closePipelineRunQueue = async () => {
   console.log('🛑 Pipeline run queue closed');
 };
 
+// 복원 완료 후 큐 전체 비우기 (#650) — best-effort.
+const clearPipelineRunQueue = async () => {
+  if (!pipelineRunQueue) return { cleared: false, reason: 'not-initialized' };
+  try {
+    await pipelineRunQueue.obliterate({ force: true });
+    console.log('🧹 pipeline run 큐 정리 완료 (복원 후)');
+    return { cleared: true };
+  } catch (error) {
+    console.error('pipeline run 큐 정리 실패:', error.message);
+    return { cleared: false, error: error.message };
+  }
+};
+
 module.exports = {
   initPipelineRunQueue,
   startPipelineRun,
   retryPipelineRun,
   closePipelineRunQueue,
+  clearPipelineRunQueue,
 };

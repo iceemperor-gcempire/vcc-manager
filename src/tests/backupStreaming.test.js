@@ -27,14 +27,22 @@ function makeBackupModel(docs) {
   };
 }
 
+// #646: 복원이 model.create() → new Model(doc).save({timestamps:false}) 로 전환됨.
+// 생성자 호출 + save 를 추적하는 mock 모델.
 function makeRestoreModel() {
   const created = [];
-  return {
-    created,
-    create: jest.fn(async (d) => { created.push(d); return d; }),
-    findById: jest.fn(async () => null),
-    findByIdAndUpdate: jest.fn(async () => ({}))
-  };
+  const saveMock = jest.fn(async function () { return this; });
+  const Model = jest.fn().mockImplementation(function (d) {
+    this._input = d;
+    created.push(d);
+    this.save = saveMock;
+  });
+  Model.created = created;
+  Model.saveMock = saveMock;
+  Model.findById = jest.fn(async () => null);
+  Model.findByIdAndUpdate = jest.fn(async () => ({}));
+  Model.deleteMany = jest.fn(async () => ({ deletedCount: 0 }));
+  return Model;
 }
 
 let tmpDir;
@@ -102,7 +110,7 @@ describe('#591 restoreCollection', () => {
     const count = await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
 
     expect(count).toBe(2);
-    expect(model.create).toHaveBeenCalledTimes(2);
+    expect(model.saveMock).toHaveBeenCalledTimes(2);
     expect(stats.errors).toBe(0);
     // _id 보존
     expect(model.created[0]._id).toBe('1');
@@ -114,7 +122,7 @@ describe('#591 restoreCollection', () => {
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     const count = await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
     expect(count).toBe(2);
-    expect(model.create).toHaveBeenCalledTimes(2);
+    expect(model.saveMock).toHaveBeenCalledTimes(2);
   });
 
   test('구버전 .json 배열도 복구된다 (하위호환)', async () => {
@@ -123,7 +131,7 @@ describe('#591 restoreCollection', () => {
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     const count = await restoreCollection({ name: 'Legacy', model }, tmpDir, {}, stats);
     expect(count).toBe(3);
-    expect(model.create).toHaveBeenCalledTimes(3);
+    expect(model.saveMock).toHaveBeenCalledTimes(3);
   });
 
   test('파일 없으면 null', async () => {
@@ -138,7 +146,7 @@ describe('#591 restoreCollection', () => {
     model.findById = jest.fn(async () => ({ _id: '1' })); // 이미 존재
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     await restoreCollection({ name: 'Coll', model }, tmpDir, { overwriteExisting: false }, stats);
-    expect(model.create).not.toHaveBeenCalled();
+    expect(model.saveMock).not.toHaveBeenCalled();
     expect(stats.skipped).toBe(1);
   });
 
@@ -147,7 +155,7 @@ describe('#591 restoreCollection', () => {
     const model = makeRestoreModel();
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
-    expect(model.create).toHaveBeenCalledTimes(2);
+    expect(model.saveMock).toHaveBeenCalledTimes(2);
     expect(stats.errors).toBe(1);
   });
 });

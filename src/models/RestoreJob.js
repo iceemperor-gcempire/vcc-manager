@@ -29,7 +29,9 @@ const restoreJobSchema = new mongoose.Schema({
   options: {
     overwriteExisting: { type: Boolean, default: false },
     skipFiles: { type: Boolean, default: false },
-    skipDatabase: { type: Boolean, default: false }
+    skipDatabase: { type: Boolean, default: false },
+    cleanRestore: { type: Boolean, default: false }, // 완전 교체 모드 (#646)
+    skipSnapshot: { type: Boolean, default: false }  // 복원 전 자동 스냅샷 생략 (#646)
   },
   progress: {
     current: { type: Number, default: 0 },

@@ -9,7 +9,7 @@ const { ENCRYPTION_KEY } = backupService;
 
 // 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
 // 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
-const { BACKUP_COLLECTIONS } = require('./backupCollections');
+const { BACKUP_COLLECTIONS, CACHE_COLLECTIONS } = require('./backupCollections');
 
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
@@ -104,15 +104,18 @@ async function restoreOneDoc(doc, config, options, statistics) {
     }
 
     docId = processedDoc._id;
-    delete processedDoc._id;
 
+    // timestamps: false 로 백업 원본 createdAt/updatedAt 을 보존 (#646).
+    // mongoose timestamps:true 기본 동작이 복원 시점으로 덮어쓰던 버그 수정.
+    // new+save / findByIdAndUpdate 모두 스키마 캐스팅(string→ObjectId/Date)은 그대로 적용됨.
     if (options.overwriteExisting) {
-      await config.model.findByIdAndUpdate(docId, processedDoc, { upsert: true, new: true });
+      const { _id, ...rest } = processedDoc;
+      await config.model.findByIdAndUpdate(docId, rest, { upsert: true, new: true, timestamps: false });
     } else {
       const existing = await config.model.findById(docId);
       if (!existing) {
-        processedDoc._id = docId;
-        await config.model.create(processedDoc);
+        const newDoc = new config.model(processedDoc); // _id 포함
+        await newDoc.save({ timestamps: false });
       } else {
         statistics.skipped++;
       }
@@ -132,9 +135,22 @@ async function restoreOneDoc(doc, config, options, statistics) {
 async function restoreCollection(config, tempExtractDir, options, statistics) {
   const ndjsonPath = path.join(tempExtractDir, 'database', `${config.name}.ndjson`);
   const jsonPath = path.join(tempExtractDir, 'database', `${config.name}.json`);
+  const hasNdjson = fs.existsSync(ndjsonPath);
+  const hasJson = !hasNdjson && fs.existsSync(jsonPath);
   let restoredCount = 0;
 
-  if (fs.existsSync(ndjsonPath)) {
+  if (!hasNdjson && !hasJson) {
+    return null; // 해당 컬렉션 파일 없음 — 건드리지 않음
+  }
+
+  // 완전 복제(clean) 모드 (#646): 백업에 포함된 컬렉션만 복원 직전 비우고 백업으로 교체.
+  // 빈 DB 마이그레이션 시 새로 가입한 계정/그룹과 백업의 unique 충돌 제거 + 소유자(_id) 완전 일치.
+  // 파일이 없는 컬렉션은 위에서 이미 return 했으므로 비우지 않음 (구버전 백업 데이터 손실 방지).
+  if (options.cleanRestore) {
+    await config.model.deleteMany({});
+  }
+
+  if (hasNdjson) {
     // 신버전: 한 줄에 문서 1개 — 라인 스트리밍 (메모리 상수)
     const rl = readline.createInterface({
       input: fs.createReadStream(ndjsonPath),
@@ -154,15 +170,13 @@ async function restoreCollection(config, tempExtractDir, options, statistics) {
       await restoreOneDoc(doc, config, options, statistics);
       restoredCount++;
     }
-  } else if (fs.existsSync(jsonPath)) {
-    // 구버전 호환: 통째 JSON 배열
+  } else {
+    // 구버전 호환: 통째 JSON 배열 (hasJson)
     const data = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
     for (const doc of data) {
       await restoreOneDoc(doc, config, options, statistics);
       restoredCount++;
     }
-  } else {
-    return null; // 해당 컬렉션 파일 없음
   }
 
   return restoredCount;
@@ -411,6 +425,28 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
     // 임시 디렉토리 정리
     fs.rmSync(tempExtractDir, { recursive: true, force: true });
+
+    // 완전 교체(clean) 복원: 백업 비대상 캐시 컬렉션도 비워 새 DB 와 불일치 방지 (#650).
+    // best-effort — 실패해도 복원 자체는 성공으로 처리. 서버 모델/LoRA 동기화로 재생성됨.
+    if (options.cleanRestore && !options.skipDatabase) {
+      for (const c of CACHE_COLLECTIONS) {
+        try {
+          await c.model.deleteMany({});
+          console.log(`🧹 캐시 컬렉션 비움(완전 교체): ${c.name}`);
+        } catch (cacheErr) {
+          console.error(`캐시 컬렉션 ${c.name} 정리 실패:`, cacheErr.message);
+        }
+      }
+    }
+
+    // 복원 후 작업 큐 비우기 (#650) — 복원 중 전면 차단이라 in-flight 없음.
+    // 옛 큐 작업/이력이 복원된 새 DB 와 안 맞으므로 정리. best-effort, 지연 require 로 순환 회피.
+    try {
+      await require('./queueService').clearImageGenerationQueue();
+      await require('./pipelineRunService').clearPipelineRunQueue();
+    } catch (queueErr) {
+      console.error('복원 후 큐 정리 실패:', queueErr.message);
+    }
 
     await job.complete(statistics);
 
