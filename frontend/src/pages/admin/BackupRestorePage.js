@@ -100,6 +100,8 @@ function BackupRestorePage() {
   const [uploadedFile, setUploadedFile] = useState(null);
   const [validationResult, setValidationResult] = useState(null);
   const [activeJobId, setActiveJobId] = useState(null);
+  // 진행 중인 작업 종류 — 폴링 대상 API 를 현재 탭이 아니라 작업 종류로 결정 (#648)
+  const [activeJobType, setActiveJobType] = useState(null); // 'backup' | 'restore'
   const [restoreMode, setRestoreMode] = useState('server'); // 'server' | 'upload' (#634)
   const [selectedServerFile, setSelectedServerFile] = useState('');
   const fileInputRef = useRef(null);
@@ -119,15 +121,17 @@ function BackupRestorePage() {
 
     const checkStatus = async () => {
       try {
-        const response = tabValue === 0
+        // 폴링 대상은 현재 탭이 아니라 진행 중인 작업의 종류로 결정 (#648)
+        const response = activeJobType === 'backup'
           ? await backupAPI.getStatus(activeJobId)
           : await backupAPI.getRestoreStatus(activeJobId);
 
         const job = response.data.data;
         if (job.status === 'completed' || job.status === 'failed') {
           setActiveJobId(null);
+          setActiveJobType(null);
           if (job.status === 'completed') {
-            toast.success(tabValue === 0 ? '백업이 완료되었습니다!' : '복구가 완료되었습니다!');
+            toast.success(activeJobType === 'backup' ? '백업이 완료되었습니다!' : '복구가 완료되었습니다!');
           } else {
             toast.error(job.error?.message || '작업이 실패했습니다.');
           }
@@ -141,13 +145,14 @@ function BackupRestorePage() {
 
     const interval = setInterval(checkStatus, 2000);
     return () => clearInterval(interval);
-  }, [activeJobId, tabValue, refetchBackups, refetchRestores]);
+  }, [activeJobId, activeJobType, refetchBackups, refetchRestores]);
 
   // 백업 생성
   const createBackupMutation = useMutation({ mutationFn: () => backupAPI.create(),
       onSuccess: (response) => {
         const jobId = response.data.data.jobId;
         setActiveJobId(jobId);
+        setActiveJobType('backup');
         toast.success('백업이 시작되었습니다.');
         refetchBackups();
       },
@@ -187,6 +192,7 @@ function BackupRestorePage() {
       onSuccess: (response) => {
         const jobId = response.data.data.jobId;
         setActiveJobId(jobId);
+        setActiveJobType('restore');
         toast.success('복구가 시작되었습니다.');
         setRestoreDialogOpen(false);
         setUploadedFile(null);
