@@ -1,7 +1,9 @@
 /**
- * #646 복원 충실도 — timestamps 보존 + 완전 복제(clean) 모드
- *  - restoreOneDoc 이 mongoose timestamps 자동 갱신을 끄는지 (원본 createdAt/updatedAt 보존)
- *  - restoreCollection 이 cleanRestore 시 백업에 있는 컬렉션만 비우는지
+ * #646/#655 복원 충실도 — 원본 보존(시각/비밀번호) + 완전 복제(clean) 모드
+ *  - restoreOneDoc 신규 삽입은 native insert(collection.insertOne)로 저장 훅 우회
+ *    → User 비밀번호(이미 bcrypt 해시) 재해싱 방지(이중해싱), createdAt 원본 보존
+ *  - overwriteExisting 은 findByIdAndUpdate(timestamps:false)
+ *  - restoreCollection cleanRestore 는 백업에 있는 컬렉션만 비움
  */
 const fs = require('fs');
 const os = require('os');
@@ -9,17 +11,19 @@ const path = require('path');
 
 const { restoreOneDoc, restoreCollection } = require('../services/restoreService');
 
-// new Model(doc) 생성자 + 정적 메서드를 흉내내는 mock 모델
+// new Model(doc).toObject() + 정적 메서드 + native collection.insertOne 을 흉내내는 mock 모델
 function makeModel() {
-  const saveMock = jest.fn().mockResolvedValue(undefined);
+  const insertOneMock = jest.fn().mockResolvedValue({ acknowledged: true });
   const Model = jest.fn().mockImplementation(function (doc) {
     this._input = doc;
-    this.save = saveMock;
+    // 실제 mongoose 는 캐스팅하지만 테스트에선 입력을 그대로 POJO 로 반환
+    this.toObject = () => ({ ...doc });
   });
+  Model.collection = { insertOne: insertOneMock };
   Model.findById = jest.fn();
   Model.findByIdAndUpdate = jest.fn().mockResolvedValue({});
   Model.deleteMany = jest.fn().mockResolvedValue({ deletedCount: 0 });
-  Model._saveMock = saveMock;
+  Model._insertOne = insertOneMock;
   return Model;
 }
 
@@ -27,20 +31,30 @@ function freshStats() {
   return { errors: 0, dbErrors: 0, fileErrors: 0, errorDetails: [], skipped: 0 };
 }
 
-describe('#646 restoreOneDoc — timestamps 보존', () => {
-  test('신규 문서: new Model(doc) + save({ timestamps:false }) — 원본 _id/createdAt 유지', async () => {
+describe('#655 restoreOneDoc — native insert 로 저장 훅 우회(이중해싱 방지) + 원본 보존', () => {
+  test('신규 문서: collection.insertOne 으로 저장, _id/createdAt/해시 비밀번호 원본 그대로', async () => {
     const Model = makeModel();
     Model.findById.mockResolvedValue(null);
     const stats = freshStats();
 
-    const doc = { _id: 'id-1', title: 'x', createdAt: '2020-01-02T03:04:05.000Z' };
-    const ok = await restoreOneDoc(doc, { name: 'GeneratedImage', model: Model }, { overwriteExisting: false }, stats);
+    const doc = {
+      _id: 'id-1',
+      title: 'x',
+      createdAt: '2020-01-02T03:04:05.000Z',
+      password: '$2b$10$AlreadyHashedValueeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+    };
+    const ok = await restoreOneDoc(doc, { name: 'User', model: Model }, { overwriteExisting: false }, stats);
 
     expect(ok).toBe(true);
-    // 생성자에 _id 포함한 원본 doc 그대로 전달 (캐스팅은 mongoose 가 수행)
-    expect(Model).toHaveBeenCalledWith(expect.objectContaining({ _id: 'id-1', createdAt: '2020-01-02T03:04:05.000Z' }));
-    // 핵심: timestamps:false 로 저장 → 복원 시점으로 덮어쓰지 않음
-    expect(Model._saveMock).toHaveBeenCalledWith({ timestamps: false });
+    // native insert 사용 — mongoose save() 훅 미실행
+    expect(Model._insertOne).toHaveBeenCalledTimes(1);
+    const inserted = Model._insertOne.mock.calls[0][0];
+    expect(inserted).toMatchObject({
+      _id: 'id-1',
+      createdAt: '2020-01-02T03:04:05.000Z',
+      // 이미 해시된 비밀번호가 그대로 — 재해싱(이중해싱) 안 됨
+      password: '$2b$10$AlreadyHashedValueeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+    });
   });
 
   test('overwriteExisting: findByIdAndUpdate 에 timestamps:false, _id 제외', async () => {
@@ -53,13 +67,13 @@ describe('#646 restoreOneDoc — timestamps 보존', () => {
     expect(Model.findByIdAndUpdate).toHaveBeenCalledTimes(1);
     const [id, update, opts] = Model.findByIdAndUpdate.mock.calls[0];
     expect(id).toBe('id-2');
-    expect(update).not.toHaveProperty('_id'); // _id 는 update 본문에서 제외
+    expect(update).not.toHaveProperty('_id');
     expect(update).toMatchObject({ title: 'y', updatedAt: '2021-05-05T00:00:00.000Z' });
     expect(opts).toMatchObject({ upsert: true, timestamps: false });
-    expect(Model._saveMock).not.toHaveBeenCalled();
+    expect(Model._insertOne).not.toHaveBeenCalled();
   });
 
-  test('overwriteExisting=false 이고 이미 존재하면 skip', async () => {
+  test('overwriteExisting=false 이고 이미 존재하면 skip (insert 안 함)', async () => {
     const Model = makeModel();
     Model.findById.mockResolvedValue({ _id: 'id-3' });
     const stats = freshStats();
@@ -67,8 +81,7 @@ describe('#646 restoreOneDoc — timestamps 보존', () => {
     await restoreOneDoc({ _id: 'id-3' }, { name: 'User', model: Model }, { overwriteExisting: false }, stats);
 
     expect(stats.skipped).toBe(1);
-    expect(Model._saveMock).not.toHaveBeenCalled();
-    expect(Model).not.toHaveBeenCalled(); // 생성자 미호출
+    expect(Model._insertOne).not.toHaveBeenCalled();
   });
 });
 
@@ -90,7 +103,7 @@ describe('#646 restoreCollection — 완전 복제(clean) 모드', () => {
 
     expect(Model.deleteMany).toHaveBeenCalledWith({});
     expect(count).toBe(1);
-    expect(Model._saveMock).toHaveBeenCalledTimes(1);
+    expect(Model._insertOne).toHaveBeenCalledTimes(1);
   });
 
   test('cleanRestore: 백업에 파일이 없는 컬렉션은 비우지 않고 null 반환 (구버전 백업 손실 방지)', async () => {

@@ -105,17 +105,18 @@ async function restoreOneDoc(doc, config, options, statistics) {
 
     docId = processedDoc._id;
 
-    // timestamps: false 로 백업 원본 createdAt/updatedAt 을 보존 (#646).
-    // mongoose timestamps:true 기본 동작이 복원 시점으로 덮어쓰던 버그 수정.
-    // new+save / findByIdAndUpdate 모두 스키마 캐스팅(string→ObjectId/Date)은 그대로 적용됨.
+    // 캐스팅(string→ObjectId/Date)은 mongoose 로, 저장은 native driver 로.
+    // pre('save') 훅(User 비밀번호 bcrypt 재해싱 등)을 우회해 백업 원본을 그대로 보존 (#655).
+    // native insert 라 timestamps 자동설정도 없음 → 원본 createdAt/updatedAt 유지 (#646).
     if (options.overwriteExisting) {
       const { _id, ...rest } = processedDoc;
       await config.model.findByIdAndUpdate(docId, rest, { upsert: true, new: true, timestamps: false });
     } else {
       const existing = await config.model.findById(docId);
       if (!existing) {
-        const newDoc = new config.model(processedDoc); // _id 포함
-        await newDoc.save({ timestamps: false });
+        // new Model() 은 캐스팅/기본값만 적용(저장 아님) → toObject 후 native insert 로 훅 우회
+        const casted = new config.model(processedDoc).toObject({ depopulate: true });
+        await config.model.collection.insertOne(casted);
       } else {
         statistics.skipped++;
       }
