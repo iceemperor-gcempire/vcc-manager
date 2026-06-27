@@ -27,18 +27,18 @@ function makeBackupModel(docs) {
   };
 }
 
-// #646: 복원이 model.create() → new Model(doc).save({timestamps:false}) 로 전환됨.
-// 생성자 호출 + save 를 추적하는 mock 모델.
+// #655: 복원 신규 삽입이 new Model(doc).save() → new Model(doc).toObject() + collection.insertOne 으로 전환됨
+// (저장 훅 우회로 비밀번호 이중해싱 방지). 생성자 + native insert 를 추적하는 mock 모델.
 function makeRestoreModel() {
-  const created = [];
-  const saveMock = jest.fn(async function () { return this; });
+  const inserted = [];
+  const insertOneMock = jest.fn(async (d) => { inserted.push(d); return { acknowledged: true }; });
   const Model = jest.fn().mockImplementation(function (d) {
     this._input = d;
-    created.push(d);
-    this.save = saveMock;
+    this.toObject = () => ({ ...d });
   });
-  Model.created = created;
-  Model.saveMock = saveMock;
+  Model.inserted = inserted;
+  Model.insertOneMock = insertOneMock;
+  Model.collection = { insertOne: insertOneMock };
   Model.findById = jest.fn(async () => null);
   Model.findByIdAndUpdate = jest.fn(async () => ({}));
   Model.deleteMany = jest.fn(async () => ({ deletedCount: 0 }));
@@ -110,10 +110,10 @@ describe('#591 restoreCollection', () => {
     const count = await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
 
     expect(count).toBe(2);
-    expect(model.saveMock).toHaveBeenCalledTimes(2);
+    expect(model.insertOneMock).toHaveBeenCalledTimes(2);
     expect(stats.errors).toBe(0);
     // _id 보존
-    expect(model.created[0]._id).toBe('1');
+    expect(model.inserted[0]._id).toBe('1');
   });
 
   test('빈 줄은 건너뛴다', async () => {
@@ -122,7 +122,7 @@ describe('#591 restoreCollection', () => {
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     const count = await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
     expect(count).toBe(2);
-    expect(model.saveMock).toHaveBeenCalledTimes(2);
+    expect(model.insertOneMock).toHaveBeenCalledTimes(2);
   });
 
   test('구버전 .json 배열도 복구된다 (하위호환)', async () => {
@@ -131,7 +131,7 @@ describe('#591 restoreCollection', () => {
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     const count = await restoreCollection({ name: 'Legacy', model }, tmpDir, {}, stats);
     expect(count).toBe(3);
-    expect(model.saveMock).toHaveBeenCalledTimes(3);
+    expect(model.insertOneMock).toHaveBeenCalledTimes(3);
   });
 
   test('파일 없으면 null', async () => {
@@ -146,7 +146,7 @@ describe('#591 restoreCollection', () => {
     model.findById = jest.fn(async () => ({ _id: '1' })); // 이미 존재
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     await restoreCollection({ name: 'Coll', model }, tmpDir, { overwriteExisting: false }, stats);
-    expect(model.saveMock).not.toHaveBeenCalled();
+    expect(model.insertOneMock).not.toHaveBeenCalled();
     expect(stats.skipped).toBe(1);
   });
 
@@ -155,7 +155,7 @@ describe('#591 restoreCollection', () => {
     const model = makeRestoreModel();
     const stats = { collectionsRestored: {}, skipped: 0, errors: 0 };
     await restoreCollection({ name: 'Coll', model }, tmpDir, {}, stats);
-    expect(model.saveMock).toHaveBeenCalledTimes(2);
+    expect(model.insertOneMock).toHaveBeenCalledTimes(2);
     expect(stats.errors).toBe(1);
   });
 });
