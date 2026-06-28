@@ -7,6 +7,7 @@ const { validate, signupSchema, signinSchema } = require('../utils/validation');
 const User = require('../models/User');
 const Group = require('../models/Group');
 const { sendPasswordResetEmail } = require('../services/emailService');
+const { isValidPassword, PASSWORD_POLICY_MESSAGE } = require('../utils/passwordPolicy');
 const router = express.Router();
 
 // Rate limit for forgot password - 3 requests per hour per IP
@@ -367,12 +368,9 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Validate password strength
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/;
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        message: '비밀번호는 8자 이상이며, 대문자, 소문자, 숫자, 특수문자(!@#$%^&*)를 포함해야 합니다'
-      });
+    // Validate password strength (#663 단일 소스)
+    if (!isValidPassword(password)) {
+      return res.status(400).json({ message: PASSWORD_POLICY_MESSAGE });
     }
 
     // Hash the token to compare with stored hash

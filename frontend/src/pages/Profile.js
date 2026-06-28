@@ -223,6 +223,79 @@ function AccountSettings() {
   );
 }
 
+function PasswordChange() {
+  const { user } = useAuth();
+  const { register, handleSubmit, watch, reset, formState: { errors } } = useForm();
+
+  const changeMutation = useMutation({
+    mutationFn: userAPI.changePassword,
+    onSuccess: () => { toast.success('비밀번호가 변경되었습니다'); reset(); },
+    onError: (error) => { toast.error(error.response?.data?.message || '비밀번호 변경에 실패했습니다'); }
+  });
+
+  // 소셜 로그인 계정은 비밀번호가 없어 변경 불가 — 표시하지 않음 (#663)
+  if (user?.authProvider && user.authProvider !== 'local') return null;
+
+  const newPassword = watch('newPassword');
+  const onSubmit = (data) => changeMutation.mutate({ currentPassword: data.currentPassword, newPassword: data.newPassword });
+
+  return (
+    <Paper variant="outlined" sx={{ p: 4 }}>
+      <Typography variant="h6" gutterBottom>
+        비밀번호 변경
+      </Typography>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <TextField
+              fullWidth
+              type="password"
+              label="현재 비밀번호"
+              error={!!errors.currentPassword}
+              helperText={errors.currentPassword?.message}
+              {...register('currentPassword', { required: '현재 비밀번호를 입력해주세요' })}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="password"
+              label="새 비밀번호"
+              error={!!errors.newPassword}
+              helperText={errors.newPassword?.message}
+              {...register('newPassword', {
+                required: '새 비밀번호를 입력해주세요',
+                pattern: {
+                  value: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*]).{8,}$/,
+                  message: '8자 이상, 대·소문자·숫자·특수문자(!@#$%^&*) 포함'
+                }
+              })}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              type="password"
+              label="새 비밀번호 확인"
+              error={!!errors.confirmPassword}
+              helperText={errors.confirmPassword?.message}
+              {...register('confirmPassword', {
+                required: '새 비밀번호를 다시 입력해주세요',
+                validate: (v) => v === newPassword || '새 비밀번호가 일치하지 않습니다'
+              })}
+            />
+          </Grid>
+        </Grid>
+        <Box mt={3}>
+          <Button type="submit" variant="contained" disabled={changeMutation.isPending}>
+            {changeMutation.isPending ? '변경 중...' : '비밀번호 변경'}
+          </Button>
+        </Box>
+      </form>
+    </Paper>
+  );
+}
+
 function SecuritySettings() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [createKeyDialogOpen, setCreateKeyDialogOpen] = useState(false);
@@ -617,6 +690,9 @@ function Profile() {
       </Grid>
 
       <AccountSettings />
+      <Box mt={3}>
+        <PasswordChange />
+      </Box>
       <Box mt={3}>
         <SecuritySettings />
       </Box>
