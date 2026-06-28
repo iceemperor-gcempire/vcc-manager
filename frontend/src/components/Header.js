@@ -238,7 +238,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
                 <ListItemIcon>
                   <Settings fontSize="small" />
                 </ListItemIcon>
-                <ListItemText>프로필 설정</ListItemText>
+                <ListItemText>개인정보 설정</ListItemText>
               </MenuItem>
 
               {isAdmin && (

@@ -113,7 +113,7 @@ export default function CommandPalette({ open, onClose }) {
       {
         group: '명령',
         icon: <PersonIcon fontSize="small" />,
-        name: '프로필 / 설정',
+        name: '개인정보 설정',
         kbd: ['⌘', ','],
         action: () => navigate('/profile'),
       },
