@@ -8,6 +8,7 @@ const UploadedImage = require('../models/UploadedImage');
 const SystemSettings = require('../models/SystemSettings');
 const ApiKey = require('../models/ApiKey');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { deleteUserAndContent } = require('../services/userDeletionService');
 const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
@@ -129,14 +130,9 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
     
-    await Promise.all([
-      ImageGenerationJob.deleteMany({ userId }),
-      GeneratedImage.deleteMany({ userId }),
-      UploadedImage.deleteMany({ userId }),
-      ApiKey.deleteMany({ userId }),
-      User.findByIdAndDelete(userId)
-    ]);
-    
+    // 개인 콘텐츠 cascade 삭제 — 단일 헬퍼로 통합 (영상/대화/텍스트 등 누락 방지, #660)
+    await deleteUserAndContent(userId);
+
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
