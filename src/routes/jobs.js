@@ -662,11 +662,16 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       }
     } catch (chatError) {
       clearInterval(heartbeat);
+      // 이미지를 함께 보낸 요청이 실패하면 vision 미지원 모델일 수 있음을 안내 (#666, a안)
+      let errorMessage = chatError.message;
+      if (turnImages.length > 0) {
+        errorMessage += ' (이미지를 함께 보냈습니다 — 선택한 모델이 이미지 입력(vision)을 지원하지 않을 수 있습니다. 모델을 확인하거나 이미지를 빼고 다시 시도해보세요.)';
+      }
       conversation.status = 'failed';
-      conversation.error = { message: chatError.message };
+      conversation.error = { message: errorMessage };
       conversation.completedAt = new Date();
       await conversation.save();
-      sse('error', { message: chatError.message });
+      sse('error', { message: errorMessage });
       finished = true;
       return res.end();
     }

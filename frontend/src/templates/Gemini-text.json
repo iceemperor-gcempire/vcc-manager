@@ -22,6 +22,16 @@
       "required": false,
       "defaultValue": false,
       "description": "켜면 작업판이 단일 샷 프롬프트 생성기 대신 채팅 UI 로 동작합니다. 사용자에겐 노출되지 않는 관리자 설정입니다."
+    },
+    {
+      "name": "input_images",
+      "label": "이미지 (선택)",
+      "type": "image",
+      "required": false,
+      "imageConfig": {
+        "maxImages": 3
+      },
+      "description": "이미지 인식(vision) 지원 모델에서 이미지를 함께 입력할 수 있습니다. 지원하지 않는 모델에서는 비워두세요."
     }
   ],
   "workflowData": ""
