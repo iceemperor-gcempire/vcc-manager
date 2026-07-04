@@ -174,8 +174,14 @@ function RowVisual({ item }) {
           }}
         >
           {item.thumb ? (
-            <Box component="img" src={item.thumb} alt="" loading="lazy"
-              sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            // 동영상은 mp4 URL 이라 <img> 로 못 그림 → <video> 첫 프레임으로 프리뷰 (#669)
+            item.type === 'video' ? (
+              <Box component="video" src={`${item.thumb}#t=0.1`} muted playsInline preload="metadata"
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <Box component="img" src={item.thumb} alt="" loading="lazy"
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            )
           ) : (
             <Subject fontSize="small" sx={{ color: 'grey.500' }} />
           )}
