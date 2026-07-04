@@ -281,7 +281,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
               sx={{
                 mt: 1, fontSize: 12, lineHeight: 1.55, color: 'text.secondary',
                 display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                bgcolor: 'grey.100', borderRadius: 1.5, p: 1.25,
+                bgcolor: 'grey.100', borderRadius: 1.5, px: 2.5, py: 1.25,
               }}
             >
               {item.preview}
@@ -480,7 +480,7 @@ function JobHistory() {
       const wbRes = await workboardAPI.getById(workboardId);
       const workboard = wbRes.data?.workboard;
       if (!workboard || !workboard.isActive) { toast.error('작업판을 사용할 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      localStorage.setItem('continueJobData', JSON.stringify({ workboardId, inputData: job.inputData, workboard }));
+      localStorage.setItem('continueJobData', JSON.stringify({ workboardId, inputData: job.inputData, workboard, prevOutputFormat: job.resultVideos?.length ? 'video' : 'image' }));
       navigate(`/generate/${workboardId}`);
       toast.success('작업 설정을 불러왔습니다');
     } catch (error) {
@@ -498,6 +498,7 @@ function JobHistory() {
     localStorage.setItem('continueJobData', JSON.stringify({
       workboardId: workboard._id, inputData: job.inputData, workboard,
       lastGeneratedMedia: { image: lastImage, video: lastVideo },
+      prevOutputFormat: lastVideo ? 'video' : 'image', // #673
     }));
     setCrossJob(null);
     navigate(`/generate/${workboard._id}`);

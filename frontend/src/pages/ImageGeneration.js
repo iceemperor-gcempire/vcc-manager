@@ -570,6 +570,7 @@ function ImageGeneration() {
       let jobInputData = null;
 
       let lastGeneratedMedia = null;
+      let prevOutputFormat = null; // 이전 작업의 출력 타입 (#673 — base_model prefill 조건 판단용)
 
       if (continueJobData) {
         try {
@@ -579,6 +580,7 @@ function ImageGeneration() {
           if (parsedData.workboardId === workboardData._id) {
             jobInputData = parsedData.inputData;
             lastGeneratedMedia = parsedData.lastGeneratedMedia || null;
+            prevOutputFormat = parsedData.prevOutputFormat || null; // #673
             localStorage.removeItem('continueJobData'); // 사용 후 제거
             console.log('Using continue job data for same workboard');
           } else {
@@ -604,6 +606,12 @@ function ImageGeneration() {
           }
         };
 
+        // #673: 이전 작업의 base_model 을 새 작업판에 prefill 할지 결정.
+        //  ① 출력 타입이 다르면 비호환이라 skip  ② 출력 타입 같아도 작업판에 base_model 기본값이 있으면 skip  ③ 그 외 prefill
+        const bmField = (workboardData.additionalInputFields || []).find((f) => f.type === 'baseModel');
+        const bmHasDefault = bmField && bmField.defaultValue !== undefined && bmField.defaultValue !== null && bmField.defaultValue !== '';
+        const allowBaseModelPrefill = !(prevOutputFormat && prevOutputFormat !== workboardData.outputFormat) && !bmHasDefault;
+
         // F2: 기본 필드 (prompt, negativePrompt) 만 직접 매핑 — aiModel/imageSize 등은 customField 가 처리.
         // legacy job 의 {key,value} 객체 값도 그대로 set 됨 (Controller 가 value 만 추출). 이전 매칭 로직은
         // baseInputFields 의 옵션 풀에 의존했는데, F2 에서 풀이 제거되어 단순화.
@@ -616,6 +624,7 @@ function ImageGeneration() {
         // customField 들은 additionalParams 네임스페이스에서 복원 (jobInputData 도 동일 구조)
         if (jobInputData.additionalParams) {
           Object.entries(jobInputData.additionalParams).forEach(([k, v]) => {
+            if (k === 'base_model' && !allowBaseModelPrefill) return; // #673 비호환/기본값 → 이전 base_model 안 가져옴
             safeSetValue(`additionalParams.${k}`, typeof v === 'object' && v?.value !== undefined ? v.value : v);
           });
         }
@@ -663,6 +672,8 @@ function ImageGeneration() {
                   console.warn(`Option ${JSON.stringify(inputValue)} not found for field ${paramKey}, using default`);
                   safeSetValue(`additionalParams.${paramKey}`, field.defaultValue || field.options[0]?.value);
                 }
+              } else if (field.type === 'baseModel' && !allowBaseModelPrefill) {
+                // #673 비호환/기본값 → 이전 base_model 안 가져옴 (작업판 기본값/빈값 유지)
               } else {
                 // 다른 타입의 경우 그대로 사용
                 safeSetValue(`additionalParams.${paramKey}`, inputValue);
