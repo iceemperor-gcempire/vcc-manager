@@ -17,6 +17,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   Search,
@@ -32,6 +34,8 @@ import {
   Subject,
   CheckCircle,
   Close,
+  ViewList,
+  GridView,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -350,6 +354,86 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
 }
 
 // ---- 페이지 -------------------------------------------------------------
+// 큰 썸네일(그리드) 카드 — 리스트(HistoryRow)와 동일 핸들러 재사용 (#675)
+function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
+  const clickable = item.type === 'image' || item.type === 'video';
+  return (
+    <Paper
+      variant="outlined"
+      onClick={clickable ? () => onOpenMedia(item) : undefined}
+      sx={{
+        overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%',
+        cursor: clickable ? 'pointer' : 'default', transition: 'border-color 120ms',
+        '&:hover': { borderColor: 'primary.main' },
+      }}
+    >
+      {/* 미디어 / 프리뷰 영역 */}
+      <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.100', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+        {(item.type === 'image' || item.type === 'video') && item.thumb ? (
+          item.type === 'video' ? (
+            <Box component="video" src={`${item.thumb}#t=0.1`} muted playsInline preload="metadata"
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+            <Box component="img" src={item.thumb} alt="" loading="lazy"
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          )
+        ) : item.type === 'text' ? (
+          <Typography sx={{ p: 2, fontSize: 12, lineHeight: 1.55, color: 'text.secondary', width: '100%',
+            display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+            {item.preview || '텍스트 생성'}
+          </Typography>
+        ) : item.type === 'pipeline' ? (
+          <Box sx={{ p: 2, width: '100%' }}>
+            <StepDots statuses={item.stepStatuses} />
+            {item.status === 'running' && (
+              <LinearProgress variant="determinate" value={item.progress || 0} sx={{ height: 4, borderRadius: 2, mt: 1 }} />
+            )}
+          </Box>
+        ) : (
+          <Subject sx={{ color: 'grey.400' }} />
+        )}
+        {item.type === 'video' && (
+          <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))', pointerEvents: 'none' }}>
+            <PlayArrow sx={{ fontSize: 40 }} />
+          </Box>
+        )}
+        <Box sx={{ position: 'absolute', top: 6, left: 6 }}>
+          <TagChip label={TYPE_LABEL[item.type]} />
+        </Box>
+      </Box>
+
+      {/* 정보 + 액션 */}
+      <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75, flex: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>{item.title}</Typography>
+          <StatusChip status={item.status} />
+        </Box>
+        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontFamily: MONO }}>{relativeTime(item.time)}</Typography>
+        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }} onClick={(e) => e.stopPropagation()}>
+          {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
+            <>
+              <Button size="small" variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
+              <Button size="small" variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
+              <IconButton size="small" onClick={(e) => onMenu(e, item)}><MoreVert fontSize="small" /></IconButton>
+            </>
+          )}
+          {item.type === 'text' && (
+            <>
+              {item.workboardId && item.status !== 'error' && (
+                <Button size="small" variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>이어가기</Button>
+              )}
+              <Button size="small" variant="text" onClick={() => onTextDetail(item)}>전문 보기</Button>
+            </>
+          )}
+          {item.type === 'pipeline' && item.projectId && (
+            <Button size="small" variant="text" onClick={() => onPipelineDetail(item)}>상세 →</Button>
+          )}
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
+
 function JobHistory() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -416,6 +500,8 @@ function JobHistory() {
   const [imgViewer, setImgViewer] = useState({ open: false, items: [], index: 0 });
   const [vidViewer, setVidViewer] = useState({ open: false, items: [], index: 0 });
   const [textDetail, setTextDetail] = useState(null);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
+  const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
 
   // ---- mutations ----
   const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
@@ -516,14 +602,20 @@ function JobHistory() {
         description="파이프라인 · 이미지 · 영상 · 텍스트 생성 기록을 한 곳에서. 최신순."
       />
 
-      {/* 검색 */}
-      <TextField
-        placeholder="히스토리 검색…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        sx={{ mb: 3.5, maxWidth: { sm: 360 }, width: '100%' }}
-        InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-      />
+      {/* 검색 + 뷰 토글 (#675) */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3.5, flexWrap: 'wrap' }}>
+        <TextField
+          placeholder="히스토리 검색…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          sx={{ maxWidth: { sm: 360 }, width: '100%', flex: { sm: 1 } }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+        />
+        <ToggleButtonGroup size="small" exclusive value={viewMode} onChange={(e, v) => changeViewMode(v)} sx={{ ml: { sm: 'auto' } }}>
+          <ToggleButton value="list" aria-label="리스트 보기"><ViewList fontSize="small" /></ToggleButton>
+          <ToggleButton value="grid" aria-label="큰 썸네일 보기"><GridView fontSize="small" /></ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
       {/* 세그먼트 — 언더라인 탭 (목업 28, #548) */}
       <SegmentTabs
@@ -543,6 +635,22 @@ function JobHistory() {
         <Box display="flex" justifyContent="center" mt={8}><CircularProgress /></Box>
       ) : visible.length === 0 ? (
         <EmptyState description={search ? '검색 결과가 없습니다.' : '아직 작업 기록이 없습니다.'} />
+      ) : viewMode === 'grid' ? (
+        <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
+          {visible.map((item) => (
+            <HistoryCard
+              key={`${item.kind}-${item.id}`}
+              item={item}
+              onOpenMedia={openMedia}
+              onMenu={handleMenu}
+              onContinue={handleContinue}
+              onCross={(job) => setCrossJob(job)}
+              onTextContinue={handleTextContinue}
+              onTextDetail={(it) => setTextDetail(it)}
+              onPipelineDetail={(it) => navigate(`/projects/${it.projectId}`)}
+            />
+          ))}
+        </Box>
       ) : (
         <Stack spacing={2}>
           {visible.map((item) => (
