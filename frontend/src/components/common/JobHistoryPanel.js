@@ -1045,7 +1045,8 @@ function JobHistoryPanel({
       localStorage.setItem('continueJobData', JSON.stringify({
         workboardId,
         inputData: job.inputData,
-        workboard
+        workboard,
+        prevOutputFormat: job.resultVideos?.length ? 'video' : 'image', // #673
       }));
       navigate(`/generate/${workboardId}`);
       toast.success('작업 설정을 불러왔습니다');
@@ -1088,7 +1089,8 @@ function JobHistoryPanel({
       lastGeneratedMedia: {
         image: lastGeneratedImage,
         video: lastGeneratedVideo
-      }
+      },
+      prevOutputFormat: lastGeneratedVideo ? 'video' : 'image', // #673
     }));
 
     setCrossWorkboardOpen(false);
