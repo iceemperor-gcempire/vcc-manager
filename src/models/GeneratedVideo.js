@@ -25,6 +25,11 @@ const generatedVideoSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  // 첫 프레임 썸네일 (#672). /uploads/videos/*.jpg 원본 경로 저장 → 응답 시 signed URL 자동 변환.
+  // 없으면(구 데이터/생성 실패) 프론트가 <video> 첫 프레임으로 fallback.
+  thumbnailUrl: {
+    type: String
+  },
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',

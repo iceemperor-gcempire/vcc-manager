@@ -277,6 +277,9 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
       >
         <video
           src={video.url}
+          poster={video.thumbnailUrl || undefined}
+          preload="metadata"
+          playsInline
           style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
           muted
           onMouseEnter={(e) => e.target.play()}
