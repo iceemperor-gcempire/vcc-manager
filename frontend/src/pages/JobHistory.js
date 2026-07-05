@@ -126,6 +126,7 @@ function jobToItem(job) {
     duration: isVideo ? results?.[0]?.metadata?.duration : null,
     status: mapStatus(job.status),
     thumb: results?.[0]?.url || null,
+    videoThumb: isVideo ? (results?.[0]?.thumbnailUrl || null) : null, // #672 동영상 첫프레임 썸네일
     results: results || [],
     isVideo,
     raw: job,
@@ -177,8 +178,12 @@ function RowVisual({ item }) {
             bgcolor: 'grey.100', display: 'grid', placeItems: 'center',
           }}
         >
-          {item.thumb ? (
-            // 동영상은 mp4 URL 이라 <img> 로 못 그림 → <video> 첫 프레임으로 프리뷰 (#669)
+          {item.type === 'video' && item.videoThumb ? (
+            // 동영상 썸네일(첫 프레임 jpg) 우선 — 빠름 (#672)
+            <Box component="img" src={item.videoThumb} alt="" loading="lazy"
+              sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : item.thumb ? (
+            // 썸네일 없으면: 동영상은 <video> 첫 프레임 fallback (#669), 이미지는 <img>
             item.type === 'video' ? (
               <Box component="video" src={`${item.thumb}#t=0.1`} muted playsInline preload="metadata"
                 sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -369,7 +374,10 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
     >
       {/* 미디어 / 프리뷰 영역 */}
       <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.100', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-        {(item.type === 'image' || item.type === 'video') && item.thumb ? (
+        {item.type === 'video' && item.videoThumb ? (
+          <Box component="img" src={item.videoThumb} alt="" loading="lazy"
+            sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (item.type === 'image' || item.type === 'video') && item.thumb ? (
           item.type === 'video' ? (
             <Box component="video" src={`${item.thumb}#t=0.1`} muted playsInline preload="metadata"
               sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
