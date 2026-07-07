@@ -2,6 +2,9 @@ FROM node:22-alpine
 
 WORKDIR /app
 
+# 동영상 썸네일(첫 프레임) 추출용 ffmpeg (#672). CLI 로만 호출(앱 코드에 링크하지 않음)
+RUN apk add --no-cache ffmpeg
+
 # pnpm 활성화 (v11+ — minimumReleaseAge 1440 기본값으로 신규 release 24h cooldown)
 RUN corepack enable && corepack prepare pnpm@latest --activate
 

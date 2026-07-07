@@ -920,6 +920,20 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         }
       }
       
+      // 동영상 첫 프레임 썸네일 생성 (#672, best-effort — 실패해도 동영상 저장은 계속)
+      let thumbnailUrl = null;
+      if (mediaType === 'video') {
+        try {
+          const { generateVideoThumbnail, thumbnailPathFor } = require('../utils/videoThumbnail');
+          const thumbPath = thumbnailPathFor(filePath);
+          await generateVideoThumbnail(filePath, thumbPath);
+          thumbnailUrl = `/uploads/${subDir}/${path.basename(thumbPath)}`;
+          console.log(`🖼️ 동영상 썸네일 생성: ${thumbnailUrl}`);
+        } catch (thumbErr) {
+          console.warn('동영상 썸네일 생성 실패 (프리뷰는 <video> 첫 프레임으로 fallback):', thumbErr.message);
+        }
+      }
+
       const mediaTags = inputData.tags || [];
 
       const generatedData = {
@@ -929,6 +943,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         size: itemData.buffer.length,
         path: filePath,
         url: `/uploads/${subDir}/${filename}`,
+        ...(thumbnailUrl ? { thumbnailUrl } : {}),
         userId: inputData.userId,
         jobId,
         orderIndex: i,

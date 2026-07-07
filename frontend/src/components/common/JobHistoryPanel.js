@@ -452,6 +452,9 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                 >
                   <video
                     src={video.url}
+                    poster={video.thumbnailUrl || undefined}
+                    preload="metadata"
+                    playsInline
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     muted
                   />
@@ -812,7 +815,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
                       '&:hover': { transform: 'scale(1.02)', boxShadow: '0 4px 8px rgba(0,0,0,0.2)' }
                     }}
                   >
-                    <video src={video.url} style={{ width: '100%', height: '120px', objectFit: 'cover' }} muted />
+                    <video src={video.url} poster={video.thumbnailUrl || undefined} preload="metadata" playsInline style={{ width: '100%', height: '120px', objectFit: 'cover' }} muted />
                     <Box sx={{ position: 'absolute', bottom: 4, right: 4, bgcolor: 'rgba(0,0,0,0.6)', borderRadius: 0.5, p: 0.5 }}>
                       <Videocam sx={{ color: 'white', fontSize: 16 }} />
                     </Box>

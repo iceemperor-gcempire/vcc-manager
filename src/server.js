@@ -50,6 +50,7 @@ const encryptExistingSecrets = require('./migrations/encryptExistingSecrets');
 const ensureWorldviewTag = require('./migrations/ensureWorldviewTag');
 const backfillConversationTags = require('./migrations/backfillConversationTags');
 const alignTagColorsV2 = require('./migrations/alignTagColorsV2');
+const backfillVideoThumbnails = require('./migrations/backfillVideoThumbnails');
 
 dotenv.config();
 
@@ -258,6 +259,7 @@ const startServer = async () => {
     await ensureWorldviewTag();
     await backfillConversationTags();
     await alignTagColorsV2();
+    await backfillVideoThumbnails(); // #672 기존 동영상 썸네일 백필 (best-effort)
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
