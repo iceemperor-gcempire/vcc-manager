@@ -13,6 +13,7 @@ const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
+const { loadVisionImages } = require('../utils/visionImages');
 const queueService = require('./queueService');
 
 // 파이프라인 실행 background worker (#407).
@@ -93,6 +94,22 @@ function extractOpt(v) {
   return v && typeof v === 'object' && v.value !== undefined ? v.value : v;
 }
 
+// image 타입 필드 값에서 imageId 목록 추출 — id 문자열/배열, {imageId} 객체 배열 모두 유연 처리.
+// (buildStepInput 은 {imageId} 객체 배열, 프론트 사전입력은 id 배열일 수 있음)
+function collectImageIds(inputData, imageFieldNames) {
+  const ids = [];
+  for (const fname of imageFieldNames || []) {
+    const v = inputData?.[fname];
+    const arr = Array.isArray(v) ? v : (v ? [v] : []);
+    for (const it of arr) {
+      if (!it) continue;
+      const id = typeof it === 'object' ? (it.imageId || it._id || it.id) : it;
+      if (id) ids.push(String(id));
+    }
+  }
+  return ids;
+}
+
 function composeSystemPrompt(systemPrompt, worldviewTexts) {
   const parts = [];
   if (systemPrompt) parts.push('[작업 지침]\n' + systemPrompt);
@@ -136,9 +153,19 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
     ? worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n')
     : '';
 
+  // 이미지 입력(vision) — image 타입 필드 값(앞 이미지 단계 산출물 또는 사전 첨부)을 LLM 에 전달.
+  // buildStepInput 은 {imageId} 객체 배열로, 프론트 사전입력은 id 배열일 수 있어 둘 다 유연 파싱.
+  const imageFieldNames = (workboard.additionalInputFields || []).filter((f) => f.type === 'image').map((f) => f.name);
+  const collectedImageIds = collectImageIds(inputData, imageFieldNames);
+  let stepImages = [];
+  if (collectedImageIds.length > 0) {
+    const loaded = await loadVisionImages(collectedImageIds, userId);
+    stepImages = loaded.map((im) => ({ base64: im.base64, mimeType: im.mimeType }));
+  }
+
   const messages = [];
   if (composedSystem) messages.push({ role: 'system', content: composedSystem });
-  messages.push({ role: 'user', content: inputData.userPrompt });
+  messages.push({ role: 'user', content: inputData.userPrompt, ...(stepImages.length ? { images: stepImages } : {}) });
 
   // 프로젝트 태그 자동 부여
   let projectTagIds = [];
@@ -357,4 +384,6 @@ module.exports = {
   retryPipelineRun,
   closePipelineRunQueue,
   clearPipelineRunQueue,
+  // 테스트용 내부 헬퍼
+  collectImageIds,
 };
