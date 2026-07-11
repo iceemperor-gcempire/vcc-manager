@@ -5,7 +5,9 @@ WORKDIR /app/frontend
 # pnpm 활성화 (v11+ — minimumReleaseAge 1440 기본값으로 신규 release 24h cooldown)
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+# pnpm-workspace.yaml: allowBuilds 로 esbuild build script 명시적 거부 (#687)
+# — pnpm 11.5+ 에서 strict-dep-builds config 만으로는 ERR_PNPM_IGNORED_BUILDS 가 해소되지 않음
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 # --frozen-lockfile: lockfile 무결성.
 # strict-dep-builds=false 로 ERR_PNPM_IGNORED_BUILDS 회피 (script 차단 자체는 유지 — 침해 방지).
 RUN pnpm config set strict-dep-builds false && pnpm install --frozen-lockfile
