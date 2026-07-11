@@ -1,5 +1,6 @@
 const sharp = require('sharp');
 const UploadedImage = require('../models/UploadedImage');
+const GeneratedImage = require('../models/GeneratedImage');
 
 // 비전 LLM 첨부 이미지 처리 (#517).
 // imageId 배열 → 비전 콘텐츠용 base64 이미지 배열로 변환한다.
@@ -16,8 +17,12 @@ async function loadVisionImages(imageIds, userId) {
   const ids = imageIds.filter(Boolean).slice(0, MAX_IMAGES);
   if (ids.length === 0) return [];
 
-  const docs = await UploadedImage.find({ _id: { $in: ids }, userId });
-  const byId = new Map(docs.map((d) => [String(d._id), d]));
+  // 업로드 이미지 + 생성 이미지 둘 다 조회 — 파이프라인 앞 단계 산출물(GeneratedImage)도 vision 입력으로 (#684).
+  const [uploaded, generated] = await Promise.all([
+    UploadedImage.find({ _id: { $in: ids }, userId }),
+    GeneratedImage.find({ _id: { $in: ids }, userId }),
+  ]);
+  const byId = new Map([...uploaded, ...generated].map((d) => [String(d._id), d]));
 
   const out = [];
   for (const id of ids) {
