@@ -42,6 +42,36 @@ router.get('/my', requireAuth, async (req, res) => {
   }
 });
 
+// (admin) GET /all — 전체 대화 (페이징)
+// 주의: `/:id` 보다 먼저 등록해야 함 — 뒤에 두면 `/all` 이 `/:id` 에 잡혀 도달 불가 (#687)
+router.get('/all', requireAdmin, async (req, res) => {
+  try {
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const skip = (page - 1) * limit;
+    const [items, total] = await Promise.all([
+      ConversationJob.find({})
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('workboardId', 'name workboardType outputFormat')
+        .populate('userId', 'email nickname')
+        .lean(),
+      ConversationJob.countDocuments({}),
+    ]);
+    res.json({
+      success: true,
+      data: {
+        conversations: items,
+        pagination: { current: page, pages: Math.ceil(total / limit), total },
+      },
+    });
+  } catch (error) {
+    console.error('Conversation admin list error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // GET /:id — 단일 대화 상세
 router.get('/:id', requireAuth, async (req, res) => {
   try {
@@ -76,35 +106,6 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error('Conversation delete error:', error);
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// (admin) GET /all — 전체 대화 (페이징)
-router.get('/all', requireAdmin, async (req, res) => {
-  try {
-    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
-    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
-    const skip = (page - 1) * limit;
-    const [items, total] = await Promise.all([
-      ConversationJob.find({})
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .populate('workboardId', 'name workboardType outputFormat')
-        .populate('userId', 'email nickname')
-        .lean(),
-      ConversationJob.countDocuments({}),
-    ]);
-    res.json({
-      success: true,
-      data: {
-        conversations: items,
-        pagination: { current: page, pages: Math.ceil(total / limit), total },
-      },
-    });
-  } catch (error) {
-    console.error('Conversation admin list error:', error);
     res.status(500).json({ message: error.message });
   }
 });
