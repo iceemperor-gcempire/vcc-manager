@@ -75,7 +75,7 @@ cp .env.production.example .env.production
 | 변수 | 설명 |
 |---|---|
 | `FRONTEND_URL` | CORS 허용 origin (예: `http://localhost:8136`, `https://<domain>`) |
-| `REACT_APP_API_URL` | 프론트엔드 빌드 시 API 경로. 컨테이너 배포에서는 `/api` (nginx 프록시) |
+| `VITE_API_URL` | 프론트엔드 빌드 시 API 경로 (Vite build arg). 컨테이너 배포에서는 `/api` (nginx 프록시) |
 
 ## SMTP (비밀번호 재설정 이메일, v1.2.4+)
 
@@ -101,6 +101,16 @@ cp .env.production.example .env.production
 | `VCC_BASE_URL_FOR_MCP` | MCP 의 `download_result` 가 signed URL 을 반환할 때 사용할 VCC 서버 기본 URL. 미설정 시 base64 fallback (`mcp-remote` 1MB 응답 제한 회피용) |
 
 상세 운영 정책은 [MCP_SERVER.md](./MCP_SERVER.md) 참고.
+
+## Provider API Key Fallback (선택)
+
+서버(관리자 > 서버 관리)에 API 키가 등록되지 않았을 때 백엔드가 사용하는 전역 fallback.
+서버별 키를 항상 등록한다면 설정할 필요 없다.
+
+| 변수 | 설명 |
+|---|---|
+| `GEMINI_API_KEY` | Gemini 이미지 생성 fallback 키 |
+| `OPENAI_IMAGE_API_KEY` | OpenAI 이미지 생성 (gpt-image) fallback 키 |
 
 ## 더 이상 환경변수가 아닌 항목
 

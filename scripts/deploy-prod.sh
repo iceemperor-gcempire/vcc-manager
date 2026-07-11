@@ -64,7 +64,7 @@ fi
 # 기존 애플리케이션 컨테이너 중지 (볼륨은 유지)
 echo -e "${BLUE}⏹️  기존 애플리케이션 컨테이너 중지 중...${NC}"
 echo -e "${GREEN}✅ 데이터베이스 볼륨은 안전하게 보호됩니다${NC}"
-docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE stop frontend backend mcp-server nginx 2>/dev/null || true
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE stop frontend backend mcp-server 2>/dev/null || true
 
 # 이미지 캐시 없이 빌드
 echo -e "${BLUE}🔨 애플리케이션 이미지를 캐시 없이 빌드 중...${NC}"
@@ -73,7 +73,7 @@ docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE build --no-cache frontend b
 
 # 기존 애플리케이션 컨테이너 제거 (볼륨과 데이터베이스는 유지)
 echo -e "${BLUE}🗑️  기존 애플리케이션 컨테이너 제거 중...${NC}"
-docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE rm -f frontend backend mcp-server nginx 2>/dev/null || true
+docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE rm -f frontend backend mcp-server 2>/dev/null || true
 
 # 새 컨테이너로 시작
 echo -e "${BLUE}🚀 새로운 애플리케이션 컨테이너 시작 중...${NC}"

@@ -116,8 +116,6 @@ Docker Compose에서 모든 서비스의 포트를 환경변수로 제어할 수
 | `BACKEND_PORT` | 3136 | 백엔드 API 서버 포트 |
 | `MONGODB_PORT` | 27017 | MongoDB 데이터베이스 포트 |
 | `REDIS_PORT` | 6379 | Redis 캐시 서버 포트 |
-| `HTTP_PORT` | 80 | Nginx HTTP 포트 (프로덕션 전용) |
-| `HTTPS_PORT` | 443 | Nginx HTTPS 포트 (프로덕션 전용) |
 
 ```bash
 # 포트 설정 예시
