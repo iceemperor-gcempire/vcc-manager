@@ -68,13 +68,10 @@ function Login() {
 
   const signinMutation = useMutation({ mutationFn: authAPI.signin,
       onSuccess: async (response) => {
-        console.log('🔐 Login success, token received:', !!response.data.token);
-        
         try {
           // 토큰을 저장하고 사용자 정보를 가져온 후 리다이렉트
           await login(response.data.token);
-          
-          console.log('✅ User authenticated, navigating to:', from);
+
           toast.success(response.data.message);
           
           // React state가 업데이트될 때까지 잠시 기다린 후 navigation
