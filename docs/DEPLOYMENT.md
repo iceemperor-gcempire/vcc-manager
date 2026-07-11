@@ -133,14 +133,12 @@ COMFY_UI_BASE_URL=http://localhost:8188
 FRONTEND_URL=http://localhost:3001
 ```
 
-### 프로덕션 환경 (.env.prod)
+### 프로덕션 환경 (.env.production)
 
 ```bash
 # Docker 포트 설정
 FRONTEND_PORT=80
 BACKEND_PORT=3136
-HTTP_PORT=80
-HTTPS_PORT=443
 
 # 데이터베이스 보안 설정
 MONGO_ROOT_USER=admin
@@ -211,8 +209,6 @@ docker-compose up -d
 cat >> .env.production << EOF
 FRONTEND_PORT=80
 BACKEND_PORT=3136
-HTTP_PORT=80
-HTTPS_PORT=443
 # MONGODB_PORT=27017  # 보안상 설정하지 않음
 # REDIS_PORT=6379     # 보안상 설정하지 않음
 EOF
@@ -226,7 +222,7 @@ docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
 FRONTEND_PORT=8080 BACKEND_PORT=3001 docker-compose up -d
 
 # 프로덕션 환경
-FRONTEND_PORT=8080 HTTP_PORT=80 docker-compose -f docker-compose.prod.yml up -d
+FRONTEND_PORT=8080 docker-compose -f docker-compose.prod.yml up -d
 ```
 
 #### 3. 특정 서비스만 포트 변경 후 재시작
@@ -248,9 +244,9 @@ docker-compose up -d backend
 | Backend | 3136 | 3136 | `BACKEND_PORT` | 외부 접근 |
 | MongoDB | 27017 | 없음* | `MONGODB_PORT` | 개발: 외부, 프로덕션: 내부만 |
 | Redis | 6379 | 없음* | `REDIS_PORT` | 개발: 외부, 프로덕션: 내부만 |
-| Nginx | 없음 | 80, 443 | `HTTP_PORT`, `HTTPS_PORT` | 프로덕션 전용 |
 
 *프로덕션에서는 보안상 데이터베이스 포트가 외부에 노출되지 않음
+(Nginx 는 별도 서비스가 아니라 Frontend 컨테이너에 내장 — `FRONTEND_PORT` 로 노출)
 
 ### 포트 충돌 해결
 
@@ -317,16 +313,9 @@ command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
 
 ### 2. SSL/TLS 설정
 
-```bash
-# SSL 인증서 폴더 생성
-mkdir -p ./ssl
-
-# 인증서 파일 배치
-# ./ssl/cert.pem (공개키)
-# ./ssl/key.pem (개인키)
-
-# Nginx SSL 설정은 ./nginx/prod.conf에 정의됨
-```
+TLS 종료는 컨테이너 스택 외부에서 처리합니다 (예: Cloudflare Tunnel, 호스트의 리버스 프록시).
+Frontend 컨테이너 내장 Nginx 는 HTTP 만 서빙하며 (`FRONTEND_PORT`), 별도 SSL 설정이 없습니다.
+외부 프록시에서 `FRONTEND_PORT` 로 포워딩하도록 구성하세요.
 
 ### 3. 방화벽 설정
 
