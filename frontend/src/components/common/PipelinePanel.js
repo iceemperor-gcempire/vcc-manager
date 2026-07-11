@@ -588,6 +588,7 @@ function StepLaneCard({
         onClick={(e) => e.stopPropagation()}
         sx={{
           display: 'flex',
+          flexWrap: 'wrap', // 좁을 때 버튼 단위로 줄바꿈 (텍스트 wrap 방지, #683)
           gap: 1,
           px: 2,
           py: 1.5,
@@ -605,7 +606,7 @@ function StepLaneCard({
             variant="outlined"
             startIcon={<SettingsIcon />}
             onClick={onOpenInputs}
-            sx={{ justifyContent: 'flex-start', flex: 1 }}
+            sx={{ justifyContent: 'flex-start', flex: 1, whiteSpace: 'nowrap', minWidth: 'fit-content' }}
           >
             입력 설정
             {inputsCount > 0 && <Chip label={inputsCount} sx={{ ml: 'auto', height: 18 }} />}
@@ -617,7 +618,7 @@ function StepLaneCard({
             fullWidth
             variant="outlined"
             onClick={onOpenDocs}
-            sx={{ justifyContent: 'flex-start', flex: 1 }}
+            sx={{ justifyContent: 'flex-start', flex: 1, whiteSpace: 'nowrap', minWidth: 'fit-content' }}
           >
             문서
             {docsCount > 0 && <Chip label={docsCount} sx={{ ml: 'auto', height: 18 }} />}
