@@ -43,22 +43,39 @@ function VariableRow({ variable, label, note, used, copied, onCopy }) {
   );
 }
 
-function WorkflowEditDialog({ open, onClose, control, watch, errors, availableBaseModels }) {
+function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, availableBaseModels }) {
   const [copiedVariable, setCopiedVariable] = useState('');
   const copyTimerRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const workflowData = watch('workflowData') || '';
   const customFields = (watch('additionalCustomFields') || []).filter((f) => f.name);
 
-  const handleCopy = async (variable) => {
-    try {
-      await copyToClipboard(variable);
+  // 변수 클릭 — 에디터 커서 위치에 삽입 (#715). 포커스 이력이 없으면 클립보드 복사 fallback.
+  const handleInsert = async (variable) => {
+    const ta = textareaRef.current;
+    if (ta && document.activeElement !== null && typeof ta.selectionStart === 'number' && ta.dataset.touched === 'true') {
+      const start = ta.selectionStart;
+      const end = ta.selectionEnd;
+      const current = watch('workflowData') || '';
+      const next = current.slice(0, start) + variable + current.slice(end);
+      setValue('workflowData', next, { shouldDirty: true });
+      requestAnimationFrame(() => {
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + variable.length;
+      });
       setCopiedVariable(variable);
-      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
-      copyTimerRef.current = setTimeout(() => setCopiedVariable(''), 1500);
-    } catch {
-      toast.error('변수 복사에 실패했습니다.');
+    } else {
+      try {
+        await copyToClipboard(variable);
+        setCopiedVariable(variable);
+      } catch {
+        toast.error('변수 복사에 실패했습니다.');
+        return;
+      }
     }
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedVariable(''), 1500);
   };
 
   const validateJson = () => {
@@ -105,7 +122,9 @@ function WorkflowEditDialog({ open, onClose, control, watch, errors, availableBa
                 multiline
                 label="ComfyUI Workflow JSON (API Format)"
                 error={!!errors.workflowData}
-                helperText={errors.workflowData?.message || 'Save (API Format) 으로 내보낸 JSON. 우측 변수를 클릭해 복사 후 붙여넣으세요.'}
+                helperText={errors.workflowData?.message || 'Save (API Format) 으로 내보낸 JSON. 우측 변수를 클릭하면 커서 위치에 삽입됩니다.'}
+                inputRef={(el) => { textareaRef.current = el; }}
+                onFocus={(e) => { e.target.dataset.touched = 'true'; }}
                 sx={{
                   flex: 1,
                   '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start', fontFamily: MONO, fontSize: '0.82rem' },
@@ -134,7 +153,7 @@ function WorkflowEditDialog({ open, onClose, control, watch, errors, availableBa
                       note={v.note}
                       used={workflowData.includes(v.key)}
                       copied={copiedVariable === v.key}
-                      onCopy={handleCopy}
+                      onCopy={handleInsert}
                     />
                   ))}
                 </Box>
@@ -150,13 +169,22 @@ function WorkflowEditDialog({ open, onClose, control, watch, errors, availableBa
                   label={f.label || f.name}
                   used={workflowData.includes(variable)}
                   copied={copiedVariable === variable}
-                  onCopy={handleCopy}
+                  onCopy={handleInsert}
                 />
               );
             }) : (
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', py: 1 }}>
                 입력 양식에서 필드를 정의하면 여기에 나타납니다.
               </Typography>
+            )}
+            {/* width/height 치환은 image_size 필드명 규약에 의존 (#715 — 감사 3-A 가드) */}
+            {(workflowData.includes('{{##width##}}') || workflowData.includes('{{##height##}}')) &&
+              !customFields.some((f) => f.name === 'image_size') && (
+              <Alert severity="warning" sx={{ mt: 1.5 }}>
+                <code>{'{{##width##}}'}</code>/<code>{'{{##height##}}'}</code> 는 <strong>image_size</strong> 라는
+                이름의 필드 값에서 계산됩니다. 입력 양식에 <code>image_size</code> 필드가 없어 기본값(512)으로
+                동작합니다 — 이미지 크기 필드의 필드명을 <code>image_size</code> 로 맞추세요.
+              </Alert>
             )}
             <Alert severity="info" sx={{ mt: 1.5 }}>
               seed 는 플레이스홀더 외에 하드코딩된 숫자값(<code>"seed": 12345</code>)도 자동 치환됩니다.
