@@ -34,83 +34,20 @@ import {
   ViewStream as ImageListIcon
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import toast from 'react-hot-toast';
-import { serverAPI, workboardAPI, userAPI } from '../../services/api';
+import { userAPI } from '../../services/api';
 import Pagination from './Pagination';
 import MetadataItemCard from './MetadataItemCard';
 import MetadataItemGrid from './MetadataItemGrid';
 import MetadataDetailDialog from './MetadataDetailDialog';
 import MetadataImageListItem from '../admin/MetadataImageListItem';
-import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
+import { METADATA_ADAPTERS } from '../../utils/metadataAdapters';
+import useMetadataSyncPolling, { checkInitialSyncStatus } from '../../hooks/useMetadataSyncPolling';
 
 const VIEW_MODE_KEY_PREFIX = 'vcc.picker.viewMode.';
 
-// ─── Per-kind API adapters ────────────────────────────────────────
-// kind 별 fetch / sync / status / normalize / 응답 필드명을 한 곳에서 관리.
 // 안정적인 빈 배열 reference — `allowedModelTypes = []` default 가 매 render 마다 새 array 를
 // 만들어 useCallback / useEffect 의존성을 깨면서 무한 fetch loop 를 일으키던 버그 수정.
 const EMPTY_ALLOWED_MODEL_TYPES = Object.freeze([]);
-
-const KIND_ADAPTERS = {
-  lora: {
-    fetch: ({ serverId, workboardId, search, baseModel, page, limit }) => {
-      if (serverId) {
-        // workboardId 전달 시 backend 가 작업판의 loraExposurePolicy / loraWhitelist 적용 (#198 Phase D)
-        const params = { search, baseModel, page, limit };
-        if (workboardId) params.workboardId = workboardId;
-        return serverAPI.getLoras(serverId, params);
-      }
-      return workboardAPI.getLoraModels(workboardId);
-    },
-    extractList: (responseData) => responseData?.loraModels || [],
-    extractPagination: (responseData) => responseData?.pagination || { current: 1, pages: 0, total: 0 },
-    extractCacheInfo: (responseData, fallback = false) => {
-      if (fallback) {
-        return {
-          lastFetched: responseData?.lastFetched,
-          lastCivitaiSync: responseData?.lastCivitaiSync,
-          hashNodeAvailable: responseData?.loraInfoNodeAvailable
-        };
-      }
-      return responseData?.cacheInfo || null;
-    },
-    extractAvailableBaseModels: (responseData) => responseData?.availableBaseModels || null,
-    // 동기화 버튼은 항상 forceRefresh — 기존 hash 는 재사용되고 civitai 메타만 새로 받음 (#335)
-    sync: (serverId) => serverAPI.syncLoras(serverId, { forceRefresh: true }),
-    getStatus: (serverId) => serverAPI.getLorasSyncStatus(serverId),
-    normalize: normalizeLora,
-    label: 'LoRA',
-    listLabel: 'LoRA',
-    nsfwItemPreference: 'nsfwModelFilter',  // 사용자 preferences key — NSFW 모델 (LoRA 포함) 숨김 (#346)
-    nsfwItemLabel: 'NSFW 모델 숨기기',
-  },
-  model: {
-    fetch: ({ serverId, workboardId, search, baseModel, allowedBaseModels, outputFormat, page, limit }) => {
-      const params = { search, baseModel, page, limit };
-      if (allowedBaseModels && allowedBaseModels.length > 0) {
-        params.allowedBaseModels = allowedBaseModels;
-      }
-      // workboardId 전달 시 backend 가 작업판의 modelExposurePolicy / modelWhitelist 적용 (#198 Phase D)
-      // 추가로 workboard.outputFormat 으로 provider outputFormats 자동 필터 (#354)
-      if (workboardId) params.workboardId = workboardId;
-      // outputFormat 명시 전달 — workboardId 없이 admin 페이지에서 작업판 폼의 값으로 호출하는 경우 (#354)
-      if (outputFormat) params.outputFormat = outputFormat;
-      return serverAPI.getDetailedModels(serverId, params);
-    },
-    extractList: (responseData) => responseData?.models || [],
-    extractPagination: (responseData) => responseData?.pagination || { current: 1, pages: 0, total: 0 },
-    extractCacheInfo: (responseData) => responseData?.cacheInfo || null,
-    extractAvailableBaseModels: (responseData) => responseData?.availableBaseModels || null,
-    // 동기화 버튼은 항상 forceRefresh (#335)
-    sync: (serverId) => serverAPI.syncModels(serverId, { forceRefresh: true }),
-    getStatus: (serverId) => serverAPI.getModelsSyncStatus(serverId),
-    normalize: normalizeModel,
-    label: '베이스 모델',
-    listLabel: '베이스 모델',
-    nsfwItemPreference: 'nsfwModelFilter',  // 베이스 모델에도 NSFW 모델 숨김 적용 (#346)
-    nsfwItemLabel: 'NSFW 모델 숨기기',
-  }
-};
 
 /**
  * 공통 메타데이터 picker modal — LoRA / Model 양쪽 사용.
@@ -145,10 +82,10 @@ function MetadataPickerModal({
   allowedModelTypes = EMPTY_ALLOWED_MODEL_TYPES,
   title
 }) {
-  // 잘못된 kind 는 internal API 위반 — KIND_ADAPTERS 에 없으면 빈 객체로 fallback,
+  // 잘못된 kind 는 internal API 위반 — METADATA_ADAPTERS 에 없으면 빈 객체로 fallback,
   // hook order 보장 위해 early return 사용 안 함. 호출자가 잘못된 kind 를 넘기면
   // adapter.fetch 등 호출이 실패하면서 사용자에게 에러로 표시됨.
-  const adapter = KIND_ADAPTERS[kind] || {};
+  const adapter = METADATA_ADAPTERS[kind] || {};
 
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -224,44 +161,22 @@ function MetadataPickerModal({
     [serverId, workboardId, searchQuery, baseModelFilter, allowedModelTypes, outputFormat, kind, adapter]
   );
 
-  // sync 폴링
-  useEffect(() => {
-    let interval;
-    if (syncing && serverId) {
-      interval = setInterval(async () => {
-        try {
-          const response = await adapter.getStatus(serverId);
-          const status = response.data.data;
-          setSyncStatus(status);
-          if (status.status === 'completed' || status.status === 'failed' || status.status === 'idle') {
-            setSyncing(false);
-            if (status.status === 'completed') {
-              toast.success(`${adapter.label} 동기화가 완료되었습니다.`);
-              fetchItems();
-            } else if (status.status === 'failed') {
-              toast.error(`동기화 실패: ${status.errorMessage || '알 수 없는 오류'}`);
-            }
-          }
-        } catch (err) {
-          console.error('Failed to get sync status:', err);
-        }
-      }, 2000);
-    }
-    return () => clearInterval(interval);
-  }, [syncing, serverId, adapter, fetchItems]);
+  // sync 폴링 — 공용 hook (#697)
+  useMetadataSyncPolling({
+    adapter,
+    serverId,
+    syncing,
+    setSyncing,
+    setSyncStatus,
+    onCompleted: () => fetchItems(),
+  });
 
   // 모달 open 시 fetch + 진행 중 sync 확인
   useEffect(() => {
     if (open && (serverId || workboardId)) {
       fetchItems();
       if (serverId) {
-        adapter.getStatus(serverId)
-          .then((response) => {
-            const status = response.data.data;
-            setSyncStatus(status);
-            if (status.status === 'fetching') setSyncing(true);
-          })
-          .catch(console.error);
+        checkInitialSyncStatus(adapter, serverId, { setSyncStatus, setSyncing });
       }
     }
   }, [open, serverId, workboardId, fetchItems, adapter]);

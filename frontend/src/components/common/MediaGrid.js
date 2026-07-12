@@ -35,6 +35,7 @@ import {
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { imageAPI } from '../../services/api';
+import { downloadBlob, downloadFromUrl } from '../../utils/download';
 import Pagination from './Pagination';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
@@ -46,37 +47,16 @@ function ImageDetailDialog({ image, open, onClose, type }) {
     if (type === 'generated') {
       try {
         const response = await imageAPI.downloadGenerated(image._id);
-        const blob = new Blob([response.data]);
-        const blobUrl = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = image.originalName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadBlob(new Blob([response.data]), image.originalName);
         toast.success('다운로드 완료');
-
-        setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
         console.error('Download error:', error);
         toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
       }
     } else {
       try {
-        const response = await fetch(image.url);
-        const blob = await response.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = image.originalName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        await downloadFromUrl(image.url, image.originalName);
         toast.success('다운로드 완료');
-
-        setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
         console.error('Download error:', error);
         toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
@@ -125,17 +105,8 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
     if (type === 'generated') {
       try {
         const response = await imageAPI.downloadGenerated(image._id);
-        const blob = new Blob([response.data]);
-        const blobUrl = window.URL.createObjectURL(blob);
-
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.download = image.originalName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        downloadBlob(new Blob([response.data]), image.originalName);
         toast.success('다운로드 완료');
-        setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
       } catch (error) {
         toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
       }
@@ -231,16 +202,8 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
   const handleDownload = async () => {
     try {
       const response = await imageAPI.downloadVideo(video._id);
-      const blob = new Blob([response.data]);
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = video.originalName;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadBlob(new Blob([response.data]), video.originalName);
       toast.success('다운로드 완료');
-      setTimeout(() => { window.URL.revokeObjectURL(blobUrl); }, 1000);
     } catch (error) {
       toast.error('다운로드 실패');
     }

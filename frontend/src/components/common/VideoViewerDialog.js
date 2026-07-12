@@ -11,6 +11,7 @@ import {
 import { Close, Download, NavigateBefore, NavigateNext } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import { imageAPI } from '../../services/api';
+import { downloadBlob } from '../../utils/download';
 
 function VideoViewerDialog({ 
   videos = [], 
@@ -48,19 +49,8 @@ function VideoViewerDialog({
         throw new Error('No video source available');
       }
       
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = currentVideo.originalName || `video_${Date.now()}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      downloadBlob(blob, currentVideo.originalName || `video_${Date.now()}.mp4`);
       toast.success('다운로드 완료');
-      
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 1000);
     } catch (error) {
       console.error('Download error:', error);
       toast.error('다운로드 실패');

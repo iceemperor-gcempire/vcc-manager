@@ -39,56 +39,12 @@ import MetadataItemCard from '../common/MetadataItemCard';
 import MetadataItemGrid from '../common/MetadataItemGrid';
 import MetadataDetailDialog from '../common/MetadataDetailDialog';
 import MetadataImageListItem from './MetadataImageListItem';
-import { normalizeLora, normalizeModel } from '../../utils/metadataItem';
-import { serverAPI } from '../../services/api';
+import { METADATA_ADAPTERS } from '../../utils/metadataAdapters';
+import useMetadataSyncPolling, { checkInitialSyncStatus } from '../../hooks/useMetadataSyncPolling';
 import { MONO } from '../../theme';
 
 const VIEW_MODE_KEY_PREFIX = 'vcc.metadataAdmin.viewMode.';
 const PAGE_SIZE = 24;
-
-// kind 별 API / 정규화 / 라벨 어댑터 (#344)
-const ADAPTERS = {
-  model: {
-    fetch: (serverId, params) => serverAPI.getDetailedModels(serverId, params),
-    sync: (serverId) => serverAPI.syncModels(serverId, { forceRefresh: true }),
-    getStatus: (serverId) => serverAPI.getModelsSyncStatus(serverId),
-    resetSync: (serverId) => serverAPI.resetModelsSync(serverId),
-    clearCache: (serverId) => serverAPI.clearModelCache(serverId),
-    extractList: (data) => data?.models || [],
-    extractPagination: (data) => data?.pagination || { current: 1, pages: 0, total: 0 },
-    extractCacheInfo: (data) => data?.cacheInfo || null,
-    extractAvailableBaseModels: (data) => data?.availableBaseModels || [],
-    extractTotal: (status, pagination) => status?.totalModels || pagination?.total || 0,
-    extractMetaCount: (status) => status?.modelsWithMetadata,
-    extractLastSync: (info, status) => info?.lastMetadataSync || status?.lastMetadataSync,
-    normalize: (raw, serverType) => normalizeModel(raw, { serverType }),
-    label: '베이스 모델',
-    searchPlaceholder: '모델 검색...',
-    cacheDialogTitle: '베이스 모델 캐시 완전 삭제',
-    cacheDialogBody: '선택한 서버의 모델 캐시를 모두 비웁니다. 다음 동기화부터 hash 부터 재계산됩니다.',
-    emptyMessage: '베이스 모델이 없습니다.',
-  },
-  lora: {
-    fetch: (serverId, params) => serverAPI.getLoras(serverId, params),
-    sync: (serverId) => serverAPI.syncLoras(serverId, { forceRefresh: true }),
-    getStatus: (serverId) => serverAPI.getLorasSyncStatus(serverId),
-    resetSync: (serverId) => serverAPI.resetLorasSync(serverId),
-    clearCache: (serverId) => serverAPI.clearLoraCache(serverId),
-    extractList: (data) => data?.loraModels || [],
-    extractPagination: (data) => data?.pagination || { current: 1, pages: 0, total: 0 },
-    extractCacheInfo: (data) => data?.cacheInfo || null,
-    extractAvailableBaseModels: (data) => data?.availableBaseModels || [],
-    extractTotal: (status, pagination) => status?.totalLoras || pagination?.total || 0,
-    extractMetaCount: (status) => status?.lorasWithMetadata,
-    extractLastSync: (info, status) => info?.lastCivitaiSync || status?.lastCivitaiSync,
-    normalize: (raw) => normalizeLora(raw),
-    label: 'LoRA',
-    searchPlaceholder: 'LoRA 검색...',
-    cacheDialogTitle: 'LoRA 캐시 완전 삭제',
-    cacheDialogBody: '선택한 서버의 LoRA 캐시를 모두 비웁니다. 다음 동기화부터 hash 부터 재계산됩니다.',
-    emptyMessage: 'LoRA 가 없습니다.',
-  }
-};
 
 function formatDate(dateString) {
   if (!dateString) return '없음';
@@ -98,8 +54,8 @@ function formatDate(dateString) {
 // 베이스 모델 / LoRA admin 페이지 공용 본문 (#344).
 // 검색 + view mode 토글 + 동기화 / 캐시 삭제 / 리셋 + 캐시 info + 결과 (3종 view mode).
 function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwModelFilter = true }) {
-  // adapter 가 없으면 빈 객체로 fallback — hook order 보존을 위해 조건부 return 사용 안 함.
-  const adapter = ADAPTERS[kind] || ADAPTERS.model;
+  // adapter 가 없으면 model 로 fallback — hook order 보존을 위해 조건부 return 사용 안 함.
+  const adapter = METADATA_ADAPTERS[kind] || METADATA_ADAPTERS.model;
 
   const [items, setItems] = useState([]);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
@@ -126,7 +82,8 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
     setLoading(true);
     setError(null);
     try {
-      const response = await adapter.fetch(selectedServerId, {
+      const response = await adapter.fetch({
+        serverId: selectedServerId,
         search: searchQuery,
         baseModel: baseModelFilter,
         page,
@@ -136,8 +93,8 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
       setItems(adapter.extractList(data));
       setPagination(adapter.extractPagination(data));
       setCacheInfo(adapter.extractCacheInfo(data));
-      const avail = adapter.extractAvailableBaseModels(data);
-      if (avail) setAvailableBaseModels(avail);
+      // 응답에 목록이 없으면 빈 배열로 초기화 (서버 전환 시 이전 서버 필터 잔존 방지)
+      setAvailableBaseModels(adapter.extractAvailableBaseModels(data) || []);
     } catch (err) {
       console.error(`Failed to fetch ${kind}:`, err);
       setError(err.response?.data?.message || `${adapter.label} 목록을 가져오는데 실패했습니다.`);
@@ -147,30 +104,15 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServerId, searchQuery, baseModelFilter, kind]);
 
-  // sync 폴링
-  useEffect(() => {
-    if (!syncing || !selectedServerId) return undefined;
-    const interval = setInterval(async () => {
-      try {
-        const r = await adapter.getStatus(selectedServerId);
-        const status = r.data.data;
-        setSyncStatus(status);
-        if (['completed', 'failed', 'idle'].includes(status.status)) {
-          setSyncing(false);
-          if (status.status === 'completed') {
-            toast.success(`${adapter.label} 동기화가 완료되었습니다.`);
-            fetchItems(1);
-          } else if (status.status === 'failed') {
-            toast.error(`동기화 실패: ${status.errorMessage || '알 수 없는 오류'}`);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to get sync status:', err);
-      }
-    }, 2000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncing, selectedServerId, kind]);
+  // sync 폴링 — 공용 hook (#697)
+  useMetadataSyncPolling({
+    adapter,
+    serverId: selectedServerId,
+    syncing,
+    setSyncing,
+    setSyncStatus,
+    onCompleted: () => fetchItems(1),
+  });
 
   // 서버 변경 시 reset + fetch
   useEffect(() => {
@@ -183,13 +125,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
       return;
     }
     fetchItems(1);
-    adapter.getStatus(selectedServerId)
-      .then((r) => {
-        const status = r.data.data;
-        setSyncStatus(status);
-        if (status.status === 'fetching') setSyncing(true);
-      })
-      .catch(console.error);
+    checkInitialSyncStatus(adapter, selectedServerId, { setSyncStatus, setSyncing });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedServerId, kind]);
 
