@@ -125,6 +125,29 @@ describe('스키마 단위 — 기존 허용 본문의 동작 보존 (#698)', ()
     expect(projectUpdateSchema.validate({ coverImage: 'not-object' }).error).toBeDefined();
   });
 
+  test('편집기 실제 payload 형태를 거부하지 않는다 (#706 회귀)', () => {
+    // WorkboardManagement onSubmit 이 보내는 legacy baseInputFields 는 객체
+    const editorPayload = {
+      name: 'Anima - Simple',
+      serverId: 'srv-1',
+      outputFormat: 'image',
+      baseInputFields: {
+        aiModel: [], imageSizes: [], referenceImageMethods: [], systemPrompt: '', referenceImages: [],
+      },
+      additionalInputFields: [{ name: 'base_model', label: '베이스 모델', type: 'baseModel' }],
+      workflowData: '{"46":{}}',
+      isActive: true,
+    };
+    expect(workboardUpdateSchema.validate(editorPayload).error).toBeUndefined();
+
+    const { serverId, ...rest } = editorPayload;
+    expect(
+      require('../utils/validation').workboardCreateSchema.validate({ serverId, ...rest }).error
+    ).toBeUndefined();
+    // 구버전 백업 등 배열 형태도 허용 (타입 무제약)
+    expect(workboardUpdateSchema.validate({ baseInputFields: [] }).error).toBeUndefined();
+  });
+
   test('llmExtraParams 는 객체/null 허용, 문자열 거부 (#493 계약)', () => {
     expect(workboardUpdateSchema.validate({ llmExtraParams: { max_tokens: 8 } }).error).toBeUndefined();
     expect(workboardUpdateSchema.validate({ llmExtraParams: null }).error).toBeUndefined();
