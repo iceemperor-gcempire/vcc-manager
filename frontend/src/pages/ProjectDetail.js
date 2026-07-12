@@ -39,7 +39,8 @@ import {
   Close,
   DeleteSweep,
   SelectAll,
-  Deselect
+  Deselect,
+  FileDownload,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -57,6 +58,8 @@ import JobHistoryPanel from '../components/common/JobHistoryPanel';
 import TagInput from '../components/common/TagInput';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
+import { downloadBlob } from '../utils/download';
+import { useAuth } from '../contexts/AuthContext';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -743,7 +746,7 @@ function JobsTab({ projectId }) {
 }
 
 // 프로젝트 헤더 — gradient avatar tile + 제목/설명/메타 / 데스크탑 액션 버튼 (Phase 5a).
-function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, onViewWorkboards }) {
+function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, onViewWorkboards, onExport }) {
   const initial = (project.name?.trim()?.[0] || '?').toUpperCase();
   const isFav = project.isFavorite;
   const hasCover = !!project.coverImage?.url;
@@ -831,6 +834,11 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
           <Button variant="outlined" startIcon={<ViewModule />} onClick={onViewWorkboards}>
             작업판 보기
           </Button>
+          {onExport && (
+            <Button variant="outlined" startIcon={<FileDownload />} onClick={onExport}>
+              내보내기
+            </Button>
+          )}
           <Tooltip title="삭제">
             <IconButton color="error" onClick={onDelete}><Delete /></IconButton>
           </Tooltip>
@@ -913,6 +921,20 @@ function ProjectDetail() {
         toast.error(error.response?.data?.message || '삭제 실패');
       } });
 
+  const { isAdmin } = useAuth();
+
+  // 프로젝트 export (#404 P0) — admin 전용 (작업판 풀 정의 포함)
+  const handleExport = async () => {
+    try {
+      const res = await projectAPI.export(id);
+      const filename = `${(project?.name || 'project').replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_project.json`;
+      downloadBlob(new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' }), filename);
+      toast.success('프로젝트를 내보냈습니다');
+    } catch (e) {
+      toast.error(e.response?.data?.message || '프로젝트 내보내기에 실패했습니다');
+    }
+  };
+
   const favoriteMutation = useMutation({ mutationFn: () => projectAPI.toggleFavorite(id),
       onSuccess: (response) => {
         queryClient.invalidateQueries({ queryKey: ['project', id] });
@@ -965,6 +987,7 @@ function ProjectDetail() {
         onDelete={() => setDeleteOpen(true)}
         onToggleFavorite={() => favoriteMutation.mutate()}
         onViewWorkboards={() => navigate(`/workboards?projectId=${id}`)}
+        onExport={isAdmin ? handleExport : undefined}
       />
 
       {isMobile && (
