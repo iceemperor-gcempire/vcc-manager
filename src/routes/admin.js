@@ -6,6 +6,7 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
 const SystemSettings = require('../models/SystemSettings');
+const integrityService = require('../services/integrityService');
 const ApiKey = require('../models/ApiKey');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { deleteUserAndContent } = require('../services/userDeletionService');
@@ -294,6 +295,37 @@ router.put('/settings/lora', requireAdmin, async (req, res) => {
       success: false,
       message: error.message
     });
+  }
+});
+
+// ── 데이터 정합성 (#662 P2) ────────────────────────────────────
+
+// 진단 리포트 (읽기전용). ?files=true 면 파일↔DB 정합성 포함 (파일 수에 따라 느릴 수 있음)
+router.get('/integrity', requireAdmin, async (req, res) => {
+  try {
+    const includeFiles = req.query.files === 'true';
+    const [owners, danglingJobRefs] = await Promise.all([
+      integrityService.checkOwnerOrphans(),
+      integrityService.checkDanglingJobRefs(),
+    ]);
+    const files = includeFiles ? await integrityService.checkFileIntegrity() : null;
+    res.json({ success: true, data: { owners, danglingJobRefs, files, checkedAt: new Date() } });
+  } catch (error) {
+    console.error('Integrity check error:', error);
+    res.status(500).json({ success: false, message: '정합성 점검에 실패했습니다.' });
+  }
+});
+
+// 소유자 orphan 정제 — body.apply === true 일 때만 실제 삭제 (기본 dry-run).
+// 구조 리소스/끊긴 jobId 는 대상 아님 (리포트 전용 정책 — services/integrityService 참고)
+router.post('/integrity/cleanup-owner-orphans', requireAdmin, async (req, res) => {
+  try {
+    const apply = req.body?.apply === true;
+    const result = await integrityService.cleanupOwnerOrphans({ apply });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Integrity cleanup error:', error);
+    res.status(500).json({ success: false, message: 'orphan 정제에 실패했습니다.' });
   }
 });
 

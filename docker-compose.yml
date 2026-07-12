@@ -80,8 +80,10 @@ services:
       SIGNED_URL_ROUND_SECONDS: ${SIGNED_URL_ROUND_SECONDS:-1440}
       # dev / e2e 환경 — signup rate limit 완화 (#359). 명시 설정 시만 적용 (#379).
       SIGNUP_RATE_LIMIT_MAX: ${SIGNUP_RATE_LIMIT_MAX:-}
-      # NOTE: TEST_AUTO_ADMIN_DOMAIN 백도어는 #379 에서 완전 제거. E2E 테스트는 후속 작업에서
-      # 안전한 admin 부여 방식 (시크릿 헤더 / DB seed 등) 으로 재설계 필요.
+      # E2E 테스트 admin 부여 시크릿 (#381) — 미설정 시 완전 비활성.
+      # 로컬 개발 전용. 알파 등 외부 노출 환경의 .env 에는 절대 설정하지 말 것.
+      # (TEST_AUTO_ADMIN_DOMAIN 백도어는 #379 에서 제거 — 이 시크릿 헤더 방식으로 대체)
+      E2E_ADMIN_SECRET: ${E2E_ADMIN_SECRET:-}
     ports:
       - "${BACKEND_PORT:-3136}:3000"
     volumes:
