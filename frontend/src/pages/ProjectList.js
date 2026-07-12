@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import {
   Add,
+  FileUpload,
   Star,
   StarBorder,
   Edit,
@@ -39,6 +40,8 @@ import { MONO, DEFAULT_TAG_COLOR } from '../theme';
 import { gradientForId } from '../utils/brandGradients';
 import { relativeTime } from '../utils/relativeTime';
 import PageHeader from '../components/common/PageHeader';
+import ProjectImportDialog from '../components/common/ProjectImportDialog';
+import { useAuth } from '../contexts/AuthContext';
 import EmptyState from '../components/common/EmptyState';
 
 
@@ -65,7 +68,7 @@ function StatRow({ project, mono }) {
   );
 }
 
-function ProjectCreateDialog({ open, onClose }) {
+function ProjectCreateDialog({ open, onClose, onOpenImport }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tagName, setTagName] = useState('');
@@ -98,6 +101,11 @@ function ProjectCreateDialog({ open, onClose }) {
           required helperText="프로젝트에 자동 생성될 태그 이름입니다. 기존 태그와 중복되면 안 됩니다." inputProps={{ maxLength: 50 }} />
       </DialogContent>
       <DialogActions>
+        {onOpenImport && (
+          <Button size="small" startIcon={<FileUpload />} onClick={() => { onClose(); onOpenImport(); }} sx={{ mr: 'auto' }}>
+            내보내기 파일에서 시작
+          </Button>
+        )}
         <Button onClick={onClose}>취소</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={createMutation.isPending}>생성</Button>
       </DialogActions>
@@ -200,6 +208,8 @@ function ProjectList() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
+  const { isAdmin } = useAuth();
   const [editProject, setEditProject] = useState(null);
   const [deleteProject, setDeleteProject] = useState(null);
   const [view, setView] = useState('grid');
@@ -250,6 +260,9 @@ function ProjectList() {
         actions={(
           <>
             <ViewToggle view={view} setView={setView} />
+            {isAdmin && (
+              <Button variant="outlined" startIcon={<FileUpload />} onClick={() => setImportOpen(true)}>가져오기</Button>
+            )}
             <Button variant="contained" startIcon={<Add />} onClick={() => setCreateOpen(true)}>새 프로젝트</Button>
           </>
         )}
@@ -313,7 +326,12 @@ function ProjectList() {
         <MenuItem onClick={() => { setDeleteProject(menuProject); closeMenu(); }} sx={{ color: 'error.main' }}><Delete sx={{ mr: 1 }} fontSize="small" />삭제</MenuItem>
       </Menu>
 
-      <ProjectCreateDialog open={createOpen} onClose={() => setCreateOpen(false)} />
+      <ProjectImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        onSuccess={(projectId) => navigate(`/projects/${projectId}`)}
+      />
+      <ProjectCreateDialog open={createOpen} onClose={() => setCreateOpen(false)} onOpenImport={isAdmin ? () => setImportOpen(true) : undefined} />
       <ProjectEditDialog open={!!editProject} onClose={() => setEditProject(null)} project={editProject} />
 
       <Dialog open={!!deleteProject} onClose={() => setDeleteProject(null)}>

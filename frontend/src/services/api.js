@@ -262,6 +262,8 @@ export const updatelogAPI = {
 
 export const projectAPI = {
   getAll: (params) => api.get('/projects', { params }),
+  export: (id) => api.get(`/projects/${id}/export`), // admin 전용 (#404)
+  import: (payload) => api.post('/projects/import', payload), // admin 전용 (#404 P1)
   getById: (id) => api.get(`/projects/${id}`),
   getByTag: (tagId) => api.get(`/projects/by-tag/${tagId}`),
   create: (data) => api.post('/projects', data),
