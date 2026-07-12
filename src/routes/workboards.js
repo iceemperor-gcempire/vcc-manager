@@ -94,6 +94,24 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // ComfyUI 워크플로 분석 (관리자 전용) — 파싱 + 필요/빠진 커스텀 노드 감지 (#607)
+
+// UI 포맷 감지·변환 전처리 (#609 P3) — UI 포맷이면 objectInfo 필수.
+function prepareWorkflowInput(workflow, objectInfo) {
+  let obj = workflow;
+  if (typeof workflow === 'string') {
+    try { obj = JSON.parse(workflow); } catch (e) { throw new Error(`워크플로 JSON 파싱 실패: ${e.message}`); }
+  }
+  const format = workflowConverter.detectFormat(obj);
+  if (format !== 'ui') {
+    return { effectiveWorkflow: workflow, sourceFormat: format, conversionWarnings: [] };
+  }
+  if (!objectInfo) {
+    throw new Error('UI 포맷(일반 저장) 워크플로입니다 — 변환하려면 ComfyUI 서버를 선택해주세요. (또는 "Save (API Format)" 파일 사용)');
+  }
+  const { apiWorkflow, warnings } = workflowConverter.convertUiToApi(obj, objectInfo);
+  return { effectiveWorkflow: JSON.stringify(apiWorkflow, null, 2), sourceFormat: 'ui', conversionWarnings: warnings };
+}
+
 router.post('/analyze-workflow', requireAdmin, async (req, res) => {
   try {
     const { workflow, serverId } = req.body;
@@ -101,15 +119,7 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
     }
 
-    // 1) 파싱 (서버 없이도 가능). 포맷/파싱 오류는 400.
-    let parsed;
-    try {
-      parsed = workflowConverter.parseWorkflow(workflow);
-    } catch (e) {
-      return res.status(400).json({ success: false, message: e.message });
-    }
-
-    // 2) serverId 가 있으면 /object_info 로 빠진 노드 비교 (선택, 실패해도 분석은 반환)
+    // serverId 가 있으면 /object_info 확보 (빠진 노드 비교 + UI 포맷 변환용)
     let objectInfo = null;
     let serverWarning = null;
     if (serverId) {
@@ -124,11 +134,33 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
       }
     }
 
+    // UI 포맷이면 API 포맷으로 변환 후 기존 파이프라인 진행 (#609 P3)
+    let effectiveWorkflow = workflow;
+    let sourceFormat = null;
+    let conversionWarnings = [];
+    try {
+      const pre = prepareWorkflowInput(workflow, objectInfo);
+      effectiveWorkflow = pre.effectiveWorkflow;
+      sourceFormat = pre.sourceFormat;
+      conversionWarnings = pre.conversionWarnings;
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(effectiveWorkflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
     const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
     res.json({
       success: true,
       data: {
-        format: parsed.format,
+        format: sourceFormat || parsed.format,
+        converted: sourceFormat === 'ui',
+        conversionWarnings,
         nodeCount: parsed.nodes.length,
         literalInputCount: parsed.literalInputs.length,
         ...nodeAnalysis,
@@ -149,14 +181,7 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
     }
 
-    let parsed;
-    try {
-      parsed = workflowConverter.parseWorkflow(workflow);
-    } catch (e) {
-      return res.status(400).json({ success: false, message: e.message });
-    }
-
-    // 빠진 노드 검사 (서버 연결 시, 선택)
+    // 빠진 노드 검사 + UI 포맷 변환용 /object_info (서버 연결 시)
     let objectInfo = null;
     let serverWarning = null;
     if (serverId) {
@@ -168,6 +193,26 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
           serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
         }
       }
+    }
+
+    // UI 포맷이면 API 포맷으로 변환 — 초안의 workflowData 에도 변환본이 들어간다 (#609 P3)
+    let effectiveWorkflow = workflow;
+    let conversionWarnings = [];
+    let sourceFormat = null;
+    try {
+      const pre = prepareWorkflowInput(workflow, objectInfo);
+      effectiveWorkflow = pre.effectiveWorkflow;
+      sourceFormat = pre.sourceFormat;
+      conversionWarnings = pre.conversionWarnings;
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(effectiveWorkflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
     }
 
     const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
@@ -197,7 +242,10 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
       llmNote = 'AI 보조를 쓰려면 LLM 모델도 지정해야 합니다 — 기본 추출만 적용했습니다.';
     }
 
-    const draft = workflowConverter.buildDraftFromPicks(parsed, workflow, allPicks);
+    const draft = workflowConverter.buildDraftFromPicks(parsed, effectiveWorkflow, allPicks);
+    if (sourceFormat === 'ui') {
+      draft.notes = [`UI 포맷 워크플로를 API 포맷으로 변환했습니다${conversionWarnings.length ? ` (경고 ${conversionWarnings.length}건)` : ''}.`, ...conversionWarnings, ...draft.notes];
+    }
     if (llmNote) draft.notes = [llmNote, ...draft.notes];
 
     res.json({
@@ -256,6 +304,69 @@ router.post('/resolve-nodes', requireAdmin, async (req, res) => {
 });
 
 // 작업판 가져오기 (관리자 전용)
+// 커스텀 노드 원클릭 설치 (#609 P4 — informed one-click).
+// 프론트가 repo/팩 출처를 명시해 admin 확인을 받은 뒤에만 호출한다 (silent auto 금지).
+// Manager v4(내장) 의 /v2 큐 API 사용 — 미지원 서버는 400 으로 명확히 안내.
+router.post('/install-node', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, installId } = req.body;
+    if (!serverId || !installId) {
+      return res.status(400).json({ success: false, message: 'serverId 와 installId 가 필요합니다.' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    const available = await comfyUIService.managerV4Available(server.serverUrl);
+    if (!available) {
+      return res.status(400).json({ success: false, message: '이 서버의 ComfyUI-Manager(v4 내장) API 를 사용할 수 없습니다 — ComfyUI 업데이트 또는 수동 설치가 필요합니다.' });
+    }
+    const uiId = `vcc_install_${Date.now()}`;
+    await comfyUIService.managerQueueInstall(server.serverUrl, installId, uiId);
+    res.json({ success: true, data: { uiId } });
+  } catch (error) {
+    console.error('Node install error:', error);
+    res.status(500).json({ success: false, message: `설치 요청 실패: ${error.message}` });
+  }
+});
+
+// 설치 태스크 상태 조회 (#609 P4) — 프론트 폴링용
+router.get('/install-status', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, uiId } = req.query;
+    if (!serverId || !uiId) {
+      return res.status(400).json({ success: false, message: 'serverId 와 uiId 가 필요합니다.' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    const [queue, entry] = await Promise.all([
+      comfyUIService.managerQueueStatus(server.serverUrl).catch(() => null),
+      comfyUIService.managerHistoryEntry(server.serverUrl, uiId).catch(() => null),
+    ]);
+    res.json({ success: true, data: { queue, entry } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ComfyUI 재시작 (#609 P4) — 설치 반영에 필요. 프론트에서 admin 확인 후 호출.
+// 재시작 중 연결 끊김은 정상 신호 (comfyUIService.managerReboot 가 처리).
+router.post('/reboot-comfyui', requireAdmin, async (req, res) => {
+  try {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ success: false, message: 'serverId 가 필요합니다.' });
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    await comfyUIService.managerReboot(server.serverUrl);
+    res.json({ success: true, data: { initiated: true } });
+  } catch (error) {
+    console.error('ComfyUI reboot error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 router.post('/import', requireAdmin, async (req, res) => {
   try {
     const { data, serverId: overrideServerId } = req.body;
@@ -923,5 +1034,6 @@ router.post('/:id/lora-models/refresh', requireAuth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 module.exports = router;

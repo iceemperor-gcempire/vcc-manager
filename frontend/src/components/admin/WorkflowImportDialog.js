@@ -10,7 +10,7 @@ import { workboardAPI, serverAPI } from '../../services/api';
 import { MONO } from '../../theme';
 
 /**
- * ComfyUI 워크플로(API 포맷)를 붙여넣어 작업판 초안을 생성하고,
+ * ComfyUI 워크플로(API 포맷 또는 일반 저장 UI 포맷 — #609 P3)를 붙여넣어 작업판 초안을 생성하고,
  * 생성된 작업판 편집기로 이동한다 (#612 — Epic #609 프론트 연결).
  */
 export default function WorkflowImportDialog({ open, onClose }) {
@@ -23,6 +23,10 @@ export default function WorkflowImportDialog({ open, onClose }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null); // { draft, notes, analysis, serverWarning }
   const [resolution, setResolution] = useState(null); // { managerAvailable, resolutions, unresolved }
+  // 원클릭 설치 (#609 P4): 노드별 'idle'|'installing'|'success'|'failed'
+  const [installState, setInstallState] = useState({});
+  const [installConfirm, setInstallConfirm] = useState(null); // { node, repo }
+  const [rebootState, setRebootState] = useState('idle'); // 'idle'|'confirm'|'rebooting'
 
   const { data: serversData } = useQuery({
     queryKey: ['servers', 'comfyui-pick'],
@@ -34,6 +38,49 @@ export default function WorkflowImportDialog({ open, onClose }) {
   const reset = () => {
     setStep('input'); setWorkflowText(''); setServerId(''); setName('');
     setOutputFormat('image'); setLoading(false); setResult(null); setResolution(null);
+    setInstallState({}); setInstallConfirm(null); setRebootState('idle');
+  };
+
+  // 원클릭 설치 실행 (#609 P4) — informed confirm 을 거친 뒤에만 호출됨
+  const runInstall = async ({ node, repo }) => {
+    setInstallConfirm(null);
+    setInstallState((prev) => ({ ...prev, [node]: 'installing' }));
+    try {
+      const r = await workboardAPI.installNode(serverId, repo.installId);
+      const uiId = r.data.data.uiId;
+      // 설치 태스크 폴링 (최대 ~2분)
+      for (let i = 0; i < 40; i++) {
+        await new Promise((res) => setTimeout(res, 3000));
+        const st = await workboardAPI.installStatus(serverId, uiId);
+        const entry = st.data.data.entry;
+        if (entry) {
+          if (entry.result === 'success') {
+            setInstallState((prev) => ({ ...prev, [node]: 'success' }));
+            toast.success(`${repo.title || repo.installId} 설치 완료 — 반영하려면 ComfyUI 재시작이 필요합니다.`);
+            return;
+          }
+          setInstallState((prev) => ({ ...prev, [node]: 'failed' }));
+          toast.error(`설치 실패: ${entry.result || '알 수 없는 오류'}`);
+          return;
+        }
+      }
+      setInstallState((prev) => ({ ...prev, [node]: 'failed' }));
+      toast.error('설치 확인 시간 초과 — Manager 큐 상태를 서버에서 확인하세요.');
+    } catch (e) {
+      setInstallState((prev) => ({ ...prev, [node]: 'failed' }));
+      toast.error(e.response?.data?.message || '설치 요청에 실패했습니다.');
+    }
+  };
+
+  const runReboot = async () => {
+    setRebootState('rebooting');
+    try {
+      await workboardAPI.rebootComfyUI(serverId);
+      toast.success('ComfyUI 재시작을 요청했습니다 — 1분쯤 후 "다시 분석"으로 확인하세요.');
+    } catch (e) {
+      toast.error(e.response?.data?.message || '재시작 요청에 실패했습니다.');
+      setRebootState('idle');
+    }
   };
   const handleClose = () => { reset(); onClose(); };
 
@@ -43,6 +90,12 @@ export default function WorkflowImportDialog({ open, onClose }) {
       parsed = JSON.parse(workflowText);
     } catch {
       toast.error('워크플로 JSON 파싱 실패 — 올바른 JSON 인지 확인하세요.');
+      return;
+    }
+    // UI 포맷(일반 저장)은 서버의 노드 정보가 있어야 변환 가능 (#609 P3)
+    const isUiFormat = Array.isArray(parsed?.nodes) && 'links' in (parsed || {});
+    if (isUiFormat && !serverId) {
+      toast.error('일반 저장(UI 포맷) 워크플로는 변환을 위해 ComfyUI 서버를 먼저 선택해야 합니다.');
       return;
     }
     setLoading(true);
@@ -100,7 +153,9 @@ export default function WorkflowImportDialog({ open, onClose }) {
         {step === 'input' && (
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Alert severity="info">
-              ComfyUI 에서 <strong>"Save (API Format)"</strong> 로 저장한 워크플로 JSON 을 붙여넣으세요.
+              ComfyUI 워크플로 JSON 을 붙여넣으세요 — <strong>"Save (API Format)"</strong> 파일과
+              <strong>일반 저장(UI 포맷)</strong> 파일 모두 지원합니다. UI 포맷은 자동으로 API 포맷으로
+              변환되며, 이 경우 서버 선택이 필요합니다.
               필요한 입력이 자동으로 변수로 추출된 작업판 초안이 만들어집니다.
             </Alert>
             <TextField
@@ -117,7 +172,7 @@ export default function WorkflowImportDialog({ open, onClose }) {
               ))}
             </TextField>
             <TextField
-              label="워크플로 JSON (API 포맷)"
+              label="워크플로 JSON (API 또는 UI 포맷)"
               value={workflowText}
               onChange={(e) => setWorkflowText(e.target.value)}
               placeholder='{ "3": { "class_type": "KSampler", "inputs": { ... } }, ... }'
@@ -135,14 +190,42 @@ export default function WorkflowImportDialog({ open, onClose }) {
                 {resolution ? (
                   <Box sx={{ mt: 1 }}>
                     {(resolution.resolutions || []).map((r) => (
-                      <Box key={r.node} sx={{ fontSize: 13, mb: 0.25 }}>
+                      <Box key={r.node} sx={{ fontSize: 13, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Box component="code" sx={{ fontFamily: MONO }}>{r.node}</Box>
                         {' → '}
-                        <Link href={r.repos[0].url} target="_blank" rel="noopener noreferrer">
-                          {r.repos[0].title || r.repos[0].url}
-                        </Link>
+                        {r.repos[0].url ? (
+                          <Link href={r.repos[0].url} target="_blank" rel="noopener noreferrer">
+                            {r.repos[0].title || r.repos[0].url}
+                          </Link>
+                        ) : (
+                          <Box component="span">{r.repos[0].title || r.repos[0].installId}</Box>
+                        )}
+                        {/* informed one-click 설치 (#609 P4) — 출처 확인 모달을 거친다 */}
+                        {r.repos[0].installId && installState[r.node] !== 'success' && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            disabled={installState[r.node] === 'installing'}
+                            startIcon={installState[r.node] === 'installing' ? <CircularProgress size={12} /> : null}
+                            onClick={() => setInstallConfirm({ node: r.node, repo: r.repos[0] })}
+                          >
+                            {installState[r.node] === 'installing' ? '설치 중…' : installState[r.node] === 'failed' ? '재시도' : '설치'}
+                          </Button>
+                        )}
+                        {installState[r.node] === 'success' && <Chip label="설치됨 · 재시작 필요" color="success" variant="outlined" />}
                       </Box>
                     ))}
+                    {Object.values(installState).includes('success') && (
+                      <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Button size="small" variant="contained" color="warning" disabled={rebootState === 'rebooting'} onClick={() => setRebootState('confirm')}>
+                          {rebootState === 'rebooting' ? '재시작 요청됨' : 'ComfyUI 재시작'}
+                        </Button>
+                        <Button size="small" onClick={handleAnalyze}>다시 분석</Button>
+                        <Typography variant="caption" color="text.secondary">
+                          설치된 노드는 재시작 후 반영됩니다 (재시작 ~1분).
+                        </Typography>
+                      </Box>
+                    )}
                     {(resolution.unresolved || []).length > 0 && (
                       <Box sx={{ mt: 0.5, fontSize: 13 }}>
                         출처 미확인: <Box component="span" sx={{ fontFamily: MONO }}>{resolution.unresolved.join(', ')}</Box> (노드 이름으로 직접 검색해 설치)
@@ -218,6 +301,41 @@ export default function WorkflowImportDialog({ open, onClose }) {
           </>
         )}
       </DialogActions>
+      {/* informed 설치 확인 (#609 P4) — 출처(repo) 명시 후 1회 확인, silent auto 금지 */}
+      <Dialog open={!!installConfirm} onClose={() => setInstallConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>커스텀 노드 설치</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            아래 패키지를 <strong>대상 ComfyUI 서버에 원격 설치</strong>합니다:
+          </Typography>
+          <Typography variant="body2" sx={{ fontFamily: MONO }}>
+            {installConfirm?.repo?.title || installConfirm?.repo?.installId}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO, display: 'block', mb: 1 }}>
+            {installConfirm?.repo?.url || installConfirm?.repo?.installId}
+          </Typography>
+          <Alert severity="warning" sx={{ mt: 1 }}>
+            커스텀 노드는 서버에서 임의 코드를 실행합니다. 출처를 신뢰할 수 있을 때만 설치하세요.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInstallConfirm(null)}>취소</Button>
+          <Button variant="contained" onClick={() => runInstall(installConfirm)}>설치</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={rebootState === 'confirm'} onClose={() => setRebootState('idle')} maxWidth="xs" fullWidth>
+        <DialogTitle>ComfyUI 재시작</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            대상 ComfyUI 서버를 재시작합니다. 진행 중인 생성 작업이 있다면 중단됩니다. 계속할까요?
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRebootState('idle')}>취소</Button>
+          <Button variant="contained" color="warning" onClick={runReboot}>재시작</Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

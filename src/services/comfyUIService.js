@@ -328,6 +328,10 @@ const getObjectInfo = async (serverUrl) => {
  */
 const fetchNodeRepoMap = async (serverUrl) => {
   const endpoints = [
+    // Manager v4 (ComfyUI 내장, #609 P4) — /v2 경로가 우선
+    `${serverUrl}/v2/customnode/getmappings?mode=nightly`,
+    `${serverUrl}/v2/customnode/getmappings?mode=local`,
+    // 구버전 Manager 폴백
     `${serverUrl}/customnode/getmappings?mode=local`,
     `${serverUrl}/customnode/getmappings?mode=nickname`,
     `${serverUrl}/api/customnode/getmappings?mode=local`,
@@ -343,6 +347,52 @@ const fetchNodeRepoMap = async (serverUrl) => {
     }
   }
   return null; // Manager 없음 / 조회 실패
+};
+
+
+// ── ComfyUI-Manager v4 (내장 Manager, #609 P4) ─────────────────────
+// /api/features 의 extension.manager.supports_v4 로 가용성 판단.
+const managerV4Available = async (serverUrl) => {
+  try {
+    const r = await axios.get(`${serverUrl}/api/features`, { timeout: 8000 });
+    return !!r.data?.extension?.manager?.supports_v4;
+  } catch {
+    return false;
+  }
+};
+
+// 커스텀 노드 설치 태스크 큐잉 — informed one-click 의 실행부.
+// installId = cnr 팩 id('was-ns') 또는 github slug/URL. 큐잉 후 start 를 호출해야 처리 시작.
+const managerQueueInstall = async (serverUrl, installId, uiId) => {
+  await axios.post(`${serverUrl}/v2/manager/queue/task`, {
+    ui_id: uiId,
+    client_id: 'vcc-manager',
+    kind: 'install',
+    params: { id: installId, version: 'latest', selected_version: 'latest', mode: 'remote', channel: 'default' },
+  }, { timeout: 15000 });
+  await axios.post(`${serverUrl}/v2/manager/queue/start`, {}, { timeout: 15000 });
+};
+
+const managerQueueStatus = async (serverUrl) => {
+  const r = await axios.get(`${serverUrl}/v2/manager/queue/status`, { timeout: 8000 });
+  return r.data;
+};
+
+const managerHistoryEntry = async (serverUrl, uiId) => {
+  const r = await axios.get(`${serverUrl}/v2/manager/queue/history`, { timeout: 8000 });
+  return r.data?.history?.[uiId] || null;
+};
+
+// 재시작 — 프로세스가 내려가며 연결이 끊기는 것(ECONNRESET 등)이 정상 신호다.
+const managerReboot = async (serverUrl) => {
+  try {
+    await axios.post(`${serverUrl}/v2/manager/reboot`, {}, { timeout: 8000 });
+    return true;
+  } catch (e) {
+    if (e.code === 'ECONNRESET' || e.code === 'ECONNABORTED' || e.code === 'ECONNREFUSED') return true;
+    if (e.response) throw new Error(`재시작 요청 거부 (${e.response.status}) — Manager 보안 정책을 확인하세요.`);
+    throw e;
+  }
 };
 
 const validateWorkflow = async (serverUrl, workflowJson) => {
@@ -451,6 +501,11 @@ const uploadImage = async (serverUrl, imageBuffer, filename) => {
 
 module.exports = {
   submitWorkflow,
+  managerV4Available,
+  managerQueueInstall,
+  managerQueueStatus,
+  managerHistoryEntry,
+  managerReboot,
   getServerInfo,
   getObjectInfo,
   fetchNodeRepoMap,
