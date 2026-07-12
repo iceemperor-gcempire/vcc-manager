@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { Download, Close } from '@mui/icons-material';
 import toast from 'react-hot-toast';
+import { downloadFromUrl } from '../../utils/download';
 
 function ImageViewerDialog({ 
   images = [], 
@@ -51,22 +52,8 @@ function ImageViewerDialog({
   
   const handleDownload = async () => {
     try {
-      const response = await fetch(currentImage.url);
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = currentImage.originalName || `image_${safeIndex + 1}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      await downloadFromUrl(currentImage.url, currentImage.originalName || `image_${safeIndex + 1}.png`);
       toast.success('다운로드 완료');
-      
-      setTimeout(() => {
-        window.URL.revokeObjectURL(blobUrl);
-      }, 1000);
-      
     } catch (error) {
       console.error('Download error:', error);
       toast.error('다운로드 실패. 잠시 후 다시 시도해주세요.');
