@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { reverseSignedUrl } = require('../utils/signedUrl');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
@@ -10,6 +10,7 @@ const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../utils/validation');
+const { WORKBOARD_EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
 const router = express.Router();
 
 // GET /favorites - 즐겨찾기 프로젝트 목록 (대시보드용) - 구체적 경로를 /:id 위에 배치
@@ -571,6 +572,106 @@ router.get('/:id/conversations', requireAuth, async (req, res) => {
   } catch (error) {
     console.error('Get project conversations error:', error);
     res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
+// ── 프로젝트 export (#404 P0) ────────────────────────────────────
+// 프로젝트 자산(작업판 풀 정의·세계관/문서·파이프라인·태그)을 단일 JSON 으로.
+// admin 전용 — export 에 작업판 풀 정의(workflowData 포함)가 들어가는데
+// 작업판은 admin 관리 자산이라 일반 사용자에게 정의를 노출하지 않는다.
+// binary(이미지/영상)는 v1 규격에서 제외 (기획 결정).
+router.get('/:id/export', requireAdmin, async (req, res) => {
+  try {
+    const Workboard = require('../models/Workboard');
+    const Server = require('../models/Server');
+    const Pipeline = require('../models/Pipeline');
+    const UploadedText = require('../models/UploadedText');
+
+    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id }).populate('tagId');
+    if (!project) {
+      return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
+    }
+
+    const pipelines = await Pipeline.find({ projectId: project._id }).sort({ createdAt: 1 }).lean();
+
+    // 작업판 수집 — 프로젝트 소속 + 파이프라인 단계가 참조하는 것의 합집합.
+    // export 안에서는 배열 index 가 참조 키 (ObjectId 는 instance 간 매칭 불가).
+    const workboardIdSet = new Set((project.workboardIds || []).map(String));
+    for (const pl of pipelines) {
+      for (const step of pl.steps || []) {
+        if (step.workboardId) workboardIdSet.add(String(step.workboardId));
+      }
+    }
+    const workboardIds = [...workboardIdSet];
+    const workboards = await Workboard.find({ _id: { $in: workboardIds } }).lean();
+    const servers = await Server.find({ _id: { $in: workboards.map((w) => w.serverId).filter(Boolean) } }).lean();
+    const serverById = new Map(servers.map((sv) => [String(sv._id), sv]));
+    // index 안정화: 수집 순서 기준
+    const wbIndexById = new Map();
+    const workboardEntries = workboardIds
+      .map((id) => workboards.find((w) => String(w._id) === id))
+      .filter(Boolean)
+      .map((wb, idx) => {
+        wbIndexById.set(String(wb._id), idx);
+        return buildWorkboardExportEntry(wb, wb.serverId ? serverById.get(String(wb.serverId)) : null);
+      });
+
+    // 문서 — 프로젝트 태그가 붙은 UploadedText. 태그는 이름으로 export (import 시 이름 매핑).
+    const docs = await UploadedText.find({ userId: req.user._id, tags: project.tagId._id })
+      .populate('tags', 'name')
+      .sort({ createdAt: 1 })
+      .lean();
+    const docIndexById = new Map();
+    const documents = docs.map((d, idx) => {
+      docIndexById.set(String(d._id), idx);
+      return {
+        title: d.title,
+        content: d.content,
+        // 프로젝트 전용 태그는 제외 — import 시 새 프로젝트 태그가 대신 부여됨
+        tagNames: (d.tags || []).map((t) => t.name).filter((n) => n && n !== project.tagId.name),
+      };
+    });
+
+    const pipelineEntries = pipelines.map((pl) => ({
+      name: pl.name,
+      description: pl.description || '',
+      steps: (pl.steps || []).map((step) => ({
+        workboardIndex: wbIndexById.has(String(step.workboardId)) ? wbIndexById.get(String(step.workboardId)) : null,
+        autoInject: step.autoInject !== false,
+        inputs: step.inputs || {},
+        contextDocIndexes: (step.contextDocIds || [])
+          .map((id) => docIndexById.get(String(id)))
+          .filter((i) => i !== undefined),
+        systemPromptDocIndex: step.systemPromptDocId !== undefined && docIndexById.has(String(step.systemPromptDocId))
+          ? docIndexById.get(String(step.systemPromptDocId))
+          : null,
+        note: step.note || '',
+      })),
+    }));
+
+    const exportData = {
+      projectExportVersion: 1,
+      workboardExportVersion: WORKBOARD_EXPORT_VERSION,
+      appVersion: APP_VERSION,
+      exportedAt: new Date().toISOString(),
+      project: {
+        name: project.name,
+        description: project.description || '',
+        tagColor: project.tagId?.color,
+      },
+      workboards: workboardEntries,
+      documents,
+      pipelines: pipelineEntries,
+    };
+
+    const filename = `${project.name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_project.json`;
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.json(exportData);
+  } catch (error) {
+    console.error('Project export error:', error);
+    res.status(500).json({ success: false, message: '프로젝트 내보내기에 실패했습니다.' });
   }
 });
 

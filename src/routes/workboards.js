@@ -15,8 +15,7 @@ const { escapeRegex } = require('../utils/escapeRegex');
 const { validateBody, workboardCreateSchema, workboardUpdateSchema } = require('../utils/validation');
 const router = express.Router();
 
-const EXPORT_VERSION = 1;
-const APP_VERSION = { major: 1, minor: 3 };
+const { WORKBOARD_EXPORT_VERSION: EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
 
 // 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
 // Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
@@ -761,23 +760,7 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
       _exportVersion: EXPORT_VERSION,
       appVersion: APP_VERSION,
       exportedAt: new Date().toISOString(),
-      workboard: {
-        name: workboard.name,
-        description: workboard.description,
-        workboardType: workboard.workboardType,
-        outputFormat: workboard.outputFormat,
-        additionalInputFields: workboard.additionalInputFields,
-        workflowData: workboard.workflowData,
-        allowedModelTypes: workboard.allowedModelTypes || [],
-        // allowedGroupIds 는 export 에서 제외 — ObjectId 가 instance 간 매칭 안 됨.
-        // import 시 기본 그룹 자동 할당으로 안전한 default 적용.
-        modelExposurePolicy: workboard.modelExposurePolicy || 'full',
-        modelWhitelist: workboard.modelWhitelist || [],
-        loraExposurePolicy: workboard.loraExposurePolicy || 'full',
-        loraWhitelist: workboard.loraWhitelist || [],
-        version: workboard.version
-      },
-      server: serverInfo
+      ...buildWorkboardExportEntry(workboard, serverInfo && { name: serverInfo.name, serverType: serverInfo.serverType }),
     };
 
     const filename = `${workboard.name.replace(/[^a-zA-Z0-9가-힣_-]/g, '_')}_backup.json`;
