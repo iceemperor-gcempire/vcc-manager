@@ -34,9 +34,18 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
-  res.status(err.status || 500).json({
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  // 500(예상치 못한 오류)은 내부 메시지를 클라이언트에 노출하지 않는다 (#694).
+  // err.status 가 명시된 4xx 는 의도된 사용자 메시지로 보고 그대로 전달.
+  const status = err.status || 500;
+  const isDev = process.env.NODE_ENV === 'development';
+  const message =
+    status >= 500 && !isDev
+      ? 'Internal Server Error'
+      : err.message || 'Internal Server Error';
+
+  res.status(status).json({
+    message,
+    ...(isDev && { stack: err.stack })
   });
 };
 

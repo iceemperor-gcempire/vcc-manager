@@ -8,6 +8,7 @@ import {
   LinearProgress,
   Skeleton,
   Tooltip,
+  useTheme,
 } from '@mui/material';
 import {
   Add,
@@ -141,6 +142,7 @@ function MiniSparkline({ values, color }) {
 }
 
 function Dashboard() {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const [updateLogOpen, setUpdateLogOpen] = useState(false);
@@ -420,7 +422,7 @@ function Dashboard() {
                         height: 36,
                         borderRadius: 2,
                         background: gradientForId(String(p._id)),
-                        color: '#fff',
+                        color: 'common.white',
                         fontWeight: 700,
                         fontSize: 16,
                         display: 'grid',
@@ -474,7 +476,7 @@ function Dashboard() {
               )}
             </Box>
             <Box sx={{ mt: 2 }}>
-              <MiniSparkline values={trend.map((t) => t.count)} color="#5B5BD6" />
+              <MiniSparkline values={trend.map((t) => t.count)} color={theme.palette.secondary.main} />
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
               {trend.map((t) => (

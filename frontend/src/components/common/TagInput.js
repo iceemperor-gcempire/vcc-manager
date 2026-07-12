@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { tagAPI } from '../../services/api';
+import { DEFAULT_TAG_COLOR } from '../../theme';
 
 function TagInput({ 
   value = [], 
@@ -84,7 +85,7 @@ function TagInput({
             key={option._id || index}
             label={option.name}
             sx={{ 
-              bgcolor: option.color || '#C96A3B',
+              bgcolor: option.color || DEFAULT_TAG_COLOR,
               color: 'white',
               '& .MuiChip-deleteIcon': {
                 color: 'rgba(255,255,255,0.7)',
@@ -117,7 +118,7 @@ function TagInput({
           <Chip
             label={option.name}
             sx={{ 
-              bgcolor: option.color || '#C96A3B',
+              bgcolor: option.color || DEFAULT_TAG_COLOR,
               color: 'white',
               mr: 1
             }}

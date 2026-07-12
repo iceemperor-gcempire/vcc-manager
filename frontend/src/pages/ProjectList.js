@@ -35,7 +35,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { projectAPI } from '../services/api';
 import ProjectEditDialog from '../components/common/ProjectEditDialog';
-import { MONO } from '../theme';
+import { MONO, DEFAULT_TAG_COLOR } from '../theme';
 import { gradientForId } from '../utils/brandGradients';
 import { relativeTime } from '../utils/relativeTime';
 import PageHeader from '../components/common/PageHeader';
@@ -47,7 +47,7 @@ function TagPill({ tag }) {
   return (
     <Box component="span" sx={{
       display: 'inline-flex', alignItems: 'center', height: 21, px: '10px', borderRadius: 999,
-      fontSize: 10.5, fontWeight: 600, color: '#fff', bgcolor: tag.color || '#C96A3B', whiteSpace: 'nowrap',
+      fontSize: 10.5, fontWeight: 600, color: 'common.white', bgcolor: tag.color || DEFAULT_TAG_COLOR, whiteSpace: 'nowrap',
     }}>
       {tag.name}
     </Box>
@@ -123,7 +123,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           {isFav ? <Star fontSize="small" /> : <StarBorder fontSize="small" />}
         </IconButton>
         <Box sx={{ position: 'absolute', top: 10, right: 44, width: 30, height: 30, borderRadius: 1.5,
-          bgcolor: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff',
+          bgcolor: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: 'common.white',
           fontWeight: 700, fontSize: 14, display: 'grid', placeItems: 'center', backdropFilter: 'blur(8px)' }}>
           {(project.name || '?')[0]}
         </Box>
@@ -159,7 +159,7 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
     <Box onClick={onOpen} sx={{ px: 3.5, py: 3, display: 'flex', alignItems: 'center', gap: 3, cursor: 'pointer',
       borderTop: first ? 'none' : '1px solid', borderColor: 'divider', '&:hover': { bgcolor: 'action.hover' } }}>
       <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', overflow: 'hidden', background: gradientForId(String(project._id)),
-        color: '#fff', fontWeight: 700, display: 'grid', placeItems: 'center' }}>
+        color: 'common.white', fontWeight: 700, display: 'grid', placeItems: 'center' }}>
         {project.coverImage?.url
           ? <Box component="img" src={project.coverImage.url} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           : (project.name || '?')[0]}

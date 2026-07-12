@@ -150,7 +150,7 @@ function ServerCard({
   return (
     <Paper variant="outlined" sx={{ p: '14px 16px', opacity: server.isActive ? 1 : 0.7 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
-        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', bgcolor: typeColor, color: '#fff',
+        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', bgcolor: typeColor, color: 'common.white',
           display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO }}>
           {abbr}
         </Box>

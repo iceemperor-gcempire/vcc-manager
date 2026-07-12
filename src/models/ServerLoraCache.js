@@ -98,7 +98,7 @@ const serverLoraCacheSchema = new mongoose.Schema({
 });
 
 // 인덱스 설정
-serverLoraCacheSchema.index({ serverId: 1 });
+// serverId 는 unique: true 가 인덱스를 만들므로 별도 선언 안 함 (중복 경고 방지, #694)
 serverLoraCacheSchema.index({ serverUrl: 1 });
 
 // 정적 메서드: 서버 ID로 캐시 조회 또는 생성
