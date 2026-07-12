@@ -162,9 +162,6 @@ const workboardCreateSchema = Joi.object({
   description: Joi.string().allow('', null).max(2000),
   workboardType: Joi.string(),
   outputFormat: Joi.string(),
-  // baseInputFields: legacy 필드 — 편집기가 객체를, 구버전 백업이 배열을 보낼 수 있어
-  // 타입을 제약하지 않는다 (모델은 F4 에서 스키마 제거돼 저장 시 strip됨) (#706)
-  baseInputFields: Joi.any(),
   additionalInputFields: Joi.array(),
   allowedModelTypes: Joi.array(),
   allowedGroupIds: Joi.array(),
@@ -181,7 +178,6 @@ const workboardUpdateSchema = Joi.object({
   description: Joi.string().allow('', null).max(2000),
   workboardType: Joi.string(),
   outputFormat: Joi.string(),
-  baseInputFields: Joi.any(), // legacy — 위 create 주석 참고 (#706)
   additionalInputFields: Joi.array(),
   allowedModelTypes: Joi.array(),
   allowedGroupIds: Joi.array(),

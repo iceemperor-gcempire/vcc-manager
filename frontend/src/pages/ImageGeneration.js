@@ -48,7 +48,7 @@ import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
 import { copyToClipboard } from '../utils/clipboard';
 import MetadataPickerModal from '../components/common/MetadataPickerModal';
-import MetadataFieldInput from '../components/common/MetadataFieldInput';
+import CustomFieldControl from '../components/common/CustomFieldControl';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
@@ -994,68 +994,32 @@ function ImageGeneration() {
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
                     <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
-                      <Controller
-                        name={`additionalParams.${field.name}`}
-                        control={control}
-                        defaultValue={field.type === 'select' ?
-                          (field.defaultValue || field.options?.[0]?.value || '') :
-                          field.type === 'image' ? [] :
-                          (field.defaultValue || '')
-                        }
-                        render={({ field: formField }) => (
-                          field.type === 'select' ? (
-                            <FormControl fullWidth>
-                              <InputLabel>{field.label}</InputLabel>
-                              <Select
-                                {...formField}
-                                value={formField.value || field.defaultValue || field.options?.[0]?.value || ''}
-                                label={field.label}
-                              >
-                                {field.options?.map((option) => (
-                                  <MenuItem key={option.value} value={option.value}>
-                                    {option.key}
-                                  </MenuItem>
-                                ))}
-                              </Select>
-                            </FormControl>
-                          ) : field.type === 'number' ? (
-                            <TextField
-                              {...formField}
-                              type="number"
-                              fullWidth
-                              label={field.label}
-                              placeholder={field.placeholder}
-                              helperText={field.description}
-                            />
-                          ) : field.type === 'image' ? (
+                      {field.type === 'image' ? (
+                        <Controller
+                          name={`additionalParams.${field.name}`}
+                          control={control}
+                          defaultValue={[]}
+                          render={({ field: formField }) => (
                             <CustomImageField
                               field={field}
                               value={formField.value || []}
                               onChange={formField.onChange}
-                              maxImages={field.imageConfig?.maxImages || 1}
+                              maxImages={field.imageConfig?.maxImages || 3}
                               isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
                             />
-                          ) : field.type === 'baseModel' || field.type === 'lora' ? (
-                            <MetadataFieldInput
-                              kind={field.type === 'baseModel' ? 'model' : 'lora'}
-                              field={field}
-                              value={formField.value || ''}
-                              onChange={formField.onChange}
-                              workboardId={id}
-                              serverId={workboardData?.serverId?._id || workboardData?.serverId}
-                              allowedModelTypes={field.type === 'baseModel' ? workboardData?.allowedModelTypes : undefined}
-                            />
-                          ) : (
-                            <TextField
-                              {...formField}
-                              fullWidth
-                              label={field.label}
-                              placeholder={field.placeholder}
-                              helperText={field.description}
-                            />
-                          )
-                        )}
-                      />
+                          )}
+                        />
+                      ) : (
+                        // 공용 렌더러 (#711) — required 강제 포함. 편집기 프리뷰와 동일 렌더 보장
+                        <CustomFieldControl
+                          field={field}
+                          control={control}
+                          name={`additionalParams.${field.name}`}
+                          workboardId={id}
+                          serverId={workboardData?.serverId?._id || workboardData?.serverId}
+                          allowedModelTypes={workboardData?.allowedModelTypes}
+                        />
+                      )}
                     </Grid>
                   ))}
                 </Grid>
