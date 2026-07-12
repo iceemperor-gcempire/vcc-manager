@@ -370,6 +370,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           onClose={() => setWorkflowDialogOpen(false)}
           control={control}
           watch={watch}
+          setValue={setValue}
           errors={errors}
           availableBaseModels={availableBaseModels}
         />
