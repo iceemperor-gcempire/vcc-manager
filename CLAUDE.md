@@ -124,6 +124,10 @@ critical user journey 자동 회귀 검증. `e2e/` 디렉토리 + `playwright.co
 # 첫 실행 — Playwright 브라우저 다운로드
 npx playwright install chromium
 
+# 전체 실행에는 .env 에 E2E_ADMIN_SECRET 설정 필요 (#381) — 미설정 시
+# 승인/admin 필요한 테스트는 skip 됨. 알파 등 외부 노출 환경에는 절대 설정 금지.
+# (playwright.config 가 .env 에서 자동 로드, 백엔드는 docker-compose 가 주입)
+
 # 헤드리스 실행 (docker-compose 가 떠 있어야 함)
 npm run test:e2e
 

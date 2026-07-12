@@ -10,6 +10,19 @@ const { sendPasswordResetEmail } = require('../services/emailService');
 const { isValidPassword, PASSWORD_POLICY_MESSAGE } = require('../utils/passwordPolicy');
 const router = express.Router();
 
+// E2E admin 시크릿 헤더 검증 (#381) — 타이밍 공격 방지를 위해 timingSafeEqual 사용.
+const isE2EAdminRequest = (req) => {
+  const expected = process.env.E2E_ADMIN_SECRET;
+  if (!expected) return false;
+  const provided = req.header('X-E2E-Admin-Secret') || '';
+  const expectedBuf = Buffer.from(expected);
+  const providedBuf = Buffer.from(provided);
+  return (
+    providedBuf.length === expectedBuf.length &&
+    crypto.timingSafeEqual(providedBuf, expectedBuf)
+  );
+};
+
 // Rate limit for forgot password - 3 requests per hour per IP
 const forgotPasswordRateLimit = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
@@ -110,6 +123,18 @@ router.post('/signup', signupRateLimit, validate(signupSchema), async (req, res)
     });
 
     await newUser.updateAdminStatus();
+
+    // E2E 테스트용 admin 부여 (#381) — `E2E_ADMIN_SECRET` 환경변수가 설정된 환경에서만
+    // 동작하며, signup 요청의 `X-E2E-Admin-Secret` 헤더가 일치하면 admin + approved 로 생성.
+    // 시크릿 미설정 시 완전 비활성. 알파/본서버 등 외부 노출 환경의 .env 에는 절대 설정 금지.
+    // (이후 signin 시 updateAdminStatus 가 ADMIN_EMAILS 기준으로 재계산해 강등시키는 것은
+    //  의도된 방어 — e2e 는 signup 응답의 토큰을 그대로 쓰므로 영향 없음.)
+    if (isE2EAdminRequest(req)) {
+      newUser.isAdmin = true;
+      newUser.approvalStatus = 'approved';
+      newUser.approvedAt = new Date();
+    }
+
     // admin 으로 승격된 경우 그룹 클리어 (admin 은 그룹 무관)
     if (newUser.isAdmin) {
       newUser.groupIds = [];

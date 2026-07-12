@@ -24,6 +24,9 @@ test.describe('Anonymous', () => {
 });
 
 test.describe('Authenticated user', () => {
+  // E2E_ADMIN_SECRET 미설정 시 signup 계정이 승인 대기(pending) 상태라 페이지 접근이 막힘 (#381)
+  test.skip(!process.env.E2E_ADMIN_SECRET, 'E2E_ADMIN_SECRET 미설정 — 가입 승인 게이트로 skip (#381)');
+
   test.beforeEach(async ({ context, baseURL }) => {
     const url = new URL(baseURL || 'http://localhost:8136');
     await context.addCookies([{
@@ -49,10 +52,11 @@ test.describe('Authenticated user', () => {
     expect(page.url()).toContain('/workboards');
   });
 
-  test('내 이미지 페이지 접근', async ({ page }) => {
+  test('내 컨텐츠 페이지 접근 (레거시 /images 리다이렉트 포함)', async ({ page }) => {
+    // /images 는 콘텐츠 라이브러리 통합으로 /content 로 리다이렉트된다 (App.js)
     await page.goto('/images');
     await page.waitForLoadState('networkidle');
-    expect(page.url()).toContain('/images');
+    expect(page.url()).toContain('/content');
   });
 });
 

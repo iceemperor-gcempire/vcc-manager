@@ -7,6 +7,16 @@ const { defineConfig, devices } = require('@playwright/test');
 
 const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:8136';
 
+// E2E_ADMIN_SECRET (#381) 을 리포 .env 에서 로드 (process.env 우선).
+// 백엔드는 docker-compose 가 같은 .env 값을 주입하므로 양쪽이 자동으로 일치한다.
+if (!process.env.E2E_ADMIN_SECRET) {
+  try {
+    const envFile = require('fs').readFileSync(require('path').join(__dirname, '.env'), 'utf8');
+    const match = envFile.match(/^E2E_ADMIN_SECRET=(.+)$/m);
+    if (match) process.env.E2E_ADMIN_SECRET = match[1].trim();
+  } catch (_) { /* .env 없으면 무시 — 시크릿 없는 상태로 진행 */ }
+}
+
 module.exports = defineConfig({
   testDir: './e2e',
   timeout: 30 * 1000,

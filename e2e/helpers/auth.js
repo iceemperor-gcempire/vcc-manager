@@ -22,8 +22,15 @@ async function signupViaAPI(request, overrides = {}) {
   const email = overrides.email || uniqueEmail();
   const password = overrides.password || 'TestPass!23';
   const nickname = overrides.nickname || uniqueNickname();
+  // E2E_ADMIN_SECRET 이 설정돼 있으면 admin + approved 로 생성 (#381).
+  // 백엔드도 같은 값을 가져야 함 (.env → docker-compose 로 주입, playwright.config 가 .env 로드).
+  const headers = {};
+  if (process.env.E2E_ADMIN_SECRET) {
+    headers['X-E2E-Admin-Secret'] = process.env.E2E_ADMIN_SECRET;
+  }
   const response = await request.post('/api/auth/signup', {
-    data: { email, password, confirmPassword: password, nickname }
+    data: { email, password, confirmPassword: password, nickname },
+    headers
   });
   if (!response.ok()) {
     const body = await response.text();
