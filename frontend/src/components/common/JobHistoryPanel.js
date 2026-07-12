@@ -58,6 +58,7 @@ import ImageViewerDialog from './ImageViewerDialog';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
+import { DEFAULT_TAG_COLOR } from '../../theme';
 
 export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -108,7 +109,7 @@ export function SavePromptDialog({ open, onClose, job, onSave }) {
     ? jobTags
     : jobTags.map(tagId => {
         const found = allTags.find(t => t._id === tagId);
-        return found || { _id: tagId, name: tagId, color: '#C96A3B' };
+        return found || { _id: tagId, name: tagId, color: DEFAULT_TAG_COLOR };
       });
 
   // 태그 ID 배열 (프롬프트 저장 시 전달용)

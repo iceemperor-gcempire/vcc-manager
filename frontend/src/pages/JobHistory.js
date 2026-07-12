@@ -196,17 +196,17 @@ function RowVisual({ item }) {
           )}
         </Box>
         {item.type === 'video' && (
-          <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}>
+          <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'common.white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))' }}>
             <PlayArrow />
           </Box>
         )}
         {item.type === 'image' && item.count > 1 && (
-          <Box sx={{ position: 'absolute', bottom: 3, right: 3, fontSize: 9, fontFamily: MONO, color: '#fff', bgcolor: 'rgba(0,0,0,0.55)', px: 0.5, borderRadius: 0.5 }}>
+          <Box sx={{ position: 'absolute', bottom: 3, right: 3, fontSize: 9, fontFamily: MONO, color: 'common.white', bgcolor: 'rgba(0,0,0,0.55)', px: 0.5, borderRadius: 0.5 }}>
             ×{item.count}
           </Box>
         )}
         {item.type === 'video' && item.duration != null && (
-          <Box sx={{ position: 'absolute', bottom: 3, right: 3, fontSize: 9, fontFamily: MONO, color: '#fff', bgcolor: 'rgba(0,0,0,0.55)', px: 0.5, borderRadius: 0.5 }}>
+          <Box sx={{ position: 'absolute', bottom: 3, right: 3, fontSize: 9, fontFamily: MONO, color: 'common.white', bgcolor: 'rgba(0,0,0,0.55)', px: 0.5, borderRadius: 0.5 }}>
             {Math.round(item.duration)}초
           </Box>
         )}
@@ -233,7 +233,7 @@ function StepDots({ statuses }) {
         const failed = s === 'failed';
         const running = s === 'running';
         const bg = done ? 'success.main' : failed ? 'error.main' : running ? 'info.main' : 'grey.200';
-        const fg = done || failed || running ? '#fff' : 'text.secondary';
+        const fg = done || failed || running ? 'common.white' : 'text.secondary';
         return (
           <Box key={j} sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 700, fontFamily: MONO }}>
             {done ? <CheckCircle sx={{ fontSize: 12 }} /> : j + 1}
@@ -401,7 +401,7 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
           <Subject sx={{ color: 'grey.400' }} />
         )}
         {item.type === 'video' && (
-          <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: '#fff', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))', pointerEvents: 'none' }}>
+          <Box sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', color: 'common.white', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.5))', pointerEvents: 'none' }}>
             <PlayArrow sx={{ fontSize: 40 }} />
           </Box>
         )}

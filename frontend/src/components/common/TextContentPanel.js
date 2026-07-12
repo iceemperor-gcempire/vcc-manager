@@ -173,7 +173,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                     <Chip
                       key={t._id || t}
                       label={t.name || t}
-                      sx={{ backgroundColor: t.color, color: '#fff' }}
+                      sx={{ backgroundColor: t.color, color: 'common.white' }}
                     />
                   ))}
                   {!isUploaded && item.model && (
@@ -314,7 +314,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                   <Chip
                     key={t._id || t}
                     label={t.name || t}
-                    sx={{ backgroundColor: t.color, color: '#fff' }}
+                    sx={{ backgroundColor: t.color, color: 'common.white' }}
                   />
                 ))}
                 {!isUploaded && viewerItem.model && (
