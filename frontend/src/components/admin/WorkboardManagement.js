@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { copyToClipboard } from '../../utils/clipboard';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Grid,
   Button,
@@ -19,7 +17,6 @@ import {
   CircularProgress,
   Chip,
   IconButton,
-  Menu,
   MenuItem,
   Tabs,
   Tab,
@@ -35,17 +32,14 @@ import {
   Add,
   Edit,
   Delete,
-  MoreVert,
   ContentCopy,
   Visibility,
-  VisibilityOff,
   Computer,
   TrendingUp,
   ExpandMore,
   ToggleOn,
   ToggleOff,
   DragIndicator,
-  FileDownload,
   FileUpload,
   Check,
   CheckCircle,
@@ -62,11 +56,6 @@ import MetadataPickerModal from '../common/MetadataPickerModal';
 import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
 import { MONO } from '../../theme';
 import { BRAND_GRADIENTS } from '../../utils/brandGradients';
-import {
-  getServerTypeLabel,
-  getOutputFormatLabel,
-  getServerTypeColor,
-} from '../../templates/capabilities';
 
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
 function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
@@ -120,171 +109,6 @@ function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, labe
       )}
       size="small"
     />
-  );
-}
-
-function WorkboardCard({ workboard, onEdit, onDelete, onDuplicate, onExport, onView, onToggleActive }) {
-  const [anchorEl, setAnchorEl] = useState(null);
-  const menuOpen = Boolean(anchorEl);
-  const isInactive = !workboard.isActive;
-  const getWorkboardChipLabel = (wb) => {
-    const serverType = getServerTypeLabel(wb.serverId?.serverType || '');
-    const outputLabel = getOutputFormatLabel(wb.outputFormat || 'image');
-    if (!serverType) return outputLabel;
-    return `${serverType} · ${outputLabel}`;
-  };
-  const handleMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleCopyWorkboardId = async () => {
-    try {
-      await copyToClipboard(workboard._id);
-      toast.success('작업판 ID를 복사했습니다.');
-    } catch (error) {
-      toast.error('작업판 ID 복사에 실패했습니다.');
-    }
-  };
-
-  return (
-    <Card
-      sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        ...(isInactive && {
-          opacity: 0.7,
-          bgcolor: 'grey.100',
-          border: '2px dashed',
-          borderColor: 'grey.400'
-        })
-      }}
-    >
-      <CardContent sx={{ flexGrow: 1 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-          <Box display="flex" alignItems="center" gap={1}>
-            {isInactive && <VisibilityOff fontSize="small" color="disabled" />}
-            <Typography
-              variant="h6"
-              gutterBottom
-              sx={{ color: isInactive ? 'text.disabled' : 'text.primary', mb: 0 }}
-            >
-              {workboard.name}
-            </Typography>
-          </Box>
-          <IconButton size="small" onClick={handleMenuOpen}>
-            <MoreVert />
-          </IconButton>
-        </Box>
-
-        {workboard.description && (
-          <Typography variant="body2" color="text.secondary" paragraph>
-            {workboard.description}
-          </Typography>
-        )}
-
-        <Box display="flex" alignItems="center" gap={1} mb={1}>
-          <Computer fontSize="small" />
-          <Typography variant="caption" color="text.secondary">
-            {workboard.serverId ? 
-              `${workboard.serverId.name} (${workboard.serverId.serverType})` :
-              workboard.serverUrl ? new URL(workboard.serverUrl).hostname : '서버 미설정'
-            }
-          </Typography>
-        </Box>
-
-        <Box display="flex" alignItems="center" gap={1} mb={2}>
-          <TrendingUp fontSize="small" />
-          <Typography variant="caption" color="text.secondary">
-            사용횟수: {workboard.usageCount || 0}회
-          </Typography>
-        </Box>
-
-        <Box display="flex" alignItems="center" gap={0.5} mb={2}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
-            ID: {workboard._id}
-          </Typography>
-          <IconButton size="small" onClick={handleCopyWorkboardId} aria-label="작업판 ID 복사">
-            <ContentCopy fontSize="inherit" />
-          </IconButton>
-        </Box>
-
-        <Box display="flex" flexWrap="wrap" gap={1} mb={2}>
-          <Chip
-            label={getWorkboardChipLabel(workboard)}
-            sx={{ bgcolor: getServerTypeColor(workboard.serverId?.serverType), color: 'white' }}
-          />
-          <Chip
-            label={workboard.isActive ? '활성' : '비활성'}
-            color={workboard.isActive ? 'success' : 'default'}
-            variant="outlined"
-          />
-          <Chip
-            label={`v${workboard.version || 1}`}
-            color="info"
-            variant="outlined"
-          />
-        </Box>
-
-        <Typography variant="caption" color="text.secondary">
-          생성자: {workboard.createdBy?.nickname || '알 수 없음'}
-        </Typography>
-        <br />
-        <Typography variant="caption" color="text.secondary">
-          생성일: {new Date(workboard.createdAt).toLocaleDateString()}
-        </Typography>
-      </CardContent>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={menuOpen}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => { onView(workboard); handleMenuClose(); }}>
-          <Visibility sx={{ mr: 1 }} fontSize="small" />
-          보기
-        </MenuItem>
-        <MenuItem onClick={() => { onEdit(workboard, 'detailed'); handleMenuClose(); }}>
-          <Edit sx={{ mr: 1 }} fontSize="small" />
-          편집
-        </MenuItem>
-        <MenuItem onClick={() => { onDuplicate(workboard); handleMenuClose(); }}>
-          <ContentCopy sx={{ mr: 1 }} fontSize="small" />
-          복제
-        </MenuItem>
-        <MenuItem onClick={() => { onExport(workboard); handleMenuClose(); }}>
-          <FileDownload sx={{ mr: 1 }} fontSize="small" />
-          내보내기
-        </MenuItem>
-        <MenuItem
-          onClick={() => { onToggleActive(workboard); handleMenuClose(); }}
-          sx={{ color: isInactive ? 'success.main' : 'warning.main' }}
-        >
-          {isInactive ? (
-            <>
-              <ToggleOn sx={{ mr: 1 }} fontSize="small" />
-              활성화
-            </>
-          ) : (
-            <>
-              <ToggleOff sx={{ mr: 1 }} fontSize="small" />
-              비활성화
-            </>
-          )}
-        </MenuItem>
-        <MenuItem
-          onClick={() => { onDelete(workboard); handleMenuClose(); }}
-          sx={{ color: 'error.main' }}
-        >
-          <Delete sx={{ mr: 1 }} fontSize="small" />
-          삭제
-        </MenuItem>
-      </Menu>
-    </Card>
   );
 }
 
@@ -708,11 +532,10 @@ function PreviewField({ field }) {
 }
 
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
-// asPage 모드 (#437 Phase A) — Dialog 대신 페이지 안에 인라인 렌더. 데이터 fetch 게이트는
-// open 또는 asPage 가 true 일 때 열림. 페이지 경로는 WorkboardEditorPage 가 wrap.
-export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage = false, onCancel }) {
-  const isOpen = asPage || open;
-  const handleCancel = onCancel || onClose;
+// 작업판 편집기 본체 (#709 에서 Dialog 껍데기 제거·개명 — 구 WorkboardDetailDialog).
+// 페이지 전용: WorkboardEditorPage 가 wrap. sticky 헤더의 저장 버튼은 form="wbEditForm" 으로 연결.
+export function WorkboardEditor({ workboard, onSave, onCancel }) {
+  const handleCancel = onCancel;
   const [tabValue, setTabValue] = useState(0);
   // 5e-3 — 입력 양식 탭의 선택 필드 (인스펙터 패턴)
   const [selectedFieldIdx, setSelectedFieldIdx] = useState(-1);
@@ -754,7 +577,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
   // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀.
   // ServerModelCache 의 detailed endpoint 에서 derived (limit 1 로 가벼운 호출).
   useEffect(() => {
-    if (!isOpen || !isComfyUI || !watchedServerId) {
+    if (!isComfyUI || !watchedServerId) {
       setAvailableBaseModels([]);
       return;
     }
@@ -763,15 +586,15 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
         setAvailableBaseModels(res.data?.data?.availableBaseModels || []);
       })
       .catch(() => setAvailableBaseModels([]));
-  }, [isOpen, isComfyUI, watchedServerId]);
+  }, [isComfyUI, watchedServerId]);
 
   // 그룹 목록 fetch (#198) — 모달 open 시 1회
   useEffect(() => {
-    if (!isOpen) return;
+
     groupAPI.getAll()
       .then((res) => setAvailableGroups(res.data?.data?.groups || []))
       .catch(() => setAvailableGroups([]));
-  }, [isOpen]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -817,7 +640,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
 
   // 관리자 전용 API로 완전한 데이터 로딩
   useEffect(() => {
-    if (workboard && workboard._id && isOpen) {
+    if (workboard && workboard._id) {
       setLoading(true);
       
       workboardAPI.getByIdAdmin(workboard._id)
@@ -863,7 +686,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           setLoading(false);
         });
     }
-  }, [workboard?._id, isOpen, reset]);
+  }, [workboard?._id, reset]);
 
   const addArrayItem = (fieldName, defaultItem = { key: '', value: '' }) => {
     const currentItems = watch(fieldName) || [];
@@ -967,31 +790,16 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
       llmExtraParams: parsedLlmExtraParams,
       isActive: Boolean(data.isActive),
-      // F3: baseInputFields 편집 제거 — 신규/기존 모두 빈 상태로 저장.
-      // 스키마의 required: true (aiModel) 통과 위해 빈 배열 명시.
-      // F4 에서 baseInputFields 스키마 자체 drop 예정.
-      baseInputFields: {
-        aiModel: [],
-        imageSizes: [],
-        referenceImageMethods: [],
-        systemPrompt: '',
-        referenceImages: []
-      },
+      // baseInputFields 는 F4 에서 스키마 제거 완료 — payload 에서도 소거 (#709)
       additionalInputFields
     };
 
     onSave(updateData);
   };
 
-  // asPage (#437 Phase A) — Dialog wrapper 대신 React.Fragment 로 감싸 페이지 안에 그대로 렌더.
-  // 사용자가 외부에서 form submit 할 수 있도록 form 에 id 부여 + sticky header 의 저장 버튼은
-  // form="wbEditForm" 으로 연결.
-  const Wrapper = asPage ? React.Fragment : Dialog;
-  const wrapperProps = asPage ? {} : { open, onClose: handleCancel, maxWidth: 'xl', fullWidth: true };
   return (
-    <Wrapper {...wrapperProps}>
-      {asPage ? (
-        <Box sx={{
+    <>
+      <Box sx={{
           position: 'sticky', top: 0, zIndex: 10,
           bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider',
           py: 2, mb: 2,
@@ -1009,14 +817,9 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           <Box sx={{ flex: 1 }} />
           <Button onClick={handleCancel}>취소</Button>
           <Button form="wbEditForm" type="submit" variant="contained" disabled={loading}>저장</Button>
-        </Box>
-      ) : (
-        <DialogTitle>
-          작업판 상세 편집 - {workboard?.name}
-        </DialogTitle>
-      )}
+      </Box>
       <form id="wbEditForm" onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent>
+        <Box sx={{ px: 6, py: 5 }}>
           {loading ? (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
               <CircularProgress />
@@ -1055,7 +858,7 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
               errors={errors}
               showActiveSwitch={true}
               showTypeSelector={true}
-              isDialogOpen={isOpen}
+              isDialogOpen
             />
           )}
 
@@ -1662,23 +1465,15 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
           )}
             </>
           )}
-      </DialogContent>
-        {!asPage && (
-          <DialogActions>
-            <Button onClick={handleCancel}>취소</Button>
-            <Button type="submit" variant="contained" disabled={loading}>
-              저장
-            </Button>
-          </DialogActions>
-        )}
+      </Box>
       </form>
-    </Wrapper>
+    </>
   );
 }
 
-export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, onCancel }) {
-  const isOpen = asPage || open;
-  const handleCancel = onCancel || onClose;
+// 새 작업판 생성 폼 (#709 — 구 WorkboardCreateDialog). 페이지 전용: WorkboardCreatePage 가 wrap.
+export function WorkboardCreateForm({ onSave, onCancel }) {
+  const handleCancel = onCancel;
   const { control, handleSubmit, reset, setValue, formState: { errors } } = useForm({
     defaultValues: {
       name: '',
@@ -1691,28 +1486,23 @@ export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, o
   });
 
   useEffect(() => {
-    if (isOpen) {
-      reset({
-        name: '',
-        description: '',
-        outputFormat: 'image',
-        serverId: '',
-        serverType: '',
-        isActive: true
-      });
-    }
-  }, [isOpen, reset]);
+    reset({
+      name: '',
+      description: '',
+      outputFormat: 'image',
+      serverId: '',
+      serverType: '',
+      isActive: true
+    });
+  }, [reset]);
 
   const onSubmit = (data) => {
     onSave(data);
   };
 
-  const Wrapper = asPage ? React.Fragment : Dialog;
-  const wrapperProps = asPage ? {} : { open, onClose: handleCancel, maxWidth: 'md', fullWidth: true };
   return (
-    <Wrapper {...wrapperProps}>
-      {asPage ? (
-        <Box sx={{
+    <>
+      <Box sx={{
           position: 'sticky', top: 0, zIndex: 10,
           bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider',
           py: 2, mb: 2,
@@ -1723,34 +1513,25 @@ export function WorkboardCreateDialog({ open, onClose, onSave, asPage = false, o
           <Box sx={{ flex: 1 }} />
           <Button onClick={handleCancel}>취소</Button>
           <Button form="wbCreateForm" type="submit" variant="contained">생성</Button>
-        </Box>
-      ) : (
-        <DialogTitle>새 작업판 생성</DialogTitle>
-      )}
+      </Box>
       <form id="wbCreateForm" onSubmit={handleSubmit(onSubmit)}>
-        <DialogContent>
+        <Box sx={{ px: 6, py: 5 }}>
           <WorkboardBasicInfoForm
             control={control}
             setValue={setValue}
             errors={errors}
             showActiveSwitch={false}
             showTypeSelector={true}
-            isDialogOpen={isOpen}
+            isDialogOpen
           />
 
           <Alert severity="info" sx={{ mt: 2 }}>
             기본 작업판 구조가 생성됩니다. 상세 설정(AI 모델, 입력 필드 등)은
             생성 후 편집에서 추가할 수 있습니다.
           </Alert>
-        </DialogContent>
-        {!asPage && (
-          <DialogActions>
-            <Button onClick={handleCancel}>취소</Button>
-            <Button type="submit" variant="contained">생성</Button>
-          </DialogActions>
-        )}
+        </Box>
       </form>
-    </Wrapper>
+    </>
   );
 }
 
