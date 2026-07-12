@@ -675,4 +675,202 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
   }
 });
 
+
+// ── 프로젝트 import (#404 P1) ────────────────────────────────────
+// export JSON 을 받아 새 프로젝트 + 작업판 + 문서 + 파이프라인을 일괄 생성.
+// admin 전용. 서버 매핑이 자동으로 안 되면 needsMapping 응답으로 후보를 돌려주고,
+// 프론트가 serverMapping(index→serverId) 을 채워 재요청한다.
+// 실패 시 그때까지 만든 리소스를 best-effort 로 롤백 (standalone Mongo 라 트랜잭션 미사용).
+router.post('/import', requireAdmin, async (req, res) => {
+  const Workboard = require('../models/Workboard');
+  const Server = require('../models/Server');
+  const Group = require('../models/Group');
+  const Pipeline = require('../models/Pipeline');
+  const UploadedText = require('../models/UploadedText');
+  const { BUILTIN_TAG_NAMES, BUILTIN_TAG_META } = require('../constants/builtinTags');
+
+  const created = { tag: null, project: null, workboards: [], docs: [], pipelines: [] };
+  try {
+    const { data, name, tagName, serverMapping = {} } = req.body;
+
+    if (!data || data.projectExportVersion !== 1) {
+      return res.status(400).json({ success: false, message: '올바른 프로젝트 내보내기 파일이 아닙니다.' });
+    }
+    if (!tagName || !tagName.trim()) {
+      return res.status(400).json({ success: false, message: '태그명은 필수입니다' });
+    }
+
+    // 1) 서버 해석 — 전 작업판이 해석돼야 생성 시작
+    const entries = data.workboards || [];
+    const activeServers = await Server.find({ isActive: true }).select('name serverType serverUrl').lean();
+    const resolved = [];
+    let unresolved = false;
+    for (let i = 0; i < entries.length; i++) {
+      const hint = entries[i].server;
+      let serverId = serverMapping[i] || serverMapping[String(i)] || null;
+      if (!serverId && hint) {
+        const exact = activeServers.find((sv) => sv.name === hint.name && sv.serverType === hint.serverType);
+        const byType = activeServers.filter((sv) => sv.serverType === hint.serverType);
+        if (exact) serverId = exact._id;
+        else if (byType.length === 1) serverId = byType[0]._id; // 타입 유일 서버는 자동 채택
+      }
+      if (!serverId) unresolved = true;
+      resolved.push(serverId);
+    }
+    if (unresolved) {
+      return res.json({
+        needsMapping: true,
+        workboards: entries.map((e, i) => ({
+          index: i,
+          name: e.workboard?.name,
+          outputFormat: e.workboard?.outputFormat,
+          server: e.server,
+          resolvedServerId: resolved[i] || null,
+        })),
+        servers: activeServers,
+      });
+    }
+
+    // 2) 프로젝트 태그 + 프로젝트 (기존 create 라우트와 동일 규칙)
+    const normalizedTagName = tagName.trim().toLowerCase();
+    const dupTag = await Tag.findOne({ userId: req.user._id, name: normalizedTagName });
+    if (dupTag) {
+      return res.status(400).json({ success: false, message: '이미 존재하는 태그명입니다' });
+    }
+    created.tag = await Tag.create({
+      name: normalizedTagName,
+      userId: req.user._id,
+      color: data.project?.tagColor || '#7c4dff',
+      isProjectTag: true,
+      createdBy: req.user._id,
+    });
+    created.project = await Project.create({
+      name: (name || data.project?.name || '가져온 프로젝트').trim(),
+      description: data.project?.description || '',
+      tagId: created.tag._id,
+      userId: req.user._id,
+      workboardIds: [],
+    });
+
+    // 3) 작업판 생성 (단건 import 와 동일 필드 규칙)
+    const defaultGroup = await Group.findDefault();
+    const serverById = new Map(activeServers.map((sv) => [String(sv._id), sv]));
+    for (let i = 0; i < entries.length; i++) {
+      const wb = entries[i].workboard || {};
+      const server = serverById.get(String(resolved[i]));
+      const newWorkboard = await Workboard.create({
+        name: wb.name,
+        description: wb.description,
+        workboardType: wb.workboardType,
+        outputFormat: wb.outputFormat || 'image',
+        serverId: resolved[i],
+        serverUrl: server?.serverUrl,
+        additionalInputFields: wb.additionalInputFields || [],
+        workflowData: wb.workflowData || '',
+        allowedModelTypes: wb.allowedModelTypes || [],
+        allowedGroupIds: defaultGroup ? [defaultGroup._id] : [],
+        modelExposurePolicy: wb.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+        modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],
+        loraExposurePolicy: wb.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
+        loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
+        createdBy: req.user._id,
+        version: 1,
+        usageCount: 0,
+        isActive: true,
+        tags: [],
+      });
+      created.workboards.push(newWorkboard);
+    }
+
+    // 4) 문서 생성 — 분류 태그는 이름으로 findOrCreate (builtin 은 지정 색)
+    const tagCache = new Map();
+    const resolveDocTag = async (tName) => {
+      if (tagCache.has(tName)) return tagCache.get(tName);
+      let tag = await Tag.findOne({ userId: req.user._id, name: tName });
+      if (!tag) {
+        const builtinColor = BUILTIN_TAG_META[tName]?.color;
+        tag = await Tag.create({
+          userId: req.user._id,
+          createdBy: req.user._id,
+          name: tName,
+          color: builtinColor || '#1976d2',
+        });
+      }
+      tagCache.set(tName, tag);
+      return tag;
+    };
+    for (const doc of data.documents || []) {
+      const docTagIds = [created.tag._id];
+      for (const tName of doc.tagNames || []) {
+        const t = await resolveDocTag(tName);
+        docTagIds.push(t._id);
+      }
+      const newDoc = await UploadedText.create({
+        userId: req.user._id,
+        title: doc.title || '',
+        content: doc.content || '',
+        tags: docTagIds,
+      });
+      created.docs.push(newDoc);
+    }
+
+    // 5) 파이프라인 — index 참조를 새 ObjectId 로 재배선
+    for (const pl of data.pipelines || []) {
+      const steps = (pl.steps || [])
+        .filter((st) => st.workboardIndex !== null && created.workboards[st.workboardIndex])
+        .map((st) => ({
+          workboardId: created.workboards[st.workboardIndex]._id,
+          autoInject: st.autoInject !== false,
+          inputs: st.inputs || {},
+          contextDocIds: (st.contextDocIndexes || [])
+            .map((di) => created.docs[di]?._id)
+            .filter(Boolean),
+          systemPromptDocId: st.systemPromptDocIndex !== null && created.docs[st.systemPromptDocIndex]
+            ? created.docs[st.systemPromptDocIndex]._id
+            : undefined,
+          note: st.note || '',
+        }));
+      if (steps.length === 0) continue;
+      const newPl = await Pipeline.create({
+        userId: req.user._id,
+        projectId: created.project._id,
+        name: pl.name,
+        description: pl.description || '',
+        steps,
+      });
+      created.pipelines.push(newPl);
+    }
+
+    // 6) 프로젝트에 작업판 연결
+    created.project.workboardIds = created.workboards.map((w) => w._id);
+    await created.project.save();
+
+    res.status(201).json({
+      success: true,
+      projectId: created.project._id,
+      summary: {
+        workboards: created.workboards.length,
+        documents: created.docs.length,
+        pipelines: created.pipelines.length,
+      },
+    });
+  } catch (error) {
+    console.error('Project import error:', error);
+    // best-effort 롤백 — 생성 순서 역순
+    try {
+      const Pipeline2 = require('../models/Pipeline');
+      const UploadedText2 = require('../models/UploadedText');
+      const Workboard2 = require('../models/Workboard');
+      if (created.pipelines.length) await Pipeline2.deleteMany({ _id: { $in: created.pipelines.map((x) => x._id) } });
+      if (created.docs.length) await UploadedText2.deleteMany({ _id: { $in: created.docs.map((x) => x._id) } });
+      if (created.workboards.length) await Workboard2.deleteMany({ _id: { $in: created.workboards.map((x) => x._id) } });
+      if (created.project) await Project.deleteOne({ _id: created.project._id });
+      if (created.tag) await Tag.deleteOne({ _id: created.tag._id });
+    } catch (rollbackErr) {
+      console.error('Project import rollback error:', rollbackErr);
+    }
+    res.status(400).json({ success: false, message: error.message || '프로젝트 가져오기에 실패했습니다.' });
+  }
+});
+
 module.exports = router;

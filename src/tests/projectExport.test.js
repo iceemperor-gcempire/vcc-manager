@@ -21,6 +21,7 @@ jest.mock('../utils/signedUrl', () => ({ reverseSignedUrl: (u) => u, convertToSi
 const chainable = (result) => {
   const chain = {};
   chain.populate = () => chain;
+  chain.select = () => chain;
   chain.sort = () => chain;
   chain.lean = () => chain;
   chain.then = (res, rej) => Promise.resolve(result).then(res, rej);
@@ -126,5 +127,40 @@ describe('프로젝트 export (#404 P0)', () => {
     Project.findOne.mockReturnValue(chainable(null));
     const res = await request(app).get('/api/projects/other/export');
     expect(res.status).toBe(404);
+  });
+
+  test('import — 잘못된 파일/버전은 400, 일반 사용자는 403', async () => {
+    let res = await request(app).post('/api/projects/import').send({ data: { foo: 1 }, tagName: 't' });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('올바른 프로젝트');
+
+    res = await request(app).post('/api/projects/import').send({ data: { projectExportVersion: 2 }, tagName: 't' });
+    expect(res.status).toBe(400);
+
+    mockCurrentUser = { _id: 'user-1', isAdmin: false };
+    res = await request(app).post('/api/projects/import').send({ data: { projectExportVersion: 1 }, tagName: 't' });
+    expect(res.status).toBe(403);
+  });
+
+  test('import — 서버 자동 해석 실패 시 needsMapping 응답', async () => {
+    const Server = require('../models/Server');
+    // 같은 타입 서버 2대 → 자동 채택 불가
+    Server.find.mockReturnValue(chainable([
+      { _id: 'srv-1', name: 'GPT', serverType: 'OpenAI' },
+      { _id: 'srv-2', name: 'GPT-2', serverType: 'OpenAI' },
+    ]));
+    const res = await request(app).post('/api/projects/import').send({
+      tagName: 'imported',
+      data: {
+        projectExportVersion: 1,
+        project: { name: 'X' },
+        workboards: [{ workboard: { name: 'W', outputFormat: 'text' }, server: { name: '없는서버', serverType: 'OpenAI' } }],
+        documents: [], pipelines: [],
+      },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.needsMapping).toBe(true);
+    expect(res.body.workboards[0].name).toBe('W');
+    expect(res.body.servers).toHaveLength(2);
   });
 });
