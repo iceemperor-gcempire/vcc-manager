@@ -304,6 +304,69 @@ router.post('/resolve-nodes', requireAdmin, async (req, res) => {
 });
 
 // 작업판 가져오기 (관리자 전용)
+// 커스텀 노드 원클릭 설치 (#609 P4 — informed one-click).
+// 프론트가 repo/팩 출처를 명시해 admin 확인을 받은 뒤에만 호출한다 (silent auto 금지).
+// Manager v4(내장) 의 /v2 큐 API 사용 — 미지원 서버는 400 으로 명확히 안내.
+router.post('/install-node', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, installId } = req.body;
+    if (!serverId || !installId) {
+      return res.status(400).json({ success: false, message: 'serverId 와 installId 가 필요합니다.' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    const available = await comfyUIService.managerV4Available(server.serverUrl);
+    if (!available) {
+      return res.status(400).json({ success: false, message: '이 서버의 ComfyUI-Manager(v4 내장) API 를 사용할 수 없습니다 — ComfyUI 업데이트 또는 수동 설치가 필요합니다.' });
+    }
+    const uiId = `vcc_install_${Date.now()}`;
+    await comfyUIService.managerQueueInstall(server.serverUrl, installId, uiId);
+    res.json({ success: true, data: { uiId } });
+  } catch (error) {
+    console.error('Node install error:', error);
+    res.status(500).json({ success: false, message: `설치 요청 실패: ${error.message}` });
+  }
+});
+
+// 설치 태스크 상태 조회 (#609 P4) — 프론트 폴링용
+router.get('/install-status', requireAdmin, async (req, res) => {
+  try {
+    const { serverId, uiId } = req.query;
+    if (!serverId || !uiId) {
+      return res.status(400).json({ success: false, message: 'serverId 와 uiId 가 필요합니다.' });
+    }
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    const [queue, entry] = await Promise.all([
+      comfyUIService.managerQueueStatus(server.serverUrl).catch(() => null),
+      comfyUIService.managerHistoryEntry(server.serverUrl, uiId).catch(() => null),
+    ]);
+    res.json({ success: true, data: { queue, entry } });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// ComfyUI 재시작 (#609 P4) — 설치 반영에 필요. 프론트에서 admin 확인 후 호출.
+// 재시작 중 연결 끊김은 정상 신호 (comfyUIService.managerReboot 가 처리).
+router.post('/reboot-comfyui', requireAdmin, async (req, res) => {
+  try {
+    const { serverId } = req.body;
+    if (!serverId) return res.status(400).json({ success: false, message: 'serverId 가 필요합니다.' });
+    const server = await Server.findById(serverId);
+    if (!server) return res.status(404).json({ success: false, message: '서버를 찾을 수 없습니다.' });
+
+    await comfyUIService.managerReboot(server.serverUrl);
+    res.json({ success: true, data: { initiated: true } });
+  } catch (error) {
+    console.error('ComfyUI reboot error:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+
 router.post('/import', requireAdmin, async (req, res) => {
   try {
     const { data, serverId: overrideServerId } = req.body;
@@ -971,5 +1034,6 @@ router.post('/:id/lora-models/refresh', requireAuth, async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 
 module.exports = router;
