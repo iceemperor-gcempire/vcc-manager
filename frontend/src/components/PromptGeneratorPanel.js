@@ -31,7 +31,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, imageAPI } from '../services/api';
 import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
-import MetadataFieldInput from './common/MetadataFieldInput';
+import CustomFieldControl from './common/CustomFieldControl';
 import { MONO } from '../theme';
 
 function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
@@ -296,70 +296,23 @@ function PromptGeneratorPanel({
                   #391: conversation_mode 는 admin 전용 설정이라 사용자 폼에선 숨김 */}
               {workboard.additionalInputFields?.filter((f) => f.name !== 'conversation_mode').map((field) => (
                 <Box key={field.name} sx={{ mb: 2 }}>
-                  {field.type === 'string' && (
-                    <Controller
-                      name={field.name}
-                      control={control}
-                      rules={{ required: field.required ? `${field.label}을(를) 입력해주세요` : false }}
-                      render={({ field: formField }) => (
-                        <TextField
-                          {...formField}
-                          fullWidth
-                          size={compact ? 'small' : 'medium'}
-                          label={field.label}
-                          placeholder={field.placeholder}
-                          multiline={field.name.includes('prompt')}
-                          rows={field.name.includes('prompt') ? 2 : 1}
-                          error={!!errors[field.name]}
-                          helperText={errors[field.name]?.message || field.description}
-                        />
-                      )}
-                    />
-                  )}
-                  {field.type === 'select' && (
-                    <Controller
-                      name={field.name}
-                      control={control}
-                      rules={{ required: field.required ? `${field.label}을(를) 선택해주세요` : false }}
-                      render={({ field: formField }) => (
-                        <FormControl fullWidth error={!!errors[field.name]} size={compact ? 'small' : 'medium'}>
-                          <InputLabel>{field.label}</InputLabel>
-                          <Select {...formField} label={field.label}>
-                            {field.options?.map((opt) => (
-                              <MenuItem key={opt.value} value={opt.value}>
-                                {opt.key}
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                      )}
-                    />
-                  )}
-                  {(field.type === 'baseModel' || field.type === 'lora') && (
-                    <Controller
-                      name={field.name}
-                      control={control}
-                      rules={{ required: field.required ? `${field.label}을(를) 선택해주세요` : false }}
-                      render={({ field: formField }) => (
-                        <MetadataFieldInput
-                          kind={field.type === 'baseModel' ? 'model' : 'lora'}
-                          field={field}
-                          value={formField.value || ''}
-                          onChange={formField.onChange}
-                          workboardId={workboard._id}
-                          serverId={workboard?.serverId?._id || workboard?.serverId}
-                        />
-                      )}
-                    />
-                  )}
-                  {/* 이미지 입력 (#519) — image 타입 필드. 첨부 시 비전 입력으로 사용 */}
-                  {field.type === 'image' && (
+                  {field.type === 'image' ? (
+                    /* 이미지 입력 (#519) — image 타입 필드. 첨부 시 비전 입력으로 사용 */
                     <ImageUploadField
                       label={field.label}
                       description={field.description || '이미지를 첨부하면 모델이 분석에 참고합니다. (비전 모델 전용)'}
                       images={referenceImages[field.name] || []}
                       onImagesChange={(imgs) => setReferenceImages((prev) => ({ ...prev, [field.name]: imgs }))}
-                      maxImages={field.imageConfig?.maxImages || 4}
+                      maxImages={field.imageConfig?.maxImages || 3}
+                    />
+                  ) : (
+                    // 공용 렌더러 (#711) — number/boolean 도 렌더 (기존엔 소멸), required 일관 강제
+                    <CustomFieldControl
+                      field={field}
+                      control={control}
+                      size={compact ? 'small' : 'medium'}
+                      workboardId={workboard._id}
+                      serverId={workboard?.serverId?._id || workboard?.serverId}
                     />
                   )}
                 </Box>

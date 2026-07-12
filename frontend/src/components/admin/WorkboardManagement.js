@@ -52,6 +52,7 @@ import { useForm, Controller } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { workboardAPI, serverAPI, groupAPI } from '../../services/api';
 import WorkboardBasicInfoForm from './WorkboardBasicInfoForm';
+import CustomFieldControl from '../common/CustomFieldControl';
 import MetadataPickerModal from '../common/MetadataPickerModal';
 import { BUILTIN_WORKFLOW_VARIABLES, WORKFLOW_VARIABLE_CATEGORIES, formatValueType } from '../../constants/workflowVariables';
 import { MONO } from '../../theme';
@@ -430,105 +431,24 @@ function CustomFieldsPreview({ fields }) {
   );
 }
 
+// 프리뷰 필드 — 실행 화면과 동일한 공용 렌더러의 preview 모드 사용 (#711).
+// 별도 목업 구현이 실행과 어긋나던 문제(boolean/string multiline 등)를 원천 차단.
 function PreviewField({ field }) {
-  const label = (
-    <Typography variant="caption" sx={{ display: 'block', fontWeight: 500, mb: 0.5 }}>
-      {field.label || field.name}
-      {field.required && <Box component="span" sx={{ color: 'error.main', ml: 0.5 }}>*</Box>}
-    </Typography>
-  );
-
-  if (field.type === 'string') {
-    const multi = field.name?.includes('prompt');
-    return (
-      <Box>
-        {label}
-        <TextField
-          fullWidth disabled placeholder={field.placeholder}
-          multiline={multi} rows={multi ? 2 : 1}
-          defaultValue={field.defaultValue || ''}
-        />
-        {field.description && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
-            {field.description}
-          </Typography>
-        )}
-      </Box>
-    );
-  }
-  if (field.type === 'number') {
-    return (
-      <Box>
-        {label}
-        <TextField fullWidth disabled type="number" defaultValue={field.defaultValue || ''} />
-      </Box>
-    );
-  }
-  if (field.type === 'boolean') {
-    return (
-      <FormControlLabel
-        disabled
-        control={<Switch defaultChecked={!!field.defaultValue} />}
-        label={field.label || field.name}
-      />
-    );
-  }
-  if (field.type === 'select') {
-    return (
-      <Box>
-        {label}
-        <TextField
-          fullWidth disabled select SelectProps={{ native: true }}
-          defaultValue={field.defaultValue || ''}
-          InputLabelProps={{ shrink: true }}
-        >
-          <option value="">— 선택 없음 —</option>
-          {(field.options || []).map((opt, i) => (
-            <option key={i} value={opt.value}>{opt.key || opt.value}</option>
-          ))}
-        </TextField>
-      </Box>
-    );
-  }
-  if (field.type === 'baseModel') {
-    return (
-      <Box>
-        {label}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 1, border: 1, borderColor: 'divider', borderRadius: 1, bgcolor: 'action.hover' }}>
-          <Box sx={{ width: 22, height: 22, borderRadius: 0.5, background: BRAND_GRADIENTS[0], color: 'white', display: 'grid', placeItems: 'center', fontSize: 11 }}>
-            M
-          </Box>
-          <Typography variant="caption" sx={{ flex: 1 }}>모델 선택…</Typography>
-        </Box>
-      </Box>
-    );
-  }
-  if (field.type === 'lora') {
-    return (
-      <Box>
-        {label}
-        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 1.5, bgcolor: 'action.hover', minHeight: 40, display: 'flex', alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">LoRA 슬롯 — 사용자가 추가</Typography>
-        </Box>
-      </Box>
-    );
-  }
   if (field.type === 'image') {
     return (
       <Box>
-        {label}
-        <Box sx={{ border: '1px dashed', borderColor: 'divider', borderRadius: 1, p: 2.5, textAlign: 'center', bgcolor: 'action.hover' }}>
-          <Typography variant="caption" color="text.secondary">이미지를 드래그하거나 클릭해서 선택</Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          {field.label}{field.required ? ' *' : ''}
+        </Typography>
+        <Box sx={{ border: '2px dashed', borderColor: 'divider', borderRadius: 1, p: 2, textAlign: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            이미지 업로드 (최대 {field.imageConfig?.maxImages || 3}개)
+          </Typography>
         </Box>
       </Box>
     );
   }
-  return (
-    <Box>
-      {label}
-      <Typography variant="caption" color="text.secondary">(타입 {field.type} preview 미지원)</Typography>
-    </Box>
-  );
+  return <CustomFieldControl field={field} preview />;
 }
 
 // 상세 편집을 위한 새로운 다이얼로그 컴포넌트
