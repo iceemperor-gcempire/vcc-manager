@@ -349,7 +349,6 @@ router.post('/import', requireAdmin, async (req, res) => {
       outputFormat: wb.outputFormat || 'image',
       serverId: matchedServerId,
       serverUrl: server.serverUrl,
-      baseInputFields: wb.baseInputFields,
       additionalInputFields: wb.additionalInputFields || [],
       workflowData: wb.workflowData || '',
       allowedModelTypes: wb.allowedModelTypes || [],
@@ -437,10 +436,8 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       name,
       description,
       serverId,
-      serverUrl,
       workboardType,
       outputFormat,
-      baseInputFields,
       additionalInputFields,
       workflowData,
       allowedModelTypes,
@@ -455,22 +452,15 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
     const resolvedWorkboardType = workboardType || (resolvedOutputFormat === 'text' ? 'prompt' : 'image');
 
-    // serverId가 제공되지 않았지만 serverUrl이 있는 경우 (기존 호환성)
-    let finalServerId = serverId;
-    if (!serverId && serverUrl) {
-      // 기존 serverUrl 방식 지원 (deprecated)
-      console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
-    }
-
-    // serverId 필수 검증
-    if (!finalServerId) {
+    // serverId 필수 검증 (serverUrl 직접 입력 방식은 #709 에서 제거 — 편집기는 serverId 만 전송)
+    if (!serverId) {
       return res.status(400).json({
         message: 'serverId is required. Please select a server.'
       });
     }
 
     // 서버 존재 확인
-    const server = await Server.findById(finalServerId);
+    const server = await Server.findById(serverId);
     if (!server) {
       return res.status(400).json({
         message: 'Selected server not found.'
@@ -495,11 +485,10 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
     const workboard = new Workboard({
       name: name.trim(),
       description: description?.trim(),
-      serverId: finalServerId,
+      serverId: serverId,
       serverUrl: server.serverUrl,
       workboardType: resolvedWorkboardType,
       outputFormat: resolvedOutputFormat,
-      baseInputFields,
       additionalInputFields: additionalInputFields || [],
       workflowData: isComfyUI ? workflowData : '',
       allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
@@ -535,10 +524,8 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       name,
       description,
       serverId,
-      serverUrl,
       workboardType,
       outputFormat,
-      baseInputFields,
       additionalInputFields,
       workflowData,
       allowedModelTypes,
@@ -574,10 +561,6 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       }
       workboard.serverId = serverId;
       workboard.serverUrl = server.serverUrl; // 서버에서 실제 URL 가져오기
-    } else if (serverUrl) {
-      // 기존 호환성 지원 (deprecated)
-      console.warn('Warning: Using deprecated serverUrl. Please use serverId instead.');
-      workboard.serverUrl = serverUrl.trim();
     }
     if (outputFormat) {
       workboard.outputFormat = outputFormat;
@@ -588,7 +571,6 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     } else if (outputFormat) {
       workboard.workboardType = outputFormat === 'text' ? 'prompt' : 'image';
     }
-    if (baseInputFields) workboard.baseInputFields = baseInputFields;
     if (additionalInputFields !== undefined) workboard.additionalInputFields = additionalInputFields;
     if (workflowData !== undefined) {
       const wbServer = await Server.findById(workboard.serverId);
@@ -731,7 +713,6 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       serverUrl: originalWorkboard.serverUrl,
       workboardType: originalWorkboard.workboardType,
       outputFormat: originalWorkboard.outputFormat,
-      baseInputFields: originalWorkboard.baseInputFields,
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,
       allowedModelTypes: originalWorkboard.allowedModelTypes || [],
@@ -785,7 +766,6 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
         description: workboard.description,
         workboardType: workboard.workboardType,
         outputFormat: workboard.outputFormat,
-        baseInputFields: workboard.baseInputFields,
         additionalInputFields: workboard.additionalInputFields,
         workflowData: workboard.workflowData,
         allowedModelTypes: workboard.allowedModelTypes || [],

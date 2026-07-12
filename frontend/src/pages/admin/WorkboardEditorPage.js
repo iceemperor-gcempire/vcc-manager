@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Container, Box, CircularProgress, Alert } from '@mui/material';
 import toast from 'react-hot-toast';
 import { workboardAPI } from '../../services/api';
-import { WorkboardDetailDialog } from '../../components/admin/WorkboardManagement';
+import { WorkboardEditor } from '../../components/admin/WorkboardManagement';
 import { invalidateWorkboardQueries } from '../../utils/queryInvalidation';
 
 // #437 Phase A — 기존 WorkboardDetailDialog 를 페이지 안에 그대로 렌더 (asPage prop).
@@ -51,8 +51,7 @@ function WorkboardEditorPage() {
 
   return (
     <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
-      <WorkboardDetailDialog
-        asPage
+      <WorkboardEditor
         workboard={workboard}
         onCancel={() => navigate('/admin/workboards')}
         onSave={(updateData) => updateMutation.mutate(updateData)}

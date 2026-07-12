@@ -5,7 +5,7 @@ import { Container } from '@mui/material';
 import toast from 'react-hot-toast';
 import { workboardAPI } from '../../services/api';
 import { getWorkboardTemplate } from '../../templates';
-import { WorkboardCreateDialog } from '../../components/admin/WorkboardManagement';
+import { WorkboardCreateForm } from '../../components/admin/WorkboardManagement';
 import { invalidateWorkboardQueries } from '../../utils/queryInvalidation';
 
 // #437 Phase A — WorkboardCreateDialog 를 페이지로. 생성 성공 시 편집 페이지로 이동.
@@ -43,8 +43,7 @@ function WorkboardCreatePage() {
 
   return (
     <Container maxWidth="md" sx={{ mt: 2, mb: 4 }}>
-      <WorkboardCreateDialog
-        asPage
+      <WorkboardCreateForm
         onCancel={() => navigate('/admin/workboards')}
         onSave={handleSave}
       />

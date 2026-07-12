@@ -1,5 +1,4 @@
 {
-  "baseInputFields": {},
   "additionalInputFields": [
     {
       "name": "base_model",
@@ -15,10 +14,22 @@
       "required": true,
       "defaultValue": "auto",
       "options": [
-        { "key": "자동 (auto)", "value": "auto" },
-        { "key": "1024x1024", "value": "1024x1024" },
-        { "key": "1024x1536", "value": "1024x1536" },
-        { "key": "1536x1024", "value": "1536x1024" }
+        {
+          "key": "자동 (auto)",
+          "value": "auto"
+        },
+        {
+          "key": "1024x1024",
+          "value": "1024x1024"
+        },
+        {
+          "key": "1024x1536",
+          "value": "1024x1536"
+        },
+        {
+          "key": "1536x1024",
+          "value": "1536x1024"
+        }
       ]
     },
     {
@@ -28,10 +39,22 @@
       "required": true,
       "defaultValue": "auto",
       "options": [
-        { "key": "Auto", "value": "auto" },
-        { "key": "Low", "value": "low" },
-        { "key": "Medium", "value": "medium" },
-        { "key": "High", "value": "high" }
+        {
+          "key": "Auto",
+          "value": "auto"
+        },
+        {
+          "key": "Low",
+          "value": "low"
+        },
+        {
+          "key": "Medium",
+          "value": "medium"
+        },
+        {
+          "key": "High",
+          "value": "high"
+        }
       ],
       "description": "GPT Image 생성 품질을 선택합니다."
     },
@@ -42,8 +65,14 @@
       "required": false,
       "defaultValue": "opaque",
       "options": [
-        { "key": "불투명 (opaque)", "value": "opaque" },
-        { "key": "투명 (transparent)", "value": "transparent" }
+        {
+          "key": "불투명 (opaque)",
+          "value": "opaque"
+        },
+        {
+          "key": "투명 (transparent)",
+          "value": "transparent"
+        }
       ],
       "description": "gpt-image-2 전용. 투명 배경으로 출력하려면 transparent. 다른 모델에서는 무시됨."
     },
