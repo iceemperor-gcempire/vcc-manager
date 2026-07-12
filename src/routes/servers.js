@@ -9,6 +9,7 @@ const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
 const { encryptSecret } = require('../utils/secretCrypto');
+const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../utils/validation');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
@@ -72,7 +73,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
 });
 
 // 서버 생성 (관리자만)
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, validateBody(serverCreateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -156,7 +157,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // 서버 수정 (관리자만)
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, validateBody(serverUpdateSchema), async (req, res) => {
   try {
     const {
       name,

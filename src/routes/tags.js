@@ -23,6 +23,7 @@ async function ensureBuiltinTag(userId, name, color = '#1976d2') {
 }
 
 const { BUILTIN_TAG_NAMES, BUILTIN_TAG_META } = require('../constants/builtinTags');
+const { validateBody, tagCreateSchema, tagUpdateSchema } = require('../utils/validation');
 
 // 세계관 역할 태그 (#396) — 이제는 단순히 name="세계관" 인 태그 조회/생성 (#400 일반화)
 router.get('/worldview', requireAuth, async (req, res) => {
@@ -80,7 +81,7 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, validateBody(tagCreateSchema), async (req, res) => {
   try {
     const { name, color } = req.body;
     
@@ -111,7 +112,7 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, validateBody(tagUpdateSchema), async (req, res) => {
   try {
     const { name, color } = req.body;
     
