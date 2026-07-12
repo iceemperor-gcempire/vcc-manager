@@ -419,7 +419,217 @@ async function proposeLlmPicks({ parsed, existingPicks = [], llmComplete, maxCan
   return picks;
 }
 
+
+// ── UI 포맷 → API 포맷 변환 (#609 P3) ─────────────────────────────
+// ComfyUI 일반 저장(UI 포맷: nodes/links 그래프 + definitions.subgraphs)을 실행용
+// API 포맷으로 변환. 서브그래프는 API export 와 동일한 "인스턴스ID:내부ID" 규칙으로
+// 재귀 확장한다. widgets_values → 입력명 매핑에 /object_info 스키마(순서)가 필요.
+
+const WIDGET_PRIMITIVES = new Set(['INT', 'FLOAT', 'STRING', 'BOOLEAN']);
+const CONTROL_AFTER_GENERATE_VALUES = new Set(['fixed', 'increment', 'decrement', 'randomize']);
+// LiteGraph mode: 0=normal, 2=muted(never), 4=bypass
+const VIRTUAL_NODE_TYPES = new Set(['Note', 'MarkdownNote', 'Reroute', 'PrimitiveNode']);
+const SUBGRAPH_INPUT_NODE_ID = '-10';
+const SUBGRAPH_OUTPUT_NODE_ID = '-20';
+
+function isWidgetSpec(spec) {
+  if (!Array.isArray(spec)) return false;
+  const t = spec[0];
+  if (Array.isArray(t)) return true; // combo (선택지 배열)
+  if (typeof t === 'string' && (WIDGET_PRIMITIVES.has(t) || t === 'COMBO')) return true;
+  return false;
+}
+
+// 서브그래프 입력 정의가 위젯으로 승격되는 타입인지 (인스턴스 widgets_values 소비 순서 결정)
+function isWidgetPromotedInput(inputDef) {
+  const t = String(inputDef.type || '');
+  return t.split(',').some((part) => WIDGET_PRIMITIVES.has(part.trim()));
+}
+
+function convertUiToApi(uiObj, objectInfo) {
+  if (!objectInfo || typeof objectInfo !== 'object') {
+    throw new Error('UI 포맷 변환에는 ComfyUI 서버의 노드 정보(/object_info)가 필요합니다. 서버를 선택해주세요.');
+  }
+  const warnings = [];
+  const subgraphById = new Map((uiObj.definitions?.subgraphs || []).map((sg) => [sg.id, sg]));
+  const apiWorkflow = {};
+
+  // 그래프(top-level 또는 서브그래프 내부) 하나의 실행 컨텍스트
+  function makeCtx(graph, prefix, boundary) {
+    const nodesById = new Map((graph.nodes || []).map((n) => [String(n.id), n]));
+    const linksById = new Map();
+    for (const l of graph.links || []) {
+      if (Array.isArray(l) && l.length >= 5) {
+        linksById.set(l[0], { originId: String(l[1]), originSlot: l[2] });
+      } else if (l && typeof l === 'object' && l.id !== undefined) {
+        linksById.set(l.id, { originId: String(l.origin_id), originSlot: l.origin_slot });
+      }
+    }
+    return { graph, prefix, boundary, nodesById, linksById };
+  }
+
+  const isSkipped = (node) => node.mode === 2 || node.mode === 4;
+
+  // 인스턴스의 k번째 서브그래프 입력값 해석 — 외부 링크 우선, 아니면 승격 위젯 값
+  function resolveInstanceInput(instCtx, instNode, sgDef, inputIndex, depth) {
+    const instInput = (instNode.inputs || [])[inputIndex];
+    if (instInput && instInput.link !== null && instInput.link !== undefined) {
+      return resolveOrigin(instCtx, instInput.link, depth + 1);
+    }
+    // 승격 위젯: sg.inputs 중 위젯형만 순서대로 instNode.widgets_values 를 소비
+    const widgetOrder = (sgDef.inputs || []).filter(isWidgetPromotedInput);
+    const pos = widgetOrder.indexOf((sgDef.inputs || [])[inputIndex]);
+    if (pos !== -1 && Array.isArray(instNode.widgets_values) && pos < instNode.widgets_values.length) {
+      return { kind: 'literal', value: instNode.widgets_values[pos] };
+    }
+    return { kind: 'broken' };
+  }
+
+  // 컨텍스트 내 링크의 최종 출처 해석 (Reroute/Primitive/서브그래프 경계 통과)
+  function resolveOrigin(ctx, linkId, depth = 0) {
+    if (depth > 64) return { kind: 'broken' };
+    const link = ctx.linksById.get(linkId);
+    if (!link) return { kind: 'broken' };
+
+    // 서브그래프 입력 노드(-10)에서 온 링크 → 인스턴스 입력으로 상향 탈출
+    if (link.originId === SUBGRAPH_INPUT_NODE_ID) {
+      const b = ctx.boundary;
+      if (!b) return { kind: 'broken' };
+      return resolveInstanceInput(b.parentCtx, b.instNode, b.sgDef, link.originSlot, depth);
+    }
+
+    const origin = ctx.nodesById.get(link.originId);
+    if (!origin) return { kind: 'broken' };
+
+    if (origin.mode === 4) {
+      // bypass — 첫 연결 입력을 그대로 통과
+      const passthrough = (origin.inputs || []).find((inp) => inp.link !== null && inp.link !== undefined);
+      if (passthrough) return resolveOrigin(ctx, passthrough.link, depth + 1);
+      return { kind: 'muted' };
+    }
+    if (origin.mode === 2) return { kind: 'muted' };
+
+    if (origin.type === 'Reroute') {
+      const upstream = (origin.inputs || []).find((inp) => inp.link !== null && inp.link !== undefined);
+      if (!upstream) return { kind: 'broken' };
+      return resolveOrigin(ctx, upstream.link, depth + 1);
+    }
+    if (origin.type === 'PrimitiveNode') {
+      const wv = Array.isArray(origin.widgets_values) ? origin.widgets_values[0] : undefined;
+      return { kind: 'literal', value: wv };
+    }
+
+    // 서브그래프 인스턴스의 출력 → 내부 그래프로 하강
+    const sgDef = subgraphById.get(origin.type);
+    if (sgDef) {
+      const outDef = (sgDef.outputs || [])[link.originSlot];
+      const innerCtx = makeCtx(sgDef, `${ctx.prefix}${origin.id}:`, { parentCtx: ctx, instNode: origin, sgDef });
+      const innerLinkId = (outDef?.linkIds || [])[0];
+      if (innerLinkId === undefined) return { kind: 'broken' };
+      return resolveOrigin(innerCtx, innerLinkId, depth + 1);
+    }
+
+    return { kind: 'link', nodeId: `${ctx.prefix}${origin.id}`, slot: link.originSlot };
+  }
+
+  function processGraph(ctx) {
+    for (const node of ctx.graph.nodes || []) {
+      const rawId = String(node.id);
+      const type = node.type;
+      if (VIRTUAL_NODE_TYPES.has(type)) continue;
+      if (isSkipped(node)) {
+        warnings.push(`비활성(mute/bypass) 노드 제외: ${node.title || type} (#${ctx.prefix}${rawId})`);
+        continue;
+      }
+
+      // 서브그래프 인스턴스 → 내부 그래프 재귀 확장 (API export 의 "인스턴스:내부" id 규칙)
+      const sgDef = subgraphById.get(type);
+      if (sgDef) {
+        const innerCtx = makeCtx(sgDef, `${ctx.prefix}${rawId}:`, { parentCtx: ctx, instNode: node, sgDef });
+        processGraph(innerCtx);
+        continue;
+      }
+
+      const apiId = `${ctx.prefix}${rawId}`;
+      const spec = objectInfo[type];
+      if (!spec) {
+        warnings.push(`서버에 없는 노드 타입: ${type} (#${apiId}) — 입력 매핑이 부정확할 수 있습니다.`);
+      }
+
+      const linkByInputName = new Map();
+      for (const inp of node.inputs || []) {
+        if (inp.link !== null && inp.link !== undefined) linkByInputName.set(inp.name, inp.link);
+      }
+
+      const inputs = {};
+      const wv = node.widgets_values;
+      const widgetQueue = Array.isArray(wv) ? [...wv] : null;
+      const widgetDict = wv && !Array.isArray(wv) && typeof wv === 'object' ? wv : null;
+      const inputSpecs = spec
+        ? { ...(spec.input?.required || {}), ...(spec.input?.optional || {}) }
+        : null;
+
+      const applyOrigin = (name, origin, fallbackWidget, widgetValue) => {
+        if (origin.kind === 'link') { inputs[name] = [origin.nodeId, origin.slot]; return; }
+        if (origin.kind === 'literal') { inputs[name] = origin.value; return; }
+        warnings.push(`${type} (#${apiId}) 의 입력 "${name}" 연결이 끊겨 있어 제외했습니다.`);
+        if (fallbackWidget) inputs[name] = widgetValue;
+      };
+
+      if (inputSpecs) {
+        for (const [name, inputSpec] of Object.entries(inputSpecs)) {
+          const widget = isWidgetSpec(inputSpec);
+          let widgetValue;
+          let hasWidgetValue = false;
+          if (widget) {
+            if (widgetDict) {
+              if (name in widgetDict) { widgetValue = widgetDict[name]; hasWidgetValue = true; }
+            } else if (widgetQueue && widgetQueue.length > 0) {
+              widgetValue = widgetQueue.shift();
+              hasWidgetValue = true;
+              // seed 류는 UI 전용 control_after_generate 값이 뒤따름 — 큐에서 소거
+              const controlFlagged = inputSpec[1] && inputSpec[1].control_after_generate;
+              const looksLikeSeed = (name === 'seed' || name === 'noise_seed');
+              if ((controlFlagged || looksLikeSeed) && widgetQueue.length > 0 && CONTROL_AFTER_GENERATE_VALUES.has(widgetQueue[0])) {
+                widgetQueue.shift();
+              }
+            }
+          }
+          const linkId = linkByInputName.get(name);
+          if (linkId !== undefined) {
+            applyOrigin(name, resolveOrigin(ctx, linkId), hasWidgetValue, widgetValue);
+            continue;
+          }
+          if (widget && hasWidgetValue) inputs[name] = widgetValue;
+          // 링크도 위젯 값도 없는 optional 입력은 생략 (API 포맷 관례)
+        }
+      } else {
+        for (const [name, linkId] of linkByInputName.entries()) {
+          applyOrigin(name, resolveOrigin(ctx, linkId), false);
+        }
+        if (Array.isArray(wv) && wv.length > 0) {
+          warnings.push(`${type} (#${apiId}) 의 위젯 값 ${wv.length}개를 매핑하지 못했습니다 (노드 스키마 없음).`);
+        }
+      }
+
+      apiWorkflow[apiId] = {
+        inputs,
+        class_type: type,
+        _meta: { title: node.title || type },
+      };
+    }
+  }
+
+  processGraph(makeCtx(uiObj, '', null));
+
+  if (Object.keys(apiWorkflow).length === 0) {
+    throw new Error('변환 결과가 비어 있습니다 — 워크플로에 실행 가능한 노드가 없습니다.');
+  }
+  return { apiWorkflow, warnings };
+}
+
 module.exports = {
+  convertUiToApi,
   isLinkInput,
   detectFormat,
   parseWorkflow,

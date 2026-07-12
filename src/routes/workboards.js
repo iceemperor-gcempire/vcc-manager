@@ -94,6 +94,24 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // ComfyUI 워크플로 분석 (관리자 전용) — 파싱 + 필요/빠진 커스텀 노드 감지 (#607)
+
+// UI 포맷 감지·변환 전처리 (#609 P3) — UI 포맷이면 objectInfo 필수.
+function prepareWorkflowInput(workflow, objectInfo) {
+  let obj = workflow;
+  if (typeof workflow === 'string') {
+    try { obj = JSON.parse(workflow); } catch (e) { throw new Error(`워크플로 JSON 파싱 실패: ${e.message}`); }
+  }
+  const format = workflowConverter.detectFormat(obj);
+  if (format !== 'ui') {
+    return { effectiveWorkflow: workflow, sourceFormat: format, conversionWarnings: [] };
+  }
+  if (!objectInfo) {
+    throw new Error('UI 포맷(일반 저장) 워크플로입니다 — 변환하려면 ComfyUI 서버를 선택해주세요. (또는 "Save (API Format)" 파일 사용)');
+  }
+  const { apiWorkflow, warnings } = workflowConverter.convertUiToApi(obj, objectInfo);
+  return { effectiveWorkflow: JSON.stringify(apiWorkflow, null, 2), sourceFormat: 'ui', conversionWarnings: warnings };
+}
+
 router.post('/analyze-workflow', requireAdmin, async (req, res) => {
   try {
     const { workflow, serverId } = req.body;
@@ -101,15 +119,7 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
     }
 
-    // 1) 파싱 (서버 없이도 가능). 포맷/파싱 오류는 400.
-    let parsed;
-    try {
-      parsed = workflowConverter.parseWorkflow(workflow);
-    } catch (e) {
-      return res.status(400).json({ success: false, message: e.message });
-    }
-
-    // 2) serverId 가 있으면 /object_info 로 빠진 노드 비교 (선택, 실패해도 분석은 반환)
+    // serverId 가 있으면 /object_info 확보 (빠진 노드 비교 + UI 포맷 변환용)
     let objectInfo = null;
     let serverWarning = null;
     if (serverId) {
@@ -124,11 +134,33 @@ router.post('/analyze-workflow', requireAdmin, async (req, res) => {
       }
     }
 
+    // UI 포맷이면 API 포맷으로 변환 후 기존 파이프라인 진행 (#609 P3)
+    let effectiveWorkflow = workflow;
+    let sourceFormat = null;
+    let conversionWarnings = [];
+    try {
+      const pre = prepareWorkflowInput(workflow, objectInfo);
+      effectiveWorkflow = pre.effectiveWorkflow;
+      sourceFormat = pre.sourceFormat;
+      conversionWarnings = pre.conversionWarnings;
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(effectiveWorkflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
     const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
     res.json({
       success: true,
       data: {
-        format: parsed.format,
+        format: sourceFormat || parsed.format,
+        converted: sourceFormat === 'ui',
+        conversionWarnings,
         nodeCount: parsed.nodes.length,
         literalInputCount: parsed.literalInputs.length,
         ...nodeAnalysis,
@@ -149,14 +181,7 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: '워크플로 JSON 이 필요합니다.' });
     }
 
-    let parsed;
-    try {
-      parsed = workflowConverter.parseWorkflow(workflow);
-    } catch (e) {
-      return res.status(400).json({ success: false, message: e.message });
-    }
-
-    // 빠진 노드 검사 (서버 연결 시, 선택)
+    // 빠진 노드 검사 + UI 포맷 변환용 /object_info (서버 연결 시)
     let objectInfo = null;
     let serverWarning = null;
     if (serverId) {
@@ -168,6 +193,26 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
           serverWarning = `서버 노드 목록을 불러오지 못해 빠진 노드 검사를 건너뜁니다: ${e.message}`;
         }
       }
+    }
+
+    // UI 포맷이면 API 포맷으로 변환 — 초안의 workflowData 에도 변환본이 들어간다 (#609 P3)
+    let effectiveWorkflow = workflow;
+    let conversionWarnings = [];
+    let sourceFormat = null;
+    try {
+      const pre = prepareWorkflowInput(workflow, objectInfo);
+      effectiveWorkflow = pre.effectiveWorkflow;
+      sourceFormat = pre.sourceFormat;
+      conversionWarnings = pre.conversionWarnings;
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
+    }
+
+    let parsed;
+    try {
+      parsed = workflowConverter.parseWorkflow(effectiveWorkflow);
+    } catch (e) {
+      return res.status(400).json({ success: false, message: e.message });
     }
 
     const nodeAnalysis = workflowConverter.analyzeNodes(parsed, objectInfo);
@@ -197,7 +242,10 @@ router.post('/draft-from-workflow', requireAdmin, async (req, res) => {
       llmNote = 'AI 보조를 쓰려면 LLM 모델도 지정해야 합니다 — 기본 추출만 적용했습니다.';
     }
 
-    const draft = workflowConverter.buildDraftFromPicks(parsed, workflow, allPicks);
+    const draft = workflowConverter.buildDraftFromPicks(parsed, effectiveWorkflow, allPicks);
+    if (sourceFormat === 'ui') {
+      draft.notes = [`UI 포맷 워크플로를 API 포맷으로 변환했습니다${conversionWarnings.length ? ` (경고 ${conversionWarnings.length}건)` : ''}.`, ...conversionWarnings, ...draft.notes];
+    }
     if (llmNote) draft.notes = [llmNote, ...draft.notes];
 
     res.json({
