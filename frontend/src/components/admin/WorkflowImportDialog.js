@@ -10,7 +10,7 @@ import { workboardAPI, serverAPI } from '../../services/api';
 import { MONO } from '../../theme';
 
 /**
- * ComfyUI 워크플로(API 포맷)를 붙여넣어 작업판 초안을 생성하고,
+ * ComfyUI 워크플로(API 포맷 또는 일반 저장 UI 포맷 — #609 P3)를 붙여넣어 작업판 초안을 생성하고,
  * 생성된 작업판 편집기로 이동한다 (#612 — Epic #609 프론트 연결).
  */
 export default function WorkflowImportDialog({ open, onClose }) {
@@ -43,6 +43,12 @@ export default function WorkflowImportDialog({ open, onClose }) {
       parsed = JSON.parse(workflowText);
     } catch {
       toast.error('워크플로 JSON 파싱 실패 — 올바른 JSON 인지 확인하세요.');
+      return;
+    }
+    // UI 포맷(일반 저장)은 서버의 노드 정보가 있어야 변환 가능 (#609 P3)
+    const isUiFormat = Array.isArray(parsed?.nodes) && 'links' in (parsed || {});
+    if (isUiFormat && !serverId) {
+      toast.error('일반 저장(UI 포맷) 워크플로는 변환을 위해 ComfyUI 서버를 먼저 선택해야 합니다.');
       return;
     }
     setLoading(true);
@@ -100,7 +106,9 @@ export default function WorkflowImportDialog({ open, onClose }) {
         {step === 'input' && (
           <Stack spacing={2} sx={{ mt: 1 }}>
             <Alert severity="info">
-              ComfyUI 에서 <strong>"Save (API Format)"</strong> 로 저장한 워크플로 JSON 을 붙여넣으세요.
+              ComfyUI 워크플로 JSON 을 붙여넣으세요 — <strong>"Save (API Format)"</strong> 파일과
+              <strong>일반 저장(UI 포맷)</strong> 파일 모두 지원합니다. UI 포맷은 자동으로 API 포맷으로
+              변환되며, 이 경우 서버 선택이 필요합니다.
               필요한 입력이 자동으로 변수로 추출된 작업판 초안이 만들어집니다.
             </Alert>
             <TextField
@@ -117,7 +125,7 @@ export default function WorkflowImportDialog({ open, onClose }) {
               ))}
             </TextField>
             <TextField
-              label="워크플로 JSON (API 포맷)"
+              label="워크플로 JSON (API 또는 UI 포맷)"
               value={workflowText}
               onChange={(e) => setWorkflowText(e.target.value)}
               placeholder='{ "3": { "class_type": "KSampler", "inputs": { ... } }, ... }'
