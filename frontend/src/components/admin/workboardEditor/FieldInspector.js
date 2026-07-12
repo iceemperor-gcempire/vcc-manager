@@ -199,7 +199,10 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
                   size="small"
                   select
                   label="기본값 (선택)"
+                  // displayEmpty 는 값이 ''여도 "선택 없음"을 렌더하므로 label 을 항상 띄운다
+                  // — 안 그러면 내려온 label 과 겹침 (#718)
                   SelectProps={{ displayEmpty: true }}
+                  InputLabelProps={{ shrink: true }}
                 >
                   <MenuItem value="">선택 없음</MenuItem>
                   {options.map((opt, i) => (
