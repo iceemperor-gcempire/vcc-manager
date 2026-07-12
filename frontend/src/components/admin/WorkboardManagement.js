@@ -819,13 +819,10 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
   useEffect(() => {
     if (workboard && workboard._id && isOpen) {
       setLoading(true);
-      console.log('Fetching full workboard data with ID:', workboard._id);
       
       workboardAPI.getByIdAdmin(workboard._id)
         .then(response => {
           const fullData = response.data.workboard;
-          console.log('Full workboard data received:', fullData);
-          console.log('WorkflowData from admin API:', fullData.workflowData);
           setFullWorkboard(fullData);
           
           const formData = {
@@ -858,7 +855,6 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
             }))
           };
           
-          console.log('Form data to reset with:', formData);
           reset(formData);
           setLoading(false);
         })
@@ -984,9 +980,6 @@ export function WorkboardDetailDialog({ open, onClose, workboard, onSave, asPage
       additionalInputFields
     };
 
-    console.log('Form data before processing:', data);
-    console.log('WorkflowData being sent:', data.workflowData);
-    console.log('Full update data:', JSON.stringify(updateData, null, 2));
     onSave(updateData);
   };
 

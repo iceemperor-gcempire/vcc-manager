@@ -11,6 +11,10 @@
 // 모노스페이스 폰트 토큰 — 시드/ID/메타 영역 공용 (#542)
 export const MONO = '"JetBrains Mono","SF Mono","Menlo","Consolas",monospace';
 
+// 태그 기본색 — light primary.main 과 동일. 태그색은 DB 저장 데이터(모드 불변)라
+// palette 대신 고정 상수로 단일화 (#694). 새 태그색 fallback 은 이 상수를 쓸 것.
+export const DEFAULT_TAG_COLOR = '#C96A3B';
+
 const LIGHT = {
   // 테라코타 포인트
   primary:   { main: '#C96A3B', light: '#F7E8DF', dark: '#A04E26', contrastText: '#FFFFFF' },

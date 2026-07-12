@@ -10,6 +10,11 @@ export const BRAND_GRADIENTS = [
   'linear-gradient(135deg, #6E6557 0%, #A39A8A 100%)',
 ];
 
+// 인증(로그인/가입) 화면 브랜드 패널 배경 (#694) — AuthLayout 전용 full-page 그라데이션.
+// 카드 커버용 BRAND_GRADIENTS 와 용도가 달라 별도 상수 (라이트 테라코타 / 다크 딥 민트).
+export const AUTH_BG_GRADIENT_DARK = 'linear-gradient(160deg,#103A32 0%,#0B2620 50%,#071A16 100%)';
+export const AUTH_BG_GRADIENT_LIGHT = 'linear-gradient(160deg,#C96A3B 0%,#B05A30 45%,#8A4520 100%)';
+
 // id(문자열) 해시로 결정적 선택 — 모든 화면에서 동일 id = 동일 그라데이션 보장
 export function gradientForId(id = '') {
   let h = 0;

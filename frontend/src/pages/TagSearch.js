@@ -43,6 +43,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
+import { DEFAULT_TAG_COLOR } from '../theme';
 
 function SearchTabPanel({ children, value, index }) {
   return (
@@ -54,7 +55,7 @@ function SearchTabPanel({ children, value, index }) {
 
 function TagEditDialog({ open, onClose, tag }) {
   const [name, setName] = useState(tag?.name || '');
-  const [color, setColor] = useState(tag?.color || '#C96A3B');
+  const [color, setColor] = useState(tag?.color || DEFAULT_TAG_COLOR);
   const queryClient = useQueryClient();
 
   const updateMutation = useMutation({ mutationFn: (data) => tagAPI.update(tag._id, data),
@@ -79,7 +80,7 @@ function TagEditDialog({ open, onClose, tag }) {
   React.useEffect(() => {
     if (tag) {
       setName(tag.name || '');
-      setColor(tag.color || '#C96A3B');
+      setColor(tag.color || DEFAULT_TAG_COLOR);
     }
   }, [tag]);
 
@@ -126,7 +127,7 @@ function TagEditDialog({ open, onClose, tag }) {
 
 function TagCreateDialog({ open, onClose }) {
   const [name, setName] = useState('');
-  const [color, setColor] = useState('#C96A3B');
+  const [color, setColor] = useState(DEFAULT_TAG_COLOR);
   const queryClient = useQueryClient();
 
   const createMutation = useMutation({ mutationFn: (data) => tagAPI.create(data),
@@ -135,7 +136,7 @@ function TagCreateDialog({ open, onClose }) {
         queryClient.invalidateQueries({ queryKey: ['tags'] });
         toast.success('태그가 생성되었습니다');
         setName('');
-        setColor('#C96A3B');
+        setColor(DEFAULT_TAG_COLOR);
         onClose();
       },
       onError: (error) => {

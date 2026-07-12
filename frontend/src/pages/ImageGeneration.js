@@ -554,16 +554,13 @@ function ImageGeneration() {
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
-    console.log('🔄 useEffect triggered with workboardData:', workboardData);
 
     if (workboardData) {
       // 이미 초기화된 작업판이면 스킵 (중복 초기화 방지)
       if (initializedRef.current === workboardData._id) {
-        console.log('⏭️ Already initialized for workboard:', workboardData._id);
         return;
       }
 
-      console.log('✅ Setting up form with workboard:', workboardData.name);
 
       // 로컬스토리지에서 계속하기 데이터 확인
       const continueJobData = localStorage.getItem('continueJobData');
@@ -575,16 +572,13 @@ function ImageGeneration() {
       if (continueJobData) {
         try {
           const parsedData = JSON.parse(continueJobData);
-          console.log('Found continue job data:', parsedData);
           // 동일한 작업판인 경우 사용
           if (parsedData.workboardId === workboardData._id) {
             jobInputData = parsedData.inputData;
             lastGeneratedMedia = parsedData.lastGeneratedMedia || null;
             prevOutputFormat = parsedData.prevOutputFormat || null; // #673
             localStorage.removeItem('continueJobData'); // 사용 후 제거
-            console.log('Using continue job data for same workboard');
           } else {
-            console.log('Different workboard, not using continue data');
           }
         } catch (error) {
           console.warn('Failed to parse continue job data:', error);
@@ -695,7 +689,6 @@ function ImageGeneration() {
                 imageId: image._id,
                 image: { _id: image._id, url: image.url, originalName: image.originalName }
               }]);
-              console.log('🖼️ Injected last generated image into field:', imageField.name);
             }
           }
         }
@@ -716,7 +709,6 @@ function ImageGeneration() {
           // 사용자 설정에 따라 랜덤 시드 적용
           if (userPreferences.useRandomSeedOnContinue) {
             setRandomSeed(true);
-            console.log('🎲 Random seed enabled by user preference');
           } else {
             setRandomSeed(false); // 고정 시드 값 사용
           }
@@ -724,7 +716,6 @@ function ImageGeneration() {
 
         toast.success('이전 작업 설정을 불러왔습니다');
       } else {
-        console.log('🎯 Setting default values...');
 
         // F2: baseInputFields 기반 hardcoded 기본값 제거 — customField 의 defaultValue 만 사용
         const defaultValues = {};
@@ -743,7 +734,6 @@ function ImageGeneration() {
           });
         }
 
-        console.log('🎯 Applying default values with reset():', defaultValues);
 
         // 렌더링 완료 후 기본값 설정 (비동기 처리로 폼 초기화 보장)
         setTimeout(() => {
@@ -760,7 +750,6 @@ function ImageGeneration() {
             }
           });
 
-          console.log('✅ Default values setup completed');
         }, 100);
       }
     }
@@ -769,14 +758,9 @@ function ImageGeneration() {
   const onSubmit = async (formData) => {
     setGenerating(true);
     try {
-      console.log('🚀 Form submission started');
-      console.log('📝 Raw form data:', formData);
-      console.log('🎲 Random seed:', randomSeed);
-      console.log('🔢 Seed value:', seedValue);
 
       // 시드 값 처리
       const finalSeedValue = randomSeed ? generateRandomSeed() : seedValue;
-      console.log('✅ Final seed value:', finalSeedValue);
 
       // F2: baseInputFields hardcoded 매핑 제거 — customField 값이 raw string 으로 그대로 전달됨.
       // 서비스 코드의 extractValue() 가 string / {key,value} 양쪽 모두 처리하므로 backward compat.
@@ -794,7 +778,6 @@ function ImageGeneration() {
         ...(mergedTags.length > 0 && { tags: mergedTags })
       };
 
-      console.log('📤 Final payload to API:', JSON.stringify(finalPayload, null, 2));
 
       await generateMutation.mutateAsync(finalPayload);
     } catch (error) {
