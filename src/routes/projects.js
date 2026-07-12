@@ -9,6 +9,7 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../utils/validation');
 const router = express.Router();
 
 // GET /favorites - 즐겨찾기 프로젝트 목록 (대시보드용) - 구체적 경로를 /:id 위에 배치
@@ -110,7 +111,7 @@ router.get('/', requireAuth, async (req, res) => {
 });
 
 // POST / - 프로젝트 생성 (전용 태그 자동 생성)
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, validateBody(projectCreateSchema), async (req, res) => {
   try {
     const { name, description, tagName } = req.body;
 
@@ -198,7 +199,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 });
 
 // PUT /:id - 프로젝트 수정
-router.put('/:id', requireAuth, async (req, res) => {
+router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, res) => {
   try {
     const { name, description, coverImage } = req.body;
 

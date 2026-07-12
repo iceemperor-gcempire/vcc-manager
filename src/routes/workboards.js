@@ -12,6 +12,7 @@ const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { validateBody, workboardCreateSchema, workboardUpdateSchema } = require('../utils/validation');
 const router = express.Router();
 
 const EXPORT_VERSION = 1;
@@ -430,7 +431,7 @@ router.get('/admin/:id', requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -528,7 +529,7 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -550,12 +551,6 @@ router.put('/:id', requireAdmin, async (req, res) => {
       isActive
     } = req.body;
 
-    console.log('Workboard update request:', {
-      id: req.params.id,
-      additionalInputFields,
-      baseInputFields
-    });
-    
     const workboard = await Workboard.findById(req.params.id);
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
