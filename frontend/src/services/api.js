@@ -181,6 +181,9 @@ export const adminAPI = {
   rejectUser: (id) => api.post(`/admin/users/${id}/reject`),
   getStats: () => api.get('/admin/stats'),
   getJobs: (params) => api.get('/admin/jobs', { params }),
+  // 데이터 정합성 (#662 P2)
+  getIntegrity: (params) => api.get('/admin/integrity', { params }),
+  cleanupOwnerOrphans: (apply) => api.post('/admin/integrity/cleanup-owner-orphans', { apply }),
   // LoRA 설정 API
   getLoraSettings: () => api.get('/admin/settings/lora'),
   updateLoraSettings: (data) => api.put('/admin/settings/lora', data),

@@ -10,3 +10,4 @@ export { default as LoraManagementPage } from './LoraManagementPage';
 export { default as ModelManagementPage } from './ModelManagementPage';
 export { default as MetadataManagementPage } from './MetadataManagementPage';
 export { default as GroupManagementPage } from './GroupManagementPage';
+export { default as IntegrityPage } from './IntegrityPage';

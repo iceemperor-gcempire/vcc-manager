@@ -25,6 +25,7 @@ import {
   LocalOffer,
   Settings,
   Backup,
+  FactCheck,
   AutoFixHigh,
   FolderSpecial,
   Group
@@ -58,6 +59,7 @@ const adminMenuItems = [
   { text: '그룹 관리', path: '/admin/groups', icon: <Group /> },
   { text: '시스템 통계', path: '/admin/stats', icon: <BarChart /> },
   { text: '백업 / 복구', path: '/admin/backup', icon: <Backup /> },
+  { text: '데이터 정합성', path: '/admin/integrity', icon: <FactCheck /> },
 ];
 
 const settingsItem = { text: '설정', path: '/settings', icon: <Settings /> };

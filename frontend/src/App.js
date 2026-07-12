@@ -39,6 +39,7 @@ import {
   ServerManagementPage,
   SystemStatsPage,
   BackupRestorePage,
+  IntegrityPage,
   MetadataManagementPage,
   GroupManagementPage
 } from './pages/admin';
@@ -249,6 +250,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <BackupRestorePage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/integrity"
+              element={
+                <AdminRoute>
+                  <IntegrityPage />
                 </AdminRoute>
               }
             />
