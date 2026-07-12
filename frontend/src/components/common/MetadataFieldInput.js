@@ -13,7 +13,7 @@ import MetadataPickerModal from './MetadataPickerModal';
 // 다른 customField (select / number / string) 와 동일하게 TextField 의 floating label 사용해 디자인 통일.
 // 표시는 Civitai 모델 이름 (있으면) 또는 파일 basename — 경로는 tooltip / helperText.
 // 내부 form value 는 그대로 filename (workflow injection 용).
-function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverId, allowedModelTypes }) {
+function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverId, allowedModelTypes, disabled = false, error = false, errorMessage }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [displayName, setDisplayName] = useState('');
   const [displayValue, setDisplayValue] = useState('');
@@ -37,12 +37,14 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
           required={field.required}
           value={shown}
           fullWidth
+          disabled={disabled}
+          error={error}
           placeholder={placeholder}
           InputProps={{
             readOnly: true,
             endAdornment: (
               <InputAdornment position="end">
-                {value && (
+                {value && !disabled && (
                   <Tooltip title="해제">
                     <IconButton onClick={() => { onChange(''); setDisplayName(''); }}>
                       <ClearIcon fontSize="small" />
@@ -53,7 +55,7 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
                   variant="text"
                   startIcon={<SearchIcon />}
                   onClick={() => setPickerOpen(true)}
-                  disabled={!serverId && !workboardId}
+                  disabled={disabled || (!serverId && !workboardId)}
                   sx={{ ml: 0.5 }}
                 >
                   선택
@@ -61,7 +63,7 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
               </InputAdornment>
             )
           }}
-          helperText={value && value !== shown ? value : field.description}
+          helperText={errorMessage || (value && value !== shown ? value : field.description)}
         />
       </Tooltip>
       <MetadataPickerModal
