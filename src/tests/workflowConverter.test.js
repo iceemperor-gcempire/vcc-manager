@@ -260,13 +260,13 @@ describe('#614 normalizeManagerMap', () => {
       ],
     };
     const map = normalizeManagerMap(raw);
-    expect(map.IPAdapterApply).toEqual({ title: 'IPAdapter', url: 'https://github.com/foo/ComfyUI-IPAdapter' });
+    expect(map.IPAdapterApply).toEqual({ title: 'IPAdapter', url: 'https://github.com/foo/ComfyUI-IPAdapter', installId: 'foo/ComfyUI-IPAdapter' });
     expect(map.IPAdapterEncoder.url).toContain('ComfyUI-IPAdapter');
   });
 
   test('형태 A: meta.url 없으면 key(url) 사용', () => {
     const raw = { 'https://github.com/x/Y': [['NodeX'], { title: 'Y' }] };
-    expect(normalizeManagerMap(raw).NodeX).toEqual({ title: 'Y', url: 'https://github.com/x/Y' });
+    expect(normalizeManagerMap(raw).NodeX).toEqual({ title: 'Y', url: 'https://github.com/x/Y', installId: 'x/Y' });
   });
 
   test('형태 B: { className: { url, title } }', () => {

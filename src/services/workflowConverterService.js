@@ -303,17 +303,26 @@ function normalizeManagerMap(raw) {
   if (!raw || typeof raw !== 'object') return map;
 
   const addEntry = (className, repo) => {
-    if (!className || !repo || !repo.url) return;
+    if (!className || !repo || !(repo.url || repo.installId)) return;
     if (!map[className]) map[className] = repo;
   };
 
+  // github URL → 설치 id (owner/repo). Manager v4 install 은 cnr id 또는 slug/URL 을 받는다.
+  const toInstallId = (key, url) => {
+    if (key && !/^https?:\/\//.test(key)) return key; // v2: key 가 cnr 팩 id ('was-ns')
+    const m = /github\.com\/([^/]+\/[^/#?]+)/.exec(url || key || '');
+    if (m) return m[1].replace(/\.git$/, '');
+    return url || key || null;
+  };
+
   for (const [key, val] of Object.entries(raw)) {
-    // 형태 A: key=url, val=[nodeNames, meta]
+    // 형태 A: key=url 또는 cnr 팩 id, val=[nodeNames, meta]
     if (Array.isArray(val) && Array.isArray(val[0])) {
       const meta = (val[1] && typeof val[1] === 'object') ? val[1] : {};
       const url = meta.url || meta.reference || (/^https?:\/\//.test(key) ? key : null);
       const title = meta.title || meta.title_aux || null;
-      if (url) for (const node of val[0]) addEntry(node, { title, url });
+      const installId = toInstallId(key, url);
+      if (url || installId) for (const node of val[0]) addEntry(node, { title, url, installId });
       continue;
     }
     // 형태 B: key=className, val={url|reference|files, title}
@@ -335,7 +344,7 @@ function resolveMissingNodes(missingNodes, nodeRepoMap) {
   const map = nodeRepoMap || {};
   for (const node of missingNodes || []) {
     const repo = map[node];
-    if (repo && repo.url) resolutions.push({ node, repos: [repo] });
+    if (repo && (repo.url || repo.installId)) resolutions.push({ node, repos: [repo] });
     else unresolved.push(node);
   }
   return { resolutions, unresolved };
