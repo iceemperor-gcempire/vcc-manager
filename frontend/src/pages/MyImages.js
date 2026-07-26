@@ -531,10 +531,16 @@ function MyImages() {
   const { data: videosCountData }    = useQuery({ queryKey: ['contentCount', 'video'], queryFn: () => imageAPI.getVideos({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: upTextsCountData }   = useQuery({ queryKey: ['contentCount', 'textUp'], queryFn: () => textAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: genTextsCountData }  = useQuery({ queryKey: ['contentCount', 'textGen'], queryFn: () => textAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
+  // 응답 래핑이 라우트마다 다르다 (#730 D-8):
+  //   /images/*  → { images, pagination }              → res.data.pagination
+  //   /texts/*   → { success, data: { items, pagination } } → res.data.data.pagination
+  // 이미지·동영상 쪽이 .data 를 한 번 더 타고 있어서 카운트가 항상 undefined 였고,
+  // ContentTabLabel 이 count == null 이면 라벨만 그리므로 세 탭에만 숫자가 안 보였다.
+  // (images 라우트가 프로젝트 공통 응답 규약을 안 따르는 건 별도 정리 대상)
   const counts = [
-    genImagesCountData?.data?.data?.pagination?.total,
-    upImagesCountData?.data?.data?.pagination?.total,
-    videosCountData?.data?.data?.pagination?.total,
+    genImagesCountData?.data?.pagination?.total,
+    upImagesCountData?.data?.pagination?.total,
+    videosCountData?.data?.pagination?.total,
     upTextsCountData?.data?.data?.pagination?.total,
     genTextsCountData?.data?.data?.pagination?.total,
   ];
