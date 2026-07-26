@@ -151,7 +151,7 @@ function ContentTabLabel({ label, count }) {
       <Box
         component="span"
         sx={{
-          fontSize: '0.7rem',
+          fontSize: '11px',
           fontWeight: 600,
           px: 0.75,
           py: 0.125,

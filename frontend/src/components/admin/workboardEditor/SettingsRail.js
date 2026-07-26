@@ -90,7 +90,7 @@ function LlmParamsCard({ control }) {
             label="추가 LLM 파라미터 (JSON)"
             placeholder={'{\n  "temperature": 1.0,\n  "chat_template_kwargs": { "enable_thinking": false }\n}'}
             helperText="OpenAI 계열은 요청 본문 최상위, Gemini 는 generationConfig 에 병합"
-            InputProps={{ sx: { fontFamily: MONO, fontSize: '0.8rem' } }}
+            InputProps={{ sx: { fontFamily: MONO, fontSize: '12.5px' } }}
           />
         )}
       />

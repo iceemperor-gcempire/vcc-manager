@@ -156,7 +156,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   justifyContent: 'flex-end',
                   flexWrap: 'wrap',
                   gap: 0.5,
-                  '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
+                  '& .MuiButton-root': { fontSize: { xs: '12.5px', sm: '14px' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
                 }}
               >
                 <Button

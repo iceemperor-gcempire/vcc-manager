@@ -387,7 +387,7 @@ function PromptGeneratorPanel({
                       maxHeight: compact ? 200 : 500,
                       overflow: 'auto',
                       fontFamily: MONO,
-                      fontSize: compact ? '0.875rem' : '1rem'
+                      fontSize: compact ? '14px' : '15px'
                     }}
                   >
                     {streamingText || generatedResult.result}

@@ -225,6 +225,7 @@ npm run test:e2e:headed
 - **색·간격·폰트는 반드시 theme 토큰 경유** (`frontend/src/theme.js`). **새 hex 리터럴 추가 금지** — 필요한 색이 토큰에 없으면 theme/공용 모듈에 토큰을 추가한 뒤 사용. (예외: `templates/capabilities.js` 의 서버 브랜드 컬러)
 - 공용 모듈 사용 (사본 생성 금지): 모노스페이스 `import { MONO } from '../theme'`, 브랜드 그라데이션 `utils/brandGradients`, 상대시각 `utils/relativeTime`, 확인 다이얼로그 `components/common/ConfirmDialog` (`window.confirm` 금지)
 - spacing 단위는 4px (`theme.spacing(1)` = 4px) — 디자인 mockup 의 px 값은 **px/4 로 환산** (8px 관성 주의)
+- **폰트 규칙의 범위** (#730): 본문 텍스트는 `variant` 또는 타입 스케일 값(24/18/15/14/13.5/12.5/11.5/11)만 쓴다. **아이콘 크기 지정용 `fontSize` 는 예외** — MUI 는 SVG 아이콘 크기를 `fontSize` 로 주므로 타이포와 무관하다. `rem` 문자열은 쓰지 않는다 (v2 는 px 기준)
 - **텍스트는 라이트·다크 양쪽에서 WCAG AA 충족** (본문 4.5:1). 토큰을 바꾸면 **두 모드 모두** 측정할 것 (#727)
 - 틴트(`.light`) 위에 의미색 글씨를 얹을 때는 `toneText(theme, key)` 사용 — 라이트는 `.dark`, 다크는 `.main`
 - **디자인 결정이 기준 문서와 달라지면**, 그 PR 에서 `docs/design-v2/TOKENS.md` (토큰) 또는 `docs/design-v2/FEATURE-INVENTORY.md` (기능 범위) 를 함께 갱신할 것 (코드↔문서 동기화 유지의 핵심)
