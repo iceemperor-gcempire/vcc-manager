@@ -102,7 +102,7 @@ function ProjectCreateDialog({ open, onClose, onOpenImport }) {
       </DialogContent>
       <DialogActions>
         {onOpenImport && (
-          <Button size="small" startIcon={<FileUpload />} onClick={() => { onClose(); onOpenImport(); }} sx={{ mr: 'auto' }}>
+          <Button startIcon={<FileUpload />} onClick={() => { onClose(); onOpenImport(); }} sx={{ mr: 'auto' }}>
             내보내기 파일에서 시작
           </Button>
         )}

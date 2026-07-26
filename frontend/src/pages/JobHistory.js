@@ -438,21 +438,21 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }} onClick={(e) => e.stopPropagation()}>
           {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
             <>
-              <Button size="small" variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
-              <Button size="small" variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
+              <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
+              <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
               <IconButton size="small" onClick={(e) => onMenu(e, item)}><MoreVert fontSize="small" /></IconButton>
             </>
           )}
           {item.type === 'text' && (
             <>
               {item.workboardId && item.status !== 'error' && (
-                <Button size="small" variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>이어가기</Button>
+                <Button variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>이어가기</Button>
               )}
-              <Button size="small" variant="text" onClick={() => onTextDetail(item)}>전문 보기</Button>
+              <Button variant="text" onClick={() => onTextDetail(item)}>전문 보기</Button>
             </>
           )}
           {item.type === 'pipeline' && item.projectId && (
-            <Button size="small" variant="text" onClick={() => onPipelineDetail(item)}>상세 →</Button>
+            <Button variant="text" onClick={() => onPipelineDetail(item)}>상세 →</Button>
           )}
         </Box>
       </Box>
