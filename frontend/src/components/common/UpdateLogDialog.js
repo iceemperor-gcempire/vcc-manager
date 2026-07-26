@@ -24,7 +24,7 @@ function UpdateLogDialog({ open, onClose, majorVersion }) {
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         업데이트 내역
-        <IconButton onClick={onClose} size="small">
+        <IconButton aria-label="닫기" onClick={onClose} size="small">
           <Close />
         </IconButton>
       </DialogTitle>

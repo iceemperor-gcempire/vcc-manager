@@ -58,7 +58,7 @@ function MetadataDetailDialog({ open, onClose, item, nsfwImageFilter = true, bas
             </Typography>
           )}
         </Box>
-        <IconButton onClick={onClose} size="small">
+        <IconButton aria-label="닫기" onClick={onClose} size="small">
           <CloseIcon />
         </IconButton>
       </DialogTitle>

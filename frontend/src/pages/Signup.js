@@ -300,7 +300,7 @@ function Signup() {
                         ),
                         endAdornment: (
                           <InputAdornment position="end">
-                            <IconButton
+                            <IconButton aria-label="비밀번호 표시 전환"
                               onClick={togglePasswordVisibility}
                               edge="end"
                             >
@@ -343,7 +343,7 @@ function Signup() {
                       ),
                       endAdornment: (
                         <InputAdornment position="end">
-                          <IconButton
+                          <IconButton aria-label="비밀번호 표시 전환"
                             onClick={toggleConfirmPasswordVisibility}
                             edge="end"
                           >

@@ -502,7 +502,7 @@ function TextFileUploadDialog({ open, onClose, defaultTags = [], onComplete }) {
                   </Box>
                   {(entry.status === 'reading' || entry.status === 'uploading') && <CircularProgress size={16} />}
                   {!uploading && entry.status !== 'done' && (
-                    <IconButton size="small" onClick={() => removeFile(idx)}>
+                    <IconButton aria-label="삭제" size="small" onClick={() => removeFile(idx)}>
                       <DeleteIcon fontSize="small" />
                     </IconButton>
                   )}

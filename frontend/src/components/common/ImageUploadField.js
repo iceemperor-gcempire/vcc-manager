@@ -50,7 +50,7 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
               <CardMedia component="img" image={img.preview || img.url} sx={{ width: 72, height: 72, objectFit: 'cover' }} />
             </Card>
             {!disabled && (
-              <IconButton
+              <IconButton aria-label="삭제"
                 size="small"
                 onClick={() => removeImage(index)}
                 sx={{

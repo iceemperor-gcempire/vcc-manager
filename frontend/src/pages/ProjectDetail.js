@@ -633,13 +633,12 @@ function WorkboardsTab({ projectId }) {
               </Box>
               <Button
                 variant="contained"
-                color="success"
                 startIcon={<PlayArrow />}
                 onClick={() => navigate(`${wb.outputFormat === 'text' ? '/prompt-generate' : '/generate'}/${wb._id}?projectId=${projectId}`)}
               >
                 실행
               </Button>
-              <IconButton
+              <IconButton aria-label="작업판을 프로젝트에서 제거"
                 size="small"
                 color="error"
                 onClick={async () => {
@@ -997,10 +996,10 @@ function ProjectDetail() {
           >
             작업판 보기
           </Button>
-          <IconButton onClick={() => setEditOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
+          <IconButton aria-label="편집" onClick={() => setEditOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Edit />
           </IconButton>
-          <IconButton color="error" onClick={() => setDeleteOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
+          <IconButton aria-label="프로젝트 삭제" color="error" onClick={() => setDeleteOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Delete />
           </IconButton>
         </Box>

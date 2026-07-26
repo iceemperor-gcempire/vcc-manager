@@ -223,7 +223,7 @@ function UserManagement() {
                           <Box display="flex" gap={1} justifyContent="flex-end">
                             {user.approvalStatus === 'pending' && (
                               <>
-                                <IconButton
+                                <IconButton aria-label="확인"
                                   color="success"
                                   onClick={() => handleApprove(user._id)}
                                   disabled={approveMutation.isPending}
@@ -232,7 +232,7 @@ function UserManagement() {
                                 >
                                   <Check />
                                 </IconButton>
-                                <IconButton
+                                <IconButton aria-label="닫기"
                                   color="error"
                                   onClick={() => handleReject(user._id)}
                                   disabled={rejectMutation.isPending}
@@ -243,7 +243,7 @@ function UserManagement() {
                                 </IconButton>
                               </>
                             )}
-                            <IconButton
+                            <IconButton aria-label="삭제"
                               color="error"
                               onClick={() => handleDeleteClick(user)}
                               disabled={user.isAdmin}

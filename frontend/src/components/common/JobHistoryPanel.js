@@ -663,7 +663,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">작업 상세 정보</Typography>
-          <IconButton onClick={onClose}><Close /></IconButton>
+          <IconButton aria-label="닫기" onClick={onClose}><Close /></IconButton>
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -856,7 +856,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Box>
             <Collapse in={showWorkflow}>
               <Box sx={{ mt: 1, position: 'relative' }}>
-                <IconButton
+                <IconButton aria-label="복사"
                   onClick={handleCopyWorkflow}
                   size="small"
                   sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'background.paper', '&:hover': { bgcolor: 'grey.200' } }}

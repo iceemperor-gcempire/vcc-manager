@@ -266,7 +266,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
               실행
             </Button>
             <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
-            <IconButton color="error" onClick={onDelete} title="삭제">
+            <IconButton aria-label="파이프라인 삭제" color="error" onClick={onDelete}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Box>
@@ -340,7 +340,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
             실행
           </Button>
           <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
-          <IconButton color="error" onClick={onDelete} title="삭제">
+          <IconButton aria-label="파이프라인 삭제" color="error" onClick={onDelete}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </CardActions>
@@ -491,14 +491,14 @@ function StepLaneCard({
           />
         )}
         <Box sx={{ flex: 1 }} />
-        <IconButton
+        <IconButton aria-label="위로 이동"
           onClick={(e) => { e.stopPropagation(); onMovePrev(); }}
           disabled={index === 0}
           title={isMobile ? '위로 이동' : '앞으로 이동'}
         >
           {isMobile ? <ArrowUpward fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
         </IconButton>
-        <IconButton
+        <IconButton aria-label="아래로 이동"
           onClick={(e) => { e.stopPropagation(); onMoveNext(); }}
           disabled={isLast}
           title={isMobile ? '아래로 이동' : '뒤로 이동'}
@@ -635,7 +635,7 @@ function StepLaneCard({
             </Typography>
           </Box>
         )}
-        <IconButton color="error" onClick={onDelete} title="단계 삭제">
+        <IconButton aria-label="단계 삭제" color="error" onClick={onDelete}>
           <DeleteIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -2228,10 +2228,9 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
           <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 500, flexShrink: 0 }}>
             상세 →
           </Typography>
-          <IconButton
+          <IconButton aria-label="실행 기록 삭제"
             color="error"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            title="삭제"
           >
             <DeleteIcon fontSize="small" />
           </IconButton>

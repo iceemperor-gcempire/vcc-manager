@@ -125,7 +125,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           <Box component="img" src={project.coverImage.url} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggleFav(project); }}
+        <IconButton aria-label="즐겨찾기" size="small" onClick={(e) => { e.stopPropagation(); onToggleFav(project); }}
           sx={{ position: 'absolute', top: 6, left: 6, color: isFav ? 'warning.main' : 'rgba(255,255,255,0.85)',
             bgcolor: 'rgba(0,0,0,0.15)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } }}>
           {isFav ? <Star fontSize="small" /> : <StarBorder fontSize="small" />}
@@ -135,7 +135,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           fontWeight: 700, fontSize: 14, display: 'grid', placeItems: 'center', backdropFilter: 'blur(8px)' }}>
           {(project.name || '?')[0]}
         </Box>
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}
+        <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}
           sx={{ position: 'absolute', top: 6, right: 6, color: 'rgba(255,255,255,0.85)',
             bgcolor: 'rgba(0,0,0,0.15)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } }}>
           <MoreVert fontSize="small" />
@@ -185,7 +185,7 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
       </Box>
       <Box sx={{ display: { xs: 'none', sm: 'flex' }, flex: '0 0 auto' }}><StatRow project={project} mono /></Box>
       <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, flex: '0 0 auto' }}>{relativeTime(project.updatedAt)}</Typography>
-      <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}><MoreVert fontSize="small" /></IconButton>
+      <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}><MoreVert fontSize="small" /></IconButton>
     </Box>
   );
 }
