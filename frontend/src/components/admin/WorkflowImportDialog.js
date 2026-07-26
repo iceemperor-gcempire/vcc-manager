@@ -203,7 +203,6 @@ export default function WorkflowImportDialog({ open, onClose }) {
                         {/* informed one-click 설치 (#609 P4) — 출처 확인 모달을 거친다 */}
                         {r.repos[0].installId && installState[r.node] !== 'success' && (
                           <Button
-                            size="small"
                             variant="outlined"
                             disabled={installState[r.node] === 'installing'}
                             startIcon={installState[r.node] === 'installing' ? <CircularProgress size={12} /> : null}
@@ -217,10 +216,10 @@ export default function WorkflowImportDialog({ open, onClose }) {
                     ))}
                     {Object.values(installState).includes('success') && (
                       <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Button size="small" variant="contained" color="warning" disabled={rebootState === 'rebooting'} onClick={() => setRebootState('confirm')}>
+                        <Button variant="contained" color="warning" disabled={rebootState === 'rebooting'} onClick={() => setRebootState('confirm')}>
                           {rebootState === 'rebooting' ? '재시작 요청됨' : 'ComfyUI 재시작'}
                         </Button>
-                        <Button size="small" onClick={handleAnalyze}>다시 분석</Button>
+                        <Button onClick={handleAnalyze}>다시 분석</Button>
                         <Typography variant="caption" color="text.secondary">
                           설치된 노드는 재시작 후 반영됩니다 (재시작 ~1분).
                         </Typography>

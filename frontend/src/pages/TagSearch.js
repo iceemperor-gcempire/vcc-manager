@@ -45,6 +45,7 @@ import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 import { DEFAULT_TAG_COLOR } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import PageHeader from '../components/common/PageHeader';
 
 function SearchTabPanel({ children, value, index }) {
   return (
@@ -236,10 +237,10 @@ function TagSearch() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <LocalOffer color="primary" sx={{ fontSize: 32 }} />
-        <Typography variant="h4">태그</Typography>
-      </Box>
+      <PageHeader
+        title="태그"
+        description="태그로 콘텐츠를 찾고, 내 태그를 만들고 정리합니다."
+      />
 
       <Tabs
         value={mainTab}

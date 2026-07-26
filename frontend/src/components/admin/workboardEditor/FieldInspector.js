@@ -57,7 +57,7 @@ function SelectOptionsEditor({ control, fieldIndex }) {
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
         <Typography variant="overline" color="text.secondary">선택 옵션</Typography>
         <Box sx={{ flex: 1 }} />
-        <Button size="small" startIcon={<Add />} onClick={() => append({ key: '', value: '' })}>
+        <Button startIcon={<Add />} onClick={() => append({ key: '', value: '' })}>
           옵션 추가
         </Button>
       </Box>
@@ -85,14 +85,14 @@ function SelectOptionsEditor({ control, fieldIndex }) {
                         name={`additionalCustomFields.${fieldIndex}.options.${optIndex}.key`}
                         control={control}
                         render={({ field }) => (
-                          <TextField {...field} size="small" label="표시명" sx={{ flex: 1 }} />
+                          <TextField {...field} label="표시명" sx={{ flex: 1 }} />
                         )}
                       />
                       <Controller
                         name={`additionalCustomFields.${fieldIndex}.options.${optIndex}.value`}
                         control={control}
                         render={({ field }) => (
-                          <TextField {...field} size="small" label="실제 값" sx={{ flex: 1, '& input': { fontFamily: MONO, fontSize: 12 } }} />
+                          <TextField {...field} label="실제 값" sx={{ flex: 1, '& input': { fontFamily: MONO, fontSize: 12 } }} />
                         )}
                       />
                       <IconButton size="small" color="error" onClick={() => remove(optIndex)}>
@@ -133,7 +133,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
           name={`additionalCustomFields.${selectedIdx}.name`}
           control={control}
           render={({ field: f }) => (
-            <TextField {...f} fullWidth size="small" label="필드명 (영문)" placeholder="예: customField1"
+            <TextField {...f} fullWidth label="필드명 (영문)" placeholder="예: customField1"
               helperText="워크플로우 변수명으로 사용됩니다"
               sx={{ '& input': { fontFamily: MONO } }} />
           )}
@@ -142,14 +142,14 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
           name={`additionalCustomFields.${selectedIdx}.label`}
           control={control}
           render={({ field: f }) => (
-            <TextField {...f} fullWidth size="small" label="표시명" placeholder="예: 커스텀 옵션" />
+            <TextField {...f} fullWidth label="표시명" placeholder="예: 커스텀 옵션" />
           )}
         />
         <Controller
           name={`additionalCustomFields.${selectedIdx}.type`}
           control={control}
           render={({ field: f }) => (
-            <TextField {...f} fullWidth size="small" select label="입력 타입">
+            <TextField {...f} fullWidth select label="입력 타입">
               {FIELD_TYPES.map((t) => (
                 <MenuItem key={t.type} value={t.type}>{t.label}</MenuItem>
               ))}
@@ -160,7 +160,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
           name={`additionalCustomFields.${selectedIdx}.formatString`}
           control={control}
           render={({ field: f }) => (
-            <TextField {...f} fullWidth size="small" label="Workflow 형식 문자열"
+            <TextField {...f} fullWidth label="Workflow 형식 문자열"
               placeholder={`예: {{##${field.name || 'field_name'}##}}`}
               helperText="비워두면 필드명으로 자동 생성"
               sx={{ '& input': { fontFamily: MONO } }} />
@@ -196,7 +196,6 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
                   {...f}
                   value={f.value || ''}
                   fullWidth
-                  size="small"
                   select
                   label="기본값 (선택)"
                   // displayEmpty 는 값이 ''여도 "선택 없음"을 렌더하므로 label 을 항상 띄운다
@@ -224,7 +223,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
             }
             if (fieldType === 'image') return <Box />;
             return (
-              <TextField {...f} value={f.value ?? ''} fullWidth size="small"
+              <TextField {...f} value={f.value ?? ''} fullWidth
                 label="기본값" type={fieldType === 'number' ? 'number' : 'text'} />
             );
           }}
@@ -235,7 +234,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
             name={`additionalCustomFields.${selectedIdx}.placeholder`}
             control={control}
             render={({ field: f }) => (
-              <TextField {...f} value={f.value ?? ''} fullWidth size="small" label="플레이스홀더" />
+              <TextField {...f} value={f.value ?? ''} fullWidth label="플레이스홀더" />
             )}
           />
         )}
@@ -243,7 +242,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
           name={`additionalCustomFields.${selectedIdx}.description`}
           control={control}
           render={({ field: f }) => (
-            <TextField {...f} value={f.value ?? ''} fullWidth size="small" label="설명" helperText="입력 아래 도움말로 표시" />
+            <TextField {...f} value={f.value ?? ''} fullWidth label="설명" helperText="입력 아래 도움말로 표시" />
           )}
         />
 
@@ -258,7 +257,7 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
             name={`additionalCustomFields.${selectedIdx}.imageConfig.maxImages`}
             control={control}
             render={({ field: f }) => (
-              <TextField {...f} value={f.value || 1} fullWidth size="small" select label="최대 이미지 수">
+              <TextField {...f} value={f.value || 1} fullWidth select label="최대 이미지 수">
                 {[1, 2, 3].map((n) => <MenuItem key={n} value={n}>{n}개</MenuItem>)}
               </TextField>
             )}
