@@ -542,7 +542,7 @@ function MyImages() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <PageHeader
-        title="내 컨텐츠"
+        title="내 콘텐츠"
         description="프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환."
         actions={!bulkMode && !isTextTab && (
           <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>

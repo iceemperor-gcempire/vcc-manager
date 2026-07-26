@@ -39,6 +39,7 @@ import { downloadBlob, downloadFromUrl } from '../../utils/download';
 import Pagination from './Pagination';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
+import { relativeTime } from '../../utils/relativeTime';
 
 function ImageDetailDialog({ image, open, onClose, type }) {
   if (!image) return null;
@@ -152,7 +153,7 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(image.size)}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">
-          {new Date(image.createdAt).toLocaleDateString()}
+          {relativeTime(image.createdAt)}
         </Typography>
 
         {showTags && image.tags?.length > 0 && (
@@ -261,7 +262,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(video.size)}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">
-          {new Date(video.createdAt).toLocaleDateString()}
+          {relativeTime(video.createdAt)}
         </Typography>
 
         {showTags && video.tags?.length > 0 && (

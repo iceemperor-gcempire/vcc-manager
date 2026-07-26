@@ -884,6 +884,7 @@ function ImageGeneration() {
                     multiline
                     rows={4}
                     label="프롬프트"
+                    required // 고급 설정의 '베이스 모델*' 등과 필수 표시를 맞춤 (#730)
                     placeholder="생성하고 싶은 이미지에 대한 설명을 입력하세요..."
                     error={!!errors.prompt}
                     helperText={errors.prompt?.message || '명사 위주, 콤마로 구분. 가중치는 (word:1.2) 문법.'}

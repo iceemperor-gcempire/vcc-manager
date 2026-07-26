@@ -101,7 +101,7 @@ export default function CommandPalette({ open, onClose }) {
       {
         group: '명령',
         icon: <ImageIcon fontSize="small" />,
-        name: '내 컨텐츠',
+        name: '내 콘텐츠',
         action: () => navigate('/content'),
       },
       {

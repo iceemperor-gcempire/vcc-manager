@@ -3,6 +3,7 @@ import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
 import { MONO } from '../../theme';
 import { ToneChip } from './ToneChip';
+import { relativeTime } from '../../utils/relativeTime';
 import {
   Search,
   Close,
@@ -222,10 +223,11 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
       </Box>
 
-      {/* description */}
+      {/* description — 없으면 자리만 비운다. 카드 높이 정렬을 위해 minHeight 는 유지하되
+          "설명이 없습니다." 를 반복 노출하지 않는다 (#730) */}
       <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.5, textWrap: 'pretty', minHeight: 32,
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {wb.description || '설명이 없습니다.'}
+        {wb.description}
       </Typography>
 
       {/* admin: allowed groups */}
@@ -257,7 +259,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       {admin ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography sx={{ fontSize: 11, color: 'text.tertiary' }} noWrap>
-            {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
+            {relativeTime(wb.updatedAt)}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
           </Typography>
           <Box sx={{ flex: 1 }} />
           <Button variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
@@ -273,7 +275,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
           <Box sx={{ flex: 1 }} />
           <AccessTime sx={{ fontSize: 12, color: 'text.tertiary' }} />
           <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO }}>
-            {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}
+            {relativeTime(wb.updatedAt)}
           </Typography>
         </Box>
       )}

@@ -128,7 +128,7 @@ export const conversationAPI = {
   getAll: (params) => api.get('/conversations/all', { params }),
 };
 
-// 텍스트 컨텐츠 — UploadedText (직접 작성) / GeneratedText (대화에서 저장) (#387)
+// 텍스트 콘텐츠 — UploadedText (직접 작성) / GeneratedText (대화에서 저장) (#387)
 export const textAPI = {
   // 직접 작성
   getUploaded: (params) => api.get('/texts/uploaded', { params }),

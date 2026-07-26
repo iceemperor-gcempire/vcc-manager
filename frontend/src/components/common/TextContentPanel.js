@@ -35,6 +35,7 @@ import { textAPI } from '../../services/api';
 import Pagination from './Pagination';
 import TagInput from './TagInput';
 import { useConfirm } from './ConfirmDialog';
+import { relativeTime } from '../../utils/relativeTime';
 
 const MAX_CONTENT_LENGTH = 1_000_000;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -46,7 +47,7 @@ function stripExtension(filename) {
   return idx > 0 ? filename.slice(0, idx) : filename;
 }
 
-// 텍스트 컨텐츠 패널 (#387).
+// 텍스트 콘텐츠 패널 (#387).
 // kind: 'uploaded' (직접 작성, 편집/생성 가능) | 'generated' (대화에서 저장, 태그/삭제만 가능).
 // defaultTags: 새 항목 생성 시 기본 태그 (프로젝트 맥락에서 프로젝트 태그 자동 추가용).
 function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = [], title }) {
@@ -183,7 +184,7 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                   )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(item.createdAt).toLocaleString('ko-KR')}
+                    {relativeTime(item.createdAt)}
                   </Typography>
                 </Stack>
                 <Typography

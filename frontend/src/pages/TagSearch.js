@@ -44,6 +44,7 @@ import toast from 'react-hot-toast';
 import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 import { DEFAULT_TAG_COLOR } from '../theme';
+import { relativeTime } from '../utils/relativeTime';
 
 function SearchTabPanel({ children, value, index }) {
   return (
@@ -487,7 +488,7 @@ function TagSearch() {
                           </TableCell>
                           <TableCell align="center">{tag.usageCount}</TableCell>
                           <TableCell align="center">
-                            {new Date(tag.createdAt).toLocaleDateString()}
+                            {relativeTime(tag.createdAt)}
                           </TableCell>
                           <TableCell align="center">
                             {tag.isProjectTag ? (
