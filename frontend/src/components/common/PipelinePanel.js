@@ -52,6 +52,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI, promptDataAPI } from '../../services/api';
 import { MONO } from '../../theme';
+import { useConfirm } from './ConfirmDialog';
 
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
@@ -104,6 +105,7 @@ function StepImageThumbnails({ runStep }) {
 // 프로젝트 종속 작업판 파이프라인 (#397).
 // 단계: 목록 → 빌더 → 실행. 모두 한 패널에서.
 function PipelinePanel({ projectId }) {
+  const confirm = useConfirm();
   const [view, setView] = useState('list'); // list | builder | runner
   const [editingPipelineId, setEditingPipelineId] = useState(null);
   const [runningPipelineId, setRunningPipelineId] = useState(null);
@@ -182,8 +184,12 @@ function PipelinePanel({ projectId }) {
               pipeline={p}
               onRun={() => { setRunningPipelineId(p._id); setView('runner'); }}
               onEdit={() => { setEditingPipelineId(p._id); setView('builder'); }}
-              onDelete={() => {
-                if (window.confirm(`"${p.name}" 파이프라인을 삭제하시겠습니까?`)) {
+              onDelete={async () => {
+                if (await confirm({
+                  title: `"${p.name}" 파이프라인을 삭제하시겠습니까?`,
+                  description: '단계 구성이 사라집니다. 실행 기록은 남습니다.',
+                  danger: true, confirmLabel: '삭제',
+                })) {
                   deleteMutation.mutate(p._id);
                 }
               }}
@@ -253,7 +259,6 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
           <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
             <Button
               variant="contained"
-              color="success"
               startIcon={<PlayArrowIcon />}
               onClick={onRun}
               disabled={steps.length === 0}
@@ -261,7 +266,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
               실행
             </Button>
             <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
-            <IconButton color="error" onClick={onDelete} title="삭제">
+            <IconButton aria-label="파이프라인 삭제" color="error" onClick={onDelete}>
               <DeleteIcon fontSize="small" />
             </IconButton>
           </Box>
@@ -327,7 +332,6 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
       {isMobile && (
         <CardActions sx={{ pt: 0, justifyContent: 'flex-end', borderTop: 1, borderColor: 'divider' }}>
           <Button
-            color="success"
             variant="contained"
             startIcon={<PlayArrowIcon />}
             onClick={onRun}
@@ -336,7 +340,7 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
             실행
           </Button>
           <Button startIcon={<EditIcon />} onClick={onEdit}>편집</Button>
-          <IconButton color="error" onClick={onDelete} title="삭제">
+          <IconButton aria-label="파이프라인 삭제" color="error" onClick={onDelete}>
             <DeleteIcon fontSize="small" />
           </IconButton>
         </CardActions>
@@ -487,14 +491,14 @@ function StepLaneCard({
           />
         )}
         <Box sx={{ flex: 1 }} />
-        <IconButton
+        <IconButton aria-label="위로 이동"
           onClick={(e) => { e.stopPropagation(); onMovePrev(); }}
           disabled={index === 0}
           title={isMobile ? '위로 이동' : '앞으로 이동'}
         >
           {isMobile ? <ArrowUpward fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
         </IconButton>
-        <IconButton
+        <IconButton aria-label="아래로 이동"
           onClick={(e) => { e.stopPropagation(); onMoveNext(); }}
           disabled={isLast}
           title={isMobile ? '아래로 이동' : '뒤로 이동'}
@@ -631,7 +635,7 @@ function StepLaneCard({
             </Typography>
           </Box>
         )}
-        <IconButton color="error" onClick={onDelete} title="단계 삭제">
+        <IconButton aria-label="단계 삭제" color="error" onClick={onDelete}>
           <DeleteIcon fontSize="small" />
         </IconButton>
       </Box>
@@ -652,7 +656,7 @@ function LaneConnector({ isMobile, prevOutput, autoInject }) {
         gap: 0.5,
         py: isMobile ? 1.5 : 0,
         minHeight: isMobile ? 0 : 120,
-        color: autoInject ? 'success.main' : 'text.disabled',
+        color: autoInject ? 'success.main' : 'text.tertiary',
       }}
     >
       <ConnectorIcon fontSize="small" />
@@ -1729,7 +1733,6 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           {!runId && (
             <Button
               variant="contained"
-              color="success"
               startIcon={startMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
               onClick={handleStart}
               disabled={startMutation.isPending || !initialPrompt.trim()}
@@ -1898,7 +1901,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                   const dotColor = r.status === 'completed' ? 'success.main'
                     : r.status === 'failed' ? 'error.main'
                     : r.status === 'running' || r.status === 'pending' ? 'info.main'
-                    : 'text.disabled';
+                    : 'text.tertiary';
                   const isCurrent = String(r._id) === String(runId);
                   return (
                     <Box
@@ -1974,6 +1977,7 @@ function formatRunTime(iso) {
 
 // 파이프라인 히스토리 패널 (#407). 프로젝트 상세 탭에서 사용.
 export function PipelineHistoryPanel({ projectId }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [selectedRunId, setSelectedRunId] = useState(null);
 
@@ -2113,8 +2117,12 @@ export function PipelineHistoryPanel({ projectId }) {
               key={r._id}
               run={r}
               onSelect={() => setSelectedRunId(r._id)}
-              onDelete={() => {
-                if (window.confirm('이 실행 기록을 삭제하시겠어요?')) deleteMutation.mutate(r._id);
+              onDelete={async () => {
+                if (await confirm({
+                  title: '이 실행 기록을 삭제하시겠습니까?',
+                  description: '실행 중 생성된 콘텐츠는 보존됩니다.',
+                  confirmLabel: '삭제',
+                })) deleteMutation.mutate(r._id);
               }}
             />
           ))}
@@ -2220,10 +2228,9 @@ function PipelineRunCard({ run, onSelect, onDelete }) {
           <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 500, flexShrink: 0 }}>
             상세 →
           </Typography>
-          <IconButton
+          <IconButton aria-label="실행 기록 삭제"
             color="error"
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            title="삭제"
           >
             <DeleteIcon fontSize="small" />
           </IconButton>

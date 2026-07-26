@@ -60,7 +60,7 @@ function TagPill({ tag }) {
 function StatRow({ project, mono }) {
   const c = project.counts || {};
   return (
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontSize: 11, color: 'text.disabled', fontFamily: mono ? MONO : undefined }}>
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, fontSize: 11, color: 'text.tertiary', fontFamily: mono ? MONO : undefined }}>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><ImageIcon sx={{ fontSize: 13 }} /> {c.images || 0}</Box>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><TextSnippet sx={{ fontSize: 13 }} /> {c.promptData || 0}</Box>
       <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}><History sx={{ fontSize: 13 }} /> {c.jobs || 0}</Box>
@@ -102,7 +102,7 @@ function ProjectCreateDialog({ open, onClose, onOpenImport }) {
       </DialogContent>
       <DialogActions>
         {onOpenImport && (
-          <Button size="small" startIcon={<FileUpload />} onClick={() => { onClose(); onOpenImport(); }} sx={{ mr: 'auto' }}>
+          <Button startIcon={<FileUpload />} onClick={() => { onClose(); onOpenImport(); }} sx={{ mr: 'auto' }}>
             내보내기 파일에서 시작
           </Button>
         )}
@@ -125,7 +125,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           <Box component="img" src={project.coverImage.url} alt="" loading="lazy"
             sx={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
         )}
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); onToggleFav(project); }}
+        <IconButton aria-label="즐겨찾기" size="small" onClick={(e) => { e.stopPropagation(); onToggleFav(project); }}
           sx={{ position: 'absolute', top: 6, left: 6, color: isFav ? 'warning.main' : 'rgba(255,255,255,0.85)',
             bgcolor: 'rgba(0,0,0,0.15)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } }}>
           {isFav ? <Star fontSize="small" /> : <StarBorder fontSize="small" />}
@@ -135,7 +135,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           fontWeight: 700, fontSize: 14, display: 'grid', placeItems: 'center', backdropFilter: 'blur(8px)' }}>
           {(project.name || '?')[0]}
         </Box>
-        <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}
+        <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}
           sx={{ position: 'absolute', top: 6, right: 6, color: 'rgba(255,255,255,0.85)',
             bgcolor: 'rgba(0,0,0,0.15)', '&:hover': { bgcolor: 'rgba(0,0,0,0.3)' } }}>
           <MoreVert fontSize="small" />
@@ -147,14 +147,15 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
           <TagPill tag={project.tagId} />
         </Box>
+        {/* 설명 없으면 자리만 비움 — 카드 높이 정렬용 minHeight 는 유지 (#730) */}
         <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5, textWrap: 'pretty', minHeight: 36,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {project.description || '설명이 없습니다.'}
+          {project.description}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
           <StatRow project={project} mono />
           <Box sx={{ flex: 1 }} />
-          <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: MONO }}>{relativeTime(project.updatedAt)}</Typography>
+          <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO }}>{relativeTime(project.updatedAt)}</Typography>
         </Box>
       </Box>
     </Paper>
@@ -178,11 +179,13 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
           <TagPill tag={project.tagId} />
           {isFav && <Star sx={{ fontSize: 13, color: 'warning.main' }} />}
         </Box>
-        <Typography sx={{ fontSize: 12, color: 'text.disabled', mt: 0.25 }} noWrap>{project.description || '설명이 없습니다.'}</Typography>
+        {project.description && (
+          <Typography sx={{ fontSize: 12, color: 'text.tertiary', mt: 0.25 }} noWrap>{project.description}</Typography>
+        )}
       </Box>
       <Box sx={{ display: { xs: 'none', sm: 'flex' }, flex: '0 0 auto' }}><StatRow project={project} mono /></Box>
-      <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: MONO, flex: '0 0 auto' }}>{relativeTime(project.updatedAt)}</Typography>
-      <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}><MoreVert fontSize="small" /></IconButton>
+      <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, flex: '0 0 auto' }}>{relativeTime(project.updatedAt)}</Typography>
+      <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu(e, project); }}><MoreVert fontSize="small" /></IconButton>
     </Box>
   );
 }
@@ -192,7 +195,7 @@ function ViewToggle({ view, setView }) {
     <Box component="button" onClick={() => setView(v)} sx={{
       display: 'inline-flex', alignItems: 'center', gap: 0.5, px: '10px', height: 26, borderRadius: 1, border: 0, cursor: 'pointer',
       fontSize: 12, fontWeight: 500, bgcolor: view === v ? 'background.paper' : 'transparent',
-      color: view === v ? 'text.primary' : 'text.disabled', boxShadow: view === v ? 1 : 'none' }}>
+      color: view === v ? 'text.primary' : 'text.secondary', boxShadow: view === v ? 1 : 'none' }}>
       {icon} {label}
     </Box>
   );
@@ -271,19 +274,20 @@ function ProjectList() {
       {/* 검색 / 필터 */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4.5, alignItems: 'center', flexWrap: 'wrap' }}>
         <Paper variant="outlined" sx={{ display: 'flex', alignItems: 'center', px: 1, height: 34, minWidth: { sm: 300 }, flex: { xs: 1, sm: '0 1 auto' } }}>
-          <Search fontSize="small" sx={{ color: 'text.disabled', mr: 0.5 }} />
+          <Search fontSize="small" sx={{ color: 'text.tertiary', mr: 0.5 }} />
           <InputBase value={search} onChange={(e) => setSearch(e.target.value)} placeholder="프로젝트 이름 · 태그 · 설명 검색" sx={{ flex: 1, fontSize: 13 }} />
         </Paper>
         <Box sx={{ display: 'flex', gap: '4px', p: '3px', bgcolor: 'grey.100', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
           {[{ v: 'all', l: '전체' }, { v: 'fav', l: '즐겨찾기' }].map((f) => (
             <Box key={f.v} component="button" onClick={() => setFilter(f.v)} sx={{
               px: '10px', height: 26, borderRadius: 1, border: 0, cursor: 'pointer', fontSize: 12, fontWeight: 500,
-              bgcolor: filter === f.v ? 'background.paper' : 'transparent', color: filter === f.v ? 'text.primary' : 'text.disabled',
+              // 미선택도 클릭 가능한 옵션이라 읽혀야 함 — grey.100 위에서 tertiary 는 4.2:1 로 미달 (#727)
+              bgcolor: filter === f.v ? 'background.paper' : 'transparent', color: filter === f.v ? 'text.primary' : 'text.secondary',
               boxShadow: filter === f.v ? 1 : 'none' }}>{f.l}</Box>
           ))}
         </Box>
         <Box sx={{ flex: 1 }} />
-        <Typography sx={{ fontSize: 12, color: 'text.disabled', fontFamily: MONO }}>{visible.length}개</Typography>
+        <Typography sx={{ fontSize: 12, color: 'text.tertiary', fontFamily: MONO }}>{visible.length}개</Typography>
       </Box>
 
       {projects.length === 0 ? (
@@ -308,7 +312,7 @@ function ProjectList() {
           ))}
           {/* 새 프로젝트 만들기 affordance */}
           <Box onClick={() => setCreateOpen(true)} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            gap: 1, p: 3, minHeight: 200, border: '1px dashed', borderColor: 'divider', borderRadius: 2, color: 'text.disabled', cursor: 'pointer',
+            gap: 1, p: 3, minHeight: 200, border: '1px dashed', borderColor: 'divider', borderRadius: 2, color: 'text.tertiary', cursor: 'pointer',
             transition: 'all 120ms', '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: 'action.hover' } }}>
             <Add />
             <Typography sx={{ fontSize: 13, fontWeight: 500 }}>새 프로젝트 만들기</Typography>

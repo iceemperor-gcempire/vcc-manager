@@ -90,6 +90,7 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
               />
             </Card>
             <IconButton
+              aria-label="첨부 이미지 제거"
               size="small"
               onClick={() => removeImage(index)}
               sx={{
@@ -359,7 +360,7 @@ function PromptGeneratorPanel({
                   생성된 프롬프트
                 </Typography>
                 {generatedResult?.result && (
-                  <IconButton onClick={handleCopyResult} title="복사" size="small">
+                  <IconButton aria-label="복사" onClick={handleCopyResult} title="복사" size="small">
                     <ContentCopy />
                   </IconButton>
                 )}
@@ -386,7 +387,7 @@ function PromptGeneratorPanel({
                       maxHeight: compact ? 200 : 500,
                       overflow: 'auto',
                       fontFamily: MONO,
-                      fontSize: compact ? '0.875rem' : '1rem'
+                      fontSize: compact ? '14px' : '15px'
                     }}
                   >
                     {streamingText || generatedResult.result}

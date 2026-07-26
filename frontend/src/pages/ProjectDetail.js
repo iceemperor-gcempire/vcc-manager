@@ -60,6 +60,7 @@ import ProjectEditDialog from '../components/common/ProjectEditDialog';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import { downloadBlob } from '../utils/download';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -139,6 +140,7 @@ function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
 
 // 이미지 탭 - MediaGrid 사용
 function ImagesTab({ projectId }) {
+  const confirm = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
   const [editImage, setEditImage] = useState(null);
   const [editIsVideo, setEditIsVideo] = useState(false);
@@ -202,30 +204,20 @@ function ImagesTab({ projectId }) {
     setEditOpen(true);
   };
 
-  const handleDeleteImage = (item) => {
-    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
-    if (deleteHistorySetting && item.jobId) {
-      if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
-      }
-    } else {
-      if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
-      }
-    }
+  const handleDeleteImage = async (item) => {
+    const withHistory = !!userPreferences.deleteHistoryWithContent && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: '이미지와 작업 히스토리를 함께 삭제하시겠습니까?', description: '이미지를 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
+      : { title: '이미지를 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (ok) deleteGeneratedMutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
-  const handleDeleteVideo = (item) => {
-    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
-    if (deleteHistorySetting && item.jobId) {
-      if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-        deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
-      }
-    } else {
-      if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-        deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
-      }
-    }
+  const handleDeleteVideo = async (item) => {
+    const withHistory = !!userPreferences.deleteHistoryWithContent && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: '동영상과 작업 히스토리를 함께 삭제하시겠습니까?', description: '동영상을 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
+      : { title: '동영상을 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (ok) deleteVideoMutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
   const handleImageBulkToggle = useCallback((id) => {
@@ -580,6 +572,7 @@ function WorldviewTab({ projectTag }) {
 
 // 작업판 멤버십 탭 (#396).
 function WorkboardsTab({ projectId }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -633,24 +626,27 @@ function WorkboardsTab({ projectId }) {
                   <Typography variant="caption" color="text.secondary" noWrap display="block">{wb.description}</Typography>
                 )}
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
+                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
+                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
                 </Stack>
               </Box>
               <Button
                 variant="contained"
-                color="success"
                 startIcon={<PlayArrow />}
                 onClick={() => navigate(`${wb.outputFormat === 'text' ? '/prompt-generate' : '/generate'}/${wb._id}?projectId=${projectId}`)}
               >
                 실행
               </Button>
-              <IconButton
+              <IconButton aria-label="작업판을 프로젝트에서 제거"
                 size="small"
                 color="error"
-                onClick={() => {
-                  if (window.confirm('작업판을 프로젝트에서 제거하시겠습니까? (작업판 자체는 삭제되지 않습니다)')) {
+                onClick={async () => {
+                  if (await confirm({
+                    title: '작업판을 프로젝트에서 제거하시겠습니까?',
+                    description: '연결만 끊습니다. 작업판 자체는 삭제되지 않습니다.',
+                    confirmLabel: '제거',
+                  })) {
                     removeMutation.mutate(wb._id);
                   }
                 }}
@@ -716,7 +712,7 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
                 <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                   <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
                   </Stack>
                 </Box>
               </Box>
@@ -793,7 +789,7 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
             variant="h4"
             component="h1"
             sx={{
-              fontSize: { xs: '1.25rem', md: '1.5rem' },
+              fontSize: { xs: '18px', md: '24px' },
               fontWeight: 700,
               letterSpacing: '-0.01em',
               wordBreak: 'break-word',
@@ -857,7 +853,7 @@ function TabLabel({ label, count }) {
       <Box
         component="span"
         sx={{
-          fontSize: '0.7rem',
+          fontSize: '11px',
           fontWeight: 600,
           px: 0.75,
           py: 0.125,
@@ -1000,10 +996,10 @@ function ProjectDetail() {
           >
             작업판 보기
           </Button>
-          <IconButton onClick={() => setEditOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
+          <IconButton aria-label="편집" onClick={() => setEditOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Edit />
           </IconButton>
-          <IconButton color="error" onClick={() => setDeleteOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
+          <IconButton aria-label="프로젝트 삭제" color="error" onClick={() => setDeleteOpen(true)} sx={{ border: 1, borderColor: 'divider' }}>
             <Delete />
           </IconButton>
         </Box>
@@ -1029,7 +1025,7 @@ function ProjectDetail() {
               minHeight: { xs: 40, md: 48 },
               py: { xs: 0.5, md: 1 },
               px: { xs: 1.5, md: 2 },
-              fontSize: { xs: '0.8125rem', md: '0.875rem' },
+              fontSize: { xs: '13.5px', md: '14px' },
               minWidth: 'auto',
             },
             '& .MuiTab-iconWrapper': { mr: 0.5 },

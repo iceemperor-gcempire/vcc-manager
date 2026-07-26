@@ -331,7 +331,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
                         이 응답을 프롬프트로 사용
                       </Button>
                     )}
-                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                    <Tooltip title="이 응답을 텍스트 콘텐츠로 저장">
                       <IconButton
                         size="small"
                         onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}

@@ -602,7 +602,7 @@ function BackupRestorePage() {
                   <Alert severity="info">서버에 백업 파일이 없습니다. <code>./scripts/upload-backup-file.sh &lt;파일.zip&gt;</code> 로 올린 뒤 새로고침하세요.</Alert>
                 ) : (
                   <TextField
-                    select fullWidth size="small" label="서버 백업 파일"
+                    select fullWidth label="서버 백업 파일"
                     value={selectedServerFile}
                     onChange={(e) => { setSelectedServerFile(e.target.value); setValidationResult(null); }}
                     SelectProps={{ native: true }} InputLabelProps={{ shrink: true }}
@@ -616,9 +616,9 @@ function BackupRestorePage() {
                   </TextField>
                 )}
                 <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
-                  <Button size="small" onClick={() => refetchServerFiles()}>목록 새로고침</Button>
+                  <Button onClick={() => refetchServerFiles()}>목록 새로고침</Button>
                   <Button
-                    size="small" variant="outlined"
+ variant="outlined"
                     disabled={!selectedServerFile || validateServerMutation.isPending}
                     onClick={() => { setValidationResult(null); validateServerMutation.mutate(selectedServerFile); }}
                   >

@@ -50,6 +50,7 @@ import { usePersistedState } from '../hooks/usePersistedState';
 import { MONO } from '../theme';
 import PageHeader from '../components/common/PageHeader';
 import EmptyState from '../components/common/EmptyState';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 
 // ── 사용자: 작업판 선택(실행) ────────────────────────────────
@@ -93,7 +94,7 @@ function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>작업판 ID: {workboard._id}</Typography>
-          <IconButton size="small" onClick={copyId}><ContentCopy fontSize="inherit" /></IconButton>
+          <IconButton aria-label="복사" size="small" onClick={copyId}><ContentCopy fontSize="inherit" /></IconButton>
         </Box>
         <Typography variant="caption" color="text.secondary" display="block">서버: {workboard.serverId?.name || '미설정'}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">생성자: {workboard.createdBy?.nickname || '알 수 없음'}</Typography>
@@ -113,6 +114,7 @@ function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
 // ── 공통 페이지: admin 권한에 따라 관리 UI 표시/미표시 ───────────
 // 사용자 "작업판"(admin=false)과 관리자 "작업판 관리"(admin=true)가 같은 레이아웃을 공유.
 function WorkboardCatalogPage({ admin = false }) {
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams] = useSearchParams();
@@ -167,12 +169,20 @@ function WorkboardCatalogPage({ admin = false }) {
   const handleSelect = (wb) => { setDetailWb(null); selectWorkboard(wb, projectId, navigate); };
   const handleEdit = (wb) => navigate(`/admin/workboards/${wb._id}/edit`);
   const handleCreate = () => navigate('/admin/workboards/new');
-  const handleDelete = (wb) => {
-    if (window.confirm(`"${wb.name}" 작업판을 완전히 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) deleteMutation.mutate(wb._id);
+  const handleDelete = async (wb) => {
+    if (await confirm({
+      title: `"${wb.name}" 작업판을 완전히 삭제하시겠습니까?`,
+      description: '작업판 정의와 입력 양식이 사라집니다. 이미 생성된 결과물은 보존됩니다.',
+      danger: true, confirmLabel: '완전 삭제',
+    })) deleteMutation.mutate(wb._id);
   };
-  const handleToggle = (wb) => {
+  const handleToggle = async (wb) => {
     const action = wb.isActive ? '비활성화' : '활성화';
-    if (window.confirm(`"${wb.name}" 작업판을 ${action}하시겠습니까?`)) toggleMutation.mutate({ id: wb._id, isActive: wb.isActive });
+    if (await confirm({
+      title: `"${wb.name}" 작업판을 ${action}하시겠습니까?`,
+      description: wb.isActive ? '비활성화하면 일반 사용자에게 보이지 않습니다.' : '활성화하면 허용된 그룹의 사용자에게 노출됩니다.',
+      confirmLabel: action,
+    })) toggleMutation.mutate({ id: wb._id, isActive: wb.isActive });
   };
   const handleDuplicate = (wb) => {
     const name = prompt('복제할 작업판의 이름을 입력하세요:', `${wb.name} (복제)`);

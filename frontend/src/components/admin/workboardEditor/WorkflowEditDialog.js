@@ -106,7 +106,7 @@ function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, a
         <Box sx={{ flex: 1 }} />
         <Button onClick={validateJson}>유효성 검사</Button>
         <Button variant="contained" onClick={onClose}>완료</Button>
-        <IconButton onClick={onClose}><Close /></IconButton>
+        <IconButton aria-label="닫기" onClick={onClose}><Close /></IconButton>
       </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 380px' }, gap: 4, p: 4, height: '100%', overflow: 'hidden', bgcolor: 'background.default' }}>
@@ -127,7 +127,7 @@ function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, a
                 onFocus={(e) => { e.target.dataset.touched = 'true'; }}
                 sx={{
                   flex: 1,
-                  '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start', fontFamily: MONO, fontSize: '0.82rem' },
+                  '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start', fontFamily: MONO, fontSize: '13.5px' },
                   '& textarea': { height: '100% !important', overflow: 'auto !important' },
                 }}
               />

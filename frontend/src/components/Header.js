@@ -34,7 +34,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useColorScheme } from '../contexts/ColorSchemeContext';
 import { serverAPI } from '../services/api';
-import { MONO } from '../theme';
+import { MONO, toneText } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import NotificationsPopover from './common/NotificationsPopover';
 
@@ -78,8 +78,9 @@ function ServerStatusPill({ isAdmin }) {
       }}
       title={isAdmin ? '서버 관리로 이동' : undefined}
     >
-      <DnsIcon sx={{ fontSize: 13, color: allOk ? 'success.main' : 'warning.main' }} />
-      <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: allOk ? 'success.main' : 'warning.main' }}>
+      {/* 틴트 위 의미색 글씨 — .main 은 라이트에서 3.4~3.6:1 로 AA 미달이라 toneText 로 모드별 분기 (#727) */}
+      <DnsIcon sx={(theme) => ({ fontSize: 13, color: toneText(theme, allOk ? 'success' : 'warning') })} />
+      <Typography sx={(theme) => ({ fontSize: 11.5, fontWeight: 700, color: toneText(theme, allOk ? 'success' : 'warning') })}>
         서버 {healthy}/{servers.length} {allOk ? '정상' : '점검 필요'}
       </Typography>
     </ButtonBase>
@@ -171,7 +172,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
 
               {/* 모바일에선 검색 아이콘으로 대체 */}
               {onOpenPalette && isMobile && (
-                <IconButton color="inherit" onClick={onOpenPalette} title="검색 (⌘K)">
+                <IconButton aria-label="검색" color="inherit" onClick={onOpenPalette} title="검색 (⌘K)">
                   <SearchIcon />
                 </IconButton>
               )}

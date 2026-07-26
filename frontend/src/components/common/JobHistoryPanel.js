@@ -59,6 +59,8 @@ import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
+import { useJobActions } from '../../hooks/useJobActions';
+import { relativeTime } from '../../utils/relativeTime';
 
 export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -417,9 +419,9 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                   sx={{
                     width: { xs: 40, sm: 56, md: 64 },
                     height: { xs: 40, sm: 56, md: 64 },
-                    bgcolor: 'grey.200', color: 'grey.600',
+                    bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
-                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    fontSize: { xs: '11px', sm: '12.5px' },
                     flexShrink: 0,
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
@@ -470,9 +472,9 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                   sx={{
                     width: { xs: 40, sm: 56, md: 64 },
                     height: { xs: 40, sm: 56, md: 64 },
-                    bgcolor: 'grey.200', color: 'grey.600',
+                    bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
-                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    fontSize: { xs: '11px', sm: '12.5px' },
                     flexShrink: 0,
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
@@ -516,19 +518,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           >
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">생성 시간</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {new Date(job.createdAt).toLocaleDateString()}
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {relativeTime(job.createdAt)}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">소요 시간</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatDuration(job.actualTime)}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">AI 모델</Typography>
-              <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                   ? (job.inputData.aiModel.key === 'UserSelected'
                     ? job.inputData.aiModel.value?.split(/[/\\]/).pop() || 'UserSelected'
@@ -538,7 +540,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">크기</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                   ? job.inputData.imageSize.key
                   : job.inputData?.imageSize || '-'}
@@ -546,7 +548,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">시드</Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {job.inputData?.seed !== undefined
                   ? (job.inputData.seed.toString().length > 8
                     ? `${job.inputData.seed.toString().slice(0, 8)}...`
@@ -560,7 +562,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             <Box
               sx={{
                 display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 0.5, flexShrink: 0,
-                '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: { xs: 'auto', sm: 'auto' } }
+                '& .MuiButton-root': { fontSize: { xs: '12.5px', sm: '14px' }, px: { xs: 1, sm: 1.5 }, minWidth: { xs: 'auto', sm: 'auto' } }
               }}
             >
               <Button onClick={() => onView(job)} startIcon={<Info />}
@@ -661,7 +663,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
       <DialogTitle>
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">작업 상세 정보</Typography>
-          <IconButton onClick={onClose}><Close /></IconButton>
+          <IconButton aria-label="닫기" onClick={onClose}><Close /></IconButton>
         </Box>
       </DialogTitle>
       <DialogContent>
@@ -854,7 +856,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
             </Box>
             <Collapse in={showWorkflow}>
               <Box sx={{ mt: 1, position: 'relative' }}>
-                <IconButton
+                <IconButton aria-label="복사"
                   onClick={handleCopyWorkflow}
                   size="small"
                   sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, bgcolor: 'background.paper', '&:hover': { bgcolor: 'grey.200' } }}
@@ -870,7 +872,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
                     borderRadius: 1,
                     overflow: 'auto',
                     maxHeight: 400,
-                    fontSize: '0.75rem',
+                    fontSize: '12.5px',
                     fontFamily: 'monospace',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',
@@ -934,31 +936,10 @@ function JobHistoryPanel({
   const extractor = responseExtractor || defaultExtractor;
   const { jobs, pagination } = extractor(data);
 
-  // 사용자 설정 가져오기
-  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
-  const userPreferences = profileData?.data?.user?.preferences || {};
-
-  const retryMutation = useMutation({ mutationFn: jobAPI.retry,
-    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
-    onError: (error) => { toast.error('재시도 실패: ' + error.message); } });
-
-  const cancelMutation = useMutation({ mutationFn: jobAPI.cancel,
-    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
-    onError: (error) => { toast.error('취소 실패: ' + error.message); } });
-
-  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-      onSuccess: (response) => {
-        const { deletedImagesCount, deletedVideosCount } = response.data;
-        if (deletedImagesCount > 0 || deletedVideosCount > 0) {
-          toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
-          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
-        } else {
-          toast.success('작업이 삭제되었습니다');
-        }
-        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
-      },
-      onError: (error) => { toast.error('삭제 실패: ' + error.message); } });
+  // 재시도/취소/삭제는 전역 피드(pages/JobHistory.js)와 동작을 공유한다 (#728).
+  // 사용자 설정(deleteContentWithHistory 등)도 훅이 함께 제공 — 중복 조회 제거.
+  const jobActions = useJobActions({ invalidateKeys: [queryKey] });
+  const userPreferences = jobActions.preferences;
 
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSavePromptOpen(false); setSavingJob(null); },
@@ -977,24 +958,9 @@ function JobHistoryPanel({
       console.error('Failed to fetch job detail:', error);
     }
   };
-  const handleRetry = (job) => { if (window.confirm('작업을 재시도하시겠습니까?')) retryMutation.mutate(job._id); };
-  const handleCancel = (job) => { if (window.confirm('작업을 취소하시겠습니까?')) cancelMutation.mutate(job._id); };
-
-  const handleDelete = (job) => {
-    const hasContent = (job.resultImages?.length > 0) || (job.resultVideos?.length > 0);
-    const deleteContentSetting = userPreferences.deleteContentWithHistory;
-
-    if (deleteContentSetting && hasContent) {
-      const contentCount = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0);
-      if (window.confirm(`작업과 연관된 ${contentCount}개의 컨텐츠(이미지/동영상)도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-        deleteMutation.mutate({ id: job._id, deleteContent: true });
-      }
-    } else {
-      if (window.confirm('작업 히스토리를 삭제하시겠습니까?\n\n생성된 이미지/동영상은 보존됩니다.')) {
-        deleteMutation.mutate({ id: job._id, deleteContent: false });
-      }
-    }
-  };
+  const handleRetry = jobActions.retry;
+  const handleCancel = jobActions.cancel;
+  const handleDelete = jobActions.remove;
 
   const handleImageView = (items, index = 0, isVideo = false) => {
     if (isVideo) {

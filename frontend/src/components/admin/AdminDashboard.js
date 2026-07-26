@@ -68,7 +68,7 @@ function AdminDashboard() {
       <PageHeader
         title="관리자 대시보드"
         description="시스템 개요 · 작업 큐 상태"
-        actions={<IconButton onClick={() => refetch()}><Refresh /></IconButton>}
+        actions={<IconButton aria-label="새로고침" onClick={() => refetch()}><Refresh /></IconButton>}
       />
 
       <Grid container spacing={3} mb={4}>

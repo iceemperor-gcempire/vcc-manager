@@ -39,6 +39,7 @@ import { downloadBlob, downloadFromUrl } from '../../utils/download';
 import Pagination from './Pagination';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
+import { relativeTime } from '../../utils/relativeTime';
 
 function ImageDetailDialog({ image, open, onClose, type }) {
   if (!image) return null;
@@ -76,8 +77,8 @@ function ImageDetailDialog({ image, open, onClose, type }) {
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">이미지 상세보기</Typography>
           <Box>
-            <IconButton onClick={handleDownload} sx={{ color: 'common.white', mr: 1 }}><Download /></IconButton>
-            <IconButton onClick={onClose} sx={{ color: 'common.white' }}><Close /></IconButton>
+            <IconButton aria-label="다운로드" onClick={handleDownload} sx={{ color: 'common.white', mr: 1 }}><Download /></IconButton>
+            <IconButton aria-label="닫기" onClick={onClose} sx={{ color: 'common.white' }}><Close /></IconButton>
           </Box>
         </Box>
       </DialogTitle>
@@ -152,7 +153,7 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(image.size)}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">
-          {new Date(image.createdAt).toLocaleDateString()}
+          {relativeTime(image.createdAt)}
         </Typography>
 
         {showTags && image.tags?.length > 0 && (
@@ -176,7 +177,7 @@ function ImageCard({ image, type, onEdit, onDelete, onView, readOnly = false, sh
       {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
           <Button onClick={() => onView(image)} startIcon={<Info />}>상세보기</Button>
-          <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
+          <IconButton aria-label="더보기" size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { onEdit(image); setAnchorEl(null); }}>
               <Edit sx={{ mr: 1 }} fontSize="small" />편집
@@ -261,7 +262,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
         </Typography>
         <Typography variant="caption" color="text.secondary" display="block">{formatFileSize(video.size)}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">
-          {new Date(video.createdAt).toLocaleDateString()}
+          {relativeTime(video.createdAt)}
         </Typography>
 
         {showTags && video.tags?.length > 0 && (
@@ -281,7 +282,7 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
       {!readOnly && !bulkMode && (
         <CardActions sx={{ justifyContent: 'space-between', pt: 0 }}>
           <Button onClick={() => onView(video)} startIcon={<Info />}>상세보기</Button>
-          <IconButton size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
+          <IconButton aria-label="더보기" size="small" onClick={(e) => setAnchorEl(e.currentTarget)}><MoreVert /></IconButton>
           <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={() => setAnchorEl(null)}>
             <MenuItem onClick={() => { onEdit(video); setAnchorEl(null); }}>
               <Edit sx={{ mr: 1 }} fontSize="small" />편집

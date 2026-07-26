@@ -37,10 +37,13 @@ import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-mat
 import { Collapse, Paper } from '@mui/material';
 import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
+import { useConfirm } from './ConfirmDialog';
+import { relativeTime } from '../../utils/relativeTime';
 
 // LLM 대화 히스토리 패널 (#373).
 // JobHistory 페이지의 \"텍스트\" 탭에서 사용. 카드 리스트 + 상세 다이얼로그.
 function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
+  const confirm = useConfirm();
   const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState(null);
   const queryClient = useQueryClient();
@@ -113,7 +116,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(conv.createdAt).toLocaleString('ko-KR')}
+                    {relativeTime(conv.createdAt)}
                   </Typography>
                 </Stack>
                 {lastUserMsg && (
@@ -153,7 +156,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   justifyContent: 'flex-end',
                   flexWrap: 'wrap',
                   gap: 0.5,
-                  '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
+                  '& .MuiButton-root': { fontSize: { xs: '12.5px', sm: '14px' }, px: { xs: 1, sm: 1.5 }, minWidth: 'auto' }
                 }}
               >
                 <Button
@@ -181,8 +184,12 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => {
-                      if (window.confirm('이 대화를 삭제하시겠어요?')) {
+                    onClick={async () => {
+                      if (await confirm({
+                        title: '이 대화를 삭제하시겠습니까?',
+                        description: '주고받은 메시지가 모두 사라집니다.',
+                        danger: true, confirmLabel: '삭제',
+                      })) {
                         deleteMutation.mutate(conv._id);
                       }
                     }}
@@ -271,7 +278,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                     </Typography>
                   </Box>
                   {msg.role === 'assistant' && (
-                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                    <Tooltip title="이 응답을 텍스트 콘텐츠로 저장">
                       <IconButton
                         size="small"
                         onClick={() => saveMessageMutation.mutate({ conversationJobId: detailItem._id, messageIndex: idx })}

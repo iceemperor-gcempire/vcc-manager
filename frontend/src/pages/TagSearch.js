@@ -44,6 +44,8 @@ import toast from 'react-hot-toast';
 import { tagAPI } from '../services/api';
 import TagInput from '../components/common/TagInput';
 import { DEFAULT_TAG_COLOR } from '../theme';
+import { relativeTime } from '../utils/relativeTime';
+import PageHeader from '../components/common/PageHeader';
 
 function SearchTabPanel({ children, value, index }) {
   return (
@@ -235,10 +237,10 @@ function TagSearch() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" alignItems="center" gap={2} mb={3}>
-        <LocalOffer color="primary" sx={{ fontSize: 32 }} />
-        <Typography variant="h4">태그</Typography>
-      </Box>
+      <PageHeader
+        title="태그"
+        description="태그로 콘텐츠를 찾고, 내 태그를 만들고 정리합니다."
+      />
 
       <Tabs
         value={mainTab}
@@ -320,7 +322,7 @@ function TagSearch() {
                                 <Chip
                                   key={tag._id}
                                   label={tag.name}
-                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '11px' }}
                                 />
                               ))}
                             </Box>
@@ -356,7 +358,7 @@ function TagSearch() {
                                 <Chip
                                   key={tag._id}
                                   label={tag.name}
-                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '11px' }}
                                 />
                               ))}
                             </Box>
@@ -413,7 +415,7 @@ function TagSearch() {
                                   <Chip
                                     key={tag._id}
                                     label={tag.name}
-                                    sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, fontSize: '0.7rem' }}
+                                    sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, fontSize: '11px' }}
                                   />
                                 ))}
                               </Box>
@@ -487,7 +489,7 @@ function TagSearch() {
                           </TableCell>
                           <TableCell align="center">{tag.usageCount}</TableCell>
                           <TableCell align="center">
-                            {new Date(tag.createdAt).toLocaleDateString()}
+                            {relativeTime(tag.createdAt)}
                           </TableCell>
                           <TableCell align="center">
                             {tag.isProjectTag ? (
@@ -496,21 +498,21 @@ function TagSearch() {
                                   <IconButton size="small" disabled>
                                     <Edit />
                                   </IconButton>
-                                  <IconButton size="small" disabled>
+                                  <IconButton aria-label="삭제" size="small" disabled>
                                     <Delete />
                                   </IconButton>
                                 </span>
                               </Tooltip>
                             ) : (
                               <>
-                                <IconButton
+                                <IconButton aria-label="편집"
                                   size="small"
                                   onClick={() => setEditTag(tag)}
                                   title="수정"
                                 >
                                   <Edit />
                                 </IconButton>
-                                <IconButton
+                                <IconButton aria-label="삭제"
                                   size="small"
                                   color="error"
                                   onClick={() => setDeleteConfirmTag(tag)}

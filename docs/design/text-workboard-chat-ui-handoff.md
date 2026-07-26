@@ -144,7 +144,8 @@
 - 입력 필드 기본 **size=small**, 입력 fontSize 13.
 - 채팅/텍스트 액션 강조색 = **secondary**.
 - transcript 배경 현재 = grey.50.
-- 전체 디자인 토큰은 같은 폴더의 `TOKENS.md` / 기존 핸드오프(`design_handoff_vcc_manager`, `vcc-manager-6.zip`) 참고.
+- ⚠️ 위 수치는 **작성 시점(v1) 기준**이며 v2 에서 바뀐 값이 있다 (카드 radius 10 · 컨트롤 8, 포인트색 등).
+  현행 토큰은 **`docs/design-v2/TOKENS.md`** + `frontend/src/theme.js` 를 볼 것 — 같은 폴더의 `TOKENS.md` 와 `design_handoff_vcc_manager` 는 폐기됐다 (#554).
 
 ---
 

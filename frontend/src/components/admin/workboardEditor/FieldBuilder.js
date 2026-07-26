@@ -32,7 +32,7 @@ function FieldBuilder({ fields, selectedIdx, onSelect, onAdd, onMove }) {
           {fields.length}개 필드 · 드래그로 순서 변경 · 클릭하면 우측에서 편집
         </Typography>
         <Box sx={{ flex: 1 }} />
-        <Button variant="contained" size="small" startIcon={<Add />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
+        <Button variant="contained" startIcon={<Add />} onClick={(e) => setAddMenuAnchor(e.currentTarget)}>
           필드 추가
         </Button>
         <Menu anchorEl={addMenuAnchor} open={Boolean(addMenuAnchor)} onClose={() => setAddMenuAnchor(null)}>

@@ -3,6 +3,7 @@ import { usePersistedState } from '../../hooks/usePersistedState';
 import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mui/material';
 import { MONO } from '../../theme';
 import { ToneChip } from './ToneChip';
+import { relativeTime } from '../../utils/relativeTime';
 import {
   Search,
   Close,
@@ -62,7 +63,8 @@ const OUT_TONE = { image: 'accent', video: 'warning', text: 'info' };
 // ToneChip 은 common/ToneChip 으로 승격 (#548) — 기존 import 호환 재export
 export { ToneChip };
 
-// 의미 색 없는 태그 칩 — 투명 배경 + 옅은 테두리 + tertiary 글씨 (종류 라벨 등).
+// 의미 색 없는 태그 칩 — 투명 배경 + 옅은 테두리 + 보조 글씨 (종류 라벨 등).
+// 글씨는 grey.600 이었으나 라이트에서 3.79:1 로 AA 미달 → text.secondary 로 교체 (#727).
 export function TagChip({ label, mono, sx }) {
   return (
     <Chip
@@ -70,7 +72,7 @@ export function TagChip({ label, mono, sx }) {
       label={label}
       sx={{
         height: 24, fontSize: mono ? '10.5px' : '11.5px', bgcolor: 'transparent',
-        borderColor: 'divider', color: 'grey.600',
+        borderColor: 'divider', color: 'text.secondary',
         ...(mono && { fontFamily: MONO }),
         '& .MuiChip-label': { px: '11px' }, ...sx,
       }}
@@ -128,7 +130,7 @@ function FilterToggle({ active, onClick, children, count }) {
     >
       {children}
       {count != null && (
-        <Box component="span" sx={{ fontSize: 10.5, fontFamily: MONO, color: active ? 'rgba(255,255,255,0.8)' : 'text.disabled' }}>
+        <Box component="span" sx={{ fontSize: 10.5, fontFamily: MONO, color: active ? 'rgba(255,255,255,0.8)' : 'text.tertiary' }}>
           {count}
         </Box>
       )}
@@ -147,10 +149,10 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
       {/* search */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
         <Paper variant="outlined" sx={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', px: 1, height: 34, bgcolor: 'background.paper' }}>
-          <Search fontSize="small" sx={{ color: 'text.disabled', mr: 0.5 }} />
+          <Search fontSize="small" sx={{ color: 'text.tertiary', mr: 0.5 }} />
           <InputBase value={q} onChange={(e) => setQ(e.target.value)} placeholder="작업판 이름 · 설명 검색" sx={{ flex: 1, fontSize: 13 }} />
         </Paper>
-        <Typography sx={{ fontSize: 12, color: 'text.disabled', fontFamily: MONO, flex: '0 0 auto' }}>
+        <Typography sx={{ fontSize: 12, color: 'text.tertiary', fontFamily: MONO, flex: '0 0 auto' }}>
           {shown === total ? `${total}개` : `${shown} / ${total}`}
         </Typography>
       </Box>
@@ -158,14 +160,14 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
       {/* two axes */}
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: { xs: 2.5, sm: 4.5 }, alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.disabled' }}>출력</Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.tertiary' }}>출력</Typography>
           {OUTPUT_AXIS.map((o) => (
             <FilterToggle key={o.k} active={outSel.includes(o.k)} onClick={() => toggleOut(o.k)} count={counts.out[o.k] || 0}>{o.label}</FilterToggle>
           ))}
         </Box>
         <Box sx={{ width: '1px', height: 22, bgcolor: 'divider', display: { xs: 'none', sm: 'block' } }} />
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.disabled' }}>서버</Typography>
+          <Typography sx={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.tertiary' }}>서버</Typography>
           {SERVER_AXIS.map((s) => (
             <FilterToggle key={s.k} active={svcSel.includes(s.k)} onClick={() => toggleSvc(s.k)} count={counts.svc[s.k] || 0}>{s.label}</FilterToggle>
           ))}
@@ -173,7 +175,7 @@ export function WorkboardFilters({ q, setQ, outSel, toggleOut, svcSel, toggleSvc
         {anyActive && (
           <>
             <Box sx={{ flex: 1 }} />
-            <Button variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.disabled' }}>초기화</Button>
+            <Button variant="text" startIcon={<Close />} onClick={onClear} sx={{ color: 'text.tertiary' }}>초기화</Button>
           </>
         )}
       </Box>
@@ -214,23 +216,24 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
             <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{wb.name}</Typography>
             {admin && <WbStatusBadge isActive={wb.isActive} />}
           </Box>
-          <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: MONO, mt: 0.25 }} noWrap>
+          <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, mt: 0.25 }} noWrap>
             {kind.label}{wb.version ? ` · v${wb.version}` : ''}
           </Typography>
         </Box>
         <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
       </Box>
 
-      {/* description */}
+      {/* description — 없으면 자리만 비운다. 카드 높이 정렬을 위해 minHeight 는 유지하되
+          "설명이 없습니다." 를 반복 노출하지 않는다 (#730) */}
       <Typography sx={{ fontSize: 11.5, color: 'text.secondary', lineHeight: 1.5, textWrap: 'pretty', minHeight: 32,
         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-        {wb.description || '설명이 없습니다.'}
+        {wb.description}
       </Typography>
 
       {/* admin: allowed groups */}
       {admin && groupNames && groupNames.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-          <Typography sx={{ fontSize: 10.5, color: 'text.disabled' }}>허용</Typography>
+          <Typography sx={{ fontSize: 10.5, color: 'text.tertiary' }}>허용</Typography>
           {groupNames.map((g) => (
             <TagChip key={g} label={g} />
           ))}
@@ -239,9 +242,9 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
 
       {/* stats row */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, pt: 2.5, mt: 'auto',
-        borderTop: '1px solid', borderColor: 'divider', fontSize: 11, color: 'text.disabled', fontFamily: MONO }}>
+        borderTop: '1px solid', borderColor: 'divider', fontSize: 11, color: 'text.tertiary', fontFamily: MONO }}>
         <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: archived ? 'text.disabled' : 'success.main', flex: '0 0 auto' }} />
+          <Box sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: archived ? 'text.tertiary' : 'success.main', flex: '0 0 auto' }} />
           <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{serverName}</Box>
         </Box>
         <Box sx={{ flex: 1 }} />
@@ -255,12 +258,12 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       {/* footer */}
       {admin ? (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography sx={{ fontSize: 11, color: 'text.disabled' }} noWrap>
-            {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
+          <Typography sx={{ fontSize: 11, color: 'text.tertiary' }} noWrap>
+            {relativeTime(wb.updatedAt)}{wb.createdBy?.nickname ? ` · ${wb.createdBy.nickname}` : ''}
           </Typography>
           <Box sx={{ flex: 1 }} />
           <Button variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
+          <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>
@@ -270,9 +273,9 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
             </Button>
           )}
           <Box sx={{ flex: 1 }} />
-          <AccessTime sx={{ fontSize: 12, color: 'text.disabled' }} />
-          <Typography sx={{ fontSize: 11, color: 'text.disabled', fontFamily: MONO }}>
-            {wb.updatedAt ? new Date(wb.updatedAt).toLocaleDateString() : ''}
+          <AccessTime sx={{ fontSize: 12, color: 'text.tertiary' }} />
+          <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO }}>
+            {relativeTime(wb.updatedAt)}
           </Typography>
         </Box>
       )}

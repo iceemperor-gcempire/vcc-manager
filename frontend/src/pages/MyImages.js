@@ -36,6 +36,7 @@ import TagInput from '../components/common/TagInput';
 import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
 import PageHeader from '../components/common/PageHeader';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
 // 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
@@ -110,8 +111,10 @@ function FilterRow({ label, color, active, onClick }) {
         py: 0.5,
         borderRadius: 1,
         cursor: 'pointer',
+        // 선택 표시는 틴트 배경 + 굵기로 충분하다. 여기에 브랜드색 글씨까지 얹으면
+        // action.selected 가 배경을 어둡게 해 .main 3.78 / .dark 4.36 으로 둘 다 AA 미달이 된다 (#727).
         bgcolor: active ? 'action.selected' : 'transparent',
-        color: active ? 'primary.main' : 'text.primary',
+        color: 'text.primary',
         fontSize: 13,
         fontWeight: active ? 600 : 400,
         '&:hover': active ? {} : { bgcolor: 'action.hover' },
@@ -148,7 +151,7 @@ function ContentTabLabel({ label, count }) {
       <Box
         component="span"
         sx={{
-          fontSize: '0.7rem',
+          fontSize: '11px',
           fontWeight: 600,
           px: 0.75,
           py: 0.125,
@@ -338,6 +341,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
 }
 
 function MyImages() {
+  const confirm = useConfirm();
   const [tab, setTab] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -409,34 +413,26 @@ function MyImages() {
     setEditOpen(true);
   };
 
-  const handleDelete = (item) => {
+  const handleDelete = async (item) => {
     const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
 
     if (tab === 1) {
-      if (window.confirm('이미지를 삭제하시겠습니까?')) {
+      if (await confirm({ title: '업로드한 이미지를 삭제하시겠습니까?', danger: true, confirmLabel: '삭제' })) {
         deleteUploadedMutation.mutate(item._id);
       }
-    } else if (tab === 2) {
-      if (deleteHistorySetting && item.jobId) {
-        if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-          deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
-        }
-      } else {
-        if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-          deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
-        }
-      }
-    } else {
-      if (deleteHistorySetting && item.jobId) {
-        if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
-        }
-      } else {
-        if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
-        }
-      }
+      return;
     }
+
+    const isVideo = tab === 2;
+    const label = isVideo ? '동영상' : '이미지';
+    const withHistory = !!deleteHistorySetting && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: `${label}과 작업 히스토리를 함께 삭제하시겠습니까?`, description: `${label}을 만든 작업 기록도 같이 사라집니다.`, danger: true, confirmLabel: '모두 삭제' }
+      : { title: `${label}을 삭제하시겠습니까?`, description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (!ok) return;
+
+    const mutation = isVideo ? deleteVideoMutation : deleteGeneratedMutation;
+    mutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
   const handleUploadSuccess = () => {
@@ -535,10 +531,16 @@ function MyImages() {
   const { data: videosCountData }    = useQuery({ queryKey: ['contentCount', 'video'], queryFn: () => imageAPI.getVideos({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: upTextsCountData }   = useQuery({ queryKey: ['contentCount', 'textUp'], queryFn: () => textAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: genTextsCountData }  = useQuery({ queryKey: ['contentCount', 'textGen'], queryFn: () => textAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
+  // 응답 래핑이 라우트마다 다르다 (#730 D-8):
+  //   /images/*  → { images, pagination }              → res.data.pagination
+  //   /texts/*   → { success, data: { items, pagination } } → res.data.data.pagination
+  // 이미지·동영상 쪽이 .data 를 한 번 더 타고 있어서 카운트가 항상 undefined 였고,
+  // ContentTabLabel 이 count == null 이면 라벨만 그리므로 세 탭에만 숫자가 안 보였다.
+  // (images 라우트가 프로젝트 공통 응답 규약을 안 따르는 건 별도 정리 대상)
   const counts = [
-    genImagesCountData?.data?.data?.pagination?.total,
-    upImagesCountData?.data?.data?.pagination?.total,
-    videosCountData?.data?.data?.pagination?.total,
+    genImagesCountData?.data?.pagination?.total,
+    upImagesCountData?.data?.pagination?.total,
+    videosCountData?.data?.pagination?.total,
     upTextsCountData?.data?.data?.pagination?.total,
     genTextsCountData?.data?.data?.pagination?.total,
   ];
@@ -546,7 +548,7 @@ function MyImages() {
   return (
     <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
       <PageHeader
-        title="내 컨텐츠"
+        title="내 콘텐츠"
         description="프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환."
         actions={!bulkMode && !isTextTab && (
           <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
