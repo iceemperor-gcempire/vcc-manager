@@ -259,7 +259,6 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
           <Box sx={{ display: 'flex', gap: 1, flexShrink: 0 }}>
             <Button
               variant="contained"
-              color="success"
               startIcon={<PlayArrowIcon />}
               onClick={onRun}
               disabled={steps.length === 0}
@@ -333,7 +332,6 @@ function PipelineCard({ pipeline, onRun, onEdit, onDelete }) {
       {isMobile && (
         <CardActions sx={{ pt: 0, justifyContent: 'flex-end', borderTop: 1, borderColor: 'divider' }}>
           <Button
-            color="success"
             variant="contained"
             startIcon={<PlayArrowIcon />}
             onClick={onRun}
@@ -1735,7 +1733,6 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           {!runId && (
             <Button
               variant="contained"
-              color="success"
               startIcon={startMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
               onClick={handleStart}
               disabled={startMutation.isPending || !initialPrompt.trim()}

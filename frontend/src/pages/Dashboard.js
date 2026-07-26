@@ -263,7 +263,7 @@ function Dashboard() {
           <SectionCard
             icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
             title="최근 생성 이미지"
-            action="컨텐츠 라이브러리 →"
+            action="내 콘텐츠 →"
             onAction={() => navigate('/content')}
           >
             {imagesLoading ? (

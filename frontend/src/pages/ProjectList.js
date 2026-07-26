@@ -147,9 +147,10 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
           <TagPill tag={project.tagId} />
         </Box>
+        {/* 설명 없으면 자리만 비움 — 카드 높이 정렬용 minHeight 는 유지 (#730) */}
         <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5, textWrap: 'pretty', minHeight: 36,
           display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-          {project.description || '설명이 없습니다.'}
+          {project.description}
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mt: 1.5, pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
           <StatRow project={project} mono />
@@ -178,7 +179,9 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
           <TagPill tag={project.tagId} />
           {isFav && <Star sx={{ fontSize: 13, color: 'warning.main' }} />}
         </Box>
-        <Typography sx={{ fontSize: 12, color: 'text.tertiary', mt: 0.25 }} noWrap>{project.description || '설명이 없습니다.'}</Typography>
+        {project.description && (
+          <Typography sx={{ fontSize: 12, color: 'text.tertiary', mt: 0.25 }} noWrap>{project.description}</Typography>
+        )}
       </Box>
       <Box sx={{ display: { xs: 'none', sm: 'flex' }, flex: '0 0 auto' }}><StatRow project={project} mono /></Box>
       <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, flex: '0 0 auto' }}>{relativeTime(project.updatedAt)}</Typography>

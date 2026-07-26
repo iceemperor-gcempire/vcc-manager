@@ -109,7 +109,7 @@ function MainLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 컨텐츠)
+  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 콘텐츠)
   useEffect(() => {
     const refreshPaths = ['/jobs', '/content'];
     if (refreshPaths.includes(location.pathname)) {

@@ -57,6 +57,13 @@ v2 는 `palette.*.light` 를 **저알파 틴트 배경**으로 재정의했다. 
 | navbar (콘솔 레일) | `#0B0D10`, 활성 `#181B21` |
 | grey 스케일 | 다크 반전 정책 유지 (#442) — `grey.50~300` 은 어두운 surface |
 
+## 표기 규칙
+
+- **시각**: 목록·카드의 "언제"는 `utils/relativeTime` (7일 지나면 `yy. M. d.` 폴백). 상세 다이얼로그·관리 테이블처럼 **정확한 시점이 필요한 곳만** 절대 표기 (#730)
+- **명칭**: 한 화면은 한 이름으로만 부른다 — `/content` 는 **"내 콘텐츠"** (사이드바·명령 팔레트·페이지 제목·대시보드 링크 일치). 표준어는 "콘텐츠" (컨텐츠 아님)
+- **빈 값**: 카드에서 설명이 비면 placeholder 문구 대신 자리를 비운다. 높이 정렬이 필요하면 `minHeight` 로 확보
+- **주 액션 색**: primary 고정. success/warning 등 의미색은 상태 표시에만 쓰고 버튼에 쓰지 않는다
+
 ## 컴포넌트 라이브러리 (직접 호출 — 사본 생성 금지)
 
 `frontend/src/components/common/`: PageHeader · SegmentTabs · EmptyState · ToneChip (+화면 라운드에서 추가 예정)

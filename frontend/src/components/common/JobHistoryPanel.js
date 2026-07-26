@@ -60,6 +60,7 @@ import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
 import { useJobActions } from '../../hooks/useJobActions';
+import { relativeTime } from '../../utils/relativeTime';
 
 export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -518,7 +519,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">생성 시간</Typography>
               <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {new Date(job.createdAt).toLocaleDateString()}
+                {relativeTime(job.createdAt)}
               </Typography>
             </Box>
             <Box>

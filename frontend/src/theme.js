@@ -60,7 +60,7 @@ const DARK = {
   // 밝아진 만큼 흰 글씨는 대비가 깨져 contrastText 를 딥 레드블랙으로 (다크 primary 의 #06231D 와 같은 패턴).
   error:     { main: '#ED7178', light: 'rgba(237,113,120,0.14)', dark: '#C73E44', contrastText: '#2A0E10' },
   info:      { main: '#5C9CE8', light: 'rgba(92,156,232,0.14)', dark: '#3D7CC8', contrastText: '#FFFFFF' },
-  // 다크 사이드바 — 컨텐츠보다 더 어두운 콘솔 레일
+  // 다크 사이드바 — 콘텐츠보다 더 어두운 콘솔 레일
   navbar:    { main: '#0B0D10', light: '#181B21', dark: '#05070A', contrastText: '#E9EBEF' },
   background:{ default: '#101216', paper: '#181B21' },
   // tertiary: #5F6671 은 surface 대비 2.98:1 로 AA 미달이었음 → 4.5:1 로 상향 (#727)

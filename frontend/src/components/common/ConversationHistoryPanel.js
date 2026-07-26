@@ -38,6 +38,7 @@ import { Collapse, Paper } from '@mui/material';
 import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
 import { useConfirm } from './ConfirmDialog';
+import { relativeTime } from '../../utils/relativeTime';
 
 // LLM 대화 히스토리 패널 (#373).
 // JobHistory 페이지의 \"텍스트\" 탭에서 사용. 카드 리스트 + 상세 다이얼로그.
@@ -115,7 +116,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   )}
                   <Box sx={{ flexGrow: 1 }} />
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(conv.createdAt).toLocaleString('ko-KR')}
+                    {relativeTime(conv.createdAt)}
                   </Typography>
                 </Stack>
                 {lastUserMsg && (
@@ -277,7 +278,7 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                     </Typography>
                   </Box>
                   {msg.role === 'assistant' && (
-                    <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                    <Tooltip title="이 응답을 텍스트 콘텐츠로 저장">
                       <IconButton
                         size="small"
                         onClick={() => saveMessageMutation.mutate({ conversationJobId: detailItem._id, messageIndex: idx })}

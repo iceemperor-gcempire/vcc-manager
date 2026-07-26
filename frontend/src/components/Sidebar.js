@@ -41,7 +41,7 @@ const workItems = [
   { text: '대시보드', path: '/dashboard', icon: <Dashboard /> },
   { text: '작업판', path: '/workboards', icon: <ViewModule /> },
   { text: '프로젝트', path: '/projects', icon: <FolderSpecial /> },
-  { text: '내 컨텐츠', path: '/content', icon: <Image /> },
+  { text: '내 콘텐츠', path: '/content', icon: <Image /> },
   { text: '작업 히스토리', path: '/jobs', icon: <History /> },
 ];
 
@@ -181,7 +181,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
       sx={{
         width: { md: DRAWER_WIDTH },
         flexShrink: { md: 0 },
-        // 사이드바 영역 자체의 배경색을 drawer paper 와 동일하게 — 컨텐츠 짧을 때 / 스크롤 시 흰 영역 노출 방지 (PC 도)
+        // 사이드바 영역 자체의 배경색을 drawer paper 와 동일하게 — 콘텐츠 짧을 때 / 스크롤 시 흰 영역 노출 방지 (PC 도)
         bgcolor: { md: 'navbar.main' },
       }}
     >
@@ -195,7 +195,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
         }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': paperSx, // 컨텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
+          '& .MuiDrawer-paper': paperSx, // 콘텐츠가 Paper 높이를 초과할 때 하단 흰색 노출 방지 (#327)
         }}
       >
         {drawer}

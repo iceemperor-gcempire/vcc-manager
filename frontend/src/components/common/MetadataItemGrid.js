@@ -15,7 +15,7 @@ import { Box, Typography } from '@mui/material';
  * @param {Array} props.items — 렌더할 아이템 배열
  * @param {(item, index) => React.Node} props.renderItem — 카드 렌더 콜백
  * @param {(item, index) => string|number} [props.getKey] — key 추출 (default: item.id || index)
- * @param {React.Node} [props.empty] — items.length === 0 일 때 렌더할 컨텐츠
+ * @param {React.Node} [props.empty] — items.length === 0 일 때 렌더할 콘텐츠
  * @param {Object} [props.sx] — 추가 스타일
  */
 function MetadataItemGrid({ items, renderItem, getKey, empty, sx }) {

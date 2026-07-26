@@ -170,7 +170,7 @@ function ConversationChatPanel({ workboard, conversationId }) {
               content={msg.content}
               attachments={msg.attachments}
               actions={msg.role === 'assistant' && (
-                <Tooltip title="이 응답을 텍스트 컨텐츠로 저장">
+                <Tooltip title="이 응답을 텍스트 콘텐츠로 저장">
                   <IconButton
                     size="small"
                     onClick={() => saveMessageMutation.mutate({ conversationJobId: conversationId, messageIndex: idx })}

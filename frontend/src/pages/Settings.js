@@ -95,16 +95,16 @@ function Settings() {
     <Container maxWidth="md" sx={{ mb: 8 }}>
       <PageHeader title="설정" description="삭제 동작, 계속하기, NSFW 필터, 작업판 검색 조건의 기본 동작을 설정합니다." />
 
-      <SettingCard title="삭제 동작" description="작업 히스토리와 컨텐츠(이미지/동영상) 삭제 시의 연동 동작">
+      <SettingCard title="삭제 동작" description="작업 히스토리와 콘텐츠(이미지/동영상) 삭제 시의 연동 동작">
         <SettingRow
-          label="작업 히스토리 삭제 시 연관 컨텐츠도 같이 삭제"
+          label="작업 히스토리 삭제 시 연관 콘텐츠도 같이 삭제"
           caption="이 옵션이 켜져 있으면 히스토리 삭제 시 생성된 이미지나 동영상도 같이 삭제됩니다. 삭제 전에 확인 창이 표시됩니다."
           checked={preferences.deleteContentWithHistory || false}
           onChange={handleToggle('deleteContentWithHistory')}
           disabled={busy}
         />
         <SettingRow
-          label="컨텐츠 삭제 시 작업 히스토리도 같이 삭제"
+          label="콘텐츠 삭제 시 작업 히스토리도 같이 삭제"
           caption="이 옵션이 켜져 있으면 이미지/동영상 삭제 시 해당 작업 히스토리도 같이 삭제됩니다. 삭제 전에 확인 창이 표시됩니다."
           checked={preferences.deleteHistoryWithContent || false}
           onChange={handleToggle('deleteHistoryWithContent')}
