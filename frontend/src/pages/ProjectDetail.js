@@ -60,6 +60,7 @@ import ProjectEditDialog from '../components/common/ProjectEditDialog';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import { downloadBlob } from '../utils/download';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 // 이미지/비디오 편집 다이얼로그
 function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
@@ -139,6 +140,7 @@ function ImageEditDialog({ image, open, onClose, isVideo = false, projectId }) {
 
 // 이미지 탭 - MediaGrid 사용
 function ImagesTab({ projectId }) {
+  const confirm = useConfirm();
   const [editOpen, setEditOpen] = useState(false);
   const [editImage, setEditImage] = useState(null);
   const [editIsVideo, setEditIsVideo] = useState(false);
@@ -202,30 +204,20 @@ function ImagesTab({ projectId }) {
     setEditOpen(true);
   };
 
-  const handleDeleteImage = (item) => {
-    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
-    if (deleteHistorySetting && item.jobId) {
-      if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
-      }
-    } else {
-      if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-        deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
-      }
-    }
+  const handleDeleteImage = async (item) => {
+    const withHistory = !!userPreferences.deleteHistoryWithContent && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: '이미지와 작업 히스토리를 함께 삭제하시겠습니까?', description: '이미지를 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
+      : { title: '이미지를 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (ok) deleteGeneratedMutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
-  const handleDeleteVideo = (item) => {
-    const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
-    if (deleteHistorySetting && item.jobId) {
-      if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-        deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
-      }
-    } else {
-      if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-        deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
-      }
-    }
+  const handleDeleteVideo = async (item) => {
+    const withHistory = !!userPreferences.deleteHistoryWithContent && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: '동영상과 작업 히스토리를 함께 삭제하시겠습니까?', description: '동영상을 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
+      : { title: '동영상을 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (ok) deleteVideoMutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
   const handleImageBulkToggle = useCallback((id) => {
@@ -580,6 +572,7 @@ function WorldviewTab({ projectTag }) {
 
 // 작업판 멤버십 탭 (#396).
 function WorkboardsTab({ projectId }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -649,8 +642,12 @@ function WorkboardsTab({ projectId }) {
               <IconButton
                 size="small"
                 color="error"
-                onClick={() => {
-                  if (window.confirm('작업판을 프로젝트에서 제거하시겠습니까? (작업판 자체는 삭제되지 않습니다)')) {
+                onClick={async () => {
+                  if (await confirm({
+                    title: '작업판을 프로젝트에서 제거하시겠습니까?',
+                    description: '연결만 끊습니다. 작업판 자체는 삭제되지 않습니다.',
+                    confirmLabel: '제거',
+                  })) {
                     removeMutation.mutate(wb._id);
                   }
                 }}

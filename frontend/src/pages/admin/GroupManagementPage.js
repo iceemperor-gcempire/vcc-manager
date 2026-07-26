@@ -37,6 +37,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { groupAPI, adminAPI } from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
+import { useConfirm } from '../../components/common/ConfirmDialog';
 
 // 그룹 생성/편집 다이얼로그
 function GroupFormDialog({ open, onClose, group, onSave }) {
@@ -203,6 +204,7 @@ function GroupMembersDialog({ open, onClose, group }) {
 }
 
 function GroupManagementPage() {
+  const confirm = useConfirm();
   const [formOpen, setFormOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [editingGroup, setEditingGroup] = useState(null);
@@ -254,12 +256,16 @@ function GroupManagementPage() {
     setFormOpen(true);
   };
 
-  const handleDelete = (group) => {
+  const handleDelete = async (group) => {
     if (group.isDefault) {
       toast.error('기본 그룹은 삭제할 수 없습니다.');
       return;
     }
-    if (window.confirm(`"${group.name}" 그룹을 삭제하시겠습니까? 멤버는 해제됩니다.`)) {
+    if (await confirm({
+      title: `"${group.name}" 그룹을 삭제하시겠습니까?`,
+      description: '이 그룹의 멤버는 그룹에서 해제되고, 그룹에만 허용됐던 작업판에 접근할 수 없게 됩니다.',
+      danger: true, confirmLabel: '삭제',
+    })) {
       deleteMutation.mutate(group._id);
     }
   };

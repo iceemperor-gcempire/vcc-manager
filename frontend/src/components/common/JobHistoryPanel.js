@@ -59,6 +59,7 @@ import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
+import { useJobActions } from '../../hooks/useJobActions';
 
 export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -934,31 +935,10 @@ function JobHistoryPanel({
   const extractor = responseExtractor || defaultExtractor;
   const { jobs, pagination } = extractor(data);
 
-  // 사용자 설정 가져오기
-  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
-  const userPreferences = profileData?.data?.user?.preferences || {};
-
-  const retryMutation = useMutation({ mutationFn: jobAPI.retry,
-    onSuccess: () => { toast.success('작업을 재시도합니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
-    onError: (error) => { toast.error('재시도 실패: ' + error.message); } });
-
-  const cancelMutation = useMutation({ mutationFn: jobAPI.cancel,
-    onSuccess: () => { toast.success('작업이 취소되었습니다'); queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] }); },
-    onError: (error) => { toast.error('취소 실패: ' + error.message); } });
-
-  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-      onSuccess: (response) => {
-        const { deletedImagesCount, deletedVideosCount } = response.data;
-        if (deletedImagesCount > 0 || deletedVideosCount > 0) {
-          toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
-          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
-        } else {
-          toast.success('작업이 삭제되었습니다');
-        }
-        queryClient.invalidateQueries({ queryKey: Array.isArray(queryKey) ? queryKey : [queryKey] });
-      },
-      onError: (error) => { toast.error('삭제 실패: ' + error.message); } });
+  // 재시도/취소/삭제는 전역 피드(pages/JobHistory.js)와 동작을 공유한다 (#728).
+  // 사용자 설정(deleteContentWithHistory 등)도 훅이 함께 제공 — 중복 조회 제거.
+  const jobActions = useJobActions({ invalidateKeys: [queryKey] });
+  const userPreferences = jobActions.preferences;
 
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSavePromptOpen(false); setSavingJob(null); },
@@ -977,24 +957,9 @@ function JobHistoryPanel({
       console.error('Failed to fetch job detail:', error);
     }
   };
-  const handleRetry = (job) => { if (window.confirm('작업을 재시도하시겠습니까?')) retryMutation.mutate(job._id); };
-  const handleCancel = (job) => { if (window.confirm('작업을 취소하시겠습니까?')) cancelMutation.mutate(job._id); };
-
-  const handleDelete = (job) => {
-    const hasContent = (job.resultImages?.length > 0) || (job.resultVideos?.length > 0);
-    const deleteContentSetting = userPreferences.deleteContentWithHistory;
-
-    if (deleteContentSetting && hasContent) {
-      const contentCount = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0);
-      if (window.confirm(`작업과 연관된 ${contentCount}개의 컨텐츠(이미지/동영상)도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-        deleteMutation.mutate({ id: job._id, deleteContent: true });
-      }
-    } else {
-      if (window.confirm('작업 히스토리를 삭제하시겠습니까?\n\n생성된 이미지/동영상은 보존됩니다.')) {
-        deleteMutation.mutate({ id: job._id, deleteContent: false });
-      }
-    }
-  };
+  const handleRetry = jobActions.retry;
+  const handleCancel = jobActions.cancel;
+  const handleDelete = jobActions.remove;
 
   const handleImageView = (items, index = 0, isVideo = false) => {
     if (isVideo) {

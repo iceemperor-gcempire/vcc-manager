@@ -34,6 +34,7 @@ import toast from 'react-hot-toast';
 import { textAPI } from '../../services/api';
 import Pagination from './Pagination';
 import TagInput from './TagInput';
+import { useConfirm } from './ConfirmDialog';
 
 const MAX_CONTENT_LENGTH = 1_000_000;
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -49,6 +50,7 @@ function stripExtension(filename) {
 // kind: 'uploaded' (직접 작성, 편집/생성 가능) | 'generated' (대화에서 저장, 태그/삭제만 가능).
 // defaultTags: 새 항목 생성 시 기본 태그 (프로젝트 맥락에서 프로젝트 태그 자동 추가용).
 function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = [], title }) {
+  const confirm = useConfirm();
   const isUploaded = kind === 'uploaded';
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
@@ -227,8 +229,11 @@ function TextContentPanel({ kind = 'uploaded', defaultTags = [], filterTags = []
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => {
-                      if (window.confirm('삭제하시겠습니까?')) deleteMutation.mutate(item._id);
+                    onClick={async () => {
+                      if (await confirm({
+                        title: '이 텍스트를 삭제하시겠습니까?',
+                        danger: true, confirmLabel: '삭제',
+                      })) deleteMutation.mutate(item._id);
                     }}
                   >
                     <DeleteIcon fontSize="small" />
