@@ -18,6 +18,7 @@ import { promptDataAPI } from '../services/api';
 import PromptDataPanel from '../components/common/PromptDataPanel';
 import PromptDataFormDialog from '../components/common/PromptDataFormDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
+import PageHeader from '../components/common/PageHeader';
 
 function PromptDataList() {
   const navigate = useNavigate();
@@ -101,19 +102,22 @@ function PromptDataList() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">프롬프트 데이터</Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => {
-            setEditingPromptData(null);
-            setFormOpen(true);
-          }}
-        >
-          새 프롬프트
-        </Button>
-      </Box>
+      <PageHeader
+        title="프롬프트 데이터"
+        description="자주 쓰는 프롬프트를 저장해 두고 작업판 실행에서 불러옵니다."
+        actions={
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => {
+              setEditingPromptData(null);
+              setFormOpen(true);
+            }}
+          >
+            새 프롬프트
+          </Button>
+        }
+      />
 
       <PromptDataPanel
         fetchFn={promptDataAPI.getAll}
