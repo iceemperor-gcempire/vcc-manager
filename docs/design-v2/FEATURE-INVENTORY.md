@@ -55,7 +55,8 @@
 
 ### /projects 프로젝트
 - 목록: 그리드/리스트 토글, 검색, 카드(그라데이션/커버, 태그 칩, 통계, 상대시각), 생성/편집 다이얼로그
-- /projects/:id 상세: 커버 헤더, 탭(개요/이미지/동영상/텍스트/작업판/파이프라인), 프로젝트 단위 자산 모음, **파이프라인 빌더/실행**(단계=작업판 체인, 텍스트→이미지 파이프, 실행 히스토리, 단계 진행)
+- /projects/:id 상세: 커버 헤더, 탭 6종 — **파이프라인 · 세계관 · 프롬프트 데이터 · 이미지 · 파이프라인 히스토리 · 대화 히스토리** (세계관 외에는 카운트 표시). 프로젝트 단위 자산 모음, **파이프라인 빌더/실행**(단계=작업판 체인, 텍스트→이미지 파이프, 실행 히스토리, 단계 진행)
+  - 헤더 액션: 편집 / 작업판 보기 / 내보내기 / 삭제
 
 ### /prompt-data 프롬프트 데이터
 - 저장된 프롬프트 CRU D, 카드(이름/프롬프트 미리보기/대표 이미지), 검색, 사용 횟수, 작업판 실행에서 불러오기와 연동
@@ -95,8 +96,8 @@
 
 - 셸: 라이트 모드 밝은 사이드바 / 다크 모드 네이비 (#514)
 - 관리자 메뉴: 중립 색 + 섹션 라벨
-- 토큰: Pretendard + JetBrains Mono, Iris(#5B5BD6) 팔레트, 4px 간격, radius 6, shadow 4단 — *(유지 여부 사용자 확인 대기)*
-- 공용 컴포넌트: PageHeader / SegmentTabs / EmptyState / ToneChip (R1)
+- 토큰: **v2 확정** — Pretendard + JetBrains Mono, 라이트 테라코타 / 다크 민트 **이중 포인트**, 4px 간격, 카드 radius 10 · 컨트롤 8 · 버튼 pill. 상세는 [TOKENS.md](TOKENS.md) (초안의 Iris `#5B5BD6` 단일 팔레트는 폐기)
+- 공용 컴포넌트: PageHeader / SegmentTabs / EmptyState / ToneChip (R1) · ConfirmDialog (#728)
 
 ## 5. 신규 기능 후보 (디자인에 넣으려면 기능 개발 필요 — 명시 합의 후에만)
 
@@ -107,6 +108,6 @@
 
 ## 6. 디자인 입력으로 쓸 자료
 
-- 실제 화면 캡처 14장: `/tmp/vcc-design-audit/shots/` (light 11 + dark 3)
-- 현행 토큰: `frontend/src/theme.js` (단일 소스)
-- 공용 컴포넌트: `frontend/src/components/common/{PageHeader,SegmentTabs,EmptyState,ToneChip}.js`
+- 현행 토큰: `frontend/src/theme.js` (단일 소스) · 스펙은 [TOKENS.md](TOKENS.md)
+- 공용 컴포넌트: `frontend/src/components/common/{PageHeader,SegmentTabs,EmptyState,ToneChip,ConfirmDialog}.js`
+- 화면 캡처는 필요할 때 직접 촬영 — 예전 임시 경로(`/tmp/...`)는 남아 있지 않다
