@@ -19,6 +19,7 @@ import {
   DialogActions,
   ToggleButtonGroup,
   ToggleButton,
+  Tooltip,
 } from '@mui/material';
 import {
   Search,
@@ -228,6 +229,11 @@ function RowVisual({ item }) {
   );
 }
 
+const STEP_LABEL = { completed: '완료', skipped: '건너뜀', failed: '실패', running: '실행 중' };
+
+// 단계 진행 dot. 예전에는 완료만 체크 아이콘이고 나머지는 전부 단계번호였는데,
+// 실패 단계가 빨간 원 안의 숫자로 보여 "2건 실패" 인지 "2단계에서 실패" 인지 구분되지 않았다 (#730).
+// 종료 상태(완료/실패)는 아이콘, 진행 전/중은 단계번호로 나누고 툴팁에 "N단계 · 상태" 를 붙인다.
 function StepDots({ statuses }) {
   return (
     <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -235,12 +241,21 @@ function StepDots({ statuses }) {
         const done = s === 'completed' || s === 'skipped';
         const failed = s === 'failed';
         const running = s === 'running';
-        const bg = done ? 'success.main' : failed ? 'error.main' : running ? 'info.main' : 'grey.200';
-        const fg = done || failed || running ? 'common.white' : 'text.secondary';
+        const tone = done ? 'success' : failed ? 'error' : running ? 'info' : null;
         return (
-          <Box key={j} sx={{ width: 20, height: 20, borderRadius: '50%', bgcolor: bg, color: fg, display: 'grid', placeItems: 'center', fontSize: 9, fontWeight: 700, fontFamily: MONO }}>
-            {done ? <CheckCircle sx={{ fontSize: 12 }} /> : j + 1}
-          </Box>
+          <Tooltip key={j} title={`${j + 1}단계 · ${STEP_LABEL[s] || '대기'}`}>
+            <Box sx={{
+              width: 20, height: 20, borderRadius: '50%', display: 'grid', placeItems: 'center',
+              fontSize: 9, fontWeight: 700, fontFamily: MONO,
+              bgcolor: tone ? `${tone}.main` : 'grey.200',
+              // contrastText 를 써야 다크에서도 대비가 맞는다 (common.white 고정은 다크 error 에서 2.9:1)
+              color: tone ? `${tone}.contrastText` : 'text.secondary',
+            }}>
+              {done ? <CheckCircle sx={{ fontSize: 12 }} />
+                : failed ? <Close sx={{ fontSize: 12 }} />
+                : j + 1}
+            </Box>
+          </Tooltip>
         );
       })}
     </Box>
