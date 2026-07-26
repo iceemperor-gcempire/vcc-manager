@@ -13,6 +13,7 @@ import {
   Chip,
   Autocomplete,
   Divider,
+  Alert,
 } from '@mui/material';
 import { Controller } from 'react-hook-form';
 import { WhitelistField } from './shared';
@@ -70,6 +71,22 @@ function PermissionsCard({ control, isComfyUI, serverId, outputFormat, groups, m
             )}
           />
         )}
+      />
+
+      {/* 삭제된 그룹이 참조로 남아 있으면 칩만 보이고 어떻게 치우는지 알 수 없었다 (#730 D-12) */}
+      <Controller
+        name="allowedGroupIds"
+        control={control}
+        render={({ field }) => {
+          const stale = (field.value || []).filter((id) => !groups.some((g) => g._id === id));
+          if (!stale.length) return null;
+          return (
+            <Alert severity="warning" sx={{ mt: 1.5 }}>
+              삭제된 그룹 {stale.length}개가 접근 목록에 남아 있습니다. 이 그룹으로는 아무도 접근할 수 없으니
+              칩의 &times; 를 눌러 지운 뒤 저장하세요.
+            </Alert>
+          );
+        }}
       />
 
       <Divider sx={{ my: 3 }} />
