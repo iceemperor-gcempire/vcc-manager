@@ -652,7 +652,7 @@ function LaneConnector({ isMobile, prevOutput, autoInject }) {
         gap: 0.5,
         py: isMobile ? 1.5 : 0,
         minHeight: isMobile ? 0 : 120,
-        color: autoInject ? 'success.main' : 'text.disabled',
+        color: autoInject ? 'success.main' : 'text.tertiary',
       }}
     >
       <ConnectorIcon fontSize="small" />
@@ -1898,7 +1898,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                   const dotColor = r.status === 'completed' ? 'success.main'
                     : r.status === 'failed' ? 'error.main'
                     : r.status === 'running' || r.status === 'pending' ? 'info.main'
-                    : 'text.disabled';
+                    : 'text.tertiary';
                   const isCurrent = String(r._id) === String(runId);
                   return (
                     <Box

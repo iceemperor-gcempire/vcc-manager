@@ -124,7 +124,7 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
             alignItems: 'center',
             justifyContent: 'center',
             bgcolor: 'action.hover',
-            color: 'text.disabled'
+            color: 'text.tertiary'
           }}
         >
           <noImagePlaceholder.Icon sx={{ fontSize: 44 }} />

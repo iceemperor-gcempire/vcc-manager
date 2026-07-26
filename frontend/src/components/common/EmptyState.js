@@ -12,7 +12,7 @@ export default function EmptyState({ icon, title, description, action, sx }) {
   return (
     <Box sx={{ p: 5, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 2, ...sx }}>
       {icon && (
-        <Box sx={{ color: 'text.disabled', mb: 1.5, '& svg': { fontSize: 32 } }}>{icon}</Box>
+        <Box sx={{ color: 'text.tertiary', mb: 1.5, '& svg': { fontSize: 32 } }}>{icon}</Box>
       )}
       {title && <Typography sx={{ fontWeight: 600, mb: 0.5 }}>{title}</Typography>}
       {description && (

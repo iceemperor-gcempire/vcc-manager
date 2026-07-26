@@ -417,7 +417,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                   sx={{
                     width: { xs: 40, sm: 56, md: 64 },
                     height: { xs: 40, sm: 56, md: 64 },
-                    bgcolor: 'grey.200', color: 'grey.600',
+                    bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
                     fontSize: { xs: '0.65rem', sm: '0.75rem' },
                     flexShrink: 0,
@@ -470,7 +470,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                   sx={{
                     width: { xs: 40, sm: 56, md: 64 },
                     height: { xs: 40, sm: 56, md: 64 },
-                    bgcolor: 'grey.200', color: 'grey.600',
+                    bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
                     fontSize: { xs: '0.65rem', sm: '0.75rem' },
                     flexShrink: 0,

@@ -122,7 +122,7 @@ export default function NotificationsPopover() {
         <Box sx={{ overflow: 'auto', flex: 1 }}>
           {items.length === 0 ? (
             <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
-              <BellIcon sx={{ fontSize: 28, color: 'text.disabled', mb: 1 }} />
+              <BellIcon sx={{ fontSize: 28, color: 'text.tertiary', mb: 1 }} />
               <Typography variant="body2">알림 없음</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                 파이프라인 실행 중·완료 알림이 여기 표시됩니다.

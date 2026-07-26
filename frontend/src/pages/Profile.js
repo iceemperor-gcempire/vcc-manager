@@ -47,6 +47,7 @@ import { userAPI, apiKeyAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
+import { ToneChip } from '../components/common/ToneChip';
 
 // v2 스탯 카드 — outlined + mono 숫자 (#564)
 function StatCard({ title, value, subtitle }) {
@@ -422,7 +423,11 @@ function SecuritySettings() {
                       px: 1.5,
                       mb: 0.5,
                       borderRadius: 1,
-                      bgcolor: apiKey.isRevoked ? 'action.disabledBackground' : 'action.hover'
+                      // 반투명 오버레이(action.*)를 쓰면 그 위에 얹히는 ToneChip 틴트와 겹쳐 쌓여
+                      // 다크에서 대비가 3.5:1 아래로 내려간다 (#727). 불투명 표면 + 보더로 구분한다.
+                      bgcolor: 'background.default',
+                      border: '1px solid',
+                      borderColor: apiKey.isRevoked ? 'divider' : 'transparent',
                     }}
                   >
                     <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -430,9 +435,8 @@ function SecuritySettings() {
                         <Typography variant="body2" fontWeight="medium" noWrap>
                           {apiKey.name}
                         </Typography>
-                        {apiKey.isRevoked && (
-                          <Chip label="파기됨" color="error" variant="outlined" />
-                        )}
+                        {/* MUI Chip color 직접 사용은 금지 규칙 (ToneChip 주석) + error.main 이 라이트에서 3.74:1 (#727) */}
+                        {apiKey.isRevoked && <ToneChip tone="error" label="파기됨" />}
                       </Box>
                       <Typography variant="caption" color="text.secondary" component="div">
                         {apiKey.prefix}... | 생성: {formatDate(apiKey.createdAt)}

@@ -161,7 +161,7 @@ function ServerCard({
             <ToneChip tone={statusChip.tone} label={statusChip.label} mono />
             {!server.isActive && <ToneChip tone="neutral" label="비활성" />}
           </Box>
-          <Typography sx={{ fontSize: 12, color: 'text.disabled', fontFamily: MONO, mt: 0.25 }} noWrap>{server.serverUrl}</Typography>
+          <Typography sx={{ fontSize: 12, color: 'text.tertiary', fontFamily: MONO, mt: 0.25 }} noWrap>{server.serverUrl}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25, flex: '0 0 auto' }}>
         <Tooltip title="헬스체크">
@@ -690,9 +690,9 @@ function ServerManagement() {
           { label: '실행 중 큐', value: activeQueue },
         ].map((st) => (
           <Paper key={st.label} variant="outlined" sx={{ p: 3.5 }}>
-            <Typography sx={{ fontSize: 11, color: 'text.disabled', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{st.label}</Typography>
+            <Typography sx={{ fontSize: 11, color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{st.label}</Typography>
             <Typography sx={{ fontSize: 24, fontWeight: 700, mt: 0.5, color: st.color }}>
-              {st.value}{st.suffix && <Box component="span" sx={{ fontSize: 12, color: 'text.disabled', ml: 0.5 }}>{st.suffix}</Box>}
+              {st.value}{st.suffix && <Box component="span" sx={{ fontSize: 12, color: 'text.tertiary', ml: 0.5 }}>{st.suffix}</Box>}
             </Typography>
           </Paper>
         ))}
