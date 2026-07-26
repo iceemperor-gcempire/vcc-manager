@@ -421,7 +421,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                     height: { xs: 40, sm: 56, md: 64 },
                     bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
-                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    fontSize: { xs: '11px', sm: '12.5px' },
                     flexShrink: 0,
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
@@ -474,7 +474,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                     height: { xs: 40, sm: 56, md: 64 },
                     bgcolor: 'grey.200', color: 'text.secondary', // grey.600 은 AA 미달 (#727)
                     cursor: 'pointer',
-                    fontSize: { xs: '0.65rem', sm: '0.75rem' },
+                    fontSize: { xs: '11px', sm: '12.5px' },
                     flexShrink: 0,
                     '&:hover': { bgcolor: 'grey.300' }
                   }}
@@ -518,19 +518,19 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           >
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">생성 시간</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {relativeTime(job.createdAt)}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">소요 시간</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {formatDuration(job.actualTime)}
               </Typography>
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">AI 모델</Typography>
-              <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" title={typeof job.inputData?.aiModel === 'object' ? job.inputData.aiModel.value : ''} sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.aiModel === 'object' && job.inputData.aiModel?.key
                   ? (job.inputData.aiModel.key === 'UserSelected'
                     ? job.inputData.aiModel.value?.split(/[/\\]/).pop() || 'UserSelected'
@@ -540,7 +540,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">크기</Typography>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontSize: '12.5px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {typeof job.inputData?.imageSize === 'object' && job.inputData.imageSize?.key
                   ? job.inputData.imageSize.key
                   : job.inputData?.imageSize || '-'}
@@ -548,7 +548,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             </Box>
             <Box>
               <Typography variant="caption" color="text.secondary" display="block">시드</Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.65rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '11px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {job.inputData?.seed !== undefined
                   ? (job.inputData.seed.toString().length > 8
                     ? `${job.inputData.seed.toString().slice(0, 8)}...`
@@ -562,7 +562,7 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
             <Box
               sx={{
                 display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'flex-end', gap: 0.5, flexShrink: 0,
-                '& .MuiButton-root': { fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 1.5 }, minWidth: { xs: 'auto', sm: 'auto' } }
+                '& .MuiButton-root': { fontSize: { xs: '12.5px', sm: '14px' }, px: { xs: 1, sm: 1.5 }, minWidth: { xs: 'auto', sm: 'auto' } }
               }}
             >
               <Button onClick={() => onView(job)} startIcon={<Info />}
@@ -872,7 +872,7 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
                     borderRadius: 1,
                     overflow: 'auto',
                     maxHeight: 400,
-                    fontSize: '0.75rem',
+                    fontSize: '12.5px',
                     fontFamily: 'monospace',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-all',

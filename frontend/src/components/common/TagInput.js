@@ -123,7 +123,7 @@ function TagInput({
               mr: 1
             }}
           />
-          <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+          <Box component="span" sx={{ color: 'text.secondary', fontSize: '14px' }}>
             ({option.usageCount || 0})
           </Box>
         </Box>

@@ -127,7 +127,7 @@ function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, a
                 onFocus={(e) => { e.target.dataset.touched = 'true'; }}
                 sx={{
                   flex: 1,
-                  '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start', fontFamily: MONO, fontSize: '0.82rem' },
+                  '& .MuiInputBase-root': { height: '100%', alignItems: 'flex-start', fontFamily: MONO, fontSize: '13.5px' },
                   '& textarea': { height: '100% !important', overflow: 'auto !important' },
                 }}
               />

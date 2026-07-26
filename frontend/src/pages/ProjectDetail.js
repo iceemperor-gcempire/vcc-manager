@@ -626,9 +626,9 @@ function WorkboardsTab({ projectId }) {
                   <Typography variant="caption" color="text.secondary" noWrap display="block">{wb.description}</Typography>
                 )}
                 <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
-                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                  {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
+                  {wb.serverId?.name && <Chip label={wb.serverId.name} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
+                  {!wb.isActive && <Chip label="비활성" color="warning" variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
                 </Stack>
               </Box>
               <Button
@@ -712,7 +712,7 @@ function WorkboardPickerDialog({ open, onClose, existingIds = [], onPick }) {
                 <Box sx={{ flex: '1 1 0', minWidth: 0 }}>
                   <Typography variant="subtitle2" noWrap>{wb.name}</Typography>
                   <Stack direction="row" spacing={0.5} sx={{ mt: 0.5 }}>
-                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />}
+                    {wb.outputFormat && <Chip label={wb.outputFormat} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />}
                   </Stack>
                 </Box>
               </Box>
@@ -789,7 +789,7 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
             variant="h4"
             component="h1"
             sx={{
-              fontSize: { xs: '1.25rem', md: '1.5rem' },
+              fontSize: { xs: '18px', md: '24px' },
               fontWeight: 700,
               letterSpacing: '-0.01em',
               wordBreak: 'break-word',
@@ -853,7 +853,7 @@ function TabLabel({ label, count }) {
       <Box
         component="span"
         sx={{
-          fontSize: '0.7rem',
+          fontSize: '11px',
           fontWeight: 600,
           px: 0.75,
           py: 0.125,
@@ -1025,7 +1025,7 @@ function ProjectDetail() {
               minHeight: { xs: 40, md: 48 },
               py: { xs: 0.5, md: 1 },
               px: { xs: 1.5, md: 2 },
-              fontSize: { xs: '0.8125rem', md: '0.875rem' },
+              fontSize: { xs: '13.5px', md: '14px' },
               minWidth: 'auto',
             },
             '& .MuiTab-iconWrapper': { mr: 0.5 },

@@ -40,7 +40,7 @@ function UpdateLogDialog({ open, onClose, majorVersion }) {
           </Typography>
         )}
         {content && (
-          <Box sx={{ '& h1': { fontSize: '1.5rem', mb: 2 }, '& h2': { fontSize: '1.25rem', mt: 3, mb: 1 }, '& li': { mb: 0.5 } }}>
+          <Box sx={{ '& h1': { fontSize: '24px', mb: 2 }, '& h2': { fontSize: '18px', mt: 3, mb: 1 }, '& li': { mb: 0.5 } }}>
             <ReactMarkdown>{content}</ReactMarkdown>
           </Box>
         )}

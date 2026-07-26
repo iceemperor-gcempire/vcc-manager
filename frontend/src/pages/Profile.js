@@ -546,7 +546,7 @@ function SecuritySettings() {
                     </IconButton>
                   </InputAdornment>
                 ),
-                sx: { fontFamily: 'monospace', fontSize: '0.85rem' }
+                sx: { fontFamily: 'monospace', fontSize: '13.5px' }
               }}
             />
           )}

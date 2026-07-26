@@ -322,7 +322,7 @@ function TagSearch() {
                                 <Chip
                                   key={tag._id}
                                   label={tag.name}
-                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '11px' }}
                                 />
                               ))}
                             </Box>
@@ -358,7 +358,7 @@ function TagSearch() {
                                 <Chip
                                   key={tag._id}
                                   label={tag.name}
-                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '0.7rem' }}
+                                  sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, mb: 0.5, fontSize: '11px' }}
                                 />
                               ))}
                             </Box>
@@ -415,7 +415,7 @@ function TagSearch() {
                                   <Chip
                                     key={tag._id}
                                     label={tag.name}
-                                    sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, fontSize: '0.7rem' }}
+                                    sx={{ bgcolor: tag.color, color: 'white', mr: 0.5, fontSize: '11px' }}
                                   />
                                 ))}
                               </Box>

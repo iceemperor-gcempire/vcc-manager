@@ -120,7 +120,7 @@ function Sidebar({ mobileOpen, onMobileToggle }) {
             primary={item.text}
             sx={{
               '& .MuiListItemText-primary': {
-                fontSize: isMobile ? '1rem' : '0.85rem',
+                fontSize: isMobile ? '15px' : '13.5px',
                 fontWeight: active ? 700 : 500,
               },
             }}
