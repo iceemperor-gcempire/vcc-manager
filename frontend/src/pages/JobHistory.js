@@ -36,6 +36,8 @@ import {
   Close,
   ViewList,
   GridView,
+  RestartAlt,
+  StopCircle,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -59,6 +61,7 @@ import SegmentTabs from '../components/common/SegmentTabs';
 import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import { useJobActions } from '../hooks/useJobActions';
 
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
 
@@ -467,9 +470,6 @@ function JobHistory() {
   const { data: convsRes, isLoading: convsLoading } = useQuery({ queryKey: ['historyConvs', limit], queryFn: () => conversationAPI.getMy({ limit }), placeholderData: keepPreviousData });
   const { data: runsRes, isLoading: runsLoading } = useQuery({ queryKey: ['historyRuns', limit], queryFn: () => dashboardAPI.getAllPipelineRuns({ limit }), refetchInterval: config.monitoring.recentJobsInterval, placeholderData: keepPreviousData });
 
-  const { data: profileData } = useQuery({ queryKey: ['userProfile'], queryFn: () => userAPI.getProfile() });
-  const userPreferences = profileData?.data?.user?.preferences || {};
-
   const loading = jobsLoading || convsLoading || runsLoading;
 
   const items = useMemo(() => {
@@ -512,19 +512,9 @@ function JobHistory() {
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
 
   // ---- mutations ----
-  const deleteMutation = useMutation({ mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
-      onSuccess: (response) => {
-        const { deletedImagesCount = 0, deletedVideosCount = 0 } = response.data || {};
-        if (deletedImagesCount > 0 || deletedVideosCount > 0) {
-          toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
-          queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
-          queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
-        } else {
-          toast.success('작업이 삭제되었습니다');
-        }
-        queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
-      },
-      onError: (error) => toast.error('삭제 실패: ' + error.message), });
+  // 재시도/취소/삭제는 프로젝트 상세 패널(JobHistoryPanel)과 동작을 공유한다 (#728).
+  // 예전에는 각자 구현이라 이 화면에만 재시도가 빠져 있었다.
+  const jobActions = useJobActions({ invalidateKeys: ['historyJobs'] });
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
     onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)), });
@@ -550,18 +540,9 @@ function JobHistory() {
     }
   };
 
-  const handleDelete = (job) => {
-    closeMenu();
-    const hasContent = (job.resultImages?.length > 0) || (job.resultVideos?.length > 0);
-    if (userPreferences.deleteContentWithHistory && hasContent) {
-      const n = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0);
-      if (window.confirm(`작업과 연관된 ${n}개의 컨텐츠(이미지/동영상)도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.`)) {
-        deleteMutation.mutate({ id: job._id, deleteContent: true });
-      }
-    } else if (window.confirm('작업 히스토리를 삭제하시겠습니까?\n\n생성된 이미지/동영상은 보존됩니다.')) {
-      deleteMutation.mutate({ id: job._id, deleteContent: false });
-    }
-  };
+  const handleDelete = (job) => { closeMenu(); jobActions.remove(job); };
+  const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
+  const handleCancel = (job) => { closeMenu(); jobActions.cancel(job); };
 
   const handleContinue = async (job) => {
     try {
@@ -692,6 +673,17 @@ function JobHistory() {
         {menuJob && ['completed', 'failed'].includes(menuJob.status) && (
           <MenuItem onClick={() => { const j = menuJob; closeMenu(); setSaveJob(j); }}>
             <Save fontSize="small" sx={{ mr: 1 }} /> 프롬프트 저장
+          </MenuItem>
+        )}
+        {/* 실패 복구 경로 — 이 화면에 없어서 실패한 작업을 되살릴 방법이 없었다 (#728) */}
+        {menuJob?.status === 'failed' && (
+          <MenuItem onClick={() => handleRetry(menuJob)}>
+            <RestartAlt fontSize="small" sx={{ mr: 1 }} /> 재시도
+          </MenuItem>
+        )}
+        {menuJob && ['pending', 'processing'].includes(menuJob.status) && (
+          <MenuItem onClick={() => handleCancel(menuJob)}>
+            <StopCircle fontSize="small" sx={{ mr: 1 }} /> 작업 취소
           </MenuItem>
         )}
         <MenuItem onClick={() => menuJob && handleDelete(menuJob)} sx={{ color: 'error.main' }}>

@@ -36,6 +36,7 @@ import TagInput from '../components/common/TagInput';
 import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
 import PageHeader from '../components/common/PageHeader';
+import { useConfirm } from '../components/common/ConfirmDialog';
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
 // 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
@@ -340,6 +341,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
 }
 
 function MyImages() {
+  const confirm = useConfirm();
   const [tab, setTab] = useState(0);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -411,34 +413,26 @@ function MyImages() {
     setEditOpen(true);
   };
 
-  const handleDelete = (item) => {
+  const handleDelete = async (item) => {
     const deleteHistorySetting = userPreferences.deleteHistoryWithContent;
 
     if (tab === 1) {
-      if (window.confirm('이미지를 삭제하시겠습니까?')) {
+      if (await confirm({ title: '업로드한 이미지를 삭제하시겠습니까?', danger: true, confirmLabel: '삭제' })) {
         deleteUploadedMutation.mutate(item._id);
       }
-    } else if (tab === 2) {
-      if (deleteHistorySetting && item.jobId) {
-        if (window.confirm('동영상과 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-          deleteVideoMutation.mutate({ id: item._id, deleteJob: true });
-        }
-      } else {
-        if (window.confirm('동영상을 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-          deleteVideoMutation.mutate({ id: item._id, deleteJob: false });
-        }
-      }
-    } else {
-      if (deleteHistorySetting && item.jobId) {
-        if (window.confirm('이미지와 연관된 작업 히스토리도 함께 삭제하시겠습니까?\n\n이 작업은 되돌릴 수 없습니다.')) {
-          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: true });
-        }
-      } else {
-        if (window.confirm('이미지를 삭제하시겠습니까?\n\n작업 히스토리는 보존됩니다.')) {
-          deleteGeneratedMutation.mutate({ id: item._id, deleteJob: false });
-        }
-      }
+      return;
     }
+
+    const isVideo = tab === 2;
+    const label = isVideo ? '동영상' : '이미지';
+    const withHistory = !!deleteHistorySetting && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: `${label}과 작업 히스토리를 함께 삭제하시겠습니까?`, description: `${label}을 만든 작업 기록도 같이 사라집니다.`, danger: true, confirmLabel: '모두 삭제' }
+      : { title: `${label}을 삭제하시겠습니까?`, description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (!ok) return;
+
+    const mutation = isVideo ? deleteVideoMutation : deleteGeneratedMutation;
+    mutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
   const handleUploadSuccess = () => {

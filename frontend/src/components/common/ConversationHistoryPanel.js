@@ -37,10 +37,12 @@ import { Chat as ChatIcon, BookmarkAdd as BookmarkAddIcon } from '@mui/icons-mat
 import { Collapse, Paper } from '@mui/material';
 import { conversationAPI, textAPI } from '../../services/api';
 import Pagination from './Pagination';
+import { useConfirm } from './ConfirmDialog';
 
 // LLM 대화 히스토리 패널 (#373).
 // JobHistory 페이지의 \"텍스트\" 탭에서 사용. 카드 리스트 + 상세 다이얼로그.
 function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
+  const confirm = useConfirm();
   const [page, setPage] = useState(1);
   const [detailItem, setDetailItem] = useState(null);
   const queryClient = useQueryClient();
@@ -181,8 +183,12 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                   <IconButton
                     size="small"
                     color="error"
-                    onClick={() => {
-                      if (window.confirm('이 대화를 삭제하시겠어요?')) {
+                    onClick={async () => {
+                      if (await confirm({
+                        title: '이 대화를 삭제하시겠습니까?',
+                        description: '주고받은 메시지가 모두 사라집니다.',
+                        danger: true, confirmLabel: '삭제',
+                      })) {
                         deleteMutation.mutate(conv._id);
                       }
                     }}

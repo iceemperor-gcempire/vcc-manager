@@ -14,6 +14,7 @@ import AdminRoute from './components/AdminRoute';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import CommandPalette from './components/common/CommandPalette';
+import { ConfirmProvider } from './components/common/ConfirmDialog';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -72,6 +73,7 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <ColorSchemeProvider>
         <ThemedApp>
+          <ConfirmProvider>
           <AuthProvider>
             <Router>
               <div className="App">
@@ -94,6 +96,7 @@ function App() {
             </div>
           </Router>
           </AuthProvider>
+          </ConfirmProvider>
         </ThemedApp>
       </ColorSchemeProvider>
     </QueryClientProvider>
