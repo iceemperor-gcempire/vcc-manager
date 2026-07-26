@@ -498,21 +498,21 @@ function TagSearch() {
                                   <IconButton size="small" disabled>
                                     <Edit />
                                   </IconButton>
-                                  <IconButton size="small" disabled>
+                                  <IconButton aria-label="삭제" size="small" disabled>
                                     <Delete />
                                   </IconButton>
                                 </span>
                               </Tooltip>
                             ) : (
                               <>
-                                <IconButton
+                                <IconButton aria-label="편집"
                                   size="small"
                                   onClick={() => setEditTag(tag)}
                                   title="수정"
                                 >
                                   <Edit />
                                 </IconButton>
-                                <IconButton
+                                <IconButton aria-label="삭제"
                                   size="small"
                                   color="error"
                                   onClick={() => setDeleteConfirmTag(tag)}

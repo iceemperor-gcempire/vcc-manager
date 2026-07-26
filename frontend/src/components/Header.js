@@ -172,7 +172,7 @@ function Header({ onMobileToggle, onOpenPalette }) {
 
               {/* 모바일에선 검색 아이콘으로 대체 */}
               {onOpenPalette && isMobile && (
-                <IconButton color="inherit" onClick={onOpenPalette} title="검색 (⌘K)">
+                <IconButton aria-label="검색" color="inherit" onClick={onOpenPalette} title="검색 (⌘K)">
                   <SearchIcon />
                 </IconButton>
               )}

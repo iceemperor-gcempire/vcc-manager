@@ -541,7 +541,7 @@ function SecuritySettings() {
                 readOnly: true,
                 endAdornment: (
                   <InputAdornment position="end">
-                    <IconButton onClick={handleCopyKey} edge="end">
+                    <IconButton aria-label="복사" onClick={handleCopyKey} edge="end">
                       <ContentCopy />
                     </IconButton>
                   </InputAdornment>

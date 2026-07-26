@@ -94,7 +94,7 @@ function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>작업판 ID: {workboard._id}</Typography>
-          <IconButton size="small" onClick={copyId}><ContentCopy fontSize="inherit" /></IconButton>
+          <IconButton aria-label="복사" size="small" onClick={copyId}><ContentCopy fontSize="inherit" /></IconButton>
         </Box>
         <Typography variant="caption" color="text.secondary" display="block">서버: {workboard.serverId?.name || '미설정'}</Typography>
         <Typography variant="caption" color="text.secondary" display="block">생성자: {workboard.createdBy?.nickname || '알 수 없음'}</Typography>

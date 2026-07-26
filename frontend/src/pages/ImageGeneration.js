@@ -310,7 +310,7 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
                     bgcolor: 'grey.100'
                   }}
                 />
-                <IconButton
+                <IconButton aria-label="삭제"
                   size="small"
                   onClick={() => handleRemove(item.imageId)}
                   sx={{
@@ -973,7 +973,7 @@ function ImageGeneration() {
                   InputProps={{
                     endAdornment: randomSeed ? (
                       <InputAdornment position="end">
-                        <IconButton
+                        <IconButton aria-label="시드 무작위 생성"
                           onClick={() => setSeedValue(generateRandomSeed())}
                         >
                           <Shuffle />

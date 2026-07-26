@@ -173,7 +173,7 @@ function PromptDataPanel({
                         {item.name}
                       </Typography>
                       {!readOnly && !pickerMode && (
-                        <IconButton
+                        <IconButton aria-label="더보기"
                           size="small"
                           onClick={(e) => handleMenuOpen(e, item)}
                         >

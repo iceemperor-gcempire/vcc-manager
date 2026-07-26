@@ -366,7 +366,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
             </Typography>
           )}
           {(item.type === 'image' || item.type === 'video') && (
-            <IconButton size="small" onClick={(e) => onMenu(e, item)}>
+            <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}>
               <MoreVert fontSize="small" />
             </IconButton>
           )}
@@ -440,7 +440,7 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
             <>
               <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
               <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
-              <IconButton size="small" onClick={(e) => onMenu(e, item)}><MoreVert fontSize="small" /></IconButton>
+              <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}><MoreVert fontSize="small" /></IconButton>
             </>
           )}
           {item.type === 'text' && (
@@ -744,7 +744,7 @@ function JobHistory() {
         <DialogTitle>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="h6">{textDetail?.title}</Typography>
-            <IconButton onClick={() => setTextDetail(null)}><Close /></IconButton>
+            <IconButton aria-label="닫기" onClick={() => setTextDetail(null)}><Close /></IconButton>
           </Box>
         </DialogTitle>
         <DialogContent dividers>

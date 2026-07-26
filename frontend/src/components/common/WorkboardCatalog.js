@@ -263,7 +263,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
           </Typography>
           <Box sx={{ flex: 1 }} />
           <Button variant="outlined" startIcon={<Edit />} onClick={(e) => { e.stopPropagation(); onEdit && onEdit(wb); }}>편집</Button>
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
+          <IconButton aria-label="더보기" size="small" onClick={(e) => { e.stopPropagation(); onMenu && onMenu(e, wb); }}><MoreVert fontSize="small" /></IconButton>
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>

@@ -95,7 +95,7 @@ function SelectOptionsEditor({ control, fieldIndex }) {
                           <TextField {...field} label="실제 값" sx={{ flex: 1, '& input': { fontFamily: MONO, fontSize: 12 } }} />
                         )}
                       />
-                      <IconButton size="small" color="error" onClick={() => remove(optIndex)}>
+                      <IconButton aria-label="삭제" size="small" color="error" onClick={() => remove(optIndex)}>
                         <Delete fontSize="small" />
                       </IconButton>
                     </Box>

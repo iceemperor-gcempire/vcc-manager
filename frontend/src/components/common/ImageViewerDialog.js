@@ -80,10 +80,10 @@ function ImageViewerDialog({
             {displayTitle}
           </Typography>
           <Box>
-            <IconButton onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
+            <IconButton aria-label="다운로드" onClick={handleDownload} sx={{ color: 'white', mr: 1 }}>
               <Download />
             </IconButton>
-            <IconButton onClick={onClose} sx={{ color: 'white' }}>
+            <IconButton aria-label="닫기" onClick={onClose} sx={{ color: 'white' }}>
               <Close />
             </IconButton>
           </Box>

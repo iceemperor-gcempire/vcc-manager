@@ -131,7 +131,7 @@ function Pagination({
         >
           {/* 처음 페이지 버튼 */}
           {showFirstLast && (
-            <IconButton
+            <IconButton aria-label="첫 페이지"
               onClick={() => onPageChange(1)}
               size={size}
               disabled={currentPage === 1}
@@ -165,7 +165,7 @@ function Pagination({
 
           {/* 마지막 페이지 버튼 */}
           {showFirstLast && (
-            <IconButton
+            <IconButton aria-label="마지막 페이지"
               onClick={() => onPageChange(totalPages)}
               size={size}
               disabled={currentPage === totalPages}
@@ -183,6 +183,7 @@ function Pagination({
           {/* 직접 페이지 이동 버튼 */}
           {showGoToPage && totalPages > maxVisible && (
             <IconButton
+              aria-label="페이지 직접 이동"
               onClick={handleGoToPageClick}
               size={size}
               sx={{

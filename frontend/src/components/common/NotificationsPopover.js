@@ -91,7 +91,7 @@ export default function NotificationsPopover() {
 
   return (
     <>
-      <IconButton
+      <IconButton aria-label="알림"
         ref={anchorRef}
         color="inherit"
         onClick={() => setOpen(true)}
