@@ -110,8 +110,10 @@ function FilterRow({ label, color, active, onClick }) {
         py: 0.5,
         borderRadius: 1,
         cursor: 'pointer',
+        // 선택 표시는 틴트 배경 + 굵기로 충분하다. 여기에 브랜드색 글씨까지 얹으면
+        // action.selected 가 배경을 어둡게 해 .main 3.78 / .dark 4.36 으로 둘 다 AA 미달이 된다 (#727).
         bgcolor: active ? 'action.selected' : 'transparent',
-        color: active ? 'primary.main' : 'text.primary',
+        color: 'text.primary',
         fontSize: 13,
         fontWeight: active ? 600 : 400,
         '&:hover': active ? {} : { bgcolor: 'action.hover' },
