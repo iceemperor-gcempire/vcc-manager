@@ -43,7 +43,7 @@ const cleanupStuckBackupRestoreJobs = require('./migrations/cleanupStuckBackupRe
 const cleanupOrphanBackupFiles = require('./migrations/cleanupOrphanBackupFiles');
 const initializeDefaultGroup = require('./migrations/initializeDefaultGroup');
 const assignDefaultGroupToWorkboards = require('./migrations/assignDefaultGroupToWorkboards');
-const repairDanglingWorkboardGroups = require('./migrations/repairDanglingWorkboardGroups');
+const repairDanglingGroupRefs = require('./migrations/repairDanglingGroupRefs');
 const backfillCustomFieldRoles = require('./migrations/backfillCustomFieldRoles');
 const dropBaseInputFieldsSchema = require('./migrations/dropBaseInputFieldsSchema');
 const relocateCivitaiApiKey = require('./migrations/relocateCivitaiApiKey');
@@ -253,7 +253,7 @@ const startServer = async () => {
     await cleanupOrphanBackupFiles();
     await initializeDefaultGroup();
     await assignDefaultGroupToWorkboards();
-    await repairDanglingWorkboardGroups();
+    await repairDanglingGroupRefs();
     await backfillCustomFieldRoles();
     await dropBaseInputFieldsSchema();
     await relocateCivitaiApiKey();
