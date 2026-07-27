@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Group = require('../models/Group');
 const User = require('../models/User');
+const Workboard = require('../models/Workboard');
 const { requireAdmin, verifyJWT } = require('../middleware/auth');
 
 // 사용자 본인의 소속 그룹 조회 (일반 사용자도 호출 가능 — 자기 그룹만)
@@ -138,9 +139,28 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       { $pull: { groupIds: group._id } }
     );
 
+    // 작업판 접근 목록에서도 제거 (#740) — 누락 시 dangling 참조가 남아
+    // 편집기에 "삭제된 그룹" 으로 표시되고, 그 ID 를 아직 가진 사용자에게만
+    // 작업판이 보이는 유령 권한이 생긴다.
+    // 결과가 빈 배열이 되는 작업판은 그대로 둔다 = admin 전용 (의도된 정책).
+    const wbResult = await Workboard.updateMany(
+      { allowedGroupIds: group._id },
+      { $pull: { allowedGroupIds: group._id } }
+    );
+
     await Group.findByIdAndDelete(group._id);
 
-    res.json({ success: true, message: '그룹이 삭제되었습니다.' });
+    // 빈 접근 목록이 된 작업판 = admin 외 접근 불가. admin 이 인지할 수 있도록 개수 안내.
+    const adminOnlyCount = await Workboard.countDocuments({ allowedGroupIds: { $size: 0 } });
+
+    res.json({
+      success: true,
+      message: '그룹이 삭제되었습니다.',
+      data: {
+        workboardsUpdated: wbResult.modifiedCount || 0,
+        workboardsAdminOnly: adminOnlyCount
+      }
+    });
   } catch (error) {
     console.error('그룹 삭제 오류:', error);
     res.status(500).json({ success: false, message: '그룹 삭제 실패' });
