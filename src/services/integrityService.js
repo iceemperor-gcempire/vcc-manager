@@ -8,6 +8,8 @@
  *   — #660 단일 소스 재사용). 정제 대상.
  * - 구조 리소스 orphan: Project/Tag/Workboard/Pipeline/Server/Group 의 소유 필드가
  *   끊긴 경우. 소유권 이전 정책이 별개라 **리포트만** 하고 정제하지 않는다.
+ * - 끊긴 그룹 참조 (#743): User.groupIds / Workboard.allowedGroupIds 가 삭제된
+ *   Group 을 가리키는 경우 — 리포트만 (정제는 부팅 시 마이그레이션 담당).
  * - 끊긴 jobId: GeneratedImage/Video 의 jobId 가 없는 Job 을 가리키는 경우.
  *   정상 삭제 플로우는 jobId 를 $unset 하므로(routes/jobs.js) 값이 남아 있는데
  *   Job 이 없으면 비정상 — 리포트만 (jobId:null 은 보존 설계라 정상).
@@ -122,6 +124,45 @@ async function cleanupOwnerOrphans({ apply = false } = {}) {
 }
 
 /**
+ * 끊긴 그룹 참조 진단 (#743) — 이미 삭제된 Group 을 가리키는 멤버십/접근 참조.
+ *
+ * 이 검사가 없어서 #740 의 유령 권한 (작업판이 특정 사용자에게만 보이는 상태) 이
+ * 오래 방치됐다. 백업은 "있는 그대로" 를 담으므로 이 상태가 백업·복원으로 계속
+ * 전파된다 — 탐지는 정합성 검사의 몫이다.
+ *
+ * 리포트 전용. 정제는 서버 기동 시 migrations/repairDanglingGroupRefs 가 수행하며,
+ * 작업판과 사용자의 복구 규칙이 달라 (접근 범위 유지 vs 잔재 제거) 여기서 일괄
+ * 삭제하면 접근 권한이 조용히 바뀔 수 있다.
+ */
+async function checkDanglingGroupRefs() {
+  const groupIds = await Group.distinct('_id');
+  const groupIdSet = new Set(groupIds.map((id) => String(id)));
+
+  const targets = [
+    { Model: User, field: 'groupIds', labelField: 'username' },
+    { Model: Workboard, field: 'allowedGroupIds', labelField: 'name' },
+  ];
+
+  const results = [];
+  for (const { Model, field, labelField } of targets) {
+    const refs = await Model.distinct(field);
+    const dangling = refs
+      .filter((id) => id && !groupIdSet.has(String(id)))
+      .map((id) => String(id));
+    let count = 0;
+    let sample = [];
+    if (dangling.length > 0) {
+      const filter = { [field]: { $in: dangling } };
+      count = await Model.countDocuments(filter);
+      sample = await Model.find(filter, { _id: 1, [labelField]: 1, [field]: 1 })
+        .limit(SAMPLE_LIMIT).lean();
+    }
+    results.push({ collection: Model.modelName, field, danglingGroupIds: dangling, count, sample });
+  }
+  return results;
+}
+
+/**
  * 끊긴 jobId 진단 — jobId 값이 있는데 해당 ImageGenerationJob 이 없는 콘텐츠.
  * (jobId 미보유는 히스토리 삭제 시 콘텐츠 보존 설계라 정상 — 검사 제외)
  */
@@ -224,6 +265,7 @@ module.exports = {
   checkOwnerOrphans,
   cleanupOwnerOrphans,
   checkDanglingJobRefs,
+  checkDanglingGroupRefs,
   checkFileIntegrity,
   uploadUrlToDiskPath,
   STRUCTURAL_CHECKS,

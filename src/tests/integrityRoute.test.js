@@ -22,6 +22,7 @@ jest.mock('../middleware/auth', () => ({
 jest.mock('../services/integrityService', () => ({
   checkOwnerOrphans: jest.fn(),
   checkDanglingJobRefs: jest.fn(),
+  checkDanglingGroupRefs: jest.fn(),
   checkFileIntegrity: jest.fn(),
   cleanupOwnerOrphans: jest.fn(),
 }));
@@ -55,6 +56,7 @@ describe('admin 정합성 라우트 (#662 P2)', () => {
     mockCurrentUser = { _id: 'admin-1', isAdmin: true };
     integrityService.checkOwnerOrphans.mockResolvedValue({ userContent: [], structural: [], totalOrphanDocs: 0 });
     integrityService.checkDanglingJobRefs.mockResolvedValue([]);
+    integrityService.checkDanglingGroupRefs.mockResolvedValue([]);
     integrityService.checkFileIntegrity.mockResolvedValue({ missingCount: 0, orphanFileCount: 0 });
     integrityService.cleanupOwnerOrphans.mockResolvedValue({ apply: false, results: [] });
   });
@@ -71,6 +73,18 @@ describe('admin 정합성 라우트 (#662 P2)', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.files).toBeNull();
     expect(integrityService.checkFileIntegrity).not.toHaveBeenCalled();
+  });
+
+  test('GET /integrity — 끊긴 그룹 참조 검사 결과 포함 (#743)', async () => {
+    integrityService.checkDanglingGroupRefs.mockResolvedValue([
+      { collection: 'User', field: 'groupIds', danglingGroupIds: ['g1'], count: 10, sample: [] },
+      { collection: 'Workboard', field: 'allowedGroupIds', danglingGroupIds: [], count: 0, sample: [] },
+    ]);
+    const res = await request(app).get('/api/admin/integrity');
+    expect(res.status).toBe(200);
+    expect(integrityService.checkDanglingGroupRefs).toHaveBeenCalled();
+    expect(res.body.data.danglingGroupRefs).toHaveLength(2);
+    expect(res.body.data.danglingGroupRefs[0]).toMatchObject({ collection: 'User', count: 10 });
   });
 
   test('GET /integrity?files=true — 파일 검사 포함', async () => {
