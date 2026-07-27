@@ -200,6 +200,25 @@ function IntegrityReport() {
             ))}
           </Paper>
 
+          {report.danglingGroupRefs && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                <Typography variant="subtitle2">끊긴 그룹 참조</Typography>
+                <ToneChip tone="neutral" label="리포트 전용" />
+              </Stack>
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                삭제된 그룹을 가리키는 소속·접근 참조입니다. 작업판 접근은 그룹 ID 교집합으로
+                판정되므로, 이 참조가 남으면 특정 사용자에게만 작업판이 보이는 상태가 됩니다.
+                발견되면 서버 재시작 시 자동으로 정리됩니다.
+              </Typography>
+              {report.danglingGroupRefs.map((r) => (
+                <Typography key={`${r.collection}.${r.field}`} variant="body2" sx={{ fontFamily: MONO }}>
+                  {r.collection}.{r.field}: {r.count > 0 ? `⚠️ ${r.count}건` : '0건'}
+                </Typography>
+              ))}
+            </Paper>
+          )}
+
           {report.files && (
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="subtitle2" sx={{ mb: 1 }}>파일↔DB 정합성</Typography>

@@ -19,6 +19,7 @@ const {
   checkOwnerOrphans,
   cleanupOwnerOrphans,
   checkDanglingJobRefs,
+  checkDanglingGroupRefs,
   checkFileIntegrity,
 } = require('../services/integrityService');
 
@@ -64,6 +65,14 @@ async function main() {
     for (const r of dangling) {
       const mark = r.count > 0 ? '⚠️ ' : '  ';
       console.log(`${mark}${r.collection.padEnd(20)} ${String(r.count).padStart(6)}건`);
+    }
+
+    printSection('끊긴 그룹 참조 (리포트 전용 — 정제는 부팅 시 마이그레이션 담당)');
+    const groupRefs = await checkDanglingGroupRefs();
+    for (const r of groupRefs) {
+      const mark = r.count > 0 ? '⚠️ ' : '  ';
+      console.log(`${mark}${`${r.collection}.${r.field}`.padEnd(28)} ${String(r.count).padStart(6)}건`);
+      for (const id of r.danglingGroupIds) console.log(`     · 삭제된 그룹 ${id}`);
     }
 
     if (FLAG_FILES) {

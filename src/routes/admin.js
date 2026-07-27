@@ -304,12 +304,16 @@ router.put('/settings/lora', requireAdmin, async (req, res) => {
 router.get('/integrity', requireAdmin, async (req, res) => {
   try {
     const includeFiles = req.query.files === 'true';
-    const [owners, danglingJobRefs] = await Promise.all([
+    const [owners, danglingJobRefs, danglingGroupRefs] = await Promise.all([
       integrityService.checkOwnerOrphans(),
       integrityService.checkDanglingJobRefs(),
+      integrityService.checkDanglingGroupRefs(),
     ]);
     const files = includeFiles ? await integrityService.checkFileIntegrity() : null;
-    res.json({ success: true, data: { owners, danglingJobRefs, files, checkedAt: new Date() } });
+    res.json({
+      success: true,
+      data: { owners, danglingJobRefs, danglingGroupRefs, files, checkedAt: new Date() }
+    });
   } catch (error) {
     console.error('Integrity check error:', error);
     res.status(500).json({ success: false, message: '정합성 점검에 실패했습니다.' });
