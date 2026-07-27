@@ -9,6 +9,21 @@ const Workboard = require('../models/Workboard');
 // 는 "비어있는" 작업판만 채우므로 구 ID 를 가진 작업판은 방치됐다. 접근 판정이
 // ID 교집합이라 구 ID 를 아직 가진 사용자에게만 보이는 유령 권한이 됐다.
 //
+/**
+ * 한 작업판의 allowedGroupIds 복구 결과를 계산한다 (순수 함수 — 테스트 대상).
+ * @param {string[]} ids — 현재 allowedGroupIds (문자열)
+ * @param {Set<string>} validIds — 실존하는 Group id 집합
+ * @param {string} defaultId — 현재 기본 그룹 id
+ * @returns {{ dangling: string[], next: string[] } | null} 복구 불필요 시 null
+ */
+function computeRepairedGroupIds(ids, validIds, defaultId) {
+  const dangling = ids.filter((id) => !validIds.has(id));
+  if (dangling.length === 0) return null;
+  // 유효 참조는 보존하고, dangling 자리에 기본 그룹을 넣는다 (중복 제거).
+  const next = [...new Set([...ids.filter((id) => validIds.has(id)), defaultId])];
+  return { dangling, next };
+}
+
 // 멱등 — dangling 참조가 없으면 아무것도 하지 않는다.
 async function repairDanglingWorkboardGroups() {
   try {
@@ -30,11 +45,9 @@ async function repairDanglingWorkboardGroups() {
     let repaired = 0;
     for (const wb of workboards) {
       const ids = (wb.allowedGroupIds || []).map(String);
-      const dangling = ids.filter((id) => !validIds.has(id));
-      if (dangling.length === 0) continue;
-
-      // 유효 참조는 보존하고, dangling 자리에 기본 그룹을 넣는다 (중복 제거).
-      const next = [...new Set([...ids.filter((id) => validIds.has(id)), String(defaultGroup._id)])];
+      const repair = computeRepairedGroupIds(ids, validIds, String(defaultGroup._id));
+      if (!repair) continue;
+      const { dangling, next } = repair;
 
       await Workboard.updateOne({ _id: wb._id }, { $set: { allowedGroupIds: next } });
       repaired += 1;
@@ -54,3 +67,4 @@ async function repairDanglingWorkboardGroups() {
 }
 
 module.exports = repairDanglingWorkboardGroups;
+module.exports.computeRepairedGroupIds = computeRepairedGroupIds;
