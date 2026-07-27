@@ -73,17 +73,29 @@ function PermissionsCard({ control, isComfyUI, serverId, outputFormat, groups, m
         )}
       />
 
-      {/* 삭제된 그룹이 참조로 남아 있으면 칩만 보이고 어떻게 치우는지 알 수 없었다 (#730 D-12) */}
+      {/* 삭제된 그룹이 참조로 남아 있으면 칩만 보이고 어떻게 치우는지 알 수 없었다 (#730 D-12).
+          #740: 구 문구는 "아무도 접근할 수 없으니 지우세요" 였으나 사실과 달랐다 —
+          접근 판정은 ID 교집합이라 삭제된 ID 를 아직 가진 사용자에게는 보인다.
+          그냥 지우면 유효 그룹이 0개가 되어 admin 전용이 되고 그 사용자들의 접근이 끊긴다. */}
       <Controller
         name="allowedGroupIds"
         control={control}
         render={({ field }) => {
-          const stale = (field.value || []).filter((id) => !groups.some((g) => g._id === id));
+          const value = field.value || [];
+          const stale = value.filter((id) => !groups.some((g) => g._id === id));
           if (!stale.length) return null;
+          const hasValid = value.length > stale.length;
           return (
             <Alert severity="warning" sx={{ mt: 1.5 }}>
-              삭제된 그룹 {stale.length}개가 접근 목록에 남아 있습니다. 이 그룹으로는 아무도 접근할 수 없으니
-              칩의 &times; 를 눌러 지운 뒤 저장하세요.
+              삭제된 그룹 {stale.length}개가 접근 목록에 남아 있습니다.{' '}
+              {hasValid ? (
+                <>칩의 &times; 를 눌러 지운 뒤 저장하세요 — 남은 유효 그룹으로 접근은 그대로 유지됩니다.</>
+              ) : (
+                <>
+                  유효한 그룹이 하나도 없어, 이대로 지우고 저장하면 <strong>admin 만</strong> 볼 수 있게 됩니다.
+                  지우기 전에 접근을 허용할 그룹을 먼저 선택하세요.
+                </>
+              )}
             </Alert>
           );
         }}
