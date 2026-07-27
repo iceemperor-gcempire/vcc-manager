@@ -238,9 +238,16 @@ function GroupManagementPage() {
       } });
 
   const deleteMutation = useMutation({ mutationFn: (id) => groupAPI.delete(id),
-      onSuccess: () => {
-        toast.success('그룹이 삭제되었습니다.');
+      onSuccess: (res) => {
+        // 접근 목록이 비어 admin 전용이 된 작업판은 조용히 숨겨지므로 알려준다 (#740)
+        const adminOnly = res?.data?.data?.workboardsAdminOnly || 0;
+        toast.success(
+          adminOnly > 0
+            ? `그룹이 삭제되었습니다. 접근 그룹이 남지 않은 작업판 ${adminOnly}개는 admin 만 볼 수 있습니다.`
+            : '그룹이 삭제되었습니다.'
+        );
         queryClient.invalidateQueries({ queryKey: ['groups'] });
+        queryClient.invalidateQueries({ queryKey: ['workboards'] });
       },
       onError: (err) => {
         toast.error(err.response?.data?.message || '그룹 삭제 실패');
