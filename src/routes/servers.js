@@ -8,6 +8,7 @@ const { verifyJWT, requireAdmin, userHasWorkboardAccess } = require('../middlewa
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
+const { SERVER_TYPES, MODEL_SYNC_SERVER_TYPES } = require('../constants/serverTypes');
 const { encryptSecret } = require('../utils/secretCrypto');
 const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../utils/validation');
 
@@ -91,8 +92,8 @@ router.post('/', requireAdmin, validateBody(serverCreateSchema), async (req, res
       });
     }
 
-    // 서버 타입 검증 ('GPT Image' 는 deprecated — 신규 생성 차단)
-    if (!['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(serverType)) {
+    // 서버 타입 검증 — deprecated 타입은 SERVER_TYPES 에 없어 신규 생성이 차단됨 (#745)
+    if (!SERVER_TYPES.includes(serverType)) {
       return res.status(400).json({
         success: false,
         message: '지원하지 않는 서버 타입입니다.'
@@ -326,13 +327,12 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
 
     const detailed = req.query.detailed === 'true';
 
-    // detailed 모드: 4종 serverType 모두 동일 응답 구조로 처리 (LoRA `/loras` 와 동일 패턴)
+    // detailed 모드: 모델 동기화 지원 serverType 모두 동일 응답 구조로 처리 (LoRA `/loras` 와 동일 패턴)
     if (detailed) {
-      const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
-      if (!SUPPORTED.includes(server.serverType)) {
+      if (!MODEL_SYNC_SERVER_TYPES.includes(server.serverType)) {
         return res.status(400).json({
           success: false,
-          message: `상세 모델 목록은 ${SUPPORTED.join(' / ')} 서버에서만 조회할 수 있습니다.`
+          message: `상세 모델 목록은 ${MODEL_SYNC_SERVER_TYPES.join(' / ')} 서버에서만 조회할 수 있습니다.`
         });
       }
 
@@ -524,11 +524,10 @@ router.post('/:id/models/sync', requireAdmin, async (req, res) => {
       });
     }
 
-    const SUPPORTED = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
-    if (!SUPPORTED.includes(server.serverType)) {
+    if (!MODEL_SYNC_SERVER_TYPES.includes(server.serverType)) {
       return res.status(400).json({
         success: false,
-        message: `모델 동기화는 ${SUPPORTED.join(' / ')} 서버에서만 사용할 수 있습니다.`
+        message: `모델 동기화는 ${MODEL_SYNC_SERVER_TYPES.join(' / ')} 서버에서만 사용할 수 있습니다.`
       });
     }
 
