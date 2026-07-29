@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { SERVER_TYPES, OUTPUT_FORMATS } from '../constants/serverTypes.js';
 
 /**
  * Register workboard-related tools on the MCP server.
@@ -14,8 +15,8 @@ export function registerWorkboardTools(server, apiRequest) {
     'List available workboards (image/video generation templates). Use this first to discover what generators are available.',
     {
       search: z.string().optional().describe('Search by name or description'),
-      serverType: z.enum(['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini']).optional().describe('Filter by server type'),
-      outputFormat: z.enum(['image', 'video', 'text']).optional().describe('Filter by output format'),
+      serverType: z.enum(SERVER_TYPES).optional().describe('Filter by server type'),
+      outputFormat: z.enum(OUTPUT_FORMATS).optional().describe('Filter by output format'),
       page: z.coerce.number().int().positive().optional().describe('Page number (default 1)'),
       limit: z.coerce.number().int().positive().max(50).optional().describe('Items per page (default 10)'),
     },

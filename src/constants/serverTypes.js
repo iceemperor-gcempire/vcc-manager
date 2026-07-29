@@ -17,7 +17,8 @@
 //   / 'gemini'(GET /v1beta/models). 없으면 모델 동기화 미지원.
 // - healthCheck.path: serverUrl 뒤에 붙는 헬스체크 경로 (null 이면 serverUrl 자체 GET).
 // - healthCheck.auth: 'bearer'(Authorization 헤더) / 'query-key'(?key= 쿼리, Gemini 방식).
-// - defaultUrl: 서버 등록 UI 의 URL 프리셋 (frontend mirror 로 전파).
+// - defaultUrl: 서버 등록 UI 의 URL 자동 입력 프리셋 (공식 base URL 이 알려진 provider 만, 없으면 null).
+// - icon: 서버 카드 아이콘 키 — frontend 가 MUI 컴포넌트로 매핑 ('computer'/'text'/'storage').
 const SERVER_TYPE_SPECS = Object.freeze({
   'ComfyUI': Object.freeze({
     label: 'ComfyUI',
@@ -25,7 +26,8 @@ const SERVER_TYPE_SPECS = Object.freeze({
     outputFormats: Object.freeze(['image', 'video']),
     modelSource: 'checkpoint',
     healthCheck: Object.freeze({ path: '/system_stats', auth: 'bearer' }),
-    defaultUrl: 'http://localhost:8188',
+    defaultUrl: null,
+    icon: 'computer',
   }),
   'OpenAI': Object.freeze({
     label: 'OpenAI',
@@ -34,6 +36,7 @@ const SERVER_TYPE_SPECS = Object.freeze({
     modelSource: 'openai',
     healthCheck: Object.freeze({ path: '/v1/models', auth: 'bearer' }),
     defaultUrl: 'https://api.openai.com',
+    icon: 'text',
   }),
   'OpenAI Compatible': Object.freeze({
     label: 'OpenAI Compatible',
@@ -41,7 +44,8 @@ const SERVER_TYPE_SPECS = Object.freeze({
     outputFormats: Object.freeze(['text']),
     modelSource: 'openai',
     healthCheck: Object.freeze({ path: '/v1/models', auth: 'bearer' }),
-    defaultUrl: '',
+    defaultUrl: null,
+    icon: 'text',
   }),
   'Gemini': Object.freeze({
     label: 'Gemini',
@@ -50,6 +54,7 @@ const SERVER_TYPE_SPECS = Object.freeze({
     modelSource: 'gemini',
     healthCheck: Object.freeze({ path: '/v1beta/models', auth: 'query-key' }),
     defaultUrl: 'https://generativelanguage.googleapis.com',
+    icon: 'storage',
   }),
 });
 
@@ -57,6 +62,8 @@ const SERVER_TYPE_SPECS = Object.freeze({
 // migrateTo 는 마이그레이션/작업판 import 폴백 매핑에 사용 (Phase 2 #181, #182 와 동일).
 const DEPRECATED_SERVER_TYPE_SPECS = Object.freeze({
   'GPT Image': Object.freeze({
+    label: 'GPT Image',
+    icon: 'text',
     migrateTo: 'OpenAI',
     healthCheck: Object.freeze({ path: '/v1/models', auth: 'bearer' }),
   }),
