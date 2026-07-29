@@ -44,16 +44,31 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, jobAPI } from '../../services/api';
-import { getServerTypeColor } from '../../templates/capabilities';
+import {
+  SERVER_TYPES,
+  KNOWN_SERVER_URLS,
+  MODEL_SYNC_SERVER_TYPES,
+  DEPRECATED_SERVER_TYPES,
+  getServerTypeColor,
+  getServerTypeLabel,
+  getServerTypeIconKey,
+} from '../../templates/capabilities';
 import { ToneChip, TagChip } from '../common/WorkboardCatalog';
 import { MONO } from '../../theme';
 import PageHeader from '../common/PageHeader';
 import EmptyState from '../common/EmptyState';
 
-// 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
-const KNOWN_SERVER_URLS = {
-  OpenAI: 'https://api.openai.com',
-  Gemini: 'https://generativelanguage.googleapis.com',
+// 서버 타입 목록·라벨·아이콘 키·URL 프리셋은 templates/capabilities.js (generated mirror) 가 단일 source (#745)
+
+const TYPE_ICONS = { computer: <Computer />, text: <TextFields />, storage: <Storage /> };
+const getTypeIcon = (serverType) => TYPE_ICONS[getServerTypeIconKey(serverType)] || <Storage />;
+
+// 관리 화면 표기: "<라벨> API" (deprecated 는 표시만 하고 신규 생성 불가)
+const getServerTypeApiLabel = (serverType) => {
+  if (DEPRECATED_SERVER_TYPES[serverType]) {
+    return `${DEPRECATED_SERVER_TYPES[serverType].label} API (deprecated)`;
+  }
+  return SERVER_TYPES.includes(serverType) ? `${getServerTypeLabel(serverType)} API` : serverType;
 };
 
 function ServerCard({
@@ -74,7 +89,7 @@ function ServerCard({
   const isModelSyncing = modelSyncStatus?.status === 'fetching';
   const loraFailed = loraSyncStatus?.status === 'failed';
   const modelFailed = modelSyncStatus?.status === 'failed';
-  const supportsModelSync = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(server.serverType);
+  const supportsModelSync = MODEL_SYNC_SERVER_TYPES.includes(server.serverType);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -98,37 +113,6 @@ function ServerCard({
     }
   };
 
-  const getTypeIcon = (serverType) => {
-    switch (serverType) {
-      case 'ComfyUI':
-        return <Computer />;
-      case 'OpenAI':
-      case 'OpenAI Compatible':
-      case 'GPT Image':
-        return <TextFields />;
-      case 'Gemini':
-        return <Storage />;
-      default:
-        return <Storage />;
-    }
-  };
-
-  const getServerTypeLabel = (serverType) => {
-    switch (serverType) {
-      case 'ComfyUI':
-        return 'ComfyUI API';
-      case 'OpenAI':
-        return 'OpenAI API';
-      case 'OpenAI Compatible':
-        return 'OpenAI Compatible API';
-      case 'Gemini':
-        return 'Gemini API';
-      case 'GPT Image':
-        return 'GPT Image API (deprecated)';
-      default:
-        return serverType;
-    }
-  };
 
   const handleHealthCheck = async () => {
     setHealthChecking(true);
@@ -157,7 +141,7 @@ function ServerCard({
         <Box sx={{ flex: 1, minWidth: 180 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
             <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{server.name}</Typography>
-            <TagChip label={getServerTypeLabel(server.serverType)} />
+            <TagChip label={getServerTypeApiLabel(server.serverType)} />
             <ToneChip tone={statusChip.tone} label={statusChip.label} mono />
             {!server.isActive && <ToneChip tone="neutral" label="비활성" />}
           </Box>
@@ -373,10 +357,9 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
                   }}
                   label="AI API 형식"
                 >
-                  <MenuItem value="ComfyUI">ComfyUI API</MenuItem>
-                  <MenuItem value="OpenAI">OpenAI API</MenuItem>
-                  <MenuItem value="OpenAI Compatible">OpenAI Compatible API</MenuItem>
-                  <MenuItem value="Gemini">Gemini API</MenuItem>
+                  {SERVER_TYPES.map((t) => (
+                    <MenuItem key={t} value={t}>{getServerTypeApiLabel(t)}</MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
@@ -486,7 +469,7 @@ function ServerManagement() {
   const activeQueue = (queueStats.active || 0) + (queueStats.waiting || 0);
   const comfyUIServers = servers.filter(s => s.serverType === 'ComfyUI');
   const modelSyncSupportedServers = servers.filter(s =>
-    ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'].includes(s.serverType)
+    MODEL_SYNC_SERVER_TYPES.includes(s.serverType)
   );
 
   const { data: loraSyncData } = useQuery({ queryKey: ['loraSyncStatuses', comfyUIServers.map(s => s._id).join(',')], queryFn: async () => {

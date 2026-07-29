@@ -19,9 +19,8 @@ const { WORKBOARD_EXPORT_VERSION: EXPORT_VERSION, APP_VERSION, buildWorkboardExp
 
 // 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
 // Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
-const SERVER_TYPE_LEGACY_FALLBACK = {
-  'GPT Image': 'OpenAI',
-};
+// 매핑의 단일 source 는 constants/serverTypes.js 의 deprecated spec (#745).
+const { SERVER_TYPE_LEGACY_FALLBACK } = require('../constants/serverTypes');
 
 router.get('/', requireAuth, async (req, res) => {
   try {

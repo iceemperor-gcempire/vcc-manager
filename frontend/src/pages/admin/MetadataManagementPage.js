@@ -7,8 +7,11 @@ import CivitaiAdminHeader from '../../components/admin/CivitaiAdminHeader';
 import { serverAPI, adminAPI } from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
 
-const MODEL_SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
-const LORA_SERVER_TYPES = ['ComfyUI'];
+// 타입 목록은 templates/capabilities.js (generated mirror) 가 단일 source (#745)
+import {
+  MODEL_SYNC_SERVER_TYPES as MODEL_SERVER_TYPES,
+  LORA_SERVER_TYPES,
+} from '../../templates/capabilities';
 
 const SELECTED_SERVER_KEY = 'vcc.metadataAdmin.selectedServerId';
 

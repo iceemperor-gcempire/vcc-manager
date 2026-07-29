@@ -1158,6 +1158,7 @@ const clearImageGenerationQueue = async () => {
 
 module.exports = {
   initializeQueues,
+  SERVICE_MAP, // capability coverage 테스트용 (#745)
   addImageGenerationJob,
   getQueueStats,
   cancelQueueJob,
