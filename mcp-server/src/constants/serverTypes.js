@@ -6,7 +6,8 @@ export const SERVER_TYPES = [
   "ComfyUI",
   "OpenAI",
   "OpenAI Compatible",
-  "Gemini"
+  "Gemini",
+  "d-ice-all"
 ];
 export const OUTPUT_FORMATS = [
   "image",

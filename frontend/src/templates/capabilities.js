@@ -7,7 +7,8 @@ export const SERVER_TYPES = [
   "ComfyUI",
   "OpenAI",
   "OpenAI Compatible",
-  "Gemini"
+  "Gemini",
+  "d-ice-all"
 ];
 
 // 각 server type 이 지원하는 outputFormat 목록.
@@ -27,6 +28,9 @@ export const CAPABILITIES = {
   "Gemini": [
     "image",
     "text"
+  ],
+  "d-ice-all": [
+    "image"
   ]
 };
 
@@ -40,7 +44,8 @@ const SERVER_TYPE_LABELS = {
   "ComfyUI": "ComfyUI",
   "OpenAI": "OpenAI",
   "OpenAI Compatible": "OpenAI Compatible",
-  "Gemini": "Gemini"
+  "Gemini": "Gemini",
+  "d-ice-all": "d-ice-all"
 };
 
 // serverType 별 distinct hex. brand-친화적 색상 사용 (시맨틱 컬러와 분리).
@@ -50,7 +55,8 @@ const SERVER_TYPE_COLORS = {
   "ComfyUI": "#7e57c2",
   "OpenAI": "#10a37f",
   "OpenAI Compatible": "#607d8b",
-  "Gemini": "#4285f4"
+  "Gemini": "#4285f4",
+  "d-ice-all": "#00acc1"
 };
 
 // 공식 base URL 이 알려진 provider — 서버 추가 시 자동 입력 (사용자 입력 우선)
@@ -64,7 +70,8 @@ const SERVER_TYPE_ICON_KEYS = {
   "ComfyUI": "computer",
   "OpenAI": "text",
   "OpenAI Compatible": "text",
-  "Gemini": "storage"
+  "Gemini": "storage",
+  "d-ice-all": "storage"
 };
 
 // deprecated 타입 표시 메타 (stale 데이터 렌더용 — 신규 생성 불가)

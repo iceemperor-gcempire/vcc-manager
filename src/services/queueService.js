@@ -7,6 +7,7 @@ const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const geminiService = require('./geminiService');
 const gptImageService = require('./gptImageService');
+const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
@@ -137,6 +138,7 @@ const SERVICE_MAP = {
   'OpenAI Compatible:image': handleOpenAIImage,
   'ComfyUI:image': handleComfyUIWorkflow,
   'ComfyUI:video': handleComfyUIWorkflow,
+  'd-ice-all:image': handleDIceAllImage,
 };
 
 const resolveServiceKey = (workboardData) => {
@@ -187,6 +189,30 @@ async function handleGeminiImage({ workboardData, inputData, job, signal }) {
     videos: result.videos,
     usage: usageNormalized,
     costEstimate,
+  };
+}
+
+// d-ice-all 게이트웨이 (Codex ImageGen 경유, 구독 과금) — usage/비용 추정 없음 (#747)
+async function handleDIceAllImage({ workboardData, inputData, job, signal }) {
+  const result = await dIceAllService.generateImage(
+    workboardData.serverUrl,
+    workboardData.apiKey,
+    buildGeminiPrompt(inputData, workboardData),
+    {
+      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      size: extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE)),
+      n: extractOptionValue(inputData.additionalParams?.n || inputData.n) || 1,
+      timeout: workboardData.timeout,
+      signal,
+    }
+  );
+  job.progress(90);
+
+  return {
+    images: result.images,
+    videos: result.videos,
+    usage: null,
+    costEstimate: null,
   };
 }
 
