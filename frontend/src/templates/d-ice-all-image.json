@@ -1,0 +1,45 @@
+{
+  "additionalInputFields": [
+    {
+      "name": "base_model",
+      "label": "생성 프로바이더",
+      "type": "select",
+      "required": true,
+      "defaultValue": "codex",
+      "options": [
+        {
+          "key": "Codex (구독 · ImageGen)",
+          "value": "codex"
+        }
+      ],
+      "description": "d-ice-all 게이트웨이의 provider 이름입니다. 게이트웨이에 named provider 를 추가했다면 옵션을 늘려 사용하세요."
+    },
+    {
+      "name": "image_size",
+      "label": "이미지 크기",
+      "type": "select",
+      "required": true,
+      "defaultValue": "auto",
+      "options": [
+        {
+          "key": "자동 (auto)",
+          "value": "auto"
+        },
+        {
+          "key": "1024x1024",
+          "value": "1024x1024"
+        },
+        {
+          "key": "1024x1536",
+          "value": "1024x1536"
+        },
+        {
+          "key": "1536x1024",
+          "value": "1536x1024"
+        }
+      ],
+      "description": "크기 힌트입니다. 게이트웨이가 지원 범위 내에서 가장 가까운 크기로 생성합니다."
+    }
+  ],
+  "workflowData": ""
+}

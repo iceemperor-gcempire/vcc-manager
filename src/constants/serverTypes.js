@@ -56,6 +56,16 @@ const SERVER_TYPE_SPECS = Object.freeze({
     defaultUrl: 'https://generativelanguage.googleapis.com',
     icon: 'storage',
   }),
+  // 로컬 LLM 게이트웨이 (Codex CLI ImageGen 경유 — 구독 과금, 종량 비용 없음) (#747)
+  'd-ice-all': Object.freeze({
+    label: 'd-ice-all',
+    color: '#00acc1', // cyan — 로컬 게이트웨이 (ice 시리즈)
+    outputFormats: Object.freeze(['image']),
+    modelSource: null, // 모델 동기화 미지원 — aiModel 은 게이트웨이 provider 이름 (템플릿 select)
+    healthCheck: Object.freeze({ path: '/health', auth: 'bearer' }),
+    defaultUrl: null,
+    icon: 'storage',
+  }),
 });
 
 // deprecated 타입: 신규 생성은 차단하되 stale 문서의 Mongoose 검증은 통과시킨다.
