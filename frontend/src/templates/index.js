@@ -9,6 +9,7 @@ import openAIText from './OpenAI-text.json';
 import geminiImage from './Gemini-image.json';
 import geminiText from './Gemini-text.json';
 import openAICompatibleText from './OpenAI Compatible-text.json';
+import dIceAllImage from './d-ice-all-image.json';
 
 const TEMPLATES = {
   'ComfyUI:image': comfyImage,
@@ -18,6 +19,7 @@ const TEMPLATES = {
   'Gemini:image': geminiImage,
   'Gemini:text': geminiText,
   'OpenAI Compatible:text': openAICompatibleText,
+  'd-ice-all:image': dIceAllImage,
 };
 
 // 매핑이 없을 때 사용하는 빈 폴백 (Workboard 가 항상 baseInputFields/additionalInputFields 를 갖도록 보장).

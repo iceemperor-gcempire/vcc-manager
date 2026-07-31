@@ -122,7 +122,7 @@ const validate = (schema) => {
 // 핸들러에 그대로 둔다. 클라이언트가 추가 필드를 보내는 기존 계약을 깨지 않도록
 // unknown 키는 허용. 에러 메시지는 기존 핸들러의 수동 검증 메시지와 동일하게 유지.
 
-const SERVER_TYPES = ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini'];
+const { SERVER_TYPES } = require('../constants/serverTypes');
 
 const REQUIRED_FIELD_MESSAGES = {
   'any.required': '필수 필드가 누락되었습니다.',

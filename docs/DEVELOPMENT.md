@@ -6,7 +6,7 @@ VCC Manager 의 백엔드 / 프론트엔드 / MCP 서버 구조와 핵심 모듈
 
 여러 AI 이미지/비디오/텍스트 생성 provider 를 단일 작업판(Workboard) 모델로 추상화하여 관리하는 웹 애플리케이션.
 
-- **지원 provider** (`serverType`): `OpenAI`, `OpenAI Compatible` (Ollama / LiteLLM 등), `Gemini`, `ComfyUI`
+- **지원 provider** (`serverType`): `OpenAI`, `OpenAI Compatible` (Ollama / LiteLLM 등), `Gemini`, `ComfyUI` — 목록·capability 의 단일 source 는 `src/constants/serverTypes.js` (#745, 아래 "신규 serverType 추가 절차" 참고)
 - **출력 형식** (`outputFormat`): `image`, `video`, `text` — provider 별 capability matrix 에서 결정
 - **인증**: JWT (웹) + API Key (MCP / 외부) — 세부 정책은 root `CLAUDE.md` "알려진 패턴 및 주의사항" 참고
 
@@ -57,6 +57,28 @@ VCC Manager 의 백엔드 / 프론트엔드 / MCP 서버 구조와 핵심 모듈
 | 작업판 템플릿 | `frontend/src/templates/` | `<serverType>-<outputFormat>.json` + `index.js` 로더 + `capabilities.js` (capability matrix) (v1.8.0) |
 | 관리자 작업판 편집 | `frontend/src/components/admin/WorkboardManagement.js` | 작업판 생성·편집, 템플릿 기반 폼 |
 | 공통 컴포넌트 | `frontend/src/components/common/` | 13개 공통 다이얼로그/패널 (root `CLAUDE.md` "공통 컴포넌트 활용" 참고) |
+
+## 신규 serverType(provider) 추가 절차 (#745)
+
+serverType 목록·capability·헬스체크 spec 의 **단일 source 는 `src/constants/serverTypes.js`** 다.
+frontend(`frontend/src/templates/capabilities.js`)와 mcp-server(`mcp-server/src/constants/serverTypes.js`)는
+모듈 시스템이 달라(ESM vs CJS) 직접 공유가 불가능한 **생성된 mirror** 이며, 손으로 고치지 않는다.
+
+1. `src/constants/serverTypes.js` 의 `SERVER_TYPE_SPECS` 에 새 타입 spec 추가
+   (label / color / outputFormats / modelSource / healthCheck / defaultUrl / icon)
+2. `node scripts/sync-server-type-mirrors.js` 실행 → frontend/mcp mirror 재생성
+3. `src/services/queueService.js` 에 provider service 핸들러 작성 + `SERVICE_MAP` 에
+   `'<타입>:<format>'` 키 연결 (image/video capability 는 핸들러가 없으면 테스트 실패)
+4. `frontend/src/templates/<타입>-<format>.json` 템플릿 작성 + `index.js` `TEMPLATES` 에 등록
+   (capability 조합마다 템플릿 필요 — 테스트로 검증)
+5. `npx jest` — `serverTypesSingleSource.test.js` (capability↔SERVICE_MAP 정합)
+   + `serverTypesMirror.test.js` (mirror 동기화·템플릿 커버리지) 통과 확인
+6. 선택: `frontend/src/components/common/WorkboardCatalog.js` 의 `deriveSvc`/`SERVER_AXIS`
+   (카탈로그 필터 축 — 미등록 시 'other' 로 안전 폴백), `src/utils/pricing.js` (비용 추정),
+   모델 목록 fetcher (`modelMetadataService.js` — 새 `modelSource` 값이 필요한 경우)
+
+타입 deprecate 시에는 `DEPRECATED_SERVER_TYPE_SPECS` 로 옮기고 `migrateTo` 를 지정한다
+(Mongoose enum 잔존 + 작업판 import 폴백 + 신규 생성 차단이 자동 적용).
 
 ## MCP 서버
 

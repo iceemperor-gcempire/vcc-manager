@@ -2,6 +2,7 @@ const axios = require('axios');
 const ServerModelCache = require('../models/ServerModelCache');
 const SystemSettings = require('../models/SystemSettings');
 const { decryptSecret } = require('../utils/secretCrypto');
+const { getServerTypeSpec } = require('../constants/serverTypes');
 
 // LoRA service 와 동일한 Civitai rate limit / 재시도 정책.
 // 단순 재구현 (Phase B 에서는 두 서비스가 독립으로 진화할 여지를 두기 위해
@@ -342,10 +343,12 @@ const syncServerProviderModels = async (server, { progressCallback = null } = {}
     if (progressCallback) progressCallback('fetching_list', 0, 0);
     await cache.updateProgress(0, 0, 'fetching_list');
 
+    // modelSource 는 constants/serverTypes.js 의 spec 이 단일 source (#745)
     let providerModels = [];
-    if (server.serverType === 'OpenAI' || server.serverType === 'OpenAI Compatible') {
+    const modelSource = getServerTypeSpec(server.serverType)?.modelSource;
+    if (modelSource === 'openai') {
       providerModels = await getOpenAIProviderModels(server.serverUrl, apiKey);
-    } else if (server.serverType === 'Gemini') {
+    } else if (modelSource === 'gemini') {
       providerModels = await getGeminiProviderModels(server.serverUrl, apiKey);
     } else {
       throw new Error(`Unsupported serverType for provider sync: ${server.serverType}`);
@@ -390,10 +393,11 @@ const syncServerProviderModels = async (server, { progressCallback = null } = {}
  * 호출자는 이 단일 진입점만 알면 됨.
  */
 const syncServerModels = async (server, opts = {}) => {
-  if (server.serverType === 'ComfyUI') {
+  const modelSource = getServerTypeSpec(server.serverType)?.modelSource;
+  if (modelSource === 'checkpoint') {
     return syncServerCheckpoints(server._id, server.serverUrl, opts);
   }
-  if (server.serverType === 'OpenAI' || server.serverType === 'OpenAI Compatible' || server.serverType === 'Gemini') {
+  if (modelSource) {
     return syncServerProviderModels(server, opts);
   }
   throw new Error(`Unsupported serverType for model sync: ${server.serverType}`);

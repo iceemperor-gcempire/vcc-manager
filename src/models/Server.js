@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { SERVER_TYPES_WITH_DEPRECATED, getServerTypeSpec } = require('../constants/serverTypes');
 
 const serverSchema = new mongoose.Schema({
   name: {
@@ -13,9 +14,9 @@ const serverSchema = new mongoose.Schema({
   },
   serverType: {
     type: String,
-    // 'GPT Image' 는 deprecated — Phase 2 마이그레이션으로 'OpenAI' 로 전환됨.
-    // enum 에는 다음 메이저까지 잔존시켜 stale 문서가 있어도 Mongoose 검증 실패가 안 나도록 함.
-    enum: ['ComfyUI', 'OpenAI', 'OpenAI Compatible', 'Gemini', 'GPT Image'],
+    // deprecated 타입('GPT Image' 등)도 포함 — stale 문서가 있어도 Mongoose 검증 실패가 안 나도록 함.
+    // 타입 목록의 단일 source 는 constants/serverTypes.js (#745).
+    enum: SERVER_TYPES_WITH_DEPRECATED,
     required: true
   },
   serverUrl: {
@@ -76,25 +77,13 @@ serverSchema.methods.checkHealth = async function() {
   const startTime = Date.now();
   
   try {
-    let healthEndpoint;
     let timeout = this.configuration?.timeout || 30000;
-    
-    // 서버 타입별 헬스체크 엔드포인트
-    switch (this.serverType) {
-      case 'ComfyUI':
-        healthEndpoint = `${this.serverUrl}/system_stats`;
-        break;
-      case 'OpenAI':
-      case 'OpenAI Compatible':
-      case 'GPT Image': // deprecated — Phase 2 후 데이터는 'OpenAI' 로 마이그레이션됨
-        healthEndpoint = `${this.serverUrl}/v1/models`;
-        break;
-      case 'Gemini':
-        healthEndpoint = `${this.serverUrl}/v1beta/models`;
-        break;
-      default:
-        healthEndpoint = this.serverUrl;
-    }
+
+    // 서버 타입별 헬스체크 엔드포인트 — spec 은 constants/serverTypes.js 단일 source (#745)
+    const spec = getServerTypeSpec(this.serverType);
+    const healthEndpoint = spec?.healthCheck?.path
+      ? `${this.serverUrl}${spec.healthCheck.path}`
+      : this.serverUrl;
 
     // at-rest 암호화된 apiKey 복호화 (#594)
     const { decryptSecret } = require('../utils/secretCrypto');
@@ -107,7 +96,7 @@ serverSchema.methods.checkHealth = async function() {
       } : {}
     };
 
-    if (this.serverType === 'Gemini' && apiKey) {
+    if (spec?.healthCheck?.auth === 'query-key' && apiKey) {
       requestConfig.params = { key: apiKey };
       requestConfig.headers = {};
     }
