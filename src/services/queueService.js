@@ -71,11 +71,10 @@ const initializeQueues = async () => {
       defaultJobOptions: {
         removeOnComplete: 50,
         removeOnFail: 20,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000
-        }
+        // 자동 재시도 없음 (#750): 생성 실패는 대부분 외부의 의도적 중단(ComfyUI interrupt 등)
+        // 또는 provider 의 결정적 오류라, 자동 재시도가 무거운 워크플로우를 되살리거나
+        // 종량 API 를 이중 과금시킬 수 있다. 복구는 수동 재시도(최대 3회)로 충분.
+        attempts: 1
       }
     });
 
@@ -358,7 +357,8 @@ const processImageGeneration = async (job) => {
   try {
     job.progress(5);
 
-    // 취소 체크포인트 1 — 생성 시작 전. throw 하지 않음 (throw 시 Bull attempts 재시도가 발동) (#521)
+    // 취소 체크포인트 1 — 생성 시작 전. throw 하지 않음 — 실패로 기록되면 안 되는 정상 종료 (#521)
+    // (#750 이후 attempts=1 이라 재시도 오발 문제는 없지만, cancelled 를 failed 로 만들지 않는 것은 여전히 중요)
     if (await isJobCancelled(jobId)) {
       console.log(`🚫 Job ${jobId} cancelled — skipping generation`);
       return { cancelled: true };
