@@ -22,6 +22,7 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
+const UploadedVideo = require('../models/UploadedVideo');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const Workboard = require('../models/Workboard');
@@ -217,6 +218,7 @@ const FILE_CHECKS = [
   { Model: GeneratedImage, urlFields: ['url'] },
   { Model: GeneratedVideo, urlFields: ['url', 'thumbnailUrl'] },
   { Model: UploadedImage, urlFields: ['url'] },
+  { Model: UploadedVideo, urlFields: ['url', 'thumbnailUrl'] },
 ];
 
 // uploads 하위 중 파일 정합성 검사 대상 서브디렉토리 (임시/백업 디렉토리는 제외)

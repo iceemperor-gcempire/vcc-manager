@@ -27,7 +27,8 @@ import { MONO } from '../../../theme';
 
 // 프리뷰 필드 — 실행 화면과 동일한 공용 렌더러의 preview 모드 (#711)
 export function PreviewField({ field }) {
-  if (field.type === 'image') {
+  if (field.type === 'image' || field.type === 'video') {
+    const isVideo = field.type === 'video';
     return (
       <Box>
         <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
@@ -35,7 +36,9 @@ export function PreviewField({ field }) {
         </Typography>
         <Box sx={{ border: '2px dashed', borderColor: 'divider', borderRadius: 1, p: 2, textAlign: 'center' }}>
           <Typography variant="caption" color="text.secondary">
-            이미지 업로드 (최대 {field.imageConfig?.maxImages || 3}개)
+            {isVideo
+              ? `비디오 업로드 (최대 ${field.videoConfig?.maxVideos || 1}개)`
+              : `이미지 업로드 (최대 ${field.imageConfig?.maxImages || 3}개)`}
           </Typography>
         </Box>
       </Box>
@@ -258,6 +261,18 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
             control={control}
             render={({ field: f }) => (
               <TextField {...f} value={f.value || 1} fullWidth select label="최대 이미지 수">
+                {[1, 2, 3].map((n) => <MenuItem key={n} value={n}>{n}개</MenuItem>)}
+              </TextField>
+            )}
+          />
+        )}
+
+        {fieldType === 'video' && (
+          <Controller
+            name={`additionalCustomFields.${selectedIdx}.videoConfig.maxVideos`}
+            control={control}
+            render={({ field: f }) => (
+              <TextField {...f} value={f.value || 1} fullWidth select label="최대 비디오 수">
                 {[1, 2, 3].map((n) => <MenuItem key={n} value={n}>{n}개</MenuItem>)}
               </TextField>
             )}

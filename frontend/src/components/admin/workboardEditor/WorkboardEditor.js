@@ -136,6 +136,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
             description: f.description || '',
             placeholder: f.placeholder || '',
             imageConfig: f.imageConfig || { maxImages: 1 },
+            videoConfig: f.videoConfig || { maxVideos: 1 },
           })),
         });
         safeServerRef.current = { serverId: hydratedServerId, serverType: hydratedServerType };
@@ -229,6 +230,9 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       if (field.type === 'select') fieldData.options = field.options || [];
       if (field.type === 'image') {
         fieldData.imageConfig = { maxImages: field.imageConfig?.maxImages || 1 };
+      }
+      if (field.type === 'video') {
+        fieldData.videoConfig = { maxVideos: field.videoConfig?.maxVideos || 1 };
       }
       return fieldData;
     });
