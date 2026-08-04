@@ -448,7 +448,7 @@ function MediaGrid({
                       <CardMedia
                         component="img"
                         height="120"
-                        image={item.url}
+                        image={item.thumbnailUrl || item.url}
                         alt={item.originalName || 'Image'}
                         sx={{ objectFit: 'cover' }}
                       />

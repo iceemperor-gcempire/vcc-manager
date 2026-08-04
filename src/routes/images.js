@@ -2,7 +2,9 @@ const express = require('express');
 const path = require('path');
 const { requireAuth } = require('../middleware/auth');
 const { upload, processAndSaveImage, deleteFile, validateImageDimensions } = require('../utils/fileUpload');
+const { videoUpload, processUploadedVideo } = require('../utils/videoUpload');
 const UploadedImage = require('../models/UploadedImage');
+const UploadedVideo = require('../models/UploadedVideo');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -346,6 +348,104 @@ router.post('/upload', requireAuth, upload.single('image'), async (req, res) => 
     }
     
     res.status(400).json({ message: error.message });
+  }
+});
+
+// 참조 비디오 업로드 (#753) — diskStorage 라 파일은 이미 최종 경로에 있음.
+// ffprobe 메타데이터 + 첫 프레임 썸네일 후 UploadedVideo 문서 생성.
+router.post('/upload-video', requireAuth, videoUpload.single('video'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No video file provided' });
+    }
+
+    const { tags } = req.body;
+    const result = await processUploadedVideo(req.file);
+    const parsedTags = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+    const uploadedVideo = new UploadedVideo({
+      ...result,
+      userId: req.user._id,
+      tags: parsedTags
+    });
+
+    await uploadedVideo.save();
+
+    if (parsedTags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: parsedTags } },
+        { $inc: { usageCount: 1 } }
+      );
+    }
+
+    res.status(201).json({
+      message: 'Video uploaded successfully',
+      video: uploadedVideo
+    });
+  } catch (error) {
+    if (req.file?.path) {
+      await deleteFile(req.file.path);
+    }
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// 업로드한 참조 비디오 목록 (#753)
+router.get('/uploaded-videos', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+
+    const filter = { userId: req.user._id };
+    if (search) {
+      filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
+    }
+
+    const videos = await UploadedVideo.find(filter)
+      .populate('tags')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await UploadedVideo.countDocuments(filter);
+
+    res.json({
+      videos,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 업로드한 참조 비디오 삭제 (#753) — 파일 + 썸네일 + 문서
+router.delete('/uploaded-videos/:id', requireAuth, async (req, res) => {
+  try {
+    const video = await UploadedVideo.findById(req.params.id);
+    if (!video) {
+      return res.status(404).json({ message: 'Video not found' });
+    }
+    if (video.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await deleteFile(video.path);
+    if (video.thumbnailUrl) {
+      const thumbPath = path.join(
+        process.env.UPLOAD_PATH || './uploads',
+        video.thumbnailUrl.replace(/^\/uploads\//, '')
+      );
+      await deleteFile(thumbPath);
+    }
+    await UploadedVideo.deleteOne({ _id: video._id });
+
+    res.json({ message: 'Video deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

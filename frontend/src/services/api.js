@@ -164,6 +164,14 @@ export const imageAPI = {
   downloadGenerated: (id) => api.post(`/images/generated/${id}/download`, {}, {
     responseType: 'blob',
   }),
+  // 참조 비디오 업로드 (#753)
+  uploadVideo: (formData) => api.post('/images/upload-video', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getUploadedVideos: (params) => api.get('/images/uploaded-videos', { params }),
+  deleteUploadedVideo: (id) => api.delete(`/images/uploaded-videos/${id}`),
   getVideos: (params) => api.get('/images/videos', { params }),
   getVideoById: (id) => api.get(`/images/videos/${id}`),
   updateVideo: (id, data) => api.put(`/images/videos/${id}`, data),

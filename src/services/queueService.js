@@ -13,6 +13,7 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
+const UploadedVideo = require('../models/UploadedVideo');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { decryptSecret } = require('../utils/secretCrypto');
@@ -268,6 +269,13 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
     workboardData.additionalInputFields || [],
     inputData
   );
+  // 비디오 필드도 같은 필드명→ComfyUI 파일명 맵에 합류 (#753)
+  const uploadedVideoMap = await uploadVideoFieldsToComfyUI(
+    workboardData.serverUrl,
+    workboardData.additionalInputFields || [],
+    inputData
+  );
+  Object.assign(uploadedImageMap, uploadedVideoMap);
   job.progress(15);
 
   let workflowJson;
@@ -475,6 +483,15 @@ const findImageDocumentById = async (imageId) => {
   return imageDoc;
 };
 
+// 비디오 참조 조회 (#753) — 업로드본 우선, 생성물(GeneratedVideo)도 참조로 재활용 가능
+const findVideoDocumentById = async (videoId) => {
+  let videoDoc = await UploadedVideo.findById(videoId);
+  if (!videoDoc) {
+    videoDoc = await GeneratedVideo.findById(videoId);
+  }
+  return videoDoc;
+};
+
 const loadImageInput = async (imageId) => {
   if (!imageId) return null;
 
@@ -623,6 +640,55 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
   return uploadedImageMap;
 };
 
+// 비디오 타입 필드를 ComfyUI 에 업로드 (#753) — 이미지와 동일한 필드명→파일명 맵 관례.
+// 빈 필드에 대한 플레이스홀더 주입(흰 PNG 류)은 없음 — 비디오 필드는 required 로 쓰는 것을 전제.
+const uploadVideoFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData) => {
+  const uploadedVideoMap = {};
+
+  const videoFields = (additionalInputFields || []).filter(field => field.type === 'video');
+
+  for (const field of videoFields) {
+    const fieldName = field.name;
+    let fieldValue = inputData.additionalParams?.[fieldName] || inputData[fieldName];
+
+    // 배열인 경우 첫 번째 비디오만 사용 (이미지 필드와 동일 관례)
+    if (Array.isArray(fieldValue)) {
+      fieldValue = fieldValue.length > 0 ? fieldValue[0] : null;
+    }
+
+    const videoId = fieldValue ? (fieldValue.videoId || fieldValue.imageId || fieldValue) : null;
+    if (!videoId) {
+      console.warn(`⚠️ Video field "${fieldName}" has no video attached`);
+      continue;
+    }
+
+    try {
+      const videoDoc = await findVideoDocumentById(videoId);
+      if (!videoDoc?.path || !fs.existsSync(videoDoc.path)) {
+        console.warn(`⚠️ Video not found for field "${fieldName}": ${videoId}`);
+        continue;
+      }
+
+      const videoBuffer = await fs.promises.readFile(videoDoc.path);
+      const filename = `vcc_${fieldName}_${Date.now()}_${path.basename(videoDoc.path)}`;
+
+      const uploadResult = await comfyUIService.uploadImage(
+        serverUrl,
+        videoBuffer,
+        filename,
+        videoDoc.mimeType || 'video/mp4'
+      );
+
+      uploadedVideoMap[fieldName] = uploadResult.name;
+      console.log(`✅ Uploaded video for field "${fieldName}": ${uploadResult.name}`);
+    } catch (error) {
+      console.error(`❌ Failed to upload video for field "${fieldName}":`, error.message);
+    }
+  }
+
+  return uploadedVideoMap;
+};
+
 // 유저 ID를 해시하여 파일명에 안전한 문자열로 변환
 const hashUserId = (userId) => {
   if (!userId) return 'anonymous';
@@ -751,6 +817,16 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
           } else {
             value = '';
             console.log(`⚠️ No uploaded image found for field "${fieldName}"`);
+          }
+          break;
+        case 'video':
+          // 비디오 필드도 ComfyUI 에 업로드된 파일명 사용 (#753) — VHS LoadVideo 등에서 소비
+          if (uploadedImageMap[fieldName]) {
+            value = uploadedImageMap[fieldName];
+            console.log(`🎬 Using uploaded video for field "${fieldName}": ${value}`);
+          } else {
+            value = '';
+            console.log(`⚠️ No uploaded video found for field "${fieldName}"`);
           }
           break;
         case 'string':

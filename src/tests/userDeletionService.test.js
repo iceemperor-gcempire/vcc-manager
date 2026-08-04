@@ -17,6 +17,7 @@ describe('#660 userDeletionService', () => {
       'PipelineRun',
       'UploadedImage',
       'UploadedText',
+      'UploadedVideo',
     ]);
   });
 

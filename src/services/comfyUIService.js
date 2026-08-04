@@ -465,24 +465,27 @@ const getCheckpointModels = async (serverUrl) => {
   }
 };
 
-const uploadImage = async (serverUrl, imageBuffer, filename) => {
+// ComfyUI /upload/image 는 input 디렉토리에 파일을 저장하는 범용 엔드포인트 —
+// 비디오도 같은 경로로 올리고 VHS LoadVideo 등에서 파일명으로 소비한다 (#753).
+const uploadImage = async (serverUrl, imageBuffer, filename, contentType = 'image/png') => {
   const FormData = require('form-data');
-  
+
   try {
     const form = new FormData();
     form.append('image', imageBuffer, {
       filename: filename,
-      contentType: 'image/png'
+      contentType
     });
     form.append('overwrite', 'true');
-    
-    console.log(`📤 Uploading image to ComfyUI: ${filename}`);
-    
+
+    console.log(`📤 Uploading file to ComfyUI: ${filename} (${contentType})`);
+
     const response = await axios.post(`${serverUrl}/upload/image`, form, {
       headers: {
         ...form.getHeaders()
       },
-      timeout: 30000
+      // 비디오는 이미지보다 크므로 여유 있는 타임아웃 (#753)
+      timeout: contentType.startsWith('video/') ? 120000 : 30000
     });
     
     console.log(`✅ Image uploaded successfully:`, response.data);
