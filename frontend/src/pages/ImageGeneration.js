@@ -52,6 +52,7 @@ import CustomFieldControl from '../components/common/CustomFieldControl';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
+import VideoSelectDialog from '../components/common/VideoSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -362,6 +363,160 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
           imageId: item.imageId,
           image: item.image
         }))}
+      />
+    </Box>
+  );
+}
+
+// 참조 비디오 필드 (#753) — CustomImageField 와 대칭. MiniMax H3 등 비디오 참조 워크플로우용.
+function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
+  const [selectedVideos, setSelectedVideos] = useState(value || []);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (value && Array.isArray(value) && value.length > 0) {
+      const hasValidVideos = value.every(item => item.videoId && item.video?.url);
+      if (hasValidVideos && selectedVideos.length === 0) {
+        setSelectedVideos(value);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const handleRemove = (videoId) => {
+    const updated = selectedVideos.filter(v => v.videoId !== videoId);
+    setSelectedVideos(updated);
+    onChange(updated);
+  };
+
+  const handleNewUpload = async (files) => {
+    if (files.length === 0) return;
+
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('video', file);
+        const response = await imageAPI.uploadVideo(formData);
+        return response.data.video;
+      });
+
+      const uploadedVideos = await Promise.all(uploadPromises);
+      const newSelections = uploadedVideos.map(video => ({
+        videoId: video._id,
+        video
+      }));
+
+      const remainingSlots = maxVideos - selectedVideos.length;
+      const toAdd = newSelections.slice(0, remainingSlots);
+
+      const updated = [...selectedVideos, ...toAdd];
+      setSelectedVideos(updated);
+      onChange(updated);
+      toast.success(`${toAdd.length}개 비디오 업로드 완료`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || '비디오 업로드 실패');
+    }
+  };
+
+  const handleGallerySelect = (selected) => {
+    const updated = Array.isArray(selected) ? selected : [selected];
+    setSelectedVideos(updated);
+    onChange(updated);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
+    maxFiles: maxVideos - selectedVideos.length,
+    disabled: selectedVideos.length >= maxVideos,
+    onDrop: handleNewUpload
+  });
+
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="subtitle2">
+          {field.label} ({selectedVideos.length}/{maxVideos})
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={() => setDialogOpen(true)}
+          startIcon={<ImageIcon />}
+        >
+          갤러리에서 선택
+        </Button>
+      </Box>
+
+      {field.description && (
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+          {field.description}
+        </Typography>
+      )}
+
+      {selectedVideos.length === 0 ? (
+        <Box
+          {...getRootProps()}
+          sx={{
+            border: '2px dashed',
+            borderColor: isDragActive ? 'primary.main' : 'grey.300',
+            borderRadius: 1,
+            p: 3,
+            textAlign: 'center',
+            cursor: 'pointer',
+            bgcolor: isDragActive ? 'primary.light' : 'grey.50'
+          }}
+        >
+          <input {...getInputProps()} />
+          <Typography variant="body2" color="text.secondary">
+            비디오를 드래그하거나 클릭하여 업로드 (MP4/WebM/MOV)
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            최대 {maxVideos}개
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={1}>
+          {selectedVideos.map((item, index) => (
+            <Grid item xs={12} sm={6} key={index}>
+              <Card sx={{ position: 'relative' }}>
+                <Box
+                  component="video"
+                  src={item.video.url}
+                  poster={item.video.thumbnailUrl || undefined}
+                  controls
+                  muted
+                  sx={{
+                    width: '100%',
+                    height: 180,
+                    objectFit: 'contain',
+                    bgcolor: 'grey.900'
+                  }}
+                />
+                <IconButton aria-label="삭제"
+                  size="small"
+                  onClick={() => handleRemove(item.videoId)}
+                  sx={{
+                    position: 'absolute',
+                    top: 4,
+                    right: 4,
+                    bgcolor: 'rgba(255,255,255,0.9)',
+                    '&:hover': { bgcolor: 'rgba(255,255,255,1)' }
+                  }}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      <VideoSelectDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSelect={handleGallerySelect}
+        title={`${field.label} 선택`}
+        multiple={maxVideos > 1}
+        maxVideos={maxVideos}
       />
     </Box>
   );
@@ -994,7 +1149,7 @@ function ImageGeneration() {
                 </Box>
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={field.type === 'image' ? 12 : 6} key={field.name}>
+                    <Grid item xs={12} sm={['image', 'video'].includes(field.type) ? 12 : 6} key={field.name}>
                       {field.type === 'image' ? (
                         <Controller
                           name={`additionalParams.${field.name}`}
@@ -1007,6 +1162,20 @@ function ImageGeneration() {
                               onChange={formField.onChange}
                               maxImages={field.imageConfig?.maxImages || 3}
                               isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
+                            />
+                          )}
+                        />
+                      ) : field.type === 'video' ? (
+                        <Controller
+                          name={`additionalParams.${field.name}`}
+                          control={control}
+                          defaultValue={[]}
+                          render={({ field: formField }) => (
+                            <CustomVideoField
+                              field={field}
+                              value={formField.value || []}
+                              onChange={formField.onChange}
+                              maxVideos={field.videoConfig?.maxVideos || 1}
                             />
                           )}
                         />
