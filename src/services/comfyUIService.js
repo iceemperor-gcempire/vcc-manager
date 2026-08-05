@@ -215,12 +215,113 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
     //    executing { node: null }은 히스토리 저장 후 전송되므로 가장 안전한 완료 신호
     return new Promise((resolve, reject) => {
       let currentProgress = 0;
-      // 서버 설정 (Server.configuration.timeout) 적용 — 스키마 기본값도 300000 이라 미설정 시 기존과 동일 (#530)
-      // 타임아웃 시 interrupt 는 호출하지 않음 — 재연결 후 타임아웃 작업 재매칭 운영 플로우 보존
-      const timeout = setTimeout(() => {
-        ws.close();
-        reject(new Error(`Workflow execution timeout (${Math.round(executionTimeout / 1000)}s)`));
-      }, executionTimeout);
+      let settled = false;
+      let livenessTimer = null;
+      let pollTimer = null;
+      let livenessFailures = 0;
+      const timeoutSec = Math.round(executionTimeout / 1000);
+
+      const cleanup = () => {
+        if (livenessTimer) clearTimeout(livenessTimer);
+        if (pollTimer) clearInterval(pollTimer);
+      };
+      const safeResolve = (value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try { ws.close(1000); } catch (_) { /* already closed */ }
+        resolve(value);
+      };
+      const safeReject = (error) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        try { ws.close(); } catch (_) { /* already closed */ }
+        reject(error);
+      };
+
+      const fetchHistoryEntry = async () => {
+        const historyResponse = await axios.get(`${serverUrl}/history/${promptId}`, { timeout: 15000 });
+        return historyResponse.data?.[promptId] || null;
+      };
+      const isInComfyQueue = async () => {
+        const queueResponse = await axios.get(`${serverUrl}/queue`, { timeout: 15000 });
+        const entries = [
+          ...(queueResponse.data?.queue_running || []),
+          ...(queueResponse.data?.queue_pending || [])
+        ];
+        // 큐 엔트리 형식: [number, prompt_id, prompt, ...]
+        return entries.some((entry) => Array.isArray(entry) && entry[1] === promptId);
+      };
+      const extractHistoryError = (history) => {
+        const messages = history?.status?.messages || [];
+        for (const msg of messages) {
+          if (Array.isArray(msg) && msg[0] === 'execution_error') {
+            return msg[1]?.exception_message;
+          }
+        }
+        return null;
+      };
+      // history 에 결과가 있으면 수거하고 true. 오류로 끝났으면 reject 후 true. 아직 없으면 false.
+      const tryCompleteFromHistory = async () => {
+        const history = await fetchHistoryEntry();
+        if (!history) return false;
+        if (history.status?.status_str === 'error') {
+          safeReject(new Error(`ComfyUI execution error: ${extractHistoryError(history) || 'Unknown error'}`));
+          return true;
+        }
+        const result = await processHistoryResult(serverUrl, history);
+        safeResolve({ ...result, promptId });
+        return true;
+      };
+
+      // liveness 기반 타임아웃 (#755): 만료 시점에 즉시 실패시키지 않고 완료/생존을 확인한다.
+      // ComfyUI 큐에 살아있으면 대기를 연장 — "ComfyUI 는 도는데 vcc 는 실패" 불일치 제거.
+      // timeout 설정의 의미는 완주 제한이 아니라 생존 확인 주기 + 실종 판정이 된다.
+      const armLivenessTimer = () => {
+        livenessTimer = setTimeout(async () => {
+          if (settled) return;
+          try {
+            if (await tryCompleteFromHistory()) return;
+            if (await isInComfyQueue()) {
+              livenessFailures = 0;
+              console.log(`⏳ Prompt ${promptId} still in ComfyUI queue after ${timeoutSec}s — extending wait (#755)`);
+              armLivenessTimer();
+              return;
+            }
+            safeReject(new Error(`Workflow execution timeout (${timeoutSec}s) — prompt not found in ComfyUI queue/history`));
+          } catch (checkError) {
+            livenessFailures += 1;
+            if (livenessFailures >= 3) {
+              safeReject(new Error(`Workflow execution timeout (${timeoutSec}s) — ComfyUI unreachable during liveness check: ${checkError.message}`));
+              return;
+            }
+            console.warn(`⚠️ Liveness check failed (${livenessFailures}/3): ${checkError.message} — retrying`);
+            armLivenessTimer();
+          }
+        }, executionTimeout);
+      };
+      armLivenessTimer();
+
+      // WS 가 끊겨도 실패시키지 않고 history/queue 폴링으로 재매칭 (#755)
+      const startPolling = (reason) => {
+        if (settled || pollTimer) return;
+        console.log(`🔁 ${reason} — switching to history polling for prompt ${promptId} (#755)`);
+        pollTimer = setInterval(async () => {
+          if (settled) return;
+          try {
+            if (await tryCompleteFromHistory()) return;
+            if (!(await isInComfyQueue())) {
+              // 완료 직후 history 반영 전 race 대비 재확인
+              if (!(await tryCompleteFromHistory())) {
+                safeReject(new Error(`ComfyUI prompt disappeared (not in queue/history) after: ${reason}`));
+              }
+            }
+          } catch (pollError) {
+            console.warn(`⚠️ Polling check failed: ${pollError.message}`);
+          }
+        }, 10000);
+      };
 
       ws.on('message', async (data, isBinary) => {
         // ComfyUI sends binary messages (image previews, etc.) — skip them
@@ -237,34 +338,19 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
           }
 
           if (message.type === 'executing' && message.data.prompt_id === promptId && message.data.node === null) {
-            clearTimeout(timeout);
-
             try {
               console.log(`📚 Fetching history for prompt ${promptId}...`);
-              const historyResponse = await axios.get(`${serverUrl}/history/${promptId}`);
-              const history = historyResponse.data[promptId];
-
-              console.log(`📖 History response:`, history);
-
-              if (!history) {
-                console.error('❌ No history found for prompt');
-                throw new Error('No history found for prompt');
+              if (!(await tryCompleteFromHistory())) {
+                // 히스토리 반영 직전 race — 폴링으로 마저 수거
+                startPolling('History not ready at completion signal');
               }
-
-              const result = await processHistoryResult(serverUrl, history);
-
-              ws.close(1000);
-              resolve({ ...result, promptId });
             } catch (error) {
-              ws.close();
-              reject(error);
+              safeReject(error);
             }
           }
 
           if (message.type === 'execution_error' && message.data.prompt_id === promptId) {
-            clearTimeout(timeout);
-            ws.close();
-            reject(new Error(`ComfyUI execution error: ${message.data.exception_message || 'Unknown error'}`));
+            safeReject(new Error(`ComfyUI execution error: ${message.data.exception_message || 'Unknown error'}`));
           }
         } catch (parseError) {
           console.error('Error parsing WebSocket message:', parseError);
@@ -272,14 +358,14 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       });
 
       ws.on('error', (error) => {
-        clearTimeout(timeout);
-        reject(new Error(`WebSocket error: ${error.message}`));
+        if (settled) return;
+        startPolling(`WebSocket error: ${error.message}`);
       });
 
       ws.on('close', (code, reason) => {
-        clearTimeout(timeout);
+        if (settled) return;
         if (code !== 1000) {
-          reject(new Error(`WebSocket closed unexpectedly: ${code} ${reason}`));
+          startPolling(`WebSocket closed unexpectedly: ${code} ${reason}`);
         }
       });
     });
