@@ -723,6 +723,7 @@ function ImageGeneration() {
 
       let lastGeneratedMedia = null;
       let prevOutputFormat = null; // 이전 작업의 출력 타입 (#673 — base_model prefill 조건 판단용)
+      let sameWorkboardContinue = false; // #762 — 같은 작업판 계속하기 여부
 
       if (continueJobData) {
         try {
@@ -732,6 +733,7 @@ function ImageGeneration() {
             jobInputData = parsedData.inputData;
             lastGeneratedMedia = parsedData.lastGeneratedMedia || null;
             prevOutputFormat = parsedData.prevOutputFormat || null; // #673
+            sameWorkboardContinue = parsedData.sameWorkboard === true; // #762
             localStorage.removeItem('continueJobData'); // 사용 후 제거
           } else {
           }
@@ -755,11 +757,14 @@ function ImageGeneration() {
           }
         };
 
-        // #673: 이전 작업의 base_model 을 새 작업판에 prefill 할지 결정.
-        //  ① 출력 타입이 다르면 비호환이라 skip  ② 출력 타입 같아도 작업판에 base_model 기본값이 있으면 skip  ③ 그 외 prefill
+        // #673: 이전 작업의 base_model 을 prefill 할지 결정 — 단, #673 의 조건은 **다른 작업판으로
+        // 이어가기(크로스)** 안전장치다. 같은 작업판 계속하기는 히스토리의 모델이 이 작업판에서
+        // 선택됐던 유효값이므로 기본값보다 항상 우선 복원한다 (#762 — 기본값이 실사용 모델을 덮던 회귀).
+        //  크로스: ① 출력 타입이 다르면 skip  ② 작업판에 base_model 기본값이 있으면 skip  ③ 그 외 prefill
         const bmField = (workboardData.additionalInputFields || []).find((f) => f.type === 'baseModel');
         const bmHasDefault = bmField && bmField.defaultValue !== undefined && bmField.defaultValue !== null && bmField.defaultValue !== '';
-        const allowBaseModelPrefill = !(prevOutputFormat && prevOutputFormat !== workboardData.outputFormat) && !bmHasDefault;
+        const allowBaseModelPrefill = sameWorkboardContinue
+          || (!(prevOutputFormat && prevOutputFormat !== workboardData.outputFormat) && !bmHasDefault);
 
         // F2: 기본 필드 (prompt, negativePrompt) 만 직접 매핑 — aiModel/imageSize 등은 customField 가 처리.
         // legacy job 의 {key,value} 객체 값도 그대로 set 됨 (Controller 가 value 만 추출). 이전 매칭 로직은
@@ -1155,14 +1160,24 @@ function ImageGeneration() {
                           name={`additionalParams.${field.name}`}
                           control={control}
                           defaultValue={[]}
-                          render={({ field: formField }) => (
-                            <CustomImageField
-                              field={field}
-                              value={formField.value || []}
-                              onChange={formField.onChange}
-                              maxImages={field.imageConfig?.maxImages || 3}
-                              isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
-                            />
+                          rules={field.required ? {
+                            validate: (v) => (Array.isArray(v) && v.length > 0) || `${field.label}을(를) 첨부해주세요`
+                          } : undefined}
+                          render={({ field: formField, fieldState }) => (
+                            <Box>
+                              <CustomImageField
+                                field={field}
+                                value={formField.value || []}
+                                onChange={formField.onChange}
+                                maxImages={field.imageConfig?.maxImages || 3}
+                                isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
+                              />
+                              {fieldState.error && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                                  {fieldState.error.message}
+                                </Typography>
+                              )}
+                            </Box>
                           )}
                         />
                       ) : field.type === 'video' ? (
@@ -1170,13 +1185,23 @@ function ImageGeneration() {
                           name={`additionalParams.${field.name}`}
                           control={control}
                           defaultValue={[]}
-                          render={({ field: formField }) => (
-                            <CustomVideoField
-                              field={field}
-                              value={formField.value || []}
-                              onChange={formField.onChange}
-                              maxVideos={field.videoConfig?.maxVideos || 1}
-                            />
+                          rules={field.required ? {
+                            validate: (v) => (Array.isArray(v) && v.length > 0) || `${field.label}을(를) 첨부해주세요`
+                          } : undefined}
+                          render={({ field: formField, fieldState }) => (
+                            <Box>
+                              <CustomVideoField
+                                field={field}
+                                value={formField.value || []}
+                                onChange={formField.onChange}
+                                maxVideos={field.videoConfig?.maxVideos || 1}
+                              />
+                              {fieldState.error && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                                  {fieldState.error.message}
+                                </Typography>
+                              )}
+                            </Box>
                           )}
                         />
                       ) : (

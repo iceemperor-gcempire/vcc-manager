@@ -157,6 +157,11 @@ export const emptyCustomField = (type) => ({
   required: false,
   formatString: '',
   options: [],
+  // defaultValue 등을 명시적으로 비워 둔다 (#760) — 키가 없으면(undefined) RHF 가
+  // 직전 선택 필드의 값을 새 필드 경로로 이어받아 기본값이 오염된다.
+  defaultValue: '',
+  placeholder: '',
+  description: '',
   imageConfig: { maxImages: 1 },
   videoConfig: { maxVideos: 1 },
 });
