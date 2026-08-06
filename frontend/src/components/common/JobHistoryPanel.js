@@ -1017,6 +1017,7 @@ function JobHistoryPanel({
         inputData: job.inputData,
         workboard,
         prevOutputFormat: job.resultVideos?.length ? 'video' : 'image', // #673
+        sameWorkboard: true, // #762 — 같은 작업판 계속하기: 히스토리 값을 기본값보다 우선 복원
       }));
       navigate(`/generate/${workboardId}`);
       toast.success('작업 설정을 불러왔습니다');
@@ -1061,6 +1062,7 @@ function JobHistoryPanel({
         video: lastGeneratedVideo
       },
       prevOutputFormat: lastGeneratedVideo ? 'video' : 'image', // #673
+      sameWorkboard: false, // #762 — 다른 작업판 이어가기: #673 안전 조건 유지
     }));
 
     setCrossWorkboardOpen(false);
