@@ -136,6 +136,19 @@ const replacements = {
 };
 ```
 
+#### D-1. 이미지/비디오 필드 자동 플레이스홀더 (#758)
+
+image / video 타입 커스텀 필드는 파일명 플레이스홀더 외에 **첨부 여부 플래그**가 자동 제공된다:
+
+| 플레이스홀더 | 값 | 설명 |
+|---|---|---|
+| `{{##필드명##}}` | string | ComfyUI 에 업로드된 파일명. image 필드 미첨부 시 흰 PNG 파일명 (#230, 제출 검증 통과용) |
+| `{{##필드명_attached##}}` | number `1`/`0` | 사용자가 **실제로 첨부했는지** — 흰 PNG 주입과 무관 |
+
+`comfyui-nodes/vcc-nodes/` 의 **VCC Optional Image** 노드와 조합하면 미첨부 오류 없이
+단일 작업판에서 첨부/미첨부를 모두 처리할 수 있다 (분기는 스위치 노드에 `select` 출력 연결).
+설치·사용법은 [comfyui-nodes/vcc-nodes/README.md](../comfyui-nodes/vcc-nodes/README.md) 참고.
+
 ### 2.3 워크플로우 JSON 치환 로직
 
 #### A. 재귀적 객체 순회 (이중 Seed 지원)
