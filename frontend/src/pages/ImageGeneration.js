@@ -1155,14 +1155,24 @@ function ImageGeneration() {
                           name={`additionalParams.${field.name}`}
                           control={control}
                           defaultValue={[]}
-                          render={({ field: formField }) => (
-                            <CustomImageField
-                              field={field}
-                              value={formField.value || []}
-                              onChange={formField.onChange}
-                              maxImages={field.imageConfig?.maxImages || 3}
-                              isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
-                            />
+                          rules={field.required ? {
+                            validate: (v) => (Array.isArray(v) && v.length > 0) || `${field.label}을(를) 첨부해주세요`
+                          } : undefined}
+                          render={({ field: formField, fieldState }) => (
+                            <Box>
+                              <CustomImageField
+                                field={field}
+                                value={formField.value || []}
+                                onChange={formField.onChange}
+                                maxImages={field.imageConfig?.maxImages || 3}
+                                isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
+                              />
+                              {fieldState.error && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                                  {fieldState.error.message}
+                                </Typography>
+                              )}
+                            </Box>
                           )}
                         />
                       ) : field.type === 'video' ? (
@@ -1170,13 +1180,23 @@ function ImageGeneration() {
                           name={`additionalParams.${field.name}`}
                           control={control}
                           defaultValue={[]}
-                          render={({ field: formField }) => (
-                            <CustomVideoField
-                              field={field}
-                              value={formField.value || []}
-                              onChange={formField.onChange}
-                              maxVideos={field.videoConfig?.maxVideos || 1}
-                            />
+                          rules={field.required ? {
+                            validate: (v) => (Array.isArray(v) && v.length > 0) || `${field.label}을(를) 첨부해주세요`
+                          } : undefined}
+                          render={({ field: formField, fieldState }) => (
+                            <Box>
+                              <CustomVideoField
+                                field={field}
+                                value={formField.value || []}
+                                onChange={formField.onChange}
+                                maxVideos={field.videoConfig?.maxVideos || 1}
+                              />
+                              {fieldState.error && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                                  {fieldState.error.message}
+                                </Typography>
+                              )}
+                            </Box>
                           )}
                         />
                       ) : (

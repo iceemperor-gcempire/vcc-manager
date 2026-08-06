@@ -835,7 +835,21 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
           value = String(value);
           break;
       }
-      
+
+      // 이미지/비디오 필드는 첨부 여부 플래그도 자동 제공 (#758) —
+      // `{{##필드명_attached##}}` 가 1/0 (number) 으로 치환된다. 흰 PNG 자동 주입(#230)과
+      // 무관하게 "사용자가 실제로 첨부했는가" 를 나타내므로, VCC Optional Image 노드나
+      // 스위치 노드의 분기 입력으로 사용할 수 있다.
+      if (field.type === 'image' || field.type === 'video') {
+        const hasAttachment = Array.isArray(rawValue)
+          ? rawValue.length > 0
+          : Boolean(extractValue(rawValue));
+        replacements[`{{##${fieldName}_attached##}}`] = {
+          value: hasAttachment ? 1 : 0,
+          type: 'number'
+        };
+      }
+
       replacements[formatString] = { value, type: field.type || 'string' };
     });
   }
@@ -1261,6 +1275,7 @@ const clearImageGenerationQueue = async () => {
 module.exports = {
   initializeQueues,
   SERVICE_MAP, // capability coverage 테스트용 (#745)
+  injectInputsIntoWorkflow, // _attached 플래그 치환 테스트용 (#758)
   addImageGenerationJob,
   getQueueStats,
   cancelQueueJob,
