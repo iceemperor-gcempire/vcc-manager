@@ -351,6 +351,9 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
             />
 
             <FieldInspector
+              // 선택 전환마다 강제 remount (#760) — RHF Controller 는 name 변경 시 remount 가
+              // 필요하며, 재사용하면 이전 필드 값이 새 필드 경로로 승계된다 (기본값 오염 버그)
+              key={selectedFieldIdx}
               control={control}
               watch={watch}
               selectedIdx={selectedFieldIdx}
