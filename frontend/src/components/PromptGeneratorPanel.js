@@ -31,6 +31,7 @@ import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, imageAPI } from '../services/api';
 import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
+import PromptGuideBadge from './common/PromptGuideBadge';
 import CustomFieldControl from './common/CustomFieldControl';
 import { MONO } from '../theme';
 
@@ -287,11 +288,12 @@ function PromptGeneratorPanel({
         <Grid container spacing={compact ? 2 : 3}>
           <Grid item xs={12} md={compact ? 12 : 6}>
             <Paper sx={{ p: compact ? 2 : 4 }} variant={compact ? 'elevation' : 'outlined'} elevation={0}>
-              {!compact && (
-                <Typography variant="h6" gutterBottom>
-                  입력 설정
-                </Typography>
-              )}
+              {/* 가이드 배지는 헤더가 아니라 여기에 둔다 (#766) — 이 패널은 다이얼로그에서
+                  showHeader=false 로 열리는 경우가 많아 헤더에 붙이면 정작 주 사용 경로에서 안 보인다. */}
+              <Box display="flex" alignItems="center" justifyContent="space-between" gap={1} sx={{ mb: compact ? 1 : 0 }}>
+                {!compact && <Typography variant="h6" gutterBottom>입력 설정</Typography>}
+                <PromptGuideBadge workboard={workboard} />
+              </Box>
 
               {/* F2: baseInputFields.aiModel / referenceImages hardcoded UI 제거 — customField 가 통합 처리.
                   #391: conversation_mode 는 admin 전용 설정이라 사용자 폼에선 숨김 */}
