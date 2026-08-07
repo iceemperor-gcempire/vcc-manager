@@ -16,6 +16,7 @@ import { ExpandMore, OpenInNew } from '@mui/icons-material';
 import { Controller } from 'react-hook-form';
 import WorkboardBasicInfoForm from '../WorkboardBasicInfoForm';
 import PermissionsCard from './PermissionsCard';
+import PromptGuideCard from './PromptGuideCard';
 import { BUILTIN_WORKFLOW_VARIABLES } from '../../../constants/workflowVariables';
 import { MONO } from '../../../theme';
 
@@ -114,7 +115,7 @@ function LlmParamsCard({ control }) {
 function SettingsRail({
   control, setValue, errors, watch,
   isComfyUI, isGemini, isOpenAIImage, outputFormat,
-  serverId, groups, onOpenWorkflowEditor,
+  serverId, groups, promptGuides, onOpenWorkflowEditor,
 }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -143,6 +144,8 @@ function SettingsRail({
       {isComfyUI && (
         <WorkflowSummaryCard watch={watch} errors={errors} onOpenEditor={onOpenWorkflowEditor} />
       )}
+
+      {outputFormat === 'text' && <PromptGuideCard control={control} guides={promptGuides} />}
 
       {outputFormat === 'text' && <LlmParamsCard control={control} />}
 
