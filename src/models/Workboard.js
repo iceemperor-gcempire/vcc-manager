@@ -147,6 +147,14 @@ const workboardSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // 연결된 프롬프트 가이드 (#766). 배열 순서대로 시스템 프롬프트에 합성된다 —
+  // "공통 작성 원칙" + "모델별 스펙" 처럼 쪼개 관리하고 겹쳐 쓰기 위함.
+  // PromptGuide 는 소유자가 없는 전역 문서라, 이 작업판을 볼 수 있는 모든 사용자에게
+  // 동일하게 적용된다 (사용자 소유 문서인 systemPromptDocId / contextDocIds 와 대비).
+  promptGuideIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PromptGuide'
+  }],
   workflowData: {
     type: String,
     default: ''

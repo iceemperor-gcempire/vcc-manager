@@ -555,6 +555,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      promptGuideIds,
       llmExtraParams
     } = req.body;
 
@@ -602,6 +603,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       workflowData: isComfyUI ? workflowData : '',
       allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
       allowedGroupIds: resolvedAllowedGroupIds,
+      promptGuideIds: Array.isArray(promptGuideIds) ? promptGuideIds : [],
       modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -643,6 +645,7 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      promptGuideIds,
       llmExtraParams,
       isActive
     } = req.body;
@@ -698,6 +701,9 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     // 권한 / 노출 정책 (#198)
     if (Array.isArray(allowedGroupIds)) {
       workboard.allowedGroupIds = allowedGroupIds;
+    }
+    if (Array.isArray(promptGuideIds)) {
+      workboard.promptGuideIds = promptGuideIds;
     }
     if (modelExposurePolicy === 'full' || modelExposurePolicy === 'whitelist') {
       workboard.modelExposurePolicy = modelExposurePolicy;

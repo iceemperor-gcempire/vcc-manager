@@ -169,6 +169,7 @@ const workboardCreateSchema = Joi.object({
   modelWhitelist: Joi.array(),
   loraExposurePolicy: Joi.string(),
   loraWhitelist: Joi.array(),
+  promptGuideIds: Joi.array(),
   llmExtraParams: Joi.object().unknown(true).allow(null),
 }).unknown(true);
 
@@ -185,6 +186,7 @@ const workboardUpdateSchema = Joi.object({
   modelWhitelist: Joi.array(),
   loraExposurePolicy: Joi.string(),
   loraWhitelist: Joi.array(),
+  promptGuideIds: Joi.array(),
   llmExtraParams: Joi.object().unknown(true).allow(null),
   isActive: Joi.boolean(),
 }).unknown(true);

@@ -27,6 +27,7 @@
 
 const User = require('../models/User');
 const Group = require('../models/Group');
+const PromptGuide = require('../models/PromptGuide');
 const Tag = require('../models/Tag');
 const Server = require('../models/Server');
 const Project = require('../models/Project');
@@ -53,6 +54,8 @@ const BACKUP_COLLECTIONS = [
   // 참조 대상 (사용자 / 그룹 / 태그 / 서버)
   { name: 'User', model: User, sensitiveFields: ['googleId'] },
   { name: 'Group', model: Group },
+  // Workboard.promptGuideIds 의 참조 대상 — Workboard 보다 앞에 둔다 (#766)
+  { name: 'PromptGuide', model: PromptGuide },
   { name: 'Tag', model: Tag },
   { name: 'Server', model: Server, encryptFields: ['configuration.apiKey'] },
   // 워크스페이스 / 작업판 / 문서
