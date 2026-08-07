@@ -53,7 +53,6 @@ const ensureWorldviewTag = require('./migrations/ensureWorldviewTag');
 const backfillConversationTags = require('./migrations/backfillConversationTags');
 const alignTagColorsV2 = require('./migrations/alignTagColorsV2');
 const backfillVideoThumbnails = require('./migrations/backfillVideoThumbnails');
-const extractInlinePromptGuides = require('./migrations/extractInlinePromptGuides');
 
 dotenv.config();
 
@@ -265,7 +264,6 @@ const startServer = async () => {
     await backfillConversationTags();
     await alignTagColorsV2();
     await backfillVideoThumbnails(); // #672 기존 동영상 썸네일 백필 (best-effort)
-    await extractInlinePromptGuides(); // #766 작업판 필드에 인라인된 대형 가이드 → PromptGuide
 
     // Initialize job queues after database connection
     console.log('Initializing job queues...');
