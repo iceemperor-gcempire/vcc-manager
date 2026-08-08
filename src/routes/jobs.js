@@ -24,20 +24,10 @@ const { decryptSecret } = require('../utils/secretCrypto');
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
 // worldview = 프로젝트의 사실 / 컨텍스트 (사용자가 보유)
-function composeSystemPrompt(systemPrompt, worldviewTexts) {
-  const parts = [];
-  if (systemPrompt) {
-    parts.push('[작업 지침]\n' + systemPrompt);
-  }
-  if (worldviewTexts && worldviewTexts.length > 0) {
-    const ctx = worldviewTexts.map((t) => {
-      const head = t.title ? `## ${t.title}\n` : '';
-      return head + (t.content || '');
-    }).join('\n\n---\n\n');
-    parts.push('[배경 / 사전 컨텍스트]\n' + ctx);
-  }
-  return parts.join('\n\n');
-}
+// composeSystemPrompt 는 utils/promptComposition 으로 이관 (#766) — pipelineRunService 와
+// 중복 정의돼 있어 한쪽만 고치면 파이프라인에서만 층이 빠지는 사고가 났다.
+const { composeSystemPrompt, joinDocs } = require('../utils/promptComposition');
+const { loadGuidesForWorkboard } = require('../services/promptGuideService');
 
 // 프로젝트의 세계관 UploadedText 들 로드 (#396 → #400 일반화).
 // 더 이상 flag (isWorldviewTag) 가 아닌 name 으로 세계관 태그를 조회 — 일반화된 태그 시스템.
@@ -587,9 +577,16 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         }
       }
       const worldviewContext = worldviewTexts.length > 0
-        ? worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n')
+        ? joinDocs(worldviewTexts)
         : '';
-      const composedSystem = composeSystemPrompt(resolvedSystemPrompt, worldviewTexts);
+      // 작업판에 연결된 프롬프트 가이드 (#766) — 전역 문서라 요청자 필터 없음.
+      // 접근 통제는 위의 userHasWorkboardAccess 검사가 이미 끝냈다.
+      const guides = await loadGuidesForWorkboard(workboard);
+      const composedSystem = composeSystemPrompt({
+        guides,
+        systemPrompt: resolvedSystemPrompt,
+        worldviewTexts,
+      });
       messages = [];
       if (composedSystem) {
         messages.push({ role: 'system', content: composedSystem });

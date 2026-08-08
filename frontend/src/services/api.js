@@ -258,6 +258,17 @@ export const groupAPI = {
   setMember: (id, userId, action = 'add') => api.post(`/groups/${id}/members`, { userId, action }),
 };
 
+// 프롬프트 가이드 (#766) — 소유자 없는 전역 문서. 조회는 인증 사용자, 변경은 admin.
+// getAll 응답에는 content 가 없다 (본문 41K 자 회피) — contentLength 만 온다.
+export const promptGuideAPI = {
+  getAll: (includeInactive = false) =>
+    api.get('/prompt-guides', { params: includeInactive ? { includeInactive: 'true' } : {} }),
+  getById: (id) => api.get(`/prompt-guides/${id}`),
+  create: (data) => api.post('/prompt-guides', data),
+  update: (id, data) => api.put(`/prompt-guides/${id}`, data),
+  delete: (id) => api.delete(`/prompt-guides/${id}`),
+};
+
 export const promptDataAPI = {
   getAll: (params) => api.get('/prompt-data', { params }),
   getById: (id) => api.get(`/prompt-data/${id}`),

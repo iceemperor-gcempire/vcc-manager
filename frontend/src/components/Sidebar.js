@@ -28,7 +28,8 @@ import {
   FactCheck,
   AutoFixHigh,
   FolderSpecial,
-  Group
+  Group,
+  MenuBook,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -57,6 +58,7 @@ const adminMenuItems = [
   { text: '서버 관리', path: '/admin/servers', icon: <Storage /> },
   { text: '모델 관리', path: '/admin/models', icon: <AutoFixHigh /> },
   { text: '그룹 관리', path: '/admin/groups', icon: <Group /> },
+  { text: '프롬프트 가이드', path: '/admin/prompt-guides', icon: <MenuBook /> },
   { text: '시스템 통계', path: '/admin/stats', icon: <BarChart /> },
   { text: '백업 / 복구', path: '/admin/backup', icon: <Backup /> },
   { text: '데이터 정합성', path: '/admin/integrity', icon: <FactCheck /> },
