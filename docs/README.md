@@ -12,6 +12,7 @@
 - [DEVELOPMENT.md](./DEVELOPMENT.md) — 개발 환경, 아키텍처, 기능 설명
 - [API.md](./API.md) — REST API 엔드포인트 및 스키마
 - [COMFYUI_WORKFLOW.md](./COMFYUI_WORKFLOW.md) — ComfyUI 워크플로우 처리 로직
+- [COMFYUI_WORKFLOW_AUTHORING.md](./COMFYUI_WORKFLOW_AUTHORING.md) — 작업판용 ComfyUI 워크플로 **작성** 가이드
 - [LORA_METADATA.md](./LORA_METADATA.md) — LoRA 메타데이터 / Civitai 연동
 - [TEST_CHECKLIST.md](./TEST_CHECKLIST.md) — 테스트 체크리스트
 
