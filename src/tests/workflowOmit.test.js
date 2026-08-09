@@ -124,3 +124,64 @@ describe('applyOmitDirectives (#771)', () => {
     });
   });
 });
+
+const { getOmitConditionedFieldNames } = require('../utils/workflowOmit');
+
+// #774 — 생성 화면의 "미첨부 시 흰 이미지" 안내를 분기하기 위한 판정.
+// 조건부 생략 대상 필드는 흰 이미지가 모델에 도달하지 않으므로 문구가 달라야 한다.
+
+describe('getOmitConditionedFieldNames (#774)', () => {
+  const wf = (nodes) => JSON.stringify(nodes);
+
+  test('_attached 조건이 걸린 필드명을 추출', () => {
+    const s = wf({
+      136: {
+        class_type: 'X',
+        inputs: { 'ref_images.ref_image_0': ['1', 0] },
+        _vcc: { omitInputsUnless: { 'ref_images.ref_image_0': '{{##ref_image_1_attached##}}' } },
+      },
+    });
+    expect(getOmitConditionedFieldNames(s)).toEqual(['ref_image_1']);
+  });
+
+  test('여러 노드·여러 슬롯에서 중복 없이 모은다', () => {
+    const s = wf({
+      1: { _vcc: { omitInputsUnless: { a: '{{##img1_attached##}}', b: '{{##img2_attached##}}' } } },
+      2: { _vcc: { omitInputsUnless: { c: '{{##img1_attached##}}' } } },
+    });
+    expect(getOmitConditionedFieldNames(s).sort()).toEqual(['img1', 'img2']);
+  });
+
+  test('비디오 필드도 동일하게 인식 — 슬롯 2개가 한 필드를 공유해도 1건', () => {
+    const s = wf({
+      1: {
+        _vcc: {
+          omitInputsUnless: {
+            'ref_videos.ref_video_0': '{{##ref_video_1_attached##}}',
+            'ref_video_audios.ref_video_audio_0': '{{##ref_video_1_attached##}}',
+          },
+        },
+      },
+    });
+    expect(getOmitConditionedFieldNames(s)).toEqual(['ref_video_1']);
+  });
+
+  test('_attached 형태가 아닌 조건은 제외 — 특정 필드의 첨부 여부와 무관하다', () => {
+    const s = wf({ 1: { _vcc: { omitInputsUnless: { a: '{{##mode##}}', b: '1', c: 0 } } } });
+    expect(getOmitConditionedFieldNames(s)).toEqual([]);
+  });
+
+  test('_vcc 없는 워크플로는 빈 배열', () => {
+    expect(getOmitConditionedFieldNames(wf({ 1: { class_type: 'LoadImage', inputs: {} } }))).toEqual([]);
+  });
+
+  test('파싱 불가 워크플로는 빈 배열 — 따옴표 없는 플레이스홀더는 _vcc 가 애초에 동작 안 함', () => {
+    expect(getOmitConditionedFieldNames('{ "1": { "inputs": { "w": {{##width##}} } } }')).toEqual([]);
+  });
+
+  test('빈 입력', () => {
+    expect(getOmitConditionedFieldNames('')).toEqual([]);
+    expect(getOmitConditionedFieldNames(null)).toEqual([]);
+    expect(getOmitConditionedFieldNames(undefined)).toEqual([]);
+  });
+});
