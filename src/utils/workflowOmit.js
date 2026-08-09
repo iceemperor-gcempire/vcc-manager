@@ -80,4 +80,48 @@ function applyOmitDirectives(workflowObj) {
   return { workflow: workflowObj, omitted };
 }
 
-module.exports = { applyOmitDirectives, isFalsy };
+/**
+ * 워크플로에서 "미첨부 시 슬롯이 생략되는" 필드 이름을 추출한다 (#774).
+ *
+ * 생성 화면은 image 필드에 "미첨부 시 흰색 이미지가 자동으로 사용됩니다" 를 안내하는데,
+ * `_vcc.omitInputsUnless` 로 조건이 걸린 필드는 그게 사실이 아니다 — 입력 키가 제거되어
+ * 상류 LoadImage 가 고아가 되고 흰 이미지는 모델에 도달하지 않는다. 안내 문구를 바꾸려면
+ * 프론트가 "이 필드가 조건부인가" 를 알아야 한다.
+ *
+ * 프론트에서 workflowData 를 파싱하게 만들 이유가 없어 백엔드가 계산해 내려준다.
+ *
+ * 조건식이 `{{##필드명_attached##}}` 형태일 때만 해당 필드로 인식한다. 다른 플레이스홀더를
+ * 조건으로 쓴 경우(select 값 등)는 어떤 필드의 첨부 여부와 직결되지 않으므로 제외한다.
+ *
+ * @param {string} workflowData — 작업판의 워크플로 JSON 문자열 (치환 전)
+ * @returns {string[]} 조건부 생략 대상 필드 이름 (중복 제거)
+ */
+function getOmitConditionedFieldNames(workflowData) {
+  if (!workflowData || typeof workflowData !== 'string') return [];
+
+  let parsed;
+  try {
+    parsed = JSON.parse(workflowData);
+  } catch {
+    // 따옴표 없는 플레이스홀더를 쓴 워크플로는 파싱되지 않는다. 그런 워크플로는
+    // 애초에 _vcc 가 동작하지 않으므로 (문자열 치환 fallback 경로) 빈 배열이 맞다.
+    return [];
+  }
+  if (!parsed || typeof parsed !== 'object') return [];
+
+  const names = new Set();
+  const ATTACHED = /^\{\{##([A-Za-z0-9_]+)_attached##\}\}$/;
+
+  for (const node of Object.values(parsed)) {
+    const rules = node && node._vcc && node._vcc.omitInputsUnless;
+    if (!rules || typeof rules !== 'object') continue;
+    for (const condition of Object.values(rules)) {
+      if (typeof condition !== 'string') continue;
+      const m = condition.trim().match(ATTACHED);
+      if (m) names.add(m[1]);
+    }
+  }
+  return [...names];
+}
+
+module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames };

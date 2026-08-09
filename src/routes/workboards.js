@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
+const { getOmitConditionedFieldNames } = require('../utils/workflowOmit');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
@@ -513,7 +514,12 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
 
-    res.json({ workboard });
+    // 조건부 생략 대상 필드 (#774) — 생성 화면의 미첨부 안내 문구 분기용.
+    // 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다.
+    const payload = workboard.toObject();
+    payload.omitConditionedFields = getOmitConditionedFieldNames(workboard.workflowData);
+
+    res.json({ workboard: payload });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
