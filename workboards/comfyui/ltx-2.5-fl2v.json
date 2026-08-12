@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 3,
-    "minor": 17
+    "minor": 18
   },
-  "exportedAt": "2026-08-12T12:25:41.327Z",
+  "exportedAt": "2026-08-12T12:49:09.794Z",
   "workboard": {
     "name": "LTX-2.5 - FL2V",
     "description": "LTX-2.5 — 영상 + 동기화 오디오를 한 번에 생성합니다. 첫/끝 프레임은 선택이며, 넣은 조합에 따라 텍스트→영상 · 첫 프레임 전개 · 끝 프레임 수렴 · 두 프레임 보간으로 동작합니다.",
