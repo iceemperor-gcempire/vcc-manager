@@ -95,9 +95,20 @@ H3 는 프레임 수가 **17k+5 격자**만 유효하다. 작업판에서 select
 
 H3 는 프롬프트에 **샷 구성·카메라·오디오를 함께** 적는 형식을 쓴다. 공식 가이드 구조
 (`integrated_multimodal_description` / `overall_soundscape` / `non_diegetic_music`)를 따르면 결과가 크게 달라진다.
+생성 모드도 다섯 가지(T2VA / I2VA / FL2VA / L2VA / Ref2VA)로 나뉘고 각각 프롬프트 구조가 다르다.
 
-가이드를 작업판에 연결하는 기능이 있다 — 관리자 → 프롬프트 가이드에서 등록한 뒤 작업판에 연결하면
-프롬프트 생성 시 자동으로 합성된다.
+VCC 에는 이 작성법을 작업판에 붙여두는 기능이 있다 — 관리자 → **프롬프트 가이드**에 등록하고 작업판 편집기에서
+연결하면, 그 작업판에서 프롬프트를 생성할 때 자동으로 함께 전달된다. 사용자가 문법을 외울 필요가 없어진다.
+
+**가이드 본문은 이 저장소에 동봉하지 않는다.** MiniMax 공식 스킬을 받아 등록한다:
+
+1. [MiniMax-AI/MiniMax-H3 · `skills/h3-prompt-writing`](https://github.com/MiniMax-AI/MiniMax-H3/tree/main/skills/h3-prompt-writing) 에서
+   `SKILL.md` 와 `references/base-en.txt` · `references/ref-en.txt` 내용을 받는다
+2. 관리자 → 프롬프트 가이드 → 등록. 출처 저장소와 commit 을 함께 적어두면 나중에 갱신 여부를 판단하기 쉽다
+3. 작업판 편집기에서 H3 작업판에 연결
+
+동봉하지 않는 이유는 해당 문서가 MiniMax H3 Community License Agreement 아래 배포되고, 그 재배포 조항의
+적용 지역에서 한국이 제외돼 있기 때문이다 (모델 사용과는 무관하며, 재배포에만 걸린다).
 
 ---
 
