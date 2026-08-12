@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
-const { getOmitConditionedFieldNames } = require('../utils/workflowOmit');
+const { getOmitConditionedFieldNames } = require('../utils/workflowDirectives');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
