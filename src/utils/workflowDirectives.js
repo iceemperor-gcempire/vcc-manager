@@ -1,3 +1,9 @@
+// 워크플로 `_vcc` 지시자 처리 — 조건부 입력 생략(#771) + 조건부 노드 우회(#789).
+//
+// 두 지시자는 목적이 다르다:
+//   omitInputsUnless — "없어도 되는 입력" 을 지운다 (미첨부 참조 슬롯)
+//   bypassUnless     — "체인 중간 노드" 를 빼고 상류로 재연결한다 (가속 패치 등)
+//
 // 워크플로 조건부 입력 생략 (#771).
 //
 // ComfyUI 의 optional 입력은 "키를 넣지 않는 것" 이 곧 미사용이다. 그런데 VCC 는 워크플로
@@ -48,14 +54,32 @@ function isFalsy(value) {
  * 입력 키는 점이 포함돼도 (`ref_images.ref_image_1`) 경로가 아닌 **리터럴 키**로 취급한다 —
  * ComfyUI autogrow 입력명이 원래 점 표기다.
  *
+ * 같은 패스에서 `bypassUnless` (#789) 도 처리한다 — 조건이 falsy 인 노드를 제거하고,
+ * 그 노드의 출력을 참조하던 곳을 `passthrough` 가 가리키는 상류로 재연결한다.
+ *
+ *   "200": {
+ *     "class_type": "SolAttnPatch",
+ *     "inputs": { "model": ["6", 0], "tau": 1.3 },
+ *     "_vcc": { "bypassUnless": { "condition": "{{##use_sol_attn##}}",
+ *                                 "passthrough": { "0": "model" } } }
+ *   }
+ *
+ * 조건이 꺼지면 `["200",0]` 을 보던 참조가 전부 `["6",0]` 이 되고 노드 200 은 사라진다.
+ *
  * @param {Object} workflowObj — 치환 완료된 워크플로 (API 포맷: nodeId → {inputs, class_type, ...})
- * @returns {{ workflow: Object, omitted: Array<{node: string, input: string}> }}
+ * @returns {{ workflow: Object, omitted: Array<{node,input}>, bypassed: Array<{node,classType}> }}
  */
 function applyOmitDirectives(workflowObj) {
   const omitted = [];
+  const bypassed = [];
   if (!workflowObj || typeof workflowObj !== 'object') {
-    return { workflow: workflowObj, omitted };
+    return { workflow: workflowObj, omitted, bypassed };
   }
+
+  // 우회 대상 수집 — 실제 제거는 입력 생략을 마친 뒤 한 번에 한다.
+  // `["200",0] → ["6",0]` 형태의 재연결 표를 만든다.
+  const rewire = new Map(); // "nodeId:outputIndex" → [sourceNodeId, sourceIndex]
+  const toRemove = new Set();
 
   for (const [nodeId, node] of Object.entries(workflowObj)) {
     if (!node || typeof node !== 'object') continue;
@@ -66,18 +90,79 @@ function applyOmitDirectives(workflowObj) {
     delete node._vcc;
 
     const rules = directive && directive.omitInputsUnless;
-    if (!rules || typeof rules !== 'object') continue;
-    if (!node.inputs || typeof node.inputs !== 'object') continue;
+    if (rules && typeof rules === 'object' && node.inputs && typeof node.inputs === 'object') {
+      for (const [inputKey, condition] of Object.entries(rules)) {
+        if (!Object.prototype.hasOwnProperty.call(node.inputs, inputKey)) continue;
+        if (!isFalsy(condition)) continue;
+        delete node.inputs[inputKey];
+        omitted.push({ node: nodeId, input: inputKey });
+      }
+    }
 
-    for (const [inputKey, condition] of Object.entries(rules)) {
-      if (!Object.prototype.hasOwnProperty.call(node.inputs, inputKey)) continue;
-      if (!isFalsy(condition)) continue;
-      delete node.inputs[inputKey];
-      omitted.push({ node: nodeId, input: inputKey });
+    // 조건부 노드 우회 (#789) — ComfyUI 에디터의 ctrl+B 와 같은 의미.
+    const bypass = directive && directive.bypassUnless;
+    if (!bypass || typeof bypass !== 'object') continue;
+    if (!isFalsy(bypass.condition)) continue; // 조건이 truthy 면 노드를 그대로 둔다
+
+    const passthrough = bypass.passthrough;
+    if (!passthrough || typeof passthrough !== 'object') continue;
+
+    // 선언한 통과 경로가 하나라도 링크가 아니면(리터럴이면) 우회하지 않는다.
+    // 일부만 재연결하면 나머지 소비자가 사라진 노드를 가리켜 워크플로가 깨진다 —
+    // 안전한 실패는 "가속을 끄지 못함" 이지 "워크플로 파손" 이 아니다.
+    const entries = [];
+    let resolvable = true;
+    for (const [outputIndex, inputName] of Object.entries(passthrough)) {
+      const source = node.inputs && node.inputs[inputName];
+      if (!Array.isArray(source) || typeof source[0] !== 'string') {
+        resolvable = false;
+        break;
+      }
+      entries.push([`${nodeId}:${outputIndex}`, source]);
+    }
+    if (!resolvable || entries.length === 0) {
+      console.warn(`⚠️ bypassUnless 무시 — #${nodeId} ${node.class_type}: passthrough 입력이 링크가 아닙니다`);
+      continue;
+    }
+
+    entries.forEach(([key, source]) => rewire.set(key, source));
+    toRemove.add(nodeId);
+    bypassed.push({ node: nodeId, classType: node.class_type });
+  }
+
+  if (toRemove.size === 0) {
+    return { workflow: workflowObj, omitted, bypassed };
+  }
+
+  // 연쇄 우회 해소 — A → B → C 에서 B·C 를 동시에 우회하면 A 로 직결돼야 한다.
+  // 재연결 대상이 또 다른 우회 노드를 가리키면 더는 안 가리킬 때까지 따라간다.
+  const resolve = (link) => {
+    const seen = new Set();
+    let cur = link;
+    while (Array.isArray(cur) && rewire.has(`${cur[0]}:${cur[1]}`)) {
+      const key = `${cur[0]}:${cur[1]}`;
+      if (seen.has(key)) break; // 순환 방어 — 정상 워크플로에는 없지만 무한루프는 막는다
+      seen.add(key);
+      cur = rewire.get(key);
+    }
+    return cur;
+  };
+
+  for (const [nodeId, node] of Object.entries(workflowObj)) {
+    if (toRemove.has(nodeId)) continue;
+    if (!node || !node.inputs || typeof node.inputs !== 'object') continue;
+    for (const [inputKey, value] of Object.entries(node.inputs)) {
+      if (!Array.isArray(value) || typeof value[0] !== 'string') continue;
+      if (!rewire.has(`${value[0]}:${value[1]}`)) continue;
+      node.inputs[inputKey] = resolve(value);
     }
   }
 
-  return { workflow: workflowObj, omitted };
+  for (const nodeId of toRemove) {
+    delete workflowObj[nodeId];
+  }
+
+  return { workflow: workflowObj, omitted, bypassed };
 }
 
 /**

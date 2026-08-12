@@ -9,7 +9,7 @@ const geminiService = require('./geminiService');
 const gptImageService = require('./gptImageService');
 const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
-const { applyOmitDirectives } = require('../utils/workflowOmit');
+const { applyOmitDirectives } = require('../utils/workflowDirectives');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -930,10 +930,14 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
 
     // 조건부 입력 생략 (#771) — 치환이 끝난 뒤에 적용해야 조건식이 값으로 평가된다.
     // fallback(문자열 치환) 경로에서는 JSON 구조가 없어 지원하지 않는다.
-    const { workflow: prunedObj, omitted } = applyOmitDirectives(replacedObj);
+    const { workflow: prunedObj, omitted, bypassed } = applyOmitDirectives(replacedObj);
     if (omitted.length > 0) {
       console.log(`✂️ 조건부 입력 생략 (${omitted.length}개):`,
         omitted.map((o) => `#${o.node}.${o.input}`).join(', '));
+    }
+    if (bypassed && bypassed.length > 0) {
+      console.log(`⏭️ 조건부 노드 우회 (${bypassed.length}개):`,
+        bypassed.map((b) => `#${b.node} ${b.classType}`).join(', '));
     }
 
     return {
