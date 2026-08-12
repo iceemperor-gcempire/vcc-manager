@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 3,
-    "minor": 16
+    "minor": 17
   },
-  "exportedAt": "2026-08-10T07:34:39.306Z",
+  "exportedAt": "2026-08-12T01:42:50.155Z",
   "workboard": {
     "name": "MiniMax H3 - T2V",
     "description": "텍스트만으로 영상과 스테레오 오디오를 함께 생성합니다. 음성·효과음·음악이 한 번의 패스로 만들어집니다.",

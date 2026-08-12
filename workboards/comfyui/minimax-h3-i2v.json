@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 3,
-    "minor": 16
+    "minor": 17
   },
-  "exportedAt": "2026-08-10T07:34:39.313Z",
+  "exportedAt": "2026-08-12T01:42:50.353Z",
   "workboard": {
     "name": "MiniMax H3 - I2V",
     "description": "시작 프레임 한 장에서 영상을 생성합니다. 오디오도 함께 만들어집니다.",
