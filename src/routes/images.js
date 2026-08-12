@@ -3,8 +3,10 @@ const path = require('path');
 const { requireAuth } = require('../middleware/auth');
 const { upload, processAndSaveImage, deleteFile, validateImageDimensions } = require('../utils/fileUpload');
 const { videoUpload, processUploadedVideo } = require('../utils/videoUpload');
+const { audioUpload, processUploadedAudio } = require('../utils/audioUpload');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
+const UploadedAudio = require('../models/UploadedAudio');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -444,6 +446,96 @@ router.delete('/uploaded-videos/:id', requireAuth, async (req, res) => {
     await UploadedVideo.deleteOne({ _id: video._id });
 
     res.json({ message: 'Video deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 참조 오디오 업로드 (#772) — 비디오와 동일 구조. 썸네일 생성 단계만 없다.
+router.post('/upload-audio', requireAuth, audioUpload.single('audio'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No audio file provided' });
+    }
+
+    const { tags } = req.body;
+    const result = await processUploadedAudio(req.file);
+    const parsedTags = tags ? tags.split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+
+    const uploadedAudio = new UploadedAudio({
+      ...result,
+      userId: req.user._id,
+      tags: parsedTags
+    });
+
+    await uploadedAudio.save();
+
+    if (parsedTags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: parsedTags } },
+        { $inc: { usageCount: 1 } }
+      );
+    }
+
+    res.status(201).json({
+      message: 'Audio uploaded successfully',
+      audio: uploadedAudio
+    });
+  } catch (error) {
+    if (req.file?.path) {
+      await deleteFile(req.file.path);
+    }
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// 업로드한 참조 오디오 목록 (#772)
+router.get('/uploaded-audios', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+
+    const filter = { userId: req.user._id };
+    if (search) {
+      filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
+    }
+
+    const audios = await UploadedAudio.find(filter)
+      .populate('tags')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await UploadedAudio.countDocuments(filter);
+
+    res.json({
+      audios,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// 업로드한 참조 오디오 삭제 (#772) — 파일 + 문서
+router.delete('/uploaded-audios/:id', requireAuth, async (req, res) => {
+  try {
+    const audio = await UploadedAudio.findById(req.params.id);
+    if (!audio) {
+      return res.status(404).json({ message: 'Audio not found' });
+    }
+    if (audio.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await deleteFile(audio.path);
+    await UploadedAudio.deleteOne({ _id: audio._id });
+
+    res.json({ message: 'Audio deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

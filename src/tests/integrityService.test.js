@@ -32,6 +32,7 @@ jest.mock('../models/GeneratedImage', () => MockGenImage);
 jest.mock('../models/GeneratedVideo', () => MockGenVideo);
 jest.mock('../models/UploadedImage', () => MockUploadedImage);
 jest.mock('../models/UploadedVideo', () => mockModel('UploadedVideo'));
+jest.mock('../models/UploadedAudio', () => mockModel('UploadedAudio'));
 jest.mock('../models/Project', () => mockModel('Project'));
 jest.mock('../models/Tag', () => mockModel('Tag'));
 jest.mock('../models/Workboard', () => mockModel('Workboard'));

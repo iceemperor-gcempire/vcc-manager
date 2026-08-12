@@ -25,7 +25,8 @@ const inputFieldSchema = new mongoose.Schema({
     // baseModel / lora 는 서버의 모델·LoRA 목록과 연동되는 특수 타입 (#199 Phase D).
     // 일반 select 와 달리 admin 이 옵션을 직접 정의하지 않고, 작업판의 노출 정책(#198)으로 제어.
     // video 는 참조 비디오 업로드 타입 (#753) — MiniMax H3 등 비디오 참조 워크플로우용.
-    enum: ['string', 'select', 'file', 'number', 'boolean', 'image', 'video', 'baseModel', 'lora'],
+    // audio 는 참조 오디오 업로드 타입 (#772) — H3 ref_audios 등 오디오 참조 워크플로우용.
+    enum: ['string', 'select', 'file', 'number', 'boolean', 'image', 'video', 'audio', 'baseModel', 'lora'],
     required: true
   },
   // F4: role 필드 제거 — 의미는 type=baseModel/lora 또는 well-known name 으로 추론
@@ -61,6 +62,14 @@ const inputFieldSchema = new mongoose.Schema({
   // 비디오 타입 전용 설정 (#753)
   videoConfig: {
     maxVideos: {
+      type: Number,
+      default: 1,
+      min: 1,
+      max: 3
+    }
+  },
+  audioConfig: {
+    maxAudios: {
       type: Number,
       default: 1,
       min: 1,

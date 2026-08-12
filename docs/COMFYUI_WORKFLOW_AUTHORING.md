@@ -102,7 +102,7 @@ ComfyUI 웹 UI 에서 저장한 JSON(`nodes` / `links` / `groups` / `definitions
 
 작업판에 정의한 필드는 **이름이 곧 플레이스홀더**다. `steps` 필드 → `{{##steps##}}`.
 
-image / video 타입은 하나가 더 붙는다.
+image / video / audio 타입은 하나가 더 붙는다.
 
 | | 값 |
 |---|---|
@@ -110,6 +110,7 @@ image / video 타입은 하나가 더 붙는다.
 | `{{##필드명_attached##}}` | `1` / `0` — 사용자가 **실제로** 첨부했는지 |
 
 image 필드는 미첨부여도 흰 PNG 가 자동 주입되어 `{{##필드명##}}` 이 비지 않는다.
+video / audio 는 대체 주입이 없어 미첨부 시 빈 문자열이 된다 — `_vcc.omitInputsUnless` 로 입력을 걷어내야 한다.
 "진짜 첨부했는지" 는 `_attached` 로만 알 수 있다.
 
 ---
@@ -175,7 +176,8 @@ ComfyUI 의 optional 입력은 **키가 없는 것**이 곧 미사용이다. 그
 | `file` | 업로드된 파일명 | 범용 파일 |
 | `select` | 선택한 `value` | 아래 4.2 주의 |
 | `image` | 업로드된 파일명 | `_attached` 자동 제공 |
-| `video` | 업로드된 파일명 | `_attached` 자동 제공 |
+| `video` | 업로드된 파일명 | `_attached` 자동 제공. `VHS_LoadVideo` 등에서 소비 |
+| `audio` | 업로드된 파일명 | `_attached` 자동 제공. `LoadAudio` 등에서 소비 (#772) |
 | `baseModel` | 모델 파일명 / ID | 서버 모델 목록에서 선택 |
 | `lora` | LoRA 파일명 | |
 

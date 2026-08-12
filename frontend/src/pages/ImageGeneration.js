@@ -38,7 +38,8 @@ import {
   AutoAwesome,
   AutoFixHigh,
   Storage as StorageIcon,
-  ContentCopy
+  ContentCopy,
+  MusicNote
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -53,6 +54,7 @@ import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../ut
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
 import VideoSelectDialog from '../components/common/VideoSelectDialog';
+import AudioSelectDialog from '../components/common/AudioSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -521,6 +523,151 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
         title={`${field.label} 선택`}
         multiple={maxVideos > 1}
         maxVideos={maxVideos}
+      />
+    </Box>
+  );
+}
+
+// 참조 오디오 필드 (#772) — CustomVideoField 와 대칭.
+// 오디오는 썸네일이 없어 카드 대신 파일명 + 인라인 플레이어로 보여준다.
+function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
+  const [selectedAudios, setSelectedAudios] = useState(value || []);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (value && Array.isArray(value) && value.length > 0) {
+      const hasValidAudios = value.every(item => item.audioId && item.audio?.url);
+      if (hasValidAudios && selectedAudios.length === 0) {
+        setSelectedAudios(value);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const handleRemove = (audioId) => {
+    const updated = selectedAudios.filter(a => a.audioId !== audioId);
+    setSelectedAudios(updated);
+    onChange(updated);
+  };
+
+  const handleNewUpload = async (files) => {
+    if (files.length === 0) return;
+
+    try {
+      const uploadPromises = files.map(async (file) => {
+        const formData = new FormData();
+        formData.append('audio', file);
+        const response = await imageAPI.uploadAudio(formData);
+        return response.data.audio;
+      });
+
+      const uploadedAudios = await Promise.all(uploadPromises);
+      const newSelections = uploadedAudios.map(audio => ({
+        audioId: audio._id,
+        audio
+      }));
+
+      const remainingSlots = maxAudios - selectedAudios.length;
+      const toAdd = newSelections.slice(0, remainingSlots);
+
+      const updated = [...selectedAudios, ...toAdd];
+      setSelectedAudios(updated);
+      onChange(updated);
+      toast.success(`${toAdd.length}개 오디오 업로드 완료`);
+    } catch (error) {
+      toast.error(error.response?.data?.message || '오디오 업로드 실패');
+    }
+  };
+
+  const handleGallerySelect = (selected) => {
+    const updated = Array.isArray(selected) ? selected : [selected];
+    setSelectedAudios(updated);
+    onChange(updated);
+  };
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'audio/*': ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'] },
+    maxFiles: maxAudios - selectedAudios.length,
+    disabled: selectedAudios.length >= maxAudios,
+    onDrop: handleNewUpload
+  });
+
+  return (
+    <Box>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+        <Typography variant="subtitle2">
+          {field.label} ({selectedAudios.length}/{maxAudios})
+        </Typography>
+        <Button
+          variant="outlined"
+          onClick={() => setDialogOpen(true)}
+          startIcon={<MusicNote />}
+        >
+          갤러리에서 선택
+        </Button>
+      </Box>
+
+      {field.description && (
+        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+          {field.description}
+        </Typography>
+      )}
+
+      {selectedAudios.length === 0 ? (
+        <Box
+          {...getRootProps()}
+          sx={{
+            border: '2px dashed',
+            borderColor: isDragActive ? 'primary.main' : 'grey.300',
+            borderRadius: 1,
+            p: 3,
+            textAlign: 'center',
+            cursor: 'pointer',
+            bgcolor: isDragActive ? 'primary.light' : 'grey.50'
+          }}
+        >
+          <input {...getInputProps()} />
+          <Typography variant="body2" color="text.secondary">
+            오디오를 드래그하거나 클릭하여 업로드 (MP3/WAV/FLAC/OGG/M4A/AAC)
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            최대 {maxAudios}개
+          </Typography>
+        </Box>
+      ) : (
+        <Grid container spacing={1}>
+          {selectedAudios.map((item, index) => (
+            <Grid item xs={12} key={index}>
+              <Card sx={{ display: 'flex', alignItems: 'center', gap: 1, p: 1 }}>
+                <MusicNote fontSize="small" color="action" />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <Typography variant="body2" noWrap>
+                    {item.audio?.originalName || '오디오'}
+                  </Typography>
+                  <Box
+                    component="audio"
+                    controls
+                    preload="none"
+                    src={item.audio?.url}
+                    sx={{ width: '100%', height: 32, mt: 0.5 }}
+                  />
+                </Box>
+                <IconButton aria-label="삭제" size="small" onClick={() => handleRemove(item.audioId)}>
+                  <Delete fontSize="small" />
+                </IconButton>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
+      <AudioSelectDialog
+        open={dialogOpen}
+        onClose={() => setDialogOpen(false)}
+        onSelect={handleGallerySelect}
+        title={`${field.label} 선택`}
+        multiple={maxAudios > 1}
+        maxAudios={maxAudios}
       />
     </Box>
   );
@@ -1158,7 +1305,7 @@ function ImageGeneration() {
                 </Box>
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={['image', 'video'].includes(field.type) ? 12 : 6} key={field.name}>
+                    <Grid item xs={12} sm={['image', 'video', 'audio'].includes(field.type) ? 12 : 6} key={field.name}>
                       {field.type === 'image' ? (
                         <Controller
                           name={`additionalParams.${field.name}`}
@@ -1200,6 +1347,30 @@ function ImageGeneration() {
                                 value={formField.value || []}
                                 onChange={formField.onChange}
                                 maxVideos={field.videoConfig?.maxVideos || 1}
+                              />
+                              {fieldState.error && (
+                                <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+                                  {fieldState.error.message}
+                                </Typography>
+                              )}
+                            </Box>
+                          )}
+                        />
+                      ) : field.type === 'audio' ? (
+                        <Controller
+                          name={`additionalParams.${field.name}`}
+                          control={control}
+                          defaultValue={[]}
+                          rules={field.required ? {
+                            validate: (v) => (Array.isArray(v) && v.length > 0) || `${field.label}을(를) 첨부해주세요`
+                          } : undefined}
+                          render={({ field: formField, fieldState }) => (
+                            <Box>
+                              <CustomAudioField
+                                field={field}
+                                value={formField.value || []}
+                                onChange={formField.onChange}
+                                maxAudios={field.audioConfig?.maxAudios || 1}
                               />
                               {fieldState.error && (
                                 <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>

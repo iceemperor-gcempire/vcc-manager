@@ -78,11 +78,11 @@ router.post('/generate', requireAuth, async (req, res) => {
       return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
 
-    // required 이미지/비디오 필드 검증 (#758) — 프론트 rules 를 우회하는 API/MCP 경로 커버.
+    // required 이미지/비디오/오디오 필드 검증 (#758, #772) — 프론트 rules 를 우회하는 API/MCP 경로 커버.
     // (일반 필드의 required 는 프론트 CustomFieldControl 이 강제 — 여기서는 첨부형만 본다)
     const ap0 = additionalParams || {};
     for (const field of (wb.additionalInputFields || [])) {
-      if (!field.required || !['image', 'video'].includes(field.type)) continue;
+      if (!field.required || !['image', 'video', 'audio'].includes(field.type)) continue;
       const v = ap0[field.name] !== undefined ? ap0[field.name] : req.body[field.name];
       const empty = Array.isArray(v) ? v.length === 0 : !v;
       if (empty) {
