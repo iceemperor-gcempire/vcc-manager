@@ -81,6 +81,7 @@ function PromptDataList() {
 
   const handleWorkboardSelect = (workboard) => {
     if (selectedPromptData) {
+      // 프롬프트 데이터로 새로 생성 — 히스토리 계속하기가 아니라 base_model 복원 대상이 없다 (#792)
       localStorage.setItem('continueJobData', JSON.stringify({
         workboardId: workboard._id,
         inputData: {
