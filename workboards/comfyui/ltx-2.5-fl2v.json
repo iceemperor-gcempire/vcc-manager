@@ -1,0 +1,168 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 3,
+    "minor": 17
+  },
+  "exportedAt": "2026-08-12T12:25:41.327Z",
+  "workboard": {
+    "name": "LTX-2.5 - FL2V",
+    "description": "LTX-2.5 — 영상 + 동기화 오디오를 한 번에 생성합니다. 첫/끝 프레임은 선택이며, 넣은 조합에 따라 텍스트→영상 · 첫 프레임 전개 · 끝 프레임 수렴 · 두 프레임 보간으로 동작합니다.",
+    "workboardType": "image",
+    "outputFormat": "video",
+    "additionalInputFields": [
+      {
+        "name": "first_frame",
+        "label": "첫 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지에서 영상이 시작됩니다.",
+        "formatString": "{{##first_frame##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "options": []
+      },
+      {
+        "name": "last_frame",
+        "label": "끝 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지로 영상이 끝납니다.",
+        "formatString": "{{##last_frame##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "options": []
+      },
+      {
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "defaultValue": "LTX-2\\ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors",
+        "formatString": "{{##base_model##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "options": []
+      },
+      {
+        "name": "image_size",
+        "label": "영상 크기",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "832x448 (빠른 확인)",
+            "value": "832x448"
+          },
+          {
+            "key": "1024x576 (16:9 정확)",
+            "value": "1024x576"
+          },
+          {
+            "key": "1280x704 (HD 근사)",
+            "value": "1280x704"
+          },
+          {
+            "key": "1920x1088 (FHD 근사)",
+            "value": "1920x1088"
+          }
+        ],
+        "defaultValue": "1024x576",
+        "description": "가로·세로 모두 64의 배수여야 실제 출력이 일치합니다",
+        "formatString": "{{##image_size##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      },
+      {
+        "name": "duration",
+        "label": "길이 (초)",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "3초 (73프레임)",
+            "value": "3"
+          },
+          {
+            "key": "5초 (121프레임)",
+            "value": "5"
+          },
+          {
+            "key": "10초 (241프레임)",
+            "value": "10"
+          }
+        ],
+        "defaultValue": "5",
+        "description": "프레임 수는 초 x 24 + 1 로 계산됩니다",
+        "formatString": "{{##duration##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      },
+      {
+        "name": "prompt_enhance",
+        "label": "프롬프트 자동 확장",
+        "type": "boolean",
+        "required": false,
+        "defaultValue": true,
+        "description": "짧게 적어도 샷 구성·카메라·조명·사운드까지 갖춘 프롬프트로 알아서 늘려줍니다. 처음 쓰는 프롬프트에만 10초 남짓 걸리고, 같은 프롬프트를 다시 쓰면 추가 시간이 없습니다.",
+        "formatString": "{{##prompt_enhance##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "options": []
+      }
+    ],
+    "workflowData": "{\n  \"75\": {\n    \"inputs\": {\n      \"video\": [\n        \"218\",\n        0\n      ],\n      \"filename_prefix\": \"{{##user_id##}}/video/LTX_2.5_fl2v\",\n      \"format\": \"auto\",\n      \"codec\": \"auto\"\n    },\n    \"class_type\": \"SaveVideo\",\n    \"_meta\": {\n      \"title\": \"Save Video\"\n    }\n  },\n  \"195\": {\n    \"inputs\": {\n      \"image\": [\n        \"214\",\n        0\n      ],\n      \"img_compression\": 18\n    },\n    \"class_type\": \"LTXVPreprocess\",\n    \"_meta\": {\n      \"title\": \"LTXVPreprocess\"\n    }\n  },\n  \"196\": {\n    \"inputs\": {\n      \"noise_seed\": \"{{##seed##}}\"\n    },\n    \"class_type\": \"RandomNoise\",\n    \"_meta\": {\n      \"title\": \"RandomNoise\"\n    }\n  },\n  \"197\": {\n    \"inputs\": {\n      \"audio_vae\": [\n        \"227\",\n        0\n      ],\n      \"frames_number\": [\n        \"226\",\n        1\n      ],\n      \"frame_rate\": [\n        \"205\",\n        0\n      ],\n      \"batch_size\": 1\n    },\n    \"class_type\": \"LTXVEmptyLatentAudio\",\n    \"_meta\": {\n      \"title\": \"LTXVEmptyLatentAudio\"\n    }\n  },\n  \"198\": {\n    \"inputs\": {\n      \"value\": \"{{##duration##}}\"\n    },\n    \"class_type\": \"PrimitiveInt\",\n    \"_meta\": {\n      \"title\": \"Duration\"\n    }\n  },\n  \"199\": {\n    \"inputs\": {\n      \"image\": [\n        \"213\",\n        0\n      ],\n      \"img_compression\": 18\n    },\n    \"class_type\": \"LTXVPreprocess\",\n    \"_meta\": {\n      \"title\": \"LTXVPreprocess\"\n    }\n  },\n  \"200\": {\n    \"inputs\": {\n      \"positive\": [\n        \"204\",\n        0\n      ],\n      \"negative\": [\n        \"204\",\n        1\n      ],\n      \"latent\": [\n        \"221\",\n        0\n      ]\n    },\n    \"class_type\": \"LTXVCropGuides\",\n    \"_meta\": {\n      \"title\": \"LTXVCropGuides\"\n    }\n  },\n  \"201\": {\n    \"inputs\": {\n      \"width\": [\n        \"203\",\n        0\n      ],\n      \"height\": [\n        \"203\",\n        1\n      ],\n      \"length\": [\n        \"226\",\n        1\n      ],\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLTXVLatentVideo\",\n    \"_meta\": {\n      \"title\": \"EmptyLTXVLatentVideo\"\n    }\n  },\n  \"202\": {\n    \"inputs\": {\n      \"positive\": [\n        \"222\",\n        0\n      ],\n      \"negative\": [\n        \"217\",\n        0\n      ],\n      \"frame_rate\": [\n        \"212\",\n        0\n      ]\n    },\n    \"class_type\": \"LTXVConditioning\",\n    \"_meta\": {\n      \"title\": \"LTXVConditioning\"\n    }\n  },\n  \"203\": {\n    \"inputs\": {\n      \"image\": [\n        \"213\",\n        0\n      ]\n    },\n    \"class_type\": \"GetImageSize\",\n    \"_meta\": {\n      \"title\": \"GetImageSize\"\n    }\n  },\n  \"204\": {\n    \"inputs\": {\n      \"positive\": [\n        \"206\",\n        0\n      ],\n      \"negative\": [\n        \"206\",\n        1\n      ],\n      \"vae\": [\n        \"229\",\n        0\n      ],\n      \"latent\": [\n        \"206\",\n        2\n      ],\n      \"image\": [\n        \"195\",\n        0\n      ],\n      \"frame_idx\": -1,\n      \"strength\": 0.7\n    },\n    \"class_type\": \"LTXVAddGuide\",\n    \"_meta\": {\n      \"title\": \"LTXVAddGuide\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##last_frame_attached##}}\",\n        \"passthrough\": {\n          \"0\": \"positive\",\n          \"1\": \"negative\",\n          \"2\": \"latent\"\n        }\n      }\n    }\n  },\n  \"205\": {\n    \"inputs\": {\n      \"value\": 24\n    },\n    \"class_type\": \"PrimitiveInt\",\n    \"_meta\": {\n      \"title\": \"Frame Rate(int)\"\n    }\n  },\n  \"206\": {\n    \"inputs\": {\n      \"positive\": [\n        \"202\",\n        0\n      ],\n      \"negative\": [\n        \"202\",\n        1\n      ],\n      \"vae\": [\n        \"229\",\n        0\n      ],\n      \"latent\": [\n        \"201\",\n        0\n      ],\n      \"image\": [\n        \"199\",\n        0\n      ],\n      \"frame_idx\": 0,\n      \"strength\": 0.7\n    },\n    \"class_type\": \"LTXVAddGuide\",\n    \"_meta\": {\n      \"title\": \"LTXVAddGuide\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##first_frame_attached##}}\",\n        \"passthrough\": {\n          \"0\": \"positive\",\n          \"1\": \"negative\",\n          \"2\": \"latent\"\n        }\n      }\n    }\n  },\n  \"208\": {\n    \"inputs\": {\n      \"eta\": 0,\n      \"s_noise\": 1\n    },\n    \"class_type\": \"SamplerEulerAncestral\",\n    \"_meta\": {\n      \"title\": \"SamplerEulerAncestral\"\n    }\n  },\n  \"210\": {\n    \"inputs\": {\n      \"video_latent\": [\n        \"204\",\n        2\n      ],\n      \"audio_latent\": [\n        \"197\",\n        0\n      ]\n    },\n    \"class_type\": \"LTXVConcatAVLatent\",\n    \"_meta\": {\n      \"title\": \"LTXVConcatAVLatent\"\n    }\n  },\n  \"211\": {\n    \"inputs\": {\n      \"noise\": [\n        \"196\",\n        0\n      ],\n      \"guider\": [\n        \"235\",\n        0\n      ],\n      \"sampler\": [\n        \"208\",\n        0\n      ],\n      \"sigmas\": [\n        \"239\",\n        0\n      ],\n      \"latent_image\": [\n        \"210\",\n        0\n      ]\n    },\n    \"class_type\": \"SamplerCustomAdvanced\",\n    \"_meta\": {\n      \"title\": \"SamplerCustomAdvanced\"\n    }\n  },\n  \"212\": {\n    \"inputs\": {\n      \"values.a\": [\n        \"205\",\n        0\n      ],\n      \"expression\": \"a\"\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"ComfyMathExpression\"\n    }\n  },\n  \"213\": {\n    \"inputs\": {\n      \"input\": [\n        \"900\",\n        0\n      ],\n      \"resize_type.width\": [\n        \"215\",\n        0\n      ],\n      \"resize_type.height\": [\n        \"216\",\n        0\n      ],\n      \"resize_type\": \"scale dimensions\",\n      \"resize_type.crop\": \"center\",\n      \"scale_method\": \"nearest-exact\"\n    },\n    \"class_type\": \"ResizeImageMaskNode\",\n    \"_meta\": {\n      \"title\": \"ResizeImageMaskNode\"\n    }\n  },\n  \"214\": {\n    \"inputs\": {\n      \"input\": [\n        \"901\",\n        0\n      ],\n      \"resize_type.width\": [\n        \"215\",\n        0\n      ],\n      \"resize_type.height\": [\n        \"216\",\n        0\n      ],\n      \"resize_type\": \"scale dimensions\",\n      \"resize_type.crop\": \"center\",\n      \"scale_method\": \"nearest-exact\"\n    },\n    \"class_type\": \"ResizeImageMaskNode\",\n    \"_meta\": {\n      \"title\": \"ResizeImageMaskNode\"\n    }\n  },\n  \"215\": {\n    \"inputs\": {\n      \"value\": \"{{##width##}}\"\n    },\n    \"class_type\": \"PrimitiveInt\",\n    \"_meta\": {\n      \"title\": \"Width\"\n    }\n  },\n  \"216\": {\n    \"inputs\": {\n      \"value\": \"{{##height##}}\"\n    },\n    \"class_type\": \"PrimitiveInt\",\n    \"_meta\": {\n      \"title\": \"height\"\n    }\n  },\n  \"217\": {\n    \"inputs\": {\n      \"clip\": [\n        \"228\",\n        0\n      ],\n      \"text\": \"{{##negative_prompt##}}\"\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIPTextEncode\"\n    }\n  },\n  \"218\": {\n    \"inputs\": {\n      \"images\": [\n        \"219\",\n        0\n      ],\n      \"audio\": [\n        \"220\",\n        0\n      ],\n      \"fps\": [\n        \"212\",\n        0\n      ],\n      \"bit_depth\": 8\n    },\n    \"class_type\": \"CreateVideo\",\n    \"_meta\": {\n      \"title\": \"CreateVideo\"\n    }\n  },\n  \"219\": {\n    \"inputs\": {\n      \"samples\": [\n        \"200\",\n        2\n      ],\n      \"vae\": [\n        \"229\",\n        0\n      ],\n      \"tile_size\": 768,\n      \"overlap\": 64,\n      \"temporal_size\": 4096,\n      \"temporal_overlap\": 64\n    },\n    \"class_type\": \"VAEDecodeTiled\",\n    \"_meta\": {\n      \"title\": \"VAEDecodeTiled\"\n    }\n  },\n  \"220\": {\n    \"inputs\": {\n      \"samples\": [\n        \"221\",\n        1\n      ],\n      \"audio_vae\": [\n        \"227\",\n        0\n      ]\n    },\n    \"class_type\": \"LTXVAudioVAEDecode\",\n    \"_meta\": {\n      \"title\": \"LTXVAudioVAEDecode\"\n    }\n  },\n  \"221\": {\n    \"inputs\": {\n      \"av_latent\": [\n        \"211\",\n        1\n      ]\n    },\n    \"class_type\": \"LTXVSeparateAVLatent\",\n    \"_meta\": {\n      \"title\": \"LTXVSeparateAVLatent\"\n    }\n  },\n  \"222\": {\n    \"inputs\": {\n      \"clip\": [\n        \"228\",\n        0\n      ],\n      \"text\": [\n        \"248\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"CLIPTextEncode\"\n    }\n  },\n  \"226\": {\n    \"inputs\": {\n      \"values.a\": [\n        \"198\",\n        0\n      ],\n      \"values.b\": [\n        \"205\",\n        0\n      ],\n      \"expression\": \"a * b + 1\"\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"ComfyMathExpression\"\n    }\n  },\n  \"227\": {\n    \"inputs\": {\n      \"vae_name\": \"LTX-2\\\\ltx-2.5-audio-vae-bf16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"VAELoader\"\n    }\n  },\n  \"228\": {\n    \"inputs\": {\n      \"clip_name\": \"gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors\",\n      \"type\": \"ltxv\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"CLIPLoader\"\n    }\n  },\n  \"229\": {\n    \"inputs\": {\n      \"vae_name\": \"LTX-2\\\\ltx-2.5-video-vae-bf16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"VAELoader\"\n    }\n  },\n  \"230\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"UNETLoader\"\n    }\n  },\n  \"235\": {\n    \"inputs\": {\n      \"model\": [\n        \"230\",\n        0\n      ],\n      \"positive\": [\n        \"204\",\n        0\n      ],\n      \"negative\": [\n        \"204\",\n        1\n      ],\n      \"video_cfg\": 1,\n      \"audio_cfg\": 1\n    },\n    \"class_type\": \"LTXVDualCFGGuider\",\n    \"_meta\": {\n      \"title\": \"LTXVDualCFGGuider\"\n    }\n  },\n  \"239\": {\n    \"inputs\": {\n      \"sigmas\": \"1.0, 0.99375, 0.9875, 0.98125, 0.975, 0.909375, 0.725, 0.421875, 0.0\"\n    },\n    \"class_type\": \"ManualSigmas\",\n    \"_meta\": {\n      \"title\": \"ManualSigmas\"\n    }\n  },\n  \"246\": {\n    \"inputs\": {\n      \"clip_name\": \"gemma4_e2b_it_bf16.safetensors\",\n      \"type\": \"ltxv\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"CLIPLoader\"\n    }\n  },\n  \"247\": {\n    \"inputs\": {\n      \"clip\": [\n        \"246\",\n        0\n      ],\n      \"image\": [\n        \"199\",\n        0\n      ],\n      \"prompt\": [\n        \"252\",\n        0\n      ],\n      \"max_length\": 600,\n      \"sampling_mode\": \"on\",\n      \"sampling_mode.temperature\": 0.7,\n      \"sampling_mode.top_k\": 64,\n      \"sampling_mode.top_p\": 0.95,\n      \"sampling_mode.min_p\": 0.05,\n      \"sampling_mode.repetition_penalty\": 1.15,\n      \"sampling_mode.seed\": 0,\n      \"sampling_mode.presence_penalty\": 0,\n      \"thinking\": false,\n      \"use_default_template\": true\n    },\n    \"class_type\": \"TextGenerateLTX2Prompt\",\n    \"_meta\": {\n      \"title\": \"TextGenerateLTX2Prompt\"\n    }\n  },\n  \"248\": {\n    \"inputs\": {\n      \"on_false\": [\n        \"252\",\n        0\n      ],\n      \"on_true\": [\n        \"247\",\n        0\n      ],\n      \"switch\": [\n        \"250\",\n        0\n      ]\n    },\n    \"class_type\": \"ComfySwitchNode\",\n    \"_meta\": {\n      \"title\": \"ComfySwitchNode\"\n    }\n  },\n  \"250\": {\n    \"inputs\": {\n      \"value\": \"{{##prompt_enhance##}}\"\n    },\n    \"class_type\": \"PrimitiveBoolean\",\n    \"_meta\": {\n      \"title\": \"Boolean (Enable Prompt Enhance)\"\n    }\n  },\n  \"252\": {\n    \"inputs\": {\n      \"value\": \"{{##prompt##}}\"\n    },\n    \"class_type\": \"PrimitiveStringMultiline\",\n    \"_meta\": {\n      \"title\": \"Prompt\"\n    }\n  },\n  \"900\": {\n    \"inputs\": {\n      \"image\": \"{{##first_frame##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load First Frame\"\n    }\n  },\n  \"901\": {\n    \"inputs\": {\n      \"image\": \"{{##last_frame##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Last Frame\"\n    }\n  }\n}",
+    "allowedModelTypes": [],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 1
+  },
+  "server": {
+    "name": "ComfyUI-Video",
+    "serverType": "ComfyUI"
+  }
+}
