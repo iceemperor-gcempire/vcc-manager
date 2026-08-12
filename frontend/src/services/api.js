@@ -172,6 +172,14 @@ export const imageAPI = {
   }),
   getUploadedVideos: (params) => api.get('/images/uploaded-videos', { params }),
   deleteUploadedVideo: (id) => api.delete(`/images/uploaded-videos/${id}`),
+  // 참조 오디오 업로드 (#772)
+  uploadAudio: (formData) => api.post('/images/upload-audio', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getUploadedAudios: (params) => api.get('/images/uploaded-audios', { params }),
+  deleteUploadedAudio: (id) => api.delete(`/images/uploaded-audios/${id}`),
   getVideos: (params) => api.get('/images/videos', { params }),
   getVideoById: (id) => api.get(`/images/videos/${id}`),
   updateVideo: (id, data) => api.put(`/images/videos/${id}`, data),

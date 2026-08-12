@@ -146,6 +146,7 @@ export const FIELD_TYPES = [
   { type: 'boolean',   label: '체크박스',    hint: 'on/off 토글' },
   { type: 'image',     label: '이미지',      hint: '드래그 드롭 업로드' },
   { type: 'video',     label: '비디오',      hint: '참조 비디오 업로드 (#753)' },
+  { type: 'audio',     label: '오디오',      hint: '참조 오디오 업로드 (#772)' },
   { type: 'baseModel', label: '베이스 모델', hint: '서버 모델 선택' },
   { type: 'lora',      label: 'LoRA',        hint: 'LoRA 슬롯' },
 ];
