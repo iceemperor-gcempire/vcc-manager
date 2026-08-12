@@ -335,7 +335,10 @@ updatelog 가 아니라 **GitHub 이슈의 version label 검색** 으로 확인.
 1. `dev → main` PR 직전, 이전 태그 이후 머지된 PR 들의 **사용자 가시 결과** 만 추려 정리
 2. `docs/updatelogs/v{major}.md` 파일 확인 (없으면 `# v{major} 업데이트 내역` 제목으로 생성). 최상단에 `## v{version}` 섹션 추가 (최신이 상단)
 3. release 직전 또는 직후, 포함된 이슈 / PR 에 `v{version}` label 일괄 부여
-4. `frontend/src/config.js` 의 `version.major` 값이 현재 메이저 버전과 일치하는지 확인
+4. 버전 표기 갱신 — 두 곳 모두
+   - `package.json` 의 `version` (백엔드 단일 소스. 작업판 export 의 `appVersion` 이 여기서 파생됨)
+   - `frontend/src/config.js` 의 `version.major` / `version.minor`
+5. 워크플로·필드를 고친 작업판이 `workboards/` 에 배포 중이면 **다시 내보내 파일 교체** (배포본과 실제 동작이 어긋나지 않도록)
 
 ### 파일 위치
 - 업데이트 내역: `docs/updatelogs/v{major}.md`
@@ -352,6 +355,8 @@ updatelog 가 아니라 **GitHub 이슈의 version label 검색** 으로 확인.
 - `docs/DEVELOPMENT.md` - 전체 개발 문서
 - `docs/TEST_CHECKLIST.md` - 테스트 체크리스트
 - `docs/COMFYUI_WORKFLOW.md` - ComfyUI 워크플로우 가이드
+- `docs/COMFYUI_WORKFLOW_AUTHORING.md` - 작업판용 워크플로 **작성** 가이드 (신규 워크플로 만들 때)
+- `workboards/README.md` - 배포용 작업판 (import 로 바로 등록 가능한 완성품)
 - `docs/API.md` - API 문서
 - `docs/MCP_SERVER_API.md` - MCP Server 도구 호출 명세
 - `docs/DEPLOYMENT.md` - 배포 가이드

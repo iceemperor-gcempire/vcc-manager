@@ -42,7 +42,8 @@ import {
   BackupRestorePage,
   IntegrityPage,
   MetadataManagementPage,
-  GroupManagementPage
+  GroupManagementPage,
+  PromptGuidePage
 } from './pages/admin';
 import AuthCallback from './pages/AuthCallback';
 
@@ -233,6 +234,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <GroupManagementPage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/prompt-guides"
+              element={
+                <AdminRoute>
+                  <PromptGuidePage />
                 </AdminRoute>
               }
             />

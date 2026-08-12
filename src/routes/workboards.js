@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
+const { getOmitConditionedFieldNames } = require('../utils/workflowOmit');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
@@ -69,6 +70,9 @@ router.get('/', requireAuth, async (req, res) => {
       .populate('createdBy', 'nickname email')
       .populate('serverId', 'name serverType serverUrl isActive')
       .populate('allowedGroupIds', 'name')
+      // 목록에서 고른 작업판이 그대로 실행 패널로 전달되므로 여기서도 가이드 제목이 필요하다 (#766).
+      // 본문은 싣지 않는다 — 제목만으로 "가이드 적용됨" 표시가 가능하다.
+      .populate('promptGuideIds', 'title isActive')
       .select('-workflowData')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
@@ -493,7 +497,9 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
       .populate('createdBy', 'nickname email')
-      .populate('serverId', 'name serverType serverUrl isActive');
+      .populate('serverId', 'name serverType serverUrl isActive')
+      // 생성 화면의 "가이드 적용됨" 표시용 — 본문은 싣지 않는다 (#766)
+      .populate('promptGuideIds', 'title isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -508,7 +514,12 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
 
-    res.json({ workboard });
+    // 조건부 생략 대상 필드 (#774) — 생성 화면의 미첨부 안내 문구 분기용.
+    // 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다.
+    const payload = workboard.toObject();
+    payload.omitConditionedFields = getOmitConditionedFieldNames(workboard.workflowData);
+
+    res.json({ workboard: payload });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -519,7 +530,9 @@ router.get('/admin/:id', requireAdmin, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id)
       .populate('createdBy', 'nickname email')
-      .populate('serverId', 'name serverType serverUrl isActive');
+      .populate('serverId', 'name serverType serverUrl isActive')
+      // 생성 화면의 "가이드 적용됨" 표시용 — 본문은 싣지 않는다 (#766)
+      .populate('promptGuideIds', 'title isActive');
     
     if (!workboard) {
       return res.status(404).json({ message: 'Workboard not found' });
@@ -555,6 +568,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      promptGuideIds,
       llmExtraParams
     } = req.body;
 
@@ -602,6 +616,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       workflowData: isComfyUI ? workflowData : '',
       allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
       allowedGroupIds: resolvedAllowedGroupIds,
+      promptGuideIds: Array.isArray(promptGuideIds) ? promptGuideIds : [],
       modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -643,6 +658,7 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      promptGuideIds,
       llmExtraParams,
       isActive
     } = req.body;
@@ -698,6 +714,9 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     // 권한 / 노출 정책 (#198)
     if (Array.isArray(allowedGroupIds)) {
       workboard.allowedGroupIds = allowedGroupIds;
+    }
+    if (Array.isArray(promptGuideIds)) {
+      workboard.promptGuideIds = promptGuideIds;
     }
     if (modelExposurePolicy === 'full' || modelExposurePolicy === 'whitelist') {
       workboard.modelExposurePolicy = modelExposurePolicy;

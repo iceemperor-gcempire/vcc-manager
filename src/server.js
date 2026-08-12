@@ -27,6 +27,7 @@ const updatelogRoutes = require('./routes/updatelog');
 const apiKeyRoutes = require('./routes/apikeys');
 const filesRoutes = require('./routes/files');
 const groupRoutes = require('./routes/groups');
+const promptGuideRoutes = require('./routes/promptGuides');
 const dashboardRoutes = require('./routes/dashboard');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT, verifyApiKey } = require('./middleware/auth');
@@ -160,6 +161,7 @@ app.use('/api/admin/backup', backupRoutes);
 app.use('/api/updatelog', updatelogRoutes);
 app.use('/api/apikeys', apiKeyRoutes);
 app.use('/api/groups', groupRoutes);
+app.use('/api/prompt-guides', promptGuideRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Health check endpoint

@@ -32,6 +32,7 @@ import { Controller, useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import { conversationAPI, textAPI, imageAPI } from '../../services/api';
 import { useStreamingPrompt } from '../../hooks/useStreamingPrompt';
+import PromptGuideBadge from './PromptGuideBadge';
 import MetadataFieldInput from './MetadataFieldInput';
 import ImageUploadField from './ImageUploadField';
 import ChatBubble from './chat/ChatBubble';
@@ -251,6 +252,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
       {/* 헤더 */}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2, flexWrap: 'wrap' }}>
         <Chip label="대화 모드" color="secondary" />
+        <PromptGuideBadge workboard={workboard} />
         {conversation?.model && <Chip label={conversation.model} variant="outlined" />}
         {conversation?.serverType && <Chip label={conversation.serverType} variant="outlined" />}
         {conversation?.costEstimate?.amount != null && (

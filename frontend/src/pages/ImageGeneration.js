@@ -176,7 +176,7 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
 }
 
 // 사용자 정의 이미지 입력 필드 컴포넌트
-function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false }) {
+function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false, omitConditioned = false }) {
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -290,9 +290,13 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
           <Typography variant="caption" color="text.secondary">
             최대 {maxImages}장
           </Typography>
+          {/* 조건부 생략(_vcc.omitInputsUnless, #771) 대상이면 흰 이미지가 모델에 도달하지 않는다.
+              입력 키가 제거되어 상류 LoadImage 가 고아가 되기 때문 — 안내를 사실에 맞춘다 (#774) */}
           {isComfyUI && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-              미첨부 시 1024×1024 흰색 이미지가 자동으로 사용됩니다
+              {omitConditioned
+                ? '첨부하지 않으면 이 항목은 사용되지 않습니다'
+                : '미첨부 시 1024×1024 흰색 이미지가 자동으로 사용됩니다'}
             </Typography>
           )}
         </Box>
@@ -1171,6 +1175,7 @@ function ImageGeneration() {
                                 onChange={formField.onChange}
                                 maxImages={field.imageConfig?.maxImages || 3}
                                 isComfyUI={workboardData?.serverId?.serverType === 'ComfyUI'}
+                                omitConditioned={(workboardData?.omitConditionedFields || []).includes(field.name)}
                               />
                               {fieldState.error && (
                                 <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>

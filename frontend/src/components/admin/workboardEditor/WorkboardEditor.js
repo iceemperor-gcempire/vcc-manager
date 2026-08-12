@@ -23,7 +23,7 @@ import {
 import { Check, ContentCopy } from '@mui/icons-material';
 import { useForm, useFieldArray } from 'react-hook-form';
 import toast from 'react-hot-toast';
-import { workboardAPI, serverAPI, groupAPI } from '../../../services/api';
+import { workboardAPI, serverAPI, groupAPI, promptGuideAPI } from '../../../services/api';
 import { copyToClipboard } from '../../../utils/clipboard';
 import { MONO } from '../../../theme';
 import { emptyCustomField } from './shared';
@@ -41,6 +41,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const [availableGroups, setAvailableGroups] = useState([]);
+  const [availablePromptGuides, setAvailablePromptGuides] = useState([]);
   const [copiedId, setCopiedId] = useState(false);
   const copyTimerRef = useRef(null);
   // 서버 전환 가드 기준점 — hydration 직후의 (또는 마지막으로 승인된) 서버
@@ -56,6 +57,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       workflowData: '',
       allowedModelTypes: [],
       allowedGroupIds: [],
+      promptGuideIds: [],
       modelExposurePolicy: 'full',
       modelWhitelist: [],
       loraExposurePolicy: 'full',
@@ -104,6 +106,16 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       });
   }, []);
 
+  // 프롬프트 가이드 목록 (#766) — 활성 가이드만. 본문은 오지 않고 contentLength 만 온다.
+  useEffect(() => {
+    promptGuideAPI.getAll()
+      .then((res) => setAvailablePromptGuides(res.data?.data?.guides || []))
+      .catch(() => {
+        setAvailablePromptGuides([]);
+        toast.error('프롬프트 가이드 목록을 불러오지 못했습니다.');
+      });
+  }, []);
+
   // 관리자 전용 API 로 완전한 데이터 로딩 + 폼 hydration
   useEffect(() => {
     if (!(workboard && workboard._id)) return;
@@ -122,6 +134,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           workflowData: fullData.workflowData || '',
           allowedModelTypes: fullData.allowedModelTypes || [],
           allowedGroupIds: (fullData.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
+          promptGuideIds: (fullData.promptGuideIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
           modelExposurePolicy: fullData.modelExposurePolicy || 'full',
           modelWhitelist: fullData.modelWhitelist || [],
           loraExposurePolicy: fullData.loraExposurePolicy || 'full',
@@ -261,6 +274,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       workflowData: isComfyUIServer ? data.workflowData : '',
       allowedModelTypes: isComfyUIServer ? (data.allowedModelTypes || []) : [],
       allowedGroupIds: data.allowedGroupIds || [],
+      promptGuideIds: data.promptGuideIds || [],
       modelExposurePolicy: data.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -327,6 +341,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
               outputFormat={outputFormat}
               serverId={watchedServerId}
               groups={availableGroups}
+              promptGuides={availablePromptGuides}
               onOpenWorkflowEditor={() => setWorkflowDialogOpen(true)}
             />
 

@@ -149,6 +149,43 @@ image / video 타입 커스텀 필드는 파일명 플레이스홀더 외에 **�
 단일 작업판에서 첨부/미첨부를 모두 처리할 수 있다 (분기는 스위치 노드에 `select` 출력 연결).
 설치·사용법은 [comfyui-nodes/vcc-nodes/README.md](../comfyui-nodes/vcc-nodes/README.md) 참고.
 
+#### D-2. 조건부 입력 생략 — `_vcc.omitInputsUnless` (#771)
+
+ComfyUI 의 optional 입력은 **키를 넣지 않는 것**이 곧 미사용이다. 노드에 `_vcc` 블록을
+두면 치환 결과가 falsy 인 입력 키를 요청 단위로 제거할 수 있다.
+
+```json
+"136": {
+  "class_type": "MiniMaxH3ReferenceToVideo",
+  "inputs": {
+    "ref_images.ref_image_0": ["137", 0],
+    "ref_images.ref_image_1": ["139", 0]
+  },
+  "_vcc": {
+    "omitInputsUnless": {
+      "ref_images.ref_image_1": "{{##ref_image_2_attached##}}"
+    }
+  }
+}
+```
+
+| 항목 | 동작 |
+|---|---|
+| falsy 판정 | `0` `"0"` `""` `false` `null` `"false"` `NaN` |
+| 적용 시점 | 플레이스홀더 치환 **직후** (조건식이 값으로 평가된 뒤) |
+| `_vcc` | 조건 유무와 무관하게 **항상 제거** — ComfyUI 로 넘기지 않는다 |
+| 입력 키 | 점이 있어도 (`ref_images.ref_image_1`) **경로가 아닌 리터럴 키** |
+| 미지원 | JSON 파싱 실패 시 fallback 문자열 치환 경로 (따옴표 없는 플레이스홀더 사용 시) |
+
+**왜 필요한가** — autogrow 입력(예: H3 참조 이미지 최대 9슬롯)은 요청마다 개수가 달라진다.
+미첨부 슬롯에 흰 PNG(#230)를 넣으면 모델이 그걸 참조로 인식하고, 전 슬롯 필수화는 참조
+1장만 필요한 요청에 3장을 강요하게 된다. 키를 빼는 것만이 "그 슬롯은 없다" 를 표현한다.
+
+**노드는 지우지 않아도 된다** — 입력 키가 사라지면 상류 `LoadImage` 는 고아가 되고,
+ComfyUI 는 출력 노드에서 도달 불가능한 노드를 검증도 실행도 하지 않는다 (실측 확인).
+
+**주의** — 필수(required) 입력을 지우면 ComfyUI 제출이 실패한다. optional 입력에만 쓸 것.
+
 ### 2.3 워크플로우 JSON 치환 로직
 
 #### A. 재귀적 객체 순회 (이중 Seed 지원)

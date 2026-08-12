@@ -110,15 +110,10 @@ function collectImageIds(inputData, imageFieldNames) {
   return ids;
 }
 
-function composeSystemPrompt(systemPrompt, worldviewTexts) {
-  const parts = [];
-  if (systemPrompt) parts.push('[작업 지침]\n' + systemPrompt);
-  if (worldviewTexts && worldviewTexts.length > 0) {
-    const ctx = worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n');
-    parts.push('[배경 / 사전 컨텍스트]\n' + ctx);
-  }
-  return parts.join('\n\n');
-}
+// composeSystemPrompt 는 utils/promptComposition 으로 이관 (#766) — routes/jobs.js 와
+// 중복 정의라 가이드 층 추가 시 파이프라인만 누락되는 사고가 났을 지점.
+const { composeSystemPrompt, joinDocs } = require('../utils/promptComposition');
+const { loadGuidesForWorkboard } = require('./promptGuideService');
 
 // 텍스트 단계 실행 — prompt-generate 로직 직접 호출 (HTTP 우회)
 async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, prevOutput) {
@@ -148,9 +143,15 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
       _id: { $in: pipelineStep.contextDocIds },
     }).sort({ createdAt: 1 }).lean();
   }
-  const composedSystem = composeSystemPrompt(resolvedSystem, worldviewTexts);
+  // 작업판에 연결된 프롬프트 가이드 (#766) — jobs.js 의 단발 경로와 동일하게 적용.
+  const guides = await loadGuidesForWorkboard(workboard);
+  const composedSystem = composeSystemPrompt({
+    guides,
+    systemPrompt: resolvedSystem,
+    worldviewTexts,
+  });
   const worldviewContext = worldviewTexts.length > 0
-    ? worldviewTexts.map((t) => (t.title ? `## ${t.title}\n` : '') + (t.content || '')).join('\n\n---\n\n')
+    ? joinDocs(worldviewTexts)
     : '';
 
   // 이미지 입력(vision) — image 타입 필드 값(앞 이미지 단계 산출물 또는 사전 첨부)을 LLM 에 전달.
