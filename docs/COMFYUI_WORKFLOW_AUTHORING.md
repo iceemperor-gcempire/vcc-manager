@@ -12,7 +12,7 @@ VCC 작업판의 `workflowData` 에 넣을 워크플로 JSON 을 **작성하는 
 1. ComfyUI **API 포맷** JSON 을 만든다 (UI 포맷 아님)
 2. 사용자 입력이 들어갈 자리에 `"{{##이름##}}"` 을 **따옴표로 감싸** 넣는다
 3. 작업판에 같은 이름의 필드를 정의한다
-4. optional 입력을 요청마다 켜고 끄려면 `_vcc.omitInputsUnless` 를 쓴다
+4. optional 입력을 요청마다 켜고 끄려면 `_vcc.omitInputsUnless`, 체인 중간 노드를 켜고 끄려면 `_vcc.bypassUnless` 를 쓴다
 5. ComfyUI `/prompt` 에 직접 제출해 검증한다 (**제출하면 실제로 생성된다**)
 
 ---
@@ -102,7 +102,7 @@ ComfyUI 웹 UI 에서 저장한 JSON(`nodes` / `links` / `groups` / `definitions
 
 작업판에 정의한 필드는 **이름이 곧 플레이스홀더**다. `steps` 필드 → `{{##steps##}}`.
 
-image / video 타입은 하나가 더 붙는다.
+image / video / audio 타입은 하나가 더 붙는다.
 
 | | 값 |
 |---|---|
@@ -110,6 +110,7 @@ image / video 타입은 하나가 더 붙는다.
 | `{{##필드명_attached##}}` | `1` / `0` — 사용자가 **실제로** 첨부했는지 |
 
 image 필드는 미첨부여도 흰 PNG 가 자동 주입되어 `{{##필드명##}}` 이 비지 않는다.
+video / audio 는 대체 주입이 없어 미첨부 시 빈 문자열이 된다 — `_vcc.omitInputsUnless` 로 입력을 걷어내야 한다.
 "진짜 첨부했는지" 는 `_attached` 로만 알 수 있다.
 
 ---
@@ -161,6 +162,35 @@ ComfyUI 의 optional 입력은 **키가 없는 것**이 곧 미사용이다. 그
 **필수(required) 입력에는 쓰지 말 것.** 지우면 ComfyUI 가 제출을 거부한다.
 노드의 required / optional 은 `/object_info` 로 확인한다.
 
+**체인 중간 노드를 끄는 용도로도 쓰지 말 것.** 그건 생략이 아니라 우회다 → 3.5 참고.
+
+### 3.5 조건부 노드 우회 — `_vcc.bypassUnless`
+
+가속 패치처럼 **모델 체인 중간에 끼는 노드**는 생략으로 끌 수 없다. 소비자의 필수 입력이
+사라져 오류가 난다. 이럴 때는 노드를 빼고 상류로 재연결한다 — ComfyUI 에디터의 ctrl+B 와 같다.
+
+```json
+"200": {
+  "class_type": "SolAttnPatch",
+  "inputs": { "model": ["6", 0], "tau": 1.3, "int8_qk": true },
+  "_vcc": {
+    "bypassUnless": {
+      "condition": "{{##use_sol_attn##}}",
+      "passthrough": { "0": "model" }
+    }
+  }
+}
+```
+
+- `condition` falsy → 노드를 제거하고, `["200",0]` 을 보던 참조를 전부 `["6",0]` 으로 바꾼다
+- `passthrough` 는 **출력 인덱스 → 통과시킬 입력 이름**. 다중 출력 노드는 인덱스별로 적는다
+- 여러 노드를 동시에 우회하면 최상류까지 연쇄적으로 직결된다 (A → B → C 에서 B·C 를 끄면 A 직결)
+- `passthrough` 가 가리키는 입력이 링크가 아니면(리터럴이면) **우회하지 않고 노드를 남긴다** —
+  일부만 재연결하면 워크플로가 깨지므로, 안전한 실패는 "가속을 못 끔" 쪽이다
+
+조건은 `boolean` 타입 필드를 쓰면 자연스럽다. 기본값을 꺼짐으로 두면 옵션을 모르는 사용자는
+지금까지와 똑같이 동작한다.
+
 ---
 
 ## 4. 작업판 필드 정의
@@ -175,7 +205,8 @@ ComfyUI 의 optional 입력은 **키가 없는 것**이 곧 미사용이다. 그
 | `file` | 업로드된 파일명 | 범용 파일 |
 | `select` | 선택한 `value` | 아래 4.2 주의 |
 | `image` | 업로드된 파일명 | `_attached` 자동 제공 |
-| `video` | 업로드된 파일명 | `_attached` 자동 제공 |
+| `video` | 업로드된 파일명 | `_attached` 자동 제공. `VHS_LoadVideo` 등에서 소비 |
+| `audio` | 업로드된 파일명 | `_attached` 자동 제공. `LoadAudio` 등에서 소비 (#772) |
 | `baseModel` | 모델 파일명 / ID | 서버 모델 목록에서 선택 |
 | `lora` | LoRA 파일명 | |
 

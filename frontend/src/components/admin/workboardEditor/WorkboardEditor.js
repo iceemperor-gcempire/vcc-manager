@@ -247,6 +247,9 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       if (field.type === 'video') {
         fieldData.videoConfig = { maxVideos: field.videoConfig?.maxVideos || 1 };
       }
+      if (field.type === 'audio') {
+        fieldData.audioConfig = { maxAudios: field.audioConfig?.maxAudios || 1 };
+      }
       return fieldData;
     });
 

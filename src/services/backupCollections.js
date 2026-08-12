@@ -35,6 +35,7 @@ const Workboard = require('../models/Workboard');
 const UploadedText = require('../models/UploadedText');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
+const UploadedAudio = require('../models/UploadedAudio');
 const PromptData = require('../models/PromptData');
 const Pipeline = require('../models/Pipeline');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -64,6 +65,7 @@ const BACKUP_COLLECTIONS = [
   { name: 'UploadedText', model: UploadedText },
   { name: 'UploadedImage', model: UploadedImage },
   { name: 'UploadedVideo', model: UploadedVideo },
+  { name: 'UploadedAudio', model: UploadedAudio },
   { name: 'PromptData', model: PromptData },
   { name: 'Pipeline', model: Pipeline },
   // 작업 / 생성 결과

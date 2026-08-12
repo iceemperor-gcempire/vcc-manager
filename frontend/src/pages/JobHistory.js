@@ -62,6 +62,12 @@ import SegmentTabs from '../components/common/SegmentTabs';
 import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import {
+  buildSameWorkboardContinue,
+  buildCrossWorkboardContinue,
+  buildWorkboardPickerContinue,
+  storeContinueJobData,
+} from '../utils/continueJob';
 import { useJobActions } from '../hooks/useJobActions';
 
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
@@ -563,19 +569,20 @@ function JobHistory() {
     try {
       let workboardId = typeof job.workboardId === 'string' ? job.workboardId : (job.workboardId?._id || job.workboardId?.id);
       const fallback = () => {
-        localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+        storeContinueJobData(buildWorkboardPickerContinue(job));
         navigate('/workboards');
       };
       if (!workboardId || !/^[0-9a-fA-F]{24}$/.test(workboardId)) { toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
       const wbRes = await workboardAPI.getById(workboardId);
       const workboard = wbRes.data?.workboard;
       if (!workboard || !workboard.isActive) { toast.error('작업판을 사용할 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      localStorage.setItem('continueJobData', JSON.stringify({ workboardId, inputData: job.inputData, workboard, prevOutputFormat: job.resultVideos?.length ? 'video' : 'image' }));
+      // #792 — sameWorkboard 플래그 포함. 직접 조립하다 #762 수정이 이 경로에 누락됐었다.
+      storeContinueJobData(buildSameWorkboardContinue({ workboardId, workboard, job }));
       navigate(`/generate/${workboardId}`);
       toast.success('작업 설정을 불러왔습니다');
     } catch (error) {
       toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-      localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+      storeContinueJobData(buildWorkboardPickerContinue(job));
       navigate('/workboards');
     }
   };
@@ -585,10 +592,8 @@ function JobHistory() {
     const job = crossJob;
     const lastImage = job.resultImages?.length ? job.resultImages[job.resultImages.length - 1] : null;
     const lastVideo = job.resultVideos?.length ? job.resultVideos[job.resultVideos.length - 1] : null;
-    localStorage.setItem('continueJobData', JSON.stringify({
-      workboardId: workboard._id, inputData: job.inputData, workboard,
-      lastGeneratedMedia: { image: lastImage, video: lastVideo },
-      prevOutputFormat: lastVideo ? 'video' : 'image', // #673
+    storeContinueJobData(buildCrossWorkboardContinue({
+      workboard, job, lastGeneratedMedia: { image: lastImage, video: lastVideo },
     }));
     setCrossJob(null);
     navigate(`/generate/${workboard._id}`);

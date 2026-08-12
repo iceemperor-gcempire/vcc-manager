@@ -1,4 +1,4 @@
-const { applyOmitDirectives, isFalsy } = require('../utils/workflowOmit');
+const { applyOmitDirectives, isFalsy } = require('../utils/workflowDirectives');
 
 // #771 — 조건부 입력 생략.
 // autogrow 슬롯(ref_images.ref_image_N)을 요청 단위로 없애기 위한 기능이라,
@@ -125,7 +125,7 @@ describe('applyOmitDirectives (#771)', () => {
   });
 });
 
-const { getOmitConditionedFieldNames } = require('../utils/workflowOmit');
+const { getOmitConditionedFieldNames } = require('../utils/workflowDirectives');
 
 // #774 — 생성 화면의 "미첨부 시 흰 이미지" 안내를 분기하기 위한 판정.
 // 조건부 생략 대상 필드는 흰 이미지가 모델에 도달하지 않으므로 문구가 달라야 한다.
@@ -183,5 +183,119 @@ describe('getOmitConditionedFieldNames (#774)', () => {
     expect(getOmitConditionedFieldNames('')).toEqual([]);
     expect(getOmitConditionedFieldNames(null)).toEqual([]);
     expect(getOmitConditionedFieldNames(undefined)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// #789 — 조건부 노드 우회 (_vcc.bypassUnless)
+// ---------------------------------------------------------------------------
+
+const chain = (condition) => ({
+  6: { class_type: 'UNETLoader', inputs: { unet_name: 'h3.safetensors' } },
+  200: {
+    class_type: 'SolAttnPatch',
+    inputs: { model: ['6', 0], tau: 1.3, int8_qk: true },
+    _vcc: { bypassUnless: { condition, passthrough: { 0: 'model' } } },
+  },
+  16: { class_type: 'BasicGuider', inputs: { model: ['200', 0], conditioning: ['104', 0] } },
+  9: { class_type: 'BasicScheduler', inputs: { model: ['200', 0], steps: 20 } },
+});
+
+describe('조건부 노드 우회 (#789)', () => {
+  test('조건이 falsy 면 노드가 사라지고 소비자가 상류로 재연결된다', () => {
+    const { workflow, bypassed } = applyOmitDirectives(chain(false));
+    expect(workflow['200']).toBeUndefined();
+    expect(workflow['16'].inputs.model).toEqual(['6', 0]);
+    expect(workflow['9'].inputs.model).toEqual(['6', 0]);
+    expect(bypassed).toEqual([{ node: '200', classType: 'SolAttnPatch' }]);
+    // 우회와 무관한 입력은 그대로
+    expect(workflow['16'].inputs.conditioning).toEqual(['104', 0]);
+  });
+
+  test('조건이 truthy 면 노드가 남고 _vcc 만 제거된다', () => {
+    const { workflow, bypassed } = applyOmitDirectives(chain(true));
+    expect(workflow['200'].class_type).toBe('SolAttnPatch');
+    expect(workflow['200']._vcc).toBeUndefined();
+    expect(workflow['16'].inputs.model).toEqual(['200', 0]);
+    expect(bypassed).toEqual([]);
+  });
+
+  test('문자열 "0" / "false" 도 falsy — 체크박스 외 필드 타입 대응', () => {
+    expect(applyOmitDirectives(chain('0')).workflow['200']).toBeUndefined();
+    expect(applyOmitDirectives(chain('false')).workflow['200']).toBeUndefined();
+    expect(applyOmitDirectives(chain('1')).workflow['200']).toBeDefined();
+  });
+
+  test('연쇄 우회 — 두 노드를 동시에 끄면 최상류로 직결된다', () => {
+    const { workflow } = applyOmitDirectives({
+      6: { class_type: 'UNETLoader', inputs: {} },
+      200: {
+        class_type: 'SolAttnPatch',
+        inputs: { model: ['6', 0] },
+        _vcc: { bypassUnless: { condition: 0, passthrough: { 0: 'model' } } },
+      },
+      201: {
+        class_type: 'EasyCache',
+        inputs: { model: ['200', 0] },
+        _vcc: { bypassUnless: { condition: 0, passthrough: { 0: 'model' } } },
+      },
+      16: { class_type: 'BasicGuider', inputs: { model: ['201', 0] } },
+    });
+    expect(workflow['200']).toBeUndefined();
+    expect(workflow['201']).toBeUndefined();
+    expect(workflow['16'].inputs.model).toEqual(['6', 0]);
+  });
+
+  test('앞만 끄고 뒤는 켠 경우 — 켠 노드가 최상류를 직접 본다', () => {
+    const { workflow } = applyOmitDirectives({
+      6: { class_type: 'UNETLoader', inputs: {} },
+      200: {
+        class_type: 'SolAttnPatch',
+        inputs: { model: ['6', 0] },
+        _vcc: { bypassUnless: { condition: 0, passthrough: { 0: 'model' } } },
+      },
+      201: {
+        class_type: 'EasyCache',
+        inputs: { model: ['200', 0] },
+        _vcc: { bypassUnless: { condition: 1, passthrough: { 0: 'model' } } },
+      },
+      16: { class_type: 'BasicGuider', inputs: { model: ['201', 0] } },
+    });
+    expect(workflow['200']).toBeUndefined();
+    expect(workflow['201'].inputs.model).toEqual(['6', 0]);
+    expect(workflow['16'].inputs.model).toEqual(['201', 0]);
+  });
+
+  test('통과 입력이 링크가 아니면 우회하지 않는다 — 재연결할 상류가 없다', () => {
+    const { workflow, bypassed } = applyOmitDirectives({
+      200: {
+        class_type: 'SomeNode',
+        inputs: { model: 'literal_value' },
+        _vcc: { bypassUnless: { condition: 0, passthrough: { 0: 'model' } } },
+      },
+    });
+    expect(workflow['200']).toBeDefined();
+    expect(bypassed).toEqual([]);
+  });
+
+  test('생략과 우회가 같은 워크플로에 공존', () => {
+    const { workflow, omitted, bypassed } = applyOmitDirectives({
+      6: { class_type: 'UNETLoader', inputs: {} },
+      200: {
+        class_type: 'SolAttnPatch',
+        inputs: { model: ['6', 0] },
+        _vcc: { bypassUnless: { condition: 0, passthrough: { 0: 'model' } } },
+      },
+      104: {
+        class_type: 'MiniMaxH3ImageToVideo',
+        inputs: { first_frame: ['114', 0], prompt: 'x' },
+        _vcc: { omitInputsUnless: { first_frame: 0 } },
+      },
+      16: { class_type: 'BasicGuider', inputs: { model: ['200', 0] } },
+    });
+    expect(workflow['16'].inputs.model).toEqual(['6', 0]);
+    expect(workflow['104'].inputs.first_frame).toBeUndefined();
+    expect(omitted).toEqual([{ node: '104', input: 'first_frame' }]);
+    expect(bypassed).toHaveLength(1);
   });
 });

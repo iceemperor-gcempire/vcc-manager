@@ -9,12 +9,13 @@ const geminiService = require('./geminiService');
 const gptImageService = require('./gptImageService');
 const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
-const { applyOmitDirectives } = require('../utils/workflowOmit');
+const { applyOmitDirectives } = require('../utils/workflowDirectives');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
+const UploadedAudio = require('../models/UploadedAudio');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { decryptSecret } = require('../utils/secretCrypto');
@@ -276,7 +277,13 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
     workboardData.additionalInputFields || [],
     inputData
   );
-  Object.assign(uploadedImageMap, uploadedVideoMap);
+  // 오디오 필드도 동일 (#772)
+  const uploadedAudioMap = await uploadAudioFieldsToComfyUI(
+    workboardData.serverUrl,
+    workboardData.additionalInputFields || [],
+    inputData
+  );
+  Object.assign(uploadedImageMap, uploadedVideoMap, uploadedAudioMap);
   job.progress(15);
 
   let workflowJson;
@@ -690,6 +697,57 @@ const uploadVideoFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
   return uploadedVideoMap;
 };
 
+// 오디오 타입 필드를 ComfyUI 에 업로드 (#772) — 이미지·비디오와 동일한 필드명→파일명 맵 관례.
+// ComfyUI `/upload/image` 는 input 디렉토리에 저장하는 범용 엔드포인트라 오디오도 같은 경로를 쓴다.
+// 미첨부 시 대체 파일 주입은 없다 — 빈 오디오를 넣으면 모델이 무음을 참조로 인식하므로,
+// 미첨부는 `_vcc.omitInputsUnless` (#771) 로 입력 키를 제거하는 것이 올바른 처리다.
+const uploadAudioFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData) => {
+  const uploadedAudioMap = {};
+
+  const audioFields = (additionalInputFields || []).filter(field => field.type === 'audio');
+
+  for (const field of audioFields) {
+    const fieldName = field.name;
+    let fieldValue = inputData.additionalParams?.[fieldName] || inputData[fieldName];
+
+    // 배열인 경우 첫 번째 오디오만 사용 (이미지·비디오 필드와 동일 관례)
+    if (Array.isArray(fieldValue)) {
+      fieldValue = fieldValue.length > 0 ? fieldValue[0] : null;
+    }
+
+    const audioId = fieldValue ? (fieldValue.audioId || fieldValue.imageId || fieldValue) : null;
+    if (!audioId) {
+      console.warn(`⚠️ Audio field "${fieldName}" has no audio attached`);
+      continue;
+    }
+
+    try {
+      const audioDoc = await UploadedAudio.findById(audioId);
+      if (!audioDoc?.path || !fs.existsSync(audioDoc.path)) {
+        console.warn(`⚠️ Audio not found for field "${fieldName}": ${audioId}`);
+        continue;
+      }
+
+      const audioBuffer = await fs.promises.readFile(audioDoc.path);
+      const filename = `vcc_${fieldName}_${Date.now()}_${path.basename(audioDoc.path)}`;
+
+      const uploadResult = await comfyUIService.uploadImage(
+        serverUrl,
+        audioBuffer,
+        filename,
+        audioDoc.mimeType || 'audio/mpeg'
+      );
+
+      uploadedAudioMap[fieldName] = uploadResult.name;
+      console.log(`✅ Uploaded audio for field "${fieldName}": ${uploadResult.name}`);
+    } catch (error) {
+      console.error(`❌ Failed to upload audio for field "${fieldName}":`, error.message);
+    }
+  }
+
+  return uploadedAudioMap;
+};
+
 // 유저 ID를 해시하여 파일명에 안전한 문자열로 변환
 const hashUserId = (userId) => {
   if (!userId) return 'anonymous';
@@ -830,6 +888,16 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
             console.log(`⚠️ No uploaded video found for field "${fieldName}"`);
           }
           break;
+        case 'audio':
+          // 오디오 필드도 ComfyUI 에 업로드된 파일명 사용 (#772) — LoadAudio 등에서 소비
+          if (uploadedImageMap[fieldName]) {
+            value = uploadedImageMap[fieldName];
+            console.log(`🔊 Using uploaded audio for field "${fieldName}": ${value}`);
+          } else {
+            value = '';
+            console.log(`⚠️ No uploaded audio found for field "${fieldName}"`);
+          }
+          break;
         case 'string':
         case 'select':
         default:
@@ -837,11 +905,11 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
           break;
       }
 
-      // 이미지/비디오 필드는 첨부 여부 플래그도 자동 제공 (#758) —
+      // 이미지/비디오/오디오 필드는 첨부 여부 플래그도 자동 제공 (#758, #772) —
       // `{{##필드명_attached##}}` 가 1/0 (number) 으로 치환된다. 흰 PNG 자동 주입(#230)과
       // 무관하게 "사용자가 실제로 첨부했는가" 를 나타내므로, VCC Optional Image 노드나
-      // 스위치 노드의 분기 입력으로 사용할 수 있다.
-      if (field.type === 'image' || field.type === 'video') {
+      // 스위치 노드의 분기 입력, `_vcc.omitInputsUnless` (#771) 의 조건으로 사용할 수 있다.
+      if (field.type === 'image' || field.type === 'video' || field.type === 'audio') {
         const hasAttachment = Array.isArray(rawValue)
           ? rawValue.length > 0
           : Boolean(extractValue(rawValue));
@@ -862,10 +930,14 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
 
     // 조건부 입력 생략 (#771) — 치환이 끝난 뒤에 적용해야 조건식이 값으로 평가된다.
     // fallback(문자열 치환) 경로에서는 JSON 구조가 없어 지원하지 않는다.
-    const { workflow: prunedObj, omitted } = applyOmitDirectives(replacedObj);
+    const { workflow: prunedObj, omitted, bypassed } = applyOmitDirectives(replacedObj);
     if (omitted.length > 0) {
       console.log(`✂️ 조건부 입력 생략 (${omitted.length}개):`,
         omitted.map((o) => `#${o.node}.${o.input}`).join(', '));
+    }
+    if (bypassed && bypassed.length > 0) {
+      console.log(`⏭️ 조건부 노드 우회 (${bypassed.length}개):`,
+        bypassed.map((b) => `#${b.node} ${b.classType}`).join(', '));
     }
 
     return {

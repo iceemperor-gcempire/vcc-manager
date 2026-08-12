@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 3,
-    "minor": 17
+    "minor": 18
   },
-  "exportedAt": "2026-08-12T01:42:50.554Z",
+  "exportedAt": "2026-08-12T12:49:09.559Z",
   "workboard": {
     "name": "MiniMax H3 - R2V",
     "description": "참조 이미지·영상으로 인물·모션·스타일·목소리를 이어받아 생성합니다. 첨부한 것만 참조로 쓰입니다.",
