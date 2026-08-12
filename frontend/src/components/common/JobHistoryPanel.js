@@ -61,6 +61,12 @@ import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
 import { useJobActions } from '../../hooks/useJobActions';
 import { relativeTime } from '../../utils/relativeTime';
+import {
+  buildSameWorkboardContinue,
+  buildCrossWorkboardContinue,
+  buildWorkboardPickerContinue,
+  storeContinueJobData,
+} from '../../utils/continueJob';
 
 export function SavePromptDialog({ open, onClose, job, onSave }) {
   const [imageSelectOpen, setImageSelectOpen] = useState(false);
@@ -983,14 +989,14 @@ function JobHistoryPanel({
 
       if (!workboardId || workboardId === 'undefined' || workboardId === 'null') {
         toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-        localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+        storeContinueJobData(buildWorkboardPickerContinue(job));
         navigate('/workboards');
         return;
       }
 
       if (!/^[0-9a-fA-F]{24}$/.test(workboardId)) {
         toast.error('잘못된 작업판 ID입니다. 작업판 선택 페이지로 이동합니다.');
-        localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+        storeContinueJobData(buildWorkboardPickerContinue(job));
         navigate('/workboards');
         return;
       }
@@ -1000,25 +1006,19 @@ function JobHistoryPanel({
 
       if (!workboard) {
         toast.error('작업판을 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-        localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+        storeContinueJobData(buildWorkboardPickerContinue(job));
         navigate('/workboards');
         return;
       }
 
       if (!workboard.isActive) {
         toast.error('작업판이 비활성화되었습니다. 작업판 선택 페이지로 이동합니다.');
-        localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+        storeContinueJobData(buildWorkboardPickerContinue(job));
         navigate('/workboards');
         return;
       }
 
-      localStorage.setItem('continueJobData', JSON.stringify({
-        workboardId,
-        inputData: job.inputData,
-        workboard,
-        prevOutputFormat: job.resultVideos?.length ? 'video' : 'image', // #673
-        sameWorkboard: true, // #762 — 같은 작업판 계속하기: 히스토리 값을 기본값보다 우선 복원
-      }));
+      storeContinueJobData(buildSameWorkboardContinue({ workboardId, workboard, job }));
       navigate(`/generate/${workboardId}`);
       toast.success('작업 설정을 불러왔습니다');
     } catch (error) {
@@ -1027,7 +1027,7 @@ function JobHistoryPanel({
       else if (error.response?.status === 403) toast.error('작업판 접근 권한이 없습니다. 작업판 선택 페이지로 이동합니다.');
       else toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
 
-      localStorage.setItem('continueJobData', JSON.stringify({ inputData: job.inputData, fromJobHistory: true }));
+      storeContinueJobData(buildWorkboardPickerContinue(job));
       navigate('/workboards');
     }
   };
@@ -1053,16 +1053,9 @@ function JobHistoryPanel({
       ? job.resultVideos[job.resultVideos.length - 1]
       : null;
 
-    localStorage.setItem('continueJobData', JSON.stringify({
-      workboardId: workboard._id,
-      inputData: job.inputData,
-      workboard: workboard,
-      lastGeneratedMedia: {
-        image: lastGeneratedImage,
-        video: lastGeneratedVideo
-      },
-      prevOutputFormat: lastGeneratedVideo ? 'video' : 'image', // #673
-      sameWorkboard: false, // #762 — 다른 작업판 이어가기: #673 안전 조건 유지
+    storeContinueJobData(buildCrossWorkboardContinue({
+      workboard, job,
+      lastGeneratedMedia: { image: lastGeneratedImage, video: lastGeneratedVideo },
     }));
 
     setCrossWorkboardOpen(false);

@@ -60,6 +60,8 @@ function selectWorkboard(workboard, projectId, navigate) {
     try {
       const parsed = JSON.parse(continueJobData);
       if (parsed.fromJobHistory) {
+        // 작업판을 특정하지 못해 선택 페이지를 경유한 경우 — 원래 작업판과 같다는 보장이 없으므로
+        // sameWorkboard 를 붙이지 않는다 (크로스로 취급, #673 안전 조건 유지). utils/continueJob 미사용 (#792)
         localStorage.setItem('continueJobData', JSON.stringify({
           workboardId: workboard._id, inputData: parsed.inputData, workboard,
         }));
