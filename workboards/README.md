@@ -27,6 +27,7 @@
 |---|---|---|---|
 | `comfyui/minimax-h3-fl2v.json` | MiniMax H3 - FL2V | 영상 + 스테레오 오디오 | H3 모델 4종 |
 | `comfyui/minimax-h3-r2v.json` | MiniMax H3 - R2V | 〃 | H3 모델 4종 + VHS_LoadVideo |
+| `comfyui/ltx-2.5-t2v.json` | LTX-2.5 - T2V | 영상 + 동기화 오디오 | LTX-2.5 모델 6종 · ComfyUI 0.32+ |
 
 ---
 
@@ -141,6 +142,53 @@ VCC 에는 이 작성법을 작업판에 붙여두는 기능이 있다 — 관�
 
 동봉하지 않는 이유는 해당 문서가 MiniMax H3 Community License Agreement 아래 배포되고, 그 재배포 조항의
 적용 지역에서 한국이 제외돼 있기 때문이다 (모델 사용과는 무관하며, 재배포에만 걸린다).
+
+---
+
+## LTX-2.5
+
+텍스트에서 **영상과 동기화된 오디오를 한 번에** 만든다. 2단계 샘플링(저해상도 생성 → 잠재 업스케일 →
+재샘플링)으로 디테일을 올린다. ComfyUI 0.32 이상이 필요하다 (공식 템플릿이 그때 들어왔다).
+
+### 필요한 모델
+
+```
+models/
+├── diffusion_models/LTX-2/ltx-2.5-22b-distilled-transformer-comfy-int8-convrot.safetensors
+├── text_encoders/gemma4-12b-with-proj-ltx-2.5-comfy-int8-convrot.safetensors
+├── text_encoders/gemma4_e2b_it_bf16.safetensors
+├── vae/LTX-2/ltx-2.5-video-vae-bf16.safetensors
+├── vae/LTX-2/ltx-2.5-audio-vae-bf16.safetensors
+└── latent_upscale_models/ltx-2.5-latent-spatial-upscaler-x2-bf16-1.0.safetensors
+```
+
+받는 곳: [🤗 Lightricks/LTX-2.5](https://huggingface.co/Lightricks) — **접근 권한 승인이 선행**되어야 한다.
+텍스트 인코더와 업스케일러는 루트에, 나머지는 `LTX-2/` 아래에 둔 기준이다. 다른 위치에 뒀다면
+작업판의 워크플로에서 해당 경로 문자열을 고쳐야 한다.
+
+### 해상도는 64의 배수
+
+2단계 구조상 해상도를 반으로 줄여 1단계를 돌리므로, **절반이 32의 배수** 여야 한다. 즉 원본은 64의 배수다.
+64의 배수가 아니면 조용히 깎여서 나온다 (832×480 을 넣으면 832×448 이 나온다).
+
+| 프리셋 | 실제 출력 |
+|---|---|
+| 832×448 | 그대로 |
+| 1024×576 | 그대로 (정확한 16:9) |
+| 1280×704 | 그대로 |
+| 1920×1088 | 그대로 |
+
+### 프롬프트 자동 확장
+
+워크플로 안에 프롬프트 전용 언어모델(`gemma4_e2b_it`)이 들어 있다. **기본으로 켜져 있다.**
+"a lighthouse at dusk" 처럼 짧게 적어도 샷 구성·카메라 무빙·조명·질감·사운드스케이프를 갖춘
+LTX 형식 프롬프트로 늘려준다.
+
+비용은 **처음 쓰는 프롬프트당 10초 남짓**이고, 같은 프롬프트를 다시 쓰면 결과가 캐시되어 추가 시간이 없다.
+시드만 바꿔 여러 장 뽑는 경우 첫 장에만 붙는다.
+
+이 작업판에는 프롬프트 가이드(관리자 → 프롬프트 가이드)를 연결할 필요가 없다 — LTX 문법 지식이
+이미 워크플로 안에 있다.
 
 ---
 
