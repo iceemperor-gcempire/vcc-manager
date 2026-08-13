@@ -204,7 +204,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 // PUT /:id - 프로젝트 수정
 router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, res) => {
   try {
-    const { name, description, coverImage } = req.body;
+    const { name, description, coverImage, allowedGroupIds } = req.body;
 
     const project = await Project.findOne({
       _id: req.params.id,
@@ -217,6 +217,9 @@ router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, r
 
     if (name) project.name = name.trim();
     if (description !== undefined) project.description = description.trim();
+    // 공유 그룹 (#802) — 소유자·admin 만 이 라우트에 도달한다.
+    // 빈 배열로 되돌리면 다시 개인 전용이 된다.
+    if (Array.isArray(allowedGroupIds)) project.allowedGroupIds = allowedGroupIds;
 
     if (coverImage === null) {
       project.coverImage = undefined;
