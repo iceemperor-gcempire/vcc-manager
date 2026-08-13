@@ -15,6 +15,13 @@ jest.mock('../middleware/auth', () => ({
     if (!mockCurrentUser?.isAdmin) return res.status(403).json({ success: false, message: '관리자 권한이 필요합니다.' });
     req.user = mockCurrentUser; next();
   },
+  // #802 — 프로젝트 그룹 공유 도입으로 라우트가 접근 필터를 쓴다.
+  // 실제 구현과 같은 규칙: admin 은 전부, 그 외는 소유자(+공유 그룹).
+  buildProjectAccessFilter: (user) => (user?.isAdmin ? {} : { $or: [{ userId: user?._id }] }),
+  buildProjectManageFilter: (user) => (user?.isAdmin ? {} : { userId: user?._id }),
+  userHasProjectAccess: () => true,
+  userCanManageProject: () => true,
+  userHasWorkboardAccess: () => true,
 }));
 jest.mock('../utils/signedUrl', () => ({ reverseSignedUrl: (u) => u, convertToSignedUrls: (x) => x, generateSignedUrl: (u) => u }));
 

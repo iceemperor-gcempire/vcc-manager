@@ -6,10 +6,12 @@ const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedText = require('../models/UploadedText');
 const Project = require('../models/Project');
+const User = require('../models/User');
 const Tag = require('../models/Tag');
 const openAIChatService = require('./openAIChatService');
 const geminiService = require('./geminiService');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
+const { userHasWorkboardAccess } = require('../middleware/auth');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
@@ -297,6 +299,9 @@ async function processPipelineRun(job) {
     if (prevRunStep?.output) prevOutput = prevRunStep.output;
   }
 
+  // 실행자 — 단계마다 작업판 접근을 검사하는 데 쓴다 (#802)
+  const runner = await User.findById(run.userId).lean();
+
   for (let i = fromStep; i < run.steps.length; i++) {
     const pipelineStep = pipeline.steps[i];
     const runStep = run.steps[i];
@@ -317,6 +322,15 @@ async function processPipelineRun(job) {
     try {
       const workboard = await Workboard.findById(runStep.workboardId);
       if (!workboard) throw new Error('작업판이 삭제됨');
+
+      // 실행 시점 접근 검사 (#802) — **최종 방어선**.
+      // 파이프라인 저장 시에도 검사하지만(pipelines.js validateSteps), 저장 이후에
+      // 실행자가 그룹에서 빠지거나 작업판의 allowedGroupIds 가 바뀔 수 있다.
+      // 실행 직전에 다시 보지 않으면 그 창으로 권한 없는 실행이 통과한다.
+      if (!runner) throw new Error('실행자를 찾을 수 없음');
+      if (!userHasWorkboardAccess(runner, workboard)) {
+        throw new Error(`작업판 접근 권한이 없습니다: ${workboard.name}`);
+      }
 
       const autoInject = i === 0 ? false : (pipelineStep.autoInject !== false);
       const inputData = buildStepInput(workboard, autoInject ? prevOutput : null, pipelineStep.inputs, i, run.initialPrompt);
