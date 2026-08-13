@@ -248,7 +248,67 @@ const requireNonApiKeyAuth = (req, res, next) => {
   return next();
 };
 
+/**
+ * 사용자가 프로젝트에 접근 가능한지 검사 (#802).
+ *
+ * 작업판(userHasWorkboardAccess)과 규칙이 **다르다** — 프로젝트는 소유자가 있다.
+ *   admin → 전부 / 소유자 → 자기 것 / 그 외 → allowedGroupIds 교집합
+ *
+ * `allowedGroupIds` 가 비어 있으면 개인 전용이다. 기존 프로젝트가 전부 이 상태이므로
+ * 필드 도입만으로 동작이 달라지지 않는다.
+ *
+ * **이 검사는 프로젝트 접근만 판정한다.** 프로젝트 안에서 참조하는 작업판의 실행 권한은
+ * userHasWorkboardAccess 가 따로 본다 — 프로젝트 공유가 작업판 접근을 대신 열어주면
+ * #802 의 권한 우회가 그대로 재현된다.
+ */
+function userHasProjectAccess(user, project) {
+  if (!user || !project) return false;
+  if (user.isAdmin) return true;
+  if (String(project.userId) === String(user._id)) return true;
+  const allowed = (project.allowedGroupIds || []).map(String);
+  if (allowed.length === 0) return false;   // 개인 전용
+  const mine = (user.groupIds || []).map(String);
+  return mine.some((g) => allowed.includes(g));
+}
+
+/**
+ * 프로젝트를 **편집·삭제·내보내기** 할 수 있는지 (#802).
+ * 공유 범위는 읽기 + 실행이므로, 구조를 바꾸는 행위는 소유자와 admin 에게만 허용한다.
+ */
+function userCanManageProject(user, project) {
+  if (!user || !project) return false;
+  if (user.isAdmin) return true;
+  return String(project.userId) === String(user._id);
+}
+
+/**
+ * 접근 가능한 프로젝트를 추리는 Mongoose 쿼리 조건 (#802).
+ * 목록 조회용 — 내 것 + 내 그룹에 열린 것.
+ */
+function buildProjectAccessFilter(user) {
+  if (!user) return { _id: null };
+  if (user.isAdmin) return {};
+  const mine = (user.groupIds || []).map(String);
+  const or = [{ userId: user._id }];
+  if (mine.length > 0) or.push({ allowedGroupIds: { $in: mine } });
+  return { $or: or };
+}
+
+/**
+ * 프로젝트를 **편집·삭제·내보내기** 할 수 있는 것만 추리는 쿼리 조건 (#802).
+ * 소유자 + admin. buildProjectAccessFilter 와 달리 공유 그룹을 포함하지 않는다.
+ */
+function buildProjectManageFilter(user) {
+  if (!user) return { _id: null };
+  if (user.isAdmin) return {};
+  return { userId: user._id };
+}
+
 module.exports = {
+  buildProjectManageFilter,
+  userHasProjectAccess,
+  userCanManageProject,
+  buildProjectAccessFilter,
   requireAuth,
   requireAdmin,
   optionalAuth,
