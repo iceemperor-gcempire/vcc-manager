@@ -5,7 +5,7 @@ const backupService = require('../services/backupService');
 
 const router = express.Router();
 const UPLOAD_ROOT = process.env.UPLOAD_PATH || './uploads';
-const ALLOWED_SUBDIRS = ['/generated/', '/reference/', '/videos/'];
+const ALLOWED_SUBDIRS = ['/generated/', '/reference/', '/videos/', '/audios/'];   // #805
 
 /**
  * GET /api/files/backup/:id

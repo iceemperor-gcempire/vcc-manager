@@ -36,6 +36,7 @@ const UploadedText = require('../models/UploadedText');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const PromptData = require('../models/PromptData');
 const Pipeline = require('../models/Pipeline');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -73,6 +74,7 @@ const BACKUP_COLLECTIONS = [
   { name: 'ConversationJob', model: ConversationJob },
   { name: 'GeneratedImage', model: GeneratedImage },
   { name: 'GeneratedVideo', model: GeneratedVideo },
+  { name: 'GeneratedAudio', model: GeneratedAudio },
   { name: 'GeneratedText', model: GeneratedText },
   { name: 'PipelineRun', model: PipelineRun },
   // 인증 / 시스템 설정

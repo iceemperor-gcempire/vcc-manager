@@ -21,6 +21,7 @@ const GeneratedText = require('../models/GeneratedText');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedText = require('../models/UploadedText');
 const PipelineRun = require('../models/PipelineRun');
 const ApiKey = require('../models/ApiKey');
@@ -31,6 +32,7 @@ const USER_CONTENT_MODELS = [
   ConversationJob,
   GeneratedImage,
   GeneratedVideo,
+  GeneratedAudio,
   GeneratedText,
   UploadedImage,
   UploadedVideo,

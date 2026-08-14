@@ -197,6 +197,7 @@ router.get('/my', requireAuth, async (req, res) => {
       .populate('workboardId', 'name')
       .populate('resultImages')
       .populate('resultVideos')
+      .populate('resultAudios')
       .populate('inputData.tags', 'name color isProjectTag')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -223,6 +224,7 @@ router.get('/:id', requireAuth, async (req, res) => {
       .populate('workboardId', 'name')
       .populate('resultImages')
       .populate('resultVideos')
+      .populate('resultAudios')
       .populate('inputData.referenceImages.imageId');
     
     if (!job) {
@@ -244,7 +246,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     const { deleteContent } = req.query;
     const shouldDeleteContent = deleteContent === 'true';
 
-    const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages').populate('resultVideos');
+    const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages').populate('resultVideos').populate('resultAudios');
 
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });

@@ -7,7 +7,9 @@ const getMediaTypeFromFilename = (filename) => {
   const imageExts = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'tiff'];
   const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv'];
   const animatedExts = ['gif', 'webp', 'apng'];
-  
+  const audioExts = ['flac', 'wav', 'mp3', 'ogg', 'opus', 'm4a', 'aac'];   // #805
+
+  if (audioExts.includes(ext)) return 'audio';
   if (videoExts.includes(ext)) return 'video';
   if (animatedExts.includes(ext)) return 'animated';
   if (imageExts.includes(ext)) return 'image';
@@ -29,7 +31,15 @@ const getMimeType = (filename) => {
     'webm': 'video/webm',
     'mov': 'video/quicktime',
     'avi': 'video/x-msvideo',
-    'mkv': 'video/x-matroska'
+    'mkv': 'video/x-matroska',
+    // 오디오 (#805) — ComfyUI SaveAudio 는 기본 flac, SaveAudioMP3/Opus 도 있다
+    'flac': 'audio/flac',
+    'wav': 'audio/wav',
+    'mp3': 'audio/mpeg',
+    'ogg': 'audio/ogg',
+    'opus': 'audio/opus',
+    'm4a': 'audio/mp4',
+    'aac': 'audio/aac'
   };
   return mimeTypes[ext] || 'application/octet-stream';
 };
@@ -66,6 +76,7 @@ const getNodeExecutionOrder = (history) => {
 const processHistoryResult = async (serverUrl, history) => {
   const images = [];
   const videos = [];
+  const audios = [];   // #805
   console.log(`🔍 Processing history outputs...`);
 
   if (history.outputs) {
@@ -157,16 +168,37 @@ const processHistoryResult = async (serverUrl, history) => {
         }
       }
       
-      if (!nodeOutput.images && !nodeOutput.gifs) {
-        console.log(`ℹ️ Node ${nodeId} has no images or gifs`);
+      // 오디오 출력 (#805) — SaveAudio / SaveAudioMP3 / SaveAudioOpus 는
+      // `audio` 키로 [{filename, subfolder, type}] 을 돌려준다 (width/height 없음).
+      if (nodeOutput.audio) {
+        console.log(`🔊 Node ${nodeId} has ${nodeOutput.audio.length} audio outputs`);
+
+        for (const audioInfo of nodeOutput.audio) {
+          const mediaUrl = `${serverUrl}/view?filename=${encodeURIComponent(audioInfo.filename)}&subfolder=${encodeURIComponent(audioInfo.subfolder || '')}&type=${audioInfo.type || 'output'}`;
+          const mediaResponse = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+          const mimeType = getMimeType(audioInfo.filename);
+
+          console.log(`✅ Downloaded audio: ${audioInfo.filename}, size: ${mediaResponse.data.byteLength} bytes, mime: ${mimeType}`);
+
+          audios.push({
+            buffer: Buffer.from(mediaResponse.data),
+            filename: audioInfo.filename,
+            mediaType: 'audio',
+            mimeType,
+          });
+        }
+      }
+
+      if (!nodeOutput.images && !nodeOutput.gifs && !nodeOutput.audio) {
+        console.log(`ℹ️ Node ${nodeId} has no images, gifs or audio`);
       }
     }
   } else {
     console.warn('⚠️ No outputs in history');
   }
   
-  console.log(`🎉 Successfully processed ${images.length} images and ${videos.length} videos`);
-  return { images, videos };
+  console.log(`🎉 Successfully processed ${images.length} images, ${videos.length} videos, ${audios.length} audios`);
+  return { images, videos, audios };
 };
 
 const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000) => {

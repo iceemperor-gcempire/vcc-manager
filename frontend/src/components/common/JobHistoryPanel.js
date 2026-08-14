@@ -493,6 +493,32 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
           </Box>
         )}
 
+        {/* 생성된 오디오 (#805) — 썸네일이 없어 그리드가 아니라 인라인 플레이어로 보여준다 */}
+        {job.resultAudios?.length > 0 && (
+          <Box mb={{ xs: 1.5, md: 1 }}>
+            <Typography variant="caption" display="block" gutterBottom>
+              생성된 오디오 ({job.resultAudios.length}개)
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {job.resultAudios.slice(0, 3).map((audio, index) => (
+                <Box
+                  key={audio._id || index}
+                  component="audio"
+                  controls
+                  preload="none"
+                  src={audio.url}
+                  sx={{ width: '100%', height: 32 }}
+                />
+              ))}
+              {job.resultAudios.length > 3 && (
+                <Typography variant="caption" color="text.secondary">
+                  외 {job.resultAudios.length - 3}개
+                </Typography>
+              )}
+            </Box>
+          </Box>
+        )}
+
         {/* 에러 메시지 */}
         {job.status === 'failed' && job.error && (
           <Alert severity="error" sx={{ mb: { xs: 1.5, md: 1 }, py: 0.5 }}>

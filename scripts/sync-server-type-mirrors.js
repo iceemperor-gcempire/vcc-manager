@@ -62,6 +62,7 @@ const OUTPUT_FORMAT_LABELS = {
   image: '이미지',
   video: '비디오',
   text: '텍스트',
+  audio: '오디오',
 };
 
 const SERVER_TYPE_LABELS = ${json(pickMap('label'))};
