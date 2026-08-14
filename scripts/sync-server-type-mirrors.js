@@ -31,6 +31,14 @@ const json = (v) => JSON.stringify(v, null, 2);
 const pickMap = (field) =>
   Object.fromEntries(SERVER_TYPES.map((t) => [t, SERVER_TYPE_SPECS[t][field]]));
 
+// 전체 출력 형식 — 각 serverType 의 outputFormats 합집합에서 유도한다 (#805).
+// 예전에는 ['image','video','text'] 를 여기 하드코딩하고 있어서, ComfyUI 에 audio 를
+// 추가해도 MCP 미러의 OUTPUT_FORMATS 에는 반영되지 않았다. 미러 테스트는 "스크립트 출력과
+// 파일이 일치하는가" 만 보므로 스크립트 자신이 틀리면 잡지 못한다.
+const ALL_OUTPUT_FORMATS = [...new Set(
+  SERVER_TYPES.flatMap((t) => SERVER_TYPE_SPECS[t].outputFormats)
+)];
+
 function renderFrontendCapabilities() {
   const capabilities = Object.fromEntries(
     SERVER_TYPES.map((t) => [t, [...SERVER_TYPE_SPECS[t].outputFormats]])
@@ -115,7 +123,7 @@ function renderMcpConstants() {
   return `${HEADER}
 
 export const SERVER_TYPES = ${json(SERVER_TYPES)};
-export const OUTPUT_FORMATS = ${json(['image', 'video', 'text'])};
+export const OUTPUT_FORMATS = ${json(ALL_OUTPUT_FORMATS)};
 `;
 }
 
