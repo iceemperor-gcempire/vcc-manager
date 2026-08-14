@@ -33,6 +33,7 @@ import {
   Delete,
   AccountTree,
   Subject,
+  MusicNote,
   CheckCircle,
   Close,
   ViewList,
@@ -54,6 +55,7 @@ import {
 import config from '../config';
 import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import VideoViewerDialog from '../components/common/VideoViewerDialog';
+import AudioViewerDialog from '../components/common/AudioViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
 import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
@@ -120,25 +122,28 @@ function projectFromTags(tags = []) {
 
 // ---- 정규화 -------------------------------------------------------------
 function jobToItem(job) {
+  // 오디오 (#805) — 썸네일이 없어 type 을 따로 둔다
+  const isAudio = (job.resultAudios?.length || 0) > 0;
   const isVideo = (job.resultVideos?.length || 0) > 0;
-  const type = isVideo ? 'video' : 'image';
-  const results = isVideo ? job.resultVideos : job.resultImages;
+  const type = isAudio ? 'audio' : isVideo ? 'video' : 'image';
+  const results = isAudio ? job.resultAudios : isVideo ? job.resultVideos : job.resultImages;
   return {
     id: job._id,
     kind: 'job',
     type,
     time: new Date(job.createdAt),
-    title: job.workboardId?.name || (isVideo ? '영상 생성' : '이미지 생성'),
+    title: job.workboardId?.name || (isAudio ? '오디오 생성' : isVideo ? '영상 생성' : '이미지 생성'),
     projectName: projectFromTags(job.inputData?.tags),
     model: extractModel(job.inputData?.aiModel),
     res: extractSize(job),
     count: results?.length || 0,
-    duration: isVideo ? results?.[0]?.metadata?.duration : null,
+    duration: (isVideo || isAudio) ? results?.[0]?.metadata?.duration : null,
     status: mapStatus(job.status),
-    thumb: results?.[0]?.url || null,
+    thumb: isAudio ? null : (results?.[0]?.url || null),   // 오디오는 썸네일이 없다
     videoThumb: isVideo ? (results?.[0]?.thumbnailUrl || null) : null, // #672 동영상 첫프레임 썸네일
     results: results || [],
     isVideo,
+    isAudio,
     raw: job,
   };
 }
@@ -188,7 +193,10 @@ function RowVisual({ item }) {
             bgcolor: 'grey.100', display: 'grid', placeItems: 'center',
           }}
         >
-          {item.type === 'video' && item.videoThumb ? (
+          {item.type === 'audio' ? (
+            // 오디오는 썸네일이 없다 (#805) — 음표로 표시하고 클릭 시 재생 다이얼로그
+            <MusicNote fontSize="small" sx={{ color: 'grey.500' }} />
+          ) : item.type === 'video' && item.videoThumb ? (
             // 동영상 썸네일(첫 프레임 jpg) 우선 — 빠름 (#672)
             <Box component="img" src={item.videoThumb} alt="" loading="lazy"
               sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -398,7 +406,9 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
     >
       {/* 미디어 / 프리뷰 영역 */}
       <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.100', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-        {item.type === 'video' && item.videoThumb ? (
+        {item.type === 'audio' ? (
+          <MusicNote sx={{ fontSize: 40, color: 'grey.500' }} />
+        ) : item.type === 'video' && item.videoThumb ? (
           <Box component="img" src={item.videoThumb} alt="" loading="lazy"
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (item.type === 'image' || item.type === 'video') && item.thumb ? (
@@ -528,6 +538,7 @@ function JobHistory() {
   const [crossJob, setCrossJob] = useState(null);
   const [imgViewer, setImgViewer] = useState({ open: false, items: [], index: 0 });
   const [vidViewer, setVidViewer] = useState({ open: false, items: [], index: 0 });
+  const [audViewer, setAudViewer] = useState({ open: false, items: [] });   // #805
   const [textDetail, setTextDetail] = useState(null);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
@@ -542,7 +553,8 @@ function JobHistory() {
 
   // ---- handlers ----
   const openMedia = (item) => {
-    if (item.isVideo) setVidViewer({ open: true, items: item.results, index: 0 });
+    if (item.isAudio) setAudViewer({ open: true, items: item.results });      // #805
+    else if (item.isVideo) setVidViewer({ open: true, items: item.results, index: 0 });
     else setImgViewer({ open: true, items: item.results, index: 0 });
   };
 
@@ -725,6 +737,12 @@ function JobHistory() {
         onClose={() => setImgViewer((v) => ({ ...v, open: false }))}
         title="생성된 이미지"
       />
+      <AudioViewerDialog
+        open={audViewer.open}
+        audios={audViewer.items}
+        onClose={() => setAudViewer({ open: false, items: [] })}
+      />
+
       <VideoViewerDialog
         videos={vidViewer.items}
         selectedIndex={vidViewer.index}
