@@ -22,6 +22,7 @@ import { useTheme } from '@mui/material/styles';
 import {
   CloudUpload,
   Videocam,
+  MusicNote,
   CheckBox as CheckBoxIcon,
   Close,
   DeleteSweep,
@@ -143,6 +144,34 @@ function FilterRow({ label, color, active, onClick }) {
 }
 
 // 탭 라벨 + 우측 카운트 badge (5c 후속) — count null 이면 라벨만.
+
+// 내 콘텐츠 탭 구성 (#805).
+//
+// 표현은 2단(출처 → 미디어 종류)이지만 **내부 tab 인덱스는 기존 값을 유지**한다.
+// 삭제 분기·쿼리키·isTextTab 이 전부 인덱스로 갈라져 있어, 번호를 재배열하면
+// 그 로직을 전부 따라가야 한다. 오디오만 5·6 으로 덧붙였다.
+const MEDIA_TABS = [
+  // 생성한 콘텐츠
+  [
+    { tab: 0, label: '이미지' },
+    { tab: 2, label: '동영상', icon: <Videocam /> },
+    { tab: 5, label: '오디오', icon: <MusicNote /> },
+    { tab: 4, label: '텍스트' },
+  ],
+  // 업로드한 콘텐츠
+  [
+    { tab: 1, label: '이미지' },
+    { tab: 6, label: '오디오', icon: <MusicNote /> },
+    { tab: 3, label: '텍스트' },
+  ],
+];
+
+// tab 인덱스 → 어느 출처 그룹에 속하는가
+const ORIGIN_OF_TAB = MEDIA_TABS.reduce((acc, group, originIdx) => {
+  group.forEach((m) => { acc[m.tab] = originIdx; });
+  return acc;
+}, {});
+
 function ContentTabLabel({ label, count }) {
   if (count == null) return label;
   return (
@@ -385,6 +414,21 @@ function MyImages() {
       },
       onError: () => toast.error('삭제 실패') });
 
+  // 오디오 삭제 (#805) — 생성물은 히스토리 연동, 업로드본은 단순 삭제
+  const deleteAudioMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteAudio(id, deleteJob),
+      onSuccess: () => {
+        toast.success('오디오가 삭제되었습니다');
+        queryClient.invalidateQueries({ queryKey: ['generatedAudios'] });
+      },
+      onError: () => toast.error('삭제 실패') });
+
+  const deleteUploadedAudioMutation = useMutation({ mutationFn: (id) => imageAPI.deleteUploadedAudio(id),
+      onSuccess: () => {
+        toast.success('오디오가 삭제되었습니다');
+        queryClient.invalidateQueries({ queryKey: ['uploadedAudios'] });
+      },
+      onError: () => toast.error('삭제 실패') });
+
   // Bulk delete mutations
   const bulkDeleteMutation = useMutation({ mutationFn: ({ items, deleteJob }) => imageAPI.bulkDelete(items, deleteJob),
       onSuccess: (response) => {
@@ -423,15 +467,24 @@ function MyImages() {
       return;
     }
 
+    // 업로드 오디오는 업로드 이미지와 같은 계열 — 히스토리 개념이 없다 (#805)
+    if (tab === 6) {
+      if (await confirm({ title: '업로드한 오디오를 삭제하시겠습니까?', danger: true, confirmLabel: '삭제' })) {
+        deleteUploadedAudioMutation.mutate(item._id);
+      }
+      return;
+    }
+
     const isVideo = tab === 2;
-    const label = isVideo ? '동영상' : '이미지';
+    const isAudio = tab === 5;
+    const label = isVideo ? '동영상' : isAudio ? '오디오' : '이미지';
     const withHistory = !!deleteHistorySetting && !!item.jobId;
     const ok = await confirm(withHistory
       ? { title: `${label}과 작업 히스토리를 함께 삭제하시겠습니까?`, description: `${label}을 만든 작업 기록도 같이 사라집니다.`, danger: true, confirmLabel: '모두 삭제' }
       : { title: `${label}을 삭제하시겠습니까?`, description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
     if (!ok) return;
 
-    const mutation = isVideo ? deleteVideoMutation : deleteGeneratedMutation;
+    const mutation = isVideo ? deleteVideoMutation : isAudio ? deleteAudioMutation : deleteGeneratedMutation;
     mutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
@@ -442,12 +495,16 @@ function MyImages() {
   const getTypeForTab = () => {
     if (tab === 1) return 'uploaded';
     if (tab === 2) return 'video';
+    if (tab === 5) return 'audio';            // #805
+    if (tab === 6) return 'uploadedAudio';    // #805
     return 'generated';
   };
 
   const getQueryKeyForTab = () => {
     if (tab === 1) return 'uploadedImages';
     if (tab === 2) return 'generatedVideos';
+    if (tab === 5) return 'generatedAudios';
+    if (tab === 6) return 'uploadedAudios';
     return 'generatedImages';
   };
 
@@ -529,6 +586,8 @@ function MyImages() {
   const { data: genImagesCountData } = useQuery({ queryKey: ['contentCount', 'generated'], queryFn: () => imageAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: upImagesCountData }  = useQuery({ queryKey: ['contentCount', 'uploaded'], queryFn: () => imageAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: videosCountData }    = useQuery({ queryKey: ['contentCount', 'video'], queryFn: () => imageAPI.getVideos({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: genAudiosCountData } = useQuery({ queryKey: ['contentCount', 'audioGen'], queryFn: () => imageAPI.getAudios({ limit: 1, page: 1 }), staleTime: 60_000 });
+  const { data: upAudiosCountData }  = useQuery({ queryKey: ['contentCount', 'audioUp'], queryFn: () => imageAPI.getUploadedAudios({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: upTextsCountData }   = useQuery({ queryKey: ['contentCount', 'textUp'], queryFn: () => textAPI.getUploaded({ limit: 1, page: 1 }), staleTime: 60_000 });
   const { data: genTextsCountData }  = useQuery({ queryKey: ['contentCount', 'textGen'], queryFn: () => textAPI.getGenerated({ limit: 1, page: 1 }), staleTime: 60_000 });
   // 응답 래핑이 라우트마다 다르다 (#730 D-8):
@@ -543,6 +602,8 @@ function MyImages() {
     videosCountData?.data?.pagination?.total,
     upTextsCountData?.data?.data?.pagination?.total,
     genTextsCountData?.data?.data?.pagination?.total,
+    genAudiosCountData?.data?.pagination?.total,   // [5] 생성 오디오 (#805)
+    upAudiosCountData?.data?.pagination?.total,    // [6] 업로드 오디오 (#805)
   ];
 
   return (
@@ -612,13 +673,28 @@ function MyImages() {
         </Box>
       )}
 
+      {/* 2단 탭 (#805) — 위: 어디서 왔나, 아래: 무엇인가.
+          오디오까지 평면 탭으로 늘리면 7개가 되어 읽기 어려워진다.
+          내부 tab 인덱스는 그대로 두고 표현만 나눈다 (기존 분기 로직 보존). */}
       <Box mb={3}>
+        <Tabs
+          value={ORIGIN_OF_TAB[tab]}
+          onChange={(e, v) => handleTabChange(e, MEDIA_TABS[v][0].tab)}
+          sx={{ mb: 1 }}
+        >
+          <Tab label="생성한 콘텐츠" />
+          <Tab label="업로드한 콘텐츠" />
+        </Tabs>
         <Tabs value={tab} onChange={handleTabChange} variant="scrollable" scrollButtons="auto" allowScrollButtonsMobile>
-          <Tab label={<ContentTabLabel label="생성된 이미지" count={counts[0]} />} />
-          <Tab label={<ContentTabLabel label="업로드된 이미지" count={counts[1]} />} />
-          <Tab icon={<Videocam />} iconPosition="start" label={<ContentTabLabel label="생성된 동영상" count={counts[2]} />} />
-          <Tab label={<ContentTabLabel label="직접 작성 텍스트" count={counts[3]} />} />
-          <Tab label={<ContentTabLabel label="생성된 텍스트" count={counts[4]} />} />
+          {MEDIA_TABS[ORIGIN_OF_TAB[tab]].map((m) => (
+            <Tab
+              key={m.tab}
+              value={m.tab}
+              icon={m.icon}
+              iconPosition={m.icon ? 'start' : undefined}
+              label={<ContentTabLabel label={m.label} count={counts[m.tab]} />}
+            />
+          ))}
         </Tabs>
       </Box>
 
