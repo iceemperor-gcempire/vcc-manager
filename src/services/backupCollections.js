@@ -90,4 +90,12 @@ const CACHE_COLLECTIONS = [
   { name: 'ServerModelCache', model: ServerModelCache },
 ];
 
-module.exports = { BACKUP_COLLECTIONS, CACHE_COLLECTIONS };
+// 백업 대상 파일 디렉토리 (#805).
+//
+// backupService 와 restoreService 가 각자 배열을 하드코딩하고 있어서, 오디오 축(#805)을
+// 추가할 때 collections 만 챙기고 파일 디렉토리를 놓쳤다. 문서는 백업되는데 파일은 빠져
+// **복원 시 오디오가 전부 깨지는** 상태였다. 목록을 여기 하나로 모은다.
+const BACKUP_FILE_DIRS = Object.freeze(['generated', 'reference', 'videos', 'audios']);
+
+module.exports = {
+  BACKUP_FILE_DIRS, BACKUP_COLLECTIONS, CACHE_COLLECTIONS };

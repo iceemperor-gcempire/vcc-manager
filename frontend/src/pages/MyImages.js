@@ -166,6 +166,9 @@ const MEDIA_TABS = [
   ],
 ];
 
+// 업로드 버튼이 뜨는 탭 → 무엇을 올리나 (#805)
+const UPLOAD_TAB_KIND = { 1: 'image', 6: 'audio' };
+
 // tab 인덱스 → 어느 출처 그룹에 속하는가
 const ORIGIN_OF_TAB = MEDIA_TABS.reduce((acc, group, originIdx) => {
   group.forEach((m) => { acc[m.tab] = originIdx; });
@@ -283,13 +286,35 @@ function ImageEditDialog({ image, open, onClose, type, onSuccess, isVideo = fals
   );
 }
 
-function UploadDialog({ open, onClose, onSuccess }) {
+// 업로드 다이얼로그 (#805) — 어느 탭에서 열었는지에 따라 이미지/오디오를 받는다.
+// 예전에는 이미지 전용이라 '업로드한 오디오' 탭에 올릴 방법이 아예 없었다.
+const UPLOAD_KINDS = {
+  image: {
+    title: '이미지 업로드',
+    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
+    hint: '이미지를 드래그하거나 클릭하여 선택 (JPEG/PNG/WebP)',
+    field: 'image',
+    noun: '이미지',
+    upload: (fd) => imageAPI.upload(fd),
+    queryKey: 'uploadedImages',
+  },
+  audio: {
+    title: '오디오 업로드',
+    accept: { 'audio/*': ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'] },
+    hint: '오디오를 드래그하거나 클릭하여 선택 (MP3/WAV/FLAC/OGG/M4A/AAC)',
+    field: 'audio',
+    noun: '오디오',
+    upload: (fd) => imageAPI.uploadAudio(fd),
+    queryKey: 'uploadedAudios',
+  },
+};
+
+function UploadDialog({ open, onClose, onSuccess, kind = 'image' }) {
   const [uploading, setUploading] = useState(false);
+  const spec = UPLOAD_KINDS[kind] || UPLOAD_KINDS.image;
 
   const { getRootProps, getInputProps, isDragActive, acceptedFiles } = useDropzone({
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp']
-    },
+    accept: spec.accept,
     multiple: true
   });
 
@@ -300,12 +325,12 @@ function UploadDialog({ open, onClose, onSuccess }) {
     try {
       const uploadPromises = acceptedFiles.map(async (file) => {
         const formData = new FormData();
-        formData.append('image', file);
-        return await imageAPI.upload(formData);
+        formData.append(spec.field, file);
+        return await spec.upload(formData);
       });
 
       await Promise.all(uploadPromises);
-      toast.success(`${acceptedFiles.length}개 이미지 업로드 완료`);
+      toast.success(`${acceptedFiles.length}개 ${spec.noun} 업로드 완료`);
       onSuccess();
       onClose();
     } catch (error) {
@@ -317,7 +342,7 @@ function UploadDialog({ open, onClose, onSuccess }) {
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>이미지 업로드</DialogTitle>
+      <DialogTitle>{spec.title}</DialogTitle>
       <DialogContent>
         <Box
           {...getRootProps()}
@@ -335,10 +360,10 @@ function UploadDialog({ open, onClose, onSuccess }) {
           <input {...getInputProps()} />
           <CloudUpload sx={{ fontSize: 48, color: 'grey.400', mb: 2 }} />
           <Typography variant="h6" gutterBottom>
-            {isDragActive ? '이미지를 여기에 놓으세요' : '이미지를 선택하거나 드래그하세요'}
+            {isDragActive ? `${spec.noun}를 여기에 놓으세요` : `${spec.noun}를 선택하거나 드래그하세요`}
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            JPG, PNG, WebP 형식 지원
+            {spec.hint}
           </Typography>
         </Box>
 
@@ -489,7 +514,9 @@ function MyImages() {
   };
 
   const handleUploadSuccess = () => {
-    queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
+    const spec = UPLOAD_KINDS[UPLOAD_TAB_KIND[tab] || 'image'];
+    queryClient.invalidateQueries({ queryKey: [spec.queryKey] });
+    queryClient.invalidateQueries({ queryKey: ['contentCount'] });
   };
 
   const getTypeForTab = () => {
@@ -613,7 +640,7 @@ function MyImages() {
         description="프로젝트에서 생성·업로드된 모든 자산. 탭으로 종류별 전환."
         actions={!bulkMode && !isTextTab && (
           <Box sx={{ display: 'flex', gap: 1.5, flexShrink: 0 }}>
-            {tab === 1 && (
+            {UPLOAD_TAB_KIND[tab] && (
               <Button
                 variant="contained"
                 startIcon={<CloudUpload />}
@@ -755,6 +782,7 @@ function MyImages() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         onSuccess={handleUploadSuccess}
+        kind={UPLOAD_TAB_KIND[tab] || 'image'}
       />
 
       <ImageEditDialog

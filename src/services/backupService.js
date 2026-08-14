@@ -6,7 +6,7 @@ const archiver = require('archiver');
 const BackupJob = require('../models/BackupJob');
 
 // 백업 대상 컬렉션 — backup/restore 공유 단일 소스 (#588)
-const { BACKUP_COLLECTIONS } = require('./backupCollections');
+const { BACKUP_COLLECTIONS, BACKUP_FILE_DIRS } = require('./backupCollections');
 
 // 백업 디렉토리
 const BACKUP_DIR = process.env.BACKUP_PATH || './backups';
@@ -311,11 +311,7 @@ async function executeBackup(jobId) {
     }
 
     // 파일 백업
-    const uploadDirs = [
-      { name: 'generated', path: path.join(UPLOAD_DIR, 'generated') },
-      { name: 'reference', path: path.join(UPLOAD_DIR, 'reference') },
-      { name: 'videos', path: path.join(UPLOAD_DIR, 'videos') }
-    ];
+    const uploadDirs = BACKUP_FILE_DIRS.map((name) => ({ name, path: path.join(UPLOAD_DIR, name) }));
 
     for (const dir of uploadDirs) {
       await job.updateProgress(progress, job.progress.total, `${dir.name} 파일 백업 중...`);

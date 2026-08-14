@@ -11,6 +11,7 @@ import {
   Image as ImageIcon,
   Hexagon,
   Movie,
+  MusicNote,
   AutoFixHigh,
   Edit,
   MoreVert,
@@ -27,10 +28,11 @@ export const KIND_META = {
   'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',   tint: 'primary.light' },
   'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
   'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
+  'music':     { icon: MusicNote,   label: '오디오 생성',  color: 'error.main',     tint: 'error.light' },   // #805
 };
 
 export function deriveOut(wb) {
-  return wb.outputFormat || 'image'; // image | video | text
+  return wb.outputFormat || 'image'; // image | video | audio | text
 }
 export function deriveSvc(wb) {
   const t = wb.serverId?.serverType || wb.serverType || '';
@@ -43,6 +45,7 @@ export function deriveKind(wb) {
   const out = deriveOut(wb);
   if (out === 'text') return 'gpt-chat';
   if (out === 'video') return 'i2v';
+  if (out === 'audio') return 'music';   // #805
   const svc = deriveSvc(wb);
   return svc === 'comfy' ? 'sdxl' : 'gpt-image';
 }
@@ -50,6 +53,7 @@ export function deriveKind(wb) {
 export const OUTPUT_AXIS = [
   { k: 'image', label: '이미지' },
   { k: 'video', label: '영상' },
+  { k: 'audio', label: '오디오' },
   { k: 'text', label: '텍스트' },
 ];
 export const SERVER_AXIS = [
