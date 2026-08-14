@@ -183,21 +183,21 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 - **stdio 모드**: 로컬 디스크에 파일 저장 (`responseType: "file"`)
 - **HTTP 모드 (`VCC_BASE_URL_FOR_MCP` 설정 시)**: signed URL 반환 (`responseType: "signedUrl"`)
-- **HTTP 모드 (`VCC_BASE_URL_FOR_MCP` 미설정 시)**: 이미지는 base64 인라인 (`responseType: "base64"`), 비디오는 메타데이터만 반환 (`responseType: "metadata"`)
+- **HTTP 모드 (`VCC_BASE_URL_FOR_MCP` 미설정 시)**: 이미지는 base64 인라인 (`responseType: "base64"`), 비디오·오디오는 메타데이터만 반환 (`responseType: "metadata"`)
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
-| `mediaId` | string | **필수** | 미디어 ID (`get_job_status` 결과의 resultImages/resultVideos에서 확인) |
-| `mediaType` | `"image"` \| `"video"` | **필수** | 미디어 유형 |
+| `mediaId` | string | **필수** | 미디어 ID (`get_job_status` 결과의 resultImages/resultVideos/resultAudios에서 확인) |
+| `mediaType` | `"image"` \| `"video"` \| `"audio"` | **필수** | 미디어 유형 |
 | `downloadDir` | string | - | 다운로드 디렉토리 (stdio 모드 전용, 기본: `~/Downloads/vcc` 또는 `VCC_DOWNLOAD_DIR`) |
 
 **`responseType` 값:**
 
 | 값 | 조건 | 설명 |
 |---|------|------|
-| `signedUrl` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 설정 | 이미지/비디오 모두 signed URL 반환 |
+| `signedUrl` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 설정 | 이미지·비디오·오디오 모두 signed URL 반환 |
 | `base64` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 + 이미지 | base64 인라인 이미지 |
-| `metadata` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 + 비디오 | 메타데이터만 반환 (바이너리 없음) |
+| `metadata` | HTTP 모드 + `VCC_BASE_URL_FOR_MCP` 미설정 + 비디오·오디오 | 메타데이터만 반환 (바이너리 없음) |
 | `file` | stdio 모드 | 로컬 디스크에 파일 저장 |
 
 **응답 (stdio 모드 — `responseType: "file"`):**
@@ -212,7 +212,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 **응답 (HTTP 모드 — `responseType: "signedUrl"`):**
 
-`VCC_BASE_URL_FOR_MCP` 설정 시 이미지/비디오 모두 동일한 형식으로 signed URL을 반환합니다.
+`VCC_BASE_URL_FOR_MCP` 설정 시 이미지·비디오·오디오 모두 동일한 형식으로 signed URL을 반환합니다.
 
 | 필드 | 설명 |
 |------|------|
@@ -235,14 +235,14 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 **응답 (HTTP 모드 — `responseType: "metadata"`):**
 
-`VCC_BASE_URL_FOR_MCP` 미설정 시 비디오에 대해 메타데이터만 반환합니다.
+`VCC_BASE_URL_FOR_MCP` 미설정 시 비디오·오디오에 대해 메타데이터만 반환합니다.
 
 | 필드 | 설명 |
 |------|------|
 | `responseType` | `"metadata"` |
 | `filename` | 파일명 |
 | `size` | 파일 크기 (bytes) |
-| `mediaType` | `"video"` |
+| `mediaType` | `"video"` \| `"audio"` |
 | `note` | `VCC_BASE_URL_FOR_MCP` 설정 안내 메시지 |
 
 ---

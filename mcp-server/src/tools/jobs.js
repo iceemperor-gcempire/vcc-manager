@@ -381,6 +381,13 @@ export function registerJobTools(server, apiRequest) {
           filename: vid.originalName,
           size: vid.size,
         }));
+        // 오디오 출력 (#805)
+        result.resultAudios = (job.resultAudios || []).map((aud) => ({
+          id: aud._id,
+          filename: aud.originalName,
+          size: aud.size,
+          duration: aud.metadata?.duration,
+        }));
       }
 
       if (job.status === 'failed') {
@@ -420,6 +427,7 @@ export function registerJobTools(server, apiRequest) {
         workboard: job.workboardId?.name || 'Unknown',
         resultImages: (job.resultImages || []).length,
         resultVideos: (job.resultVideos || []).length,
+        resultAudios: (job.resultAudios || []).length,
         createdAt: job.createdAt,
       }));
 
