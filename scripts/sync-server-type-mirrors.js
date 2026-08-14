@@ -35,6 +35,8 @@ const pickMap = (field) =>
 // 예전에는 ['image','video','text'] 를 여기 하드코딩하고 있어서, ComfyUI 에 audio 를
 // 추가해도 MCP 미러의 OUTPUT_FORMATS 에는 반영되지 않았다. 미러 테스트는 "스크립트 출력과
 // 파일이 일치하는가" 만 보므로 스크립트 자신이 틀리면 잡지 못한다.
+const { ATTACHMENT_FIELD_TYPES } = require('../src/constants/mediaTypes');
+
 const ALL_OUTPUT_FORMATS = [...new Set(
   SERVER_TYPES.flatMap((t) => SERVER_TYPE_SPECS[t].outputFormats)
 )];
@@ -65,6 +67,10 @@ export const SERVER_TYPES = ${json(SERVER_TYPES)};
 // 각 server type 이 지원하는 outputFormat 목록.
 // frontend/src/templates/index.js 의 TEMPLATES 키와 일치해야 함 (테스트로 검증).
 export const CAPABILITIES = ${json(capabilities)};
+
+// 파일을 첨부받는 필드 타입 (#808) — 백엔드 constants/mediaTypes 가 단일 소스.
+// 프론트는 별도 빌드라 직접 import 할 수 없어 여기로 내려보낸다.
+export const ATTACHMENT_FIELD_TYPES = ${json([...ATTACHMENT_FIELD_TYPES])};
 
 const OUTPUT_FORMAT_LABELS = {
   image: '이미지',

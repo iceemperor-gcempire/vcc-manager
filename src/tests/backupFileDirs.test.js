@@ -26,12 +26,19 @@ describe('백업 파일 디렉토리 (#805)', () => {
     }
   });
 
-  test('queueService 의 저장 서브디렉토리가 백업 대상에 포함된다', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'services', 'queueService.js'), 'utf8');
-    const m = src.match(/const subDir = \{([^}]*)\}/);
-    expect(m).toBeTruthy();
-    // { video: 'videos', audio: 'audios' } + 기본값 'generated'
-    const dirs = [...m[1].matchAll(/'([a-z]+)'/g)].map((x) => x[1]);
-    for (const d of dirs) expect(BACKUP_FILE_DIRS).toContain(d);
+  test('생성물 저장 디렉토리와 업로드 디렉토리가 모두 백업 대상이다', () => {
+    // 예전에는 queueService 소스에서 리터럴을 정규식으로 긁어 대조했는데, #808 에서
+    // 양쪽 모두 constants/mediaTypes 파생으로 바뀌어 상수끼리 직접 비교한다.
+    const { GENERATED_MEDIA_DIRS, UPLOAD_MEDIA_DIR } = require('../constants/mediaTypes');
+    for (const dir of Object.values(GENERATED_MEDIA_DIRS)) {
+      expect(BACKUP_FILE_DIRS).toContain(dir);
+    }
+    expect(BACKUP_FILE_DIRS).toContain(UPLOAD_MEDIA_DIR);
+  });
+
+  test('무결성 검사 대상 서브디렉토리가 백업 대상과 일치', () => {
+    // 백업에는 들어가는데 무결성 검사에서 빠지면 고아 파일을 영영 못 찾는다
+    const src = fs.readFileSync(path.join(__dirname, '..', 'services', 'integrityService.js'), 'utf8');
+    expect(src).toMatch(/CHECKED_SUBDIRS = BACKUP_FILE_DIRS/);
   });
 });

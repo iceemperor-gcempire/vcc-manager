@@ -35,6 +35,14 @@ export const CAPABILITIES = {
   ]
 };
 
+// 파일을 첨부받는 필드 타입 (#808) — 백엔드 constants/mediaTypes 가 단일 소스.
+// 프론트는 별도 빌드라 직접 import 할 수 없어 여기로 내려보낸다.
+export const ATTACHMENT_FIELD_TYPES = [
+  "image",
+  "video",
+  "audio"
+];
+
 const OUTPUT_FORMAT_LABELS = {
   image: '이미지',
   video: '비디오',

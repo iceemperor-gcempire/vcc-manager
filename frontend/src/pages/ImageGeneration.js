@@ -59,6 +59,7 @@ import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
+import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -1309,7 +1310,7 @@ function ImageGeneration() {
                 </Box>
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={['image', 'video', 'audio'].includes(field.type) ? 12 : 6} key={field.name}>
+                    <Grid item xs={12} sm={ATTACHMENT_FIELD_TYPES.includes(field.type) ? 12 : 6} key={field.name}>
                       {field.type === 'image' ? (
                         <Controller
                           name={`additionalParams.${field.name}`}

@@ -10,6 +10,7 @@ const gptImageService = require('./gptImageService');
 const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
 const { applyOmitDirectives } = require('../utils/workflowDirectives');
+const { ATTACHMENT_FIELD_TYPES, GENERATED_MEDIA_DIRS } = require('../constants/mediaTypes');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -922,7 +923,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
       // `{{##필드명_attached##}}` 가 1/0 (number) 으로 치환된다. 흰 PNG 자동 주입(#230)과
       // 무관하게 "사용자가 실제로 첨부했는가" 를 나타내므로, VCC Optional Image 노드나
       // 스위치 노드의 분기 입력, `_vcc.omitInputsUnless` (#771) 의 조건으로 사용할 수 있다.
-      if (field.type === 'image' || field.type === 'video' || field.type === 'audio') {
+      if (ATTACHMENT_FIELD_TYPES.includes(field.type)) {
         const hasAttachment = Array.isArray(rawValue)
           ? rawValue.length > 0
           : Boolean(extractValue(rawValue));
@@ -1081,8 +1082,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
   }
   
   const savedItems = [];
-  // 오디오는 별도 디렉토리 (#805) — files.js ALLOWED_SUBDIRS 와 무결성 검사 대상에 함께 등록해야 한다
-  const subDir = { video: 'videos', audio: 'audios' }[mediaType] || 'generated';
+  const subDir = GENERATED_MEDIA_DIRS[mediaType] || GENERATED_MEDIA_DIRS.image;
   
   for (let i = 0; i < mediaItems.length; i++) {
     try {

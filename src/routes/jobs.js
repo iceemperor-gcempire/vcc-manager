@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
+const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
 const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
@@ -82,7 +83,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     // (일반 필드의 required 는 프론트 CustomFieldControl 이 강제 — 여기서는 첨부형만 본다)
     const ap0 = additionalParams || {};
     for (const field of (wb.additionalInputFields || [])) {
-      if (!field.required || !['image', 'video', 'audio'].includes(field.type)) continue;
+      if (!field.required || !ATTACHMENT_FIELD_TYPES.includes(field.type)) continue;
       const v = ap0[field.name] !== undefined ? ap0[field.name] : req.body[field.name];
       const empty = Array.isArray(v) ? v.length === 0 : !v;
       if (empty) {

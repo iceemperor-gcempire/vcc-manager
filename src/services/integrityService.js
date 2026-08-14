@@ -23,6 +23,8 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
+const { GENERATED_MEDIA_MODELS, UPLOADED_MEDIA_MODELS } = require('../constants/mediaTypes');
+const { BACKUP_FILE_DIRS } = require('./backupCollections');
 const UploadedAudio = require('../models/UploadedAudio');
 const GeneratedAudio = require('../models/GeneratedAudio');
 const Project = require('../models/Project');
@@ -216,17 +218,17 @@ function walkFiles(dir, out = []) {
 }
 
 // 파일 정합성 대상 — 미디어 콘텐츠 (url + 파생 파일)
-const FILE_CHECKS = [
-  { Model: GeneratedImage, urlFields: ['url'] },
-  { Model: GeneratedVideo, urlFields: ['url', 'thumbnailUrl'] },
-  { Model: UploadedImage, urlFields: ['url'] },
-  { Model: UploadedVideo, urlFields: ['url', 'thumbnailUrl'] },
-  { Model: UploadedAudio, urlFields: ['url'] },
-  { Model: GeneratedAudio, urlFields: ['url'] },
-];
+// 미디어 모델 목록은 constants/mediaTypes 가 단일 소스 (#808).
+// urlFields 는 모델마다 다르므로(비디오만 thumbnailUrl 이 있다) 여기서 보완한다.
+const THUMBNAIL_MODELS = new Set(['GeneratedVideo', 'UploadedVideo']);
+const MEDIA_MODELS = { GeneratedImage, GeneratedVideo, GeneratedAudio, UploadedImage, UploadedVideo, UploadedAudio };
+const FILE_CHECKS = [...GENERATED_MEDIA_MODELS, ...UPLOADED_MEDIA_MODELS].map((name) => ({
+  Model: MEDIA_MODELS[name],
+  urlFields: THUMBNAIL_MODELS.has(name) ? ['url', 'thumbnailUrl'] : ['url'],
+}));
 
 // uploads 하위 중 파일 정합성 검사 대상 서브디렉토리 (임시/백업 디렉토리는 제외)
-const CHECKED_SUBDIRS = ['generated', 'reference', 'videos', 'audios'];   // #805
+const CHECKED_SUBDIRS = BACKUP_FILE_DIRS;   // #808 — 백업 대상과 같은 목록이어야 한다
 
 /**
  * 파일↔DB 정합성 진단 (P1).
