@@ -1054,9 +1054,19 @@ const getExtensionFromMimeType = (mimeType) => {
     'video/webm': 'webm',
     'video/quicktime': 'mov',
     'video/x-msvideo': 'avi',
-    'video/x-matroska': 'mkv'
+    'video/x-matroska': 'mkv',
+    // 오디오 (#805) — SaveAudioAdvanced 는 flac / mp3 / opus 를 낸다
+    'audio/flac': 'flac',
+    'audio/wav': 'wav',
+    'audio/mpeg': 'mp3',
+    'audio/ogg': 'ogg',
+    'audio/opus': 'opus',
+    'audio/mp4': 'm4a',
+    'audio/aac': 'aac'
   };
-  return mimeToExt[mimeType] || 'bin';
+  // 모르는 MIME 은 null 을 돌려준다 — 호출부가 원본 파일명 확장자로 넘어갈 수 있도록.
+  // 예전에는 'bin' 을 돌려줬는데, truthy 라서 호출부의 `||` 폴백이 죽어 있었다 (#805 에서 발견).
+  return mimeToExt[mimeType] || null;
 };
 
 const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workboard = null) => {
