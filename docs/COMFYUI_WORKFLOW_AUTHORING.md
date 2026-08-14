@@ -9,11 +9,15 @@ VCC 작업판의 `workflowData` 에 넣을 워크플로 JSON 을 **작성하는 
 
 ## 0. 3분 요약
 
-1. ComfyUI **API 포맷** JSON 을 만든다 (UI 포맷 아님)
-2. 사용자 입력이 들어갈 자리에 `"{{##이름##}}"` 을 **따옴표로 감싸** 넣는다
-3. 작업판에 같은 이름의 필드를 정의한다
-4. optional 입력을 요청마다 켜고 끄려면 `_vcc.omitInputsUnless`, 체인 중간 노드를 켜고 끄려면 `_vcc.bypassUnless` 를 쓴다
-5. ComfyUI `/prompt` 에 직접 제출해 검증한다 (**제출하면 실제로 생성된다**)
+1. 공식 템플릿을 돌고 있는 ComfyUI 에서 받는다 (`/templates/index.json`)
+2. `scripts/comfyui-template-to-api.js` 로 **API 포맷**으로 펼친다 — `--verify` 필수
+3. 서브그래프 입력이던 자리에 `"{{##이름##}}"` 을 **따옴표로 감싸** 넣거나 고정값을 박는다
+4. 작업판에 같은 이름의 필드를 정의한다
+5. optional 입력을 요청마다 켜고 끄려면 `_vcc.omitInputsUnless`, 체인 중간 노드를 켜고 끄려면 `_vcc.bypassUnless` 를 쓴다
+6. ComfyUI `/prompt` 에 직접 제출하고 **결과물을 ffprobe 로 확인**한다 (제출하면 실제로 생성된다)
+
+> 처음이라면 **1.4절(위젯 매핑이 조용히 어긋나는 세 자리)** 을 먼저 읽을 것.
+> 이 문서에서 가장 많은 시간을 아껴주는 부분이다.
 
 ---
 
@@ -49,7 +53,25 @@ ComfyUI 웹 UI 에서 저장한 JSON(`nodes` / `links` / `groups` / `definitions
 - 서브그래프 입력은 내부에서 `#-10[슬롯번호]` 형태로 참조된다
 - API 포맷으로 내보내면 `"267:242"` 같은 `부모:자식` ID 로 펼쳐진다
 
-가장 확실한 방법은 **ComfyUI UI 에서 템플릿을 연 뒤 API 포맷으로 export** 하는 것이다. 수작업 변환은 연결을 놓치기 쉽다.
+수작업 변환은 연결을 놓치기 쉽다. **변환기를 쓴다.**
+
+```bash
+# 1. 대상 서버에서 스키마를 받는다 (위젯 이름·순서·타입의 유일한 근거)
+curl -s http://<comfyui>/object_info > /tmp/object_info.json
+
+# 2. 템플릿도 같은 서버에서 받을 수 있다 — 별도 다운로드 불필요
+curl -s http://<comfyui>/templates/index.json            # 목록
+curl -s http://<comfyui>/templates/video_ltx2_5_t2v.json > /tmp/tpl.json
+
+# 3. 변환 (--verify 를 반드시 붙인다)
+node scripts/comfyui-template-to-api.js /tmp/tpl.json /tmp/object_info.json out.json --verify
+```
+
+변환기는 서브그래프 전개 · 링크 해소 · 위젯 순서 · dynamic combo 점 표기 · `control_after_generate`
+여분 값을 처리하고, 서브그래프 입력으로 주입되던 자리(`["-10", n]`)를 **치환 대상 목록으로 출력**한다.
+그 자리에 플레이스홀더나 고정값을 채워 넣으면 작업판 워크플로가 된다.
+
+ComfyUI UI 에서 열어 API 포맷으로 export 하는 방법도 있다. 결과가 의심스러우면 그쪽과 대조한다.
 
 ### 1.3 autogrow 입력은 점 표기 키
 
@@ -64,6 +86,64 @@ ComfyUI 웹 UI 에서 저장한 JSON(`nodes` / `links` / `groups` / `definitions
 ```
 
 **점은 경로 구분자가 아니라 키 이름의 일부다.** 중첩 객체로 만들면 안 된다.
+
+---
+
+### 1.4 위젯 매핑이 조용히 어긋나는 세 자리
+
+`widgets_values` 는 **이름 없는 값 배열**이다. `/object_info` 의 입력 순서대로 소비해야 하는데,
+소비 규칙이 세 군데서 어긋난다. 셋 다 증상이 같다 — **값이 한 칸씩 밀리고, 구조 검증(끊긴 참조·
+플레이스홀더 잔여)은 통과한 뒤, 실행에서 엉뚱한 오류로 터진다.**
+
+전부 실제로 겪은 버그다. 변환기는 이미 셋 다 처리하지만, 직접 손볼 때는 알고 있어야 한다.
+
+**① dynamic combo 의 하위 입력은 `부모.자식` 점 표기다**
+
+`COMFY_DYNAMICCOMBO_V3` 는 고른 선택지에 따라 하위 입력이 딸려 나온다. 선택지가 바뀌면
+필요한 키 집합 자체가 달라진다.
+
+```json
+"sampling_mode": "on",
+"sampling_mode.temperature": 0.7,
+"sampling_mode.top_k": 64
+```
+
+평탄한 형제 키(`"temperature": 0.7`)로 적으면 **`/prompt` 는 200 을 주지만** 검증에서
+`required_input_missing / input_name: "sampling_mode.temperature"` 로 거부된다.
+`ref_images.ref_image_0` (autogrow, 1.3절)과 같은 규약이다.
+
+> ComfyUI 는 **선언되지 않은 키를 조용히 무시**한다. HTTP 200 만 보고 판단하지 말 것.
+> `SaveVideo.codec` 에 잘못된 형태를 넣어도 접수는 되고 결과물만 달라진다.
+
+**② 위젯 타입 판정은 허용목록이어야 한다**
+
+"링크 타입이 아니면 위젯" 으로 판정하면 `COMFY_MATCHTYPE_V3` 같은 신규 링크 타입을
+위젯으로 오인한다. `INT` `FLOAT` `STRING` `BOOLEAN` `COMBO` `COMFY_DYNAMICCOMBO_V3` 만
+위젯으로 본다.
+
+**③ 다중 타입 위젯이 있다**
+
+`LTXVEmptyLatentAudio.frame_rate` 의 타입은 **`"FLOAT,INT"`** 다. 허용목록과 통째로 비교하면
+위젯이 아니라고 판정되어 그 칸을 건너뛴다. 쉼표로 분리해 하나라도 위젯 타입이면 위젯이다.
+
+이 버그로 `batch_size` 가 `frame_rate` 값 25 를 삼켰고, 실행 시
+`Sizes of tensors must match... Expected size 1 but got size 25` 로 터졌다. **오류 메시지만
+보면 해상도나 프레임 수 문제로 보인다** — 원인과 증상이 전혀 닮지 않았다.
+
+**검사 방법**
+
+`--verify` 는 노드별로 **소비한 개수 == 원본 배열 길이** 를 본다. 규칙이 하나라도 어긋나면
+개수가 안 맞고 그 시점부터 값이 밀린다.
+
+```
+=== 위젯 소비 정합성 ===
+불일치 1건 — 값이 밀렸을 가능성이 높다:
+  #197 LTXVEmptyLatentAudio
+     원본 3개 중 2개만 소비  [97,25,1]
+     매핑: {"frames_number":97,"batch_size":25}
+```
+
+링크로 대체된 위젯의 값이 결과에 안 보이는 것은 정상이므로 신호로 쓰지 않는다.
 
 ---
 
@@ -352,7 +432,28 @@ T2V 는 조건화 노드의 `first_frame` / `last_frame` 을 **연결하지 않�
 
 ### 7.4 모델별 제약은 문서화해 둔다
 
-H3 는 프레임 수가 **17k+5 격자**만 유효하다 (73 / 124 / 243 / 362 …). 이런 제약은 숫자 입력으로 열지 말고 **select 로 고정**하는 편이 안전하다. 사용자가 어긋난 값을 넣을 방법이 없어진다.
+이런 제약은 숫자 입력으로 열지 말고 **select 로 고정**하는 편이 안전하다. 사용자가 어긋난 값을 넣을 방법이 없어진다.
+
+| 모델 | 제약 | 왜 |
+|---|---|---|
+| MiniMax H3 | 프레임 **17k+5** (73 / 124 / 243 / 362 …) | 모델 구조 |
+| LTX-2.5 | 해상도 **64의 배수** | 2단계 구조가 해상도를 절반으로 줄여 1단계를 돌린다. 그 절반이 32배수여야 하므로 원본은 64배수 |
+| LTX-2.5 | 프레임 **초 × 24 + 1** | 워크플로의 `ComfyMathExpression("a * b + 1")` 이 계산 |
+
+**어긋나면 오류가 나는 게 아니라 조용히 깎인다.** LTX-2.5 에 832×480 을 넣으면 832×448 이 나온다.
+select 라벨과 실제 출력이 어긋나지 않도록, 프리셋을 정한 뒤 **한 번은 실제로 생성해 ffprobe 로 확인**할 것.
+
+### 7.5 LTX-2.5 — 프롬프트 확장기가 내장돼 있다
+
+LTX-2.5 템플릿에는 `TextGenerateLTX2Prompt` 노드가 있다. 짧은 프롬프트를 샷 구성·카메라·조명·
+사운드스케이프를 갖춘 LTX 형식으로 늘려준다. `ComfySwitchNode` 로 on/off 된다.
+
+- 확장기가 쓰는 모델은 **`gemma4_e2b_it`** 다. `gemma4-12b-with-proj` 는 LTX 본 텍스트 인코더로
+  확장 여부와 무관하게 항상 로딩된다 — 헷갈리기 쉽다
+- 비용은 **새 프롬프트당 12~14초**, 같은 프롬프트 재사용 시 0초 (ComfyUI 가 노드 출력을 캐시)
+- **이 작업판에는 프롬프트 가이드(#766)를 연결할 필요가 없다.** LTX 문법 지식이 노드 내부
+  기본 템플릿(`use_default_template`)에 이미 있다. 가이드는 워크플로에 LLM 이 없어서
+  **VCC 밖 범용 LLM 을 써야 하는 모델**을 위한 장치다
 
 ---
 
@@ -369,11 +470,15 @@ H3 는 프레임 수가 **17k+5 격자**만 유효하다 (73 / 124 / 243 / 362 �
 - [ ] 모델 파일명이 `/object_info` 목록과 일치하는가
 - [ ] `_vcc` 를 required 입력에 쓰지 않았는가
 - [ ] `SaveImage` / `SaveVideo` 의 `filename_prefix` 에 `{{##user_id##}}` 가 있는가
+- [ ] 변환기를 `--verify` 로 돌려 **위젯 소비 정합성**이 통과했는가
 - [ ] `/prompt` 로 실제 제출해 성공을 확인했는가
+- [ ] **결과물을 ffprobe 로 확인**했는가 (해상도·길이·오디오 트랙이 의도대로인가)
 
 ---
 
 ## 참고
 
+- [`scripts/comfyui-template-to-api.js`](../scripts/comfyui-template-to-api.js) — 공식 템플릿 → API 포맷 변환기
 - [COMFYUI_WORKFLOW.md](COMFYUI_WORKFLOW.md) — VCC 내부 처리 로직, 플레이스홀더 치환 구현, D-1/D-2 계약
+- [`workboards/README.md`](../workboards/README.md) — 완성된 배포용 작업판 (모델 준비물 · 모델별 제약)
 - [DEVELOPMENT.md](DEVELOPMENT.md) — 신규 serverType 추가 절차

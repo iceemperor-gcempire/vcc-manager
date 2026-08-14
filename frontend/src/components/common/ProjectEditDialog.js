@@ -10,24 +10,38 @@ import {
   Box,
   Chip,
   Tabs,
-  Tab
+  Tab,
+  Autocomplete
 } from '@mui/material';
 import { Image as ImageIcon, Close, ArrowBack } from '@mui/icons-material';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { projectAPI } from '../../services/api';
+import { projectAPI, groupAPI } from '../../services/api';
 import MediaGrid from './MediaGrid';
+import { useAuth } from '../../contexts/AuthContext';
 
 function ProjectEditDialog({ open, onClose, project, onSuccess }) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [coverImage, setCoverImage] = useState(null);
   const [coverImageRemoved, setCoverImageRemoved] = useState(false);
+  const [allowedGroupIds, setAllowedGroupIds] = useState([]);   // #802 — 공유 그룹
   // 이미지 브라우저 모드
   const [browseMode, setBrowseMode] = useState(false);
   const [browseTab, setBrowseTab] = useState(0);
   const [browseSelection, setBrowseSelection] = useState([]);
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  // 공유 대상 그룹 목록 (#802). admin 전용 API 라 실패하면 조용히 빈 목록으로 둔다 —
+  // 일반 사용자는 공유 설정을 쓰지 않으므로 UI 도 숨긴다.
+  const { data: groupsRes } = useQuery({
+    queryKey: ['groups', 'all'],
+    queryFn: () => groupAPI.getAll(),
+    enabled: open && !!user?.isAdmin,
+    retry: false,
+  });
+  const groups = groupsRes?.data?.groups || groupsRes?.data?.data?.groups || [];
 
   React.useEffect(() => {
     if (project) {
@@ -35,6 +49,7 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
       setDescription(project.description || '');
       setCoverImage(project.coverImage || null);
       setCoverImageRemoved(false);
+      setAllowedGroupIds((project.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)));
     }
   }, [project]);
 
@@ -67,7 +82,8 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
 
     const data = {
       name: name.trim(),
-      description: description.trim()
+      description: description.trim(),
+      allowedGroupIds,
     };
 
     if (coverImageRemoved) {
@@ -179,6 +195,30 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
           inputProps={{ maxLength: 500 }}
           sx={{ mb: 2 }}
         />
+
+        {/* 공유 그룹 (#802) — 비워두면 나만 볼 수 있다 */}
+        {user?.isAdmin && (
+          <>
+            <Autocomplete
+              multiple
+              size="small"
+              options={groups.map((g) => g._id)}
+              value={allowedGroupIds}
+              onChange={(_, v) => setAllowedGroupIds(v)}
+              getOptionLabel={(id) => {
+                const g = groups.find((x) => x._id === id);
+                return g ? `${g.name}${g.isDefault ? ' (기본)' : ''}` : `삭제된 그룹 (${String(id).slice(-6)})`;
+              }}
+              renderInput={(params) => <TextField {...params} label="공유 그룹 (선택)" />}
+              sx={{ mb: 0.5 }}
+            />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              비워두면 나만 볼 수 있습니다. 그룹을 지정하면 그 구성원이 이 프로젝트를 보고
+              그 안에서 생성 작업을 할 수 있습니다 (편집·삭제·내보내기는 나만 가능).
+              작업판 실행 권한은 각 작업판의 접근 그룹이 따로 결정합니다.
+            </Typography>
+          </>
+        )}
 
         {/* 커버 이미지 */}
         <Typography variant="subtitle2" sx={{ mb: 1 }}>커버 이미지</Typography>

@@ -1,5 +1,6 @@
 const express = require('express');
 const { requireAuth } = require('../middleware/auth');
+const { loadProjectForRead, loadProjectForManage } = require('../middleware/projectAccess');
 const Pipeline = require('../models/Pipeline');
 const PipelineRun = require('../models/PipelineRun');
 const Project = require('../models/Project');
@@ -9,14 +10,10 @@ const router = express.Router({ mergeParams: true });
 
 // mounted at /api/projects/:projectId/pipeline-runs (#407)
 
-async function loadProject(req, res) {
-  const project = await Project.findOne({ _id: req.params.projectId, userId: req.user._id });
-  if (!project) {
-    res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
-    return null;
-  }
-  return project;
-}
+// #802 — 프로젝트 접근 판정은 middleware/projectAccess 로 이관.
+// 읽기·실행은 공유 그룹까지 허용, 구조 변경은 소유자·admin 만.
+const loadProject = loadProjectForRead('projectId');
+const loadProjectManage = loadProjectForManage('projectId');
 
 // GET — 프로젝트의 run 목록
 router.get('/', requireAuth, async (req, res) => {
@@ -24,6 +21,9 @@ router.get('/', requireAuth, async (req, res) => {
     const project = await loadProject(req, res);
     if (!project) return;
     const { pipelineId, limit = 20, page = 1 } = req.query;
+    // 실행 기록은 **공유하지 않는다** (#802) — 프로젝트를 공유해도 남의 생성물이
+    // 섞여 보이지 않도록 본인 것만 조회한다. 파이프라인 정의는 공유 대상이지만
+    // 실행과 결과물은 개인 자산이다.
     const filter = { projectId: project._id, userId: req.user._id };
     if (pipelineId) filter.pipelineId = pipelineId;
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -84,7 +84,7 @@ router.post('/', requireAuth, async (req, res) => {
     if (!project) return;
     const { pipelineId, initialPrompt = '' } = req.body;
     if (!pipelineId) return res.status(400).json({ success: false, message: 'pipelineId 필수' });
-    const pipeline = await Pipeline.findOne({ _id: pipelineId, projectId: project._id, userId: req.user._id });
+    const pipeline = await Pipeline.findOne({ _id: pipelineId, projectId: project._id });
     if (!pipeline) return res.status(404).json({ success: false, message: '파이프라인을 찾을 수 없습니다' });
     if (!pipeline.steps?.length) {
       return res.status(400).json({ success: false, message: '단계가 비어 있는 파이프라인입니다' });

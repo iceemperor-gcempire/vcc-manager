@@ -209,6 +209,8 @@ const projectUpdateSchema = Joi.object({
   name: Joi.string().allow(''),
   description: Joi.string().allow('', null),
   coverImage: Joi.object().unknown(true).allow(null),
+  // 프로젝트를 열어줄 그룹 (#802). 빈 배열이면 개인 전용.
+  allowedGroupIds: Joi.array().items(Joi.string()).allow(null),
 }).unknown(true);
 
 const tagCreateSchema = Joi.object({

@@ -1,6 +1,7 @@
 const express = require('express');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, userHasProjectAccess } = require('../middleware/auth');
 const UploadedText = require('../models/UploadedText');
+const Project = require('../models/Project');
 const GeneratedText = require('../models/GeneratedText');
 const ConversationJob = require('../models/ConversationJob');
 const { MAX_CONTENT_LENGTH } = UploadedText;
@@ -10,6 +11,23 @@ const router = express.Router();
 // 텍스트 컨텐츠 라우트 (#387).
 // UploadedText: 직접 작성. GeneratedText: 대화에서 사용자 명시 저장.
 // 이미지 라우트와 응답 shape 일치 (items + pagination).
+
+// 프로젝트 태그로 조회할 때, 그 프로젝트에 접근 가능하면 **소유자의 문서까지** 보여준다 (#802).
+//
+// 문서는 UploadedText 로 개인 소유인데, 프로젝트를 그룹에 공유하면 그 안의 문서도 함께
+// 보여야 한다 (공유 대상: 작업판 구성 · 문서 · 파이프라인). 소유자 것과 내 것만 포함하며,
+// 같은 태그를 붙인 제3자의 문서는 포함하지 않는다 — 태그는 누구나 붙일 수 있으므로
+// 태그만으로 공개 범위를 정하면 의도치 않은 노출이 생긴다.
+async function widenForSharedProject(req, filter, tagList) {
+  if (tagList.length === 0) return;
+  const projects = await Project.find({ tagId: { $in: tagList } }).lean();
+  const ownerIds = projects
+    .filter((pr) => String(pr.userId) !== String(req.user._id))
+    .filter((pr) => userHasProjectAccess(req.user, pr))
+    .map((pr) => pr.userId);
+  if (ownerIds.length === 0) return;
+  filter.userId = { $in: [req.user._id, ...ownerIds] };
+}
 
 function buildListFilter(req) {
   const filter = { userId: req.user._id };
@@ -30,6 +48,7 @@ function buildListFilter(req) {
     const re = new RegExp(search.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
     filter.$or = [{ title: re }, { content: re }];
   }
+  filter.__tagList = tagList;   // widenForSharedProject 에 넘기기 위한 임시 필드
   return filter;
 }
 
@@ -46,6 +65,8 @@ function paginate(req, defaultLimit = 20) {
 router.get('/uploaded', requireAuth, async (req, res) => {
   try {
     const filter = buildListFilter(req);
+    const tagList = filter.__tagList; delete filter.__tagList;
+    await widenForSharedProject(req, filter, tagList);
     const { page, limit, skip } = paginate(req);
     const [items, total] = await Promise.all([
       UploadedText.find(filter)
@@ -155,6 +176,8 @@ router.delete('/uploaded/:id', requireAuth, async (req, res) => {
 router.get('/generated', requireAuth, async (req, res) => {
   try {
     const filter = buildListFilter(req);
+    const tagList = filter.__tagList; delete filter.__tagList;
+    await widenForSharedProject(req, filter, tagList);
     const { page, limit, skip } = paginate(req);
     const [items, total] = await Promise.all([
       GeneratedText.find(filter)

@@ -1,5 +1,6 @@
 const express = require('express');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, userHasWorkboardAccess,
+  buildProjectAccessFilter, buildProjectManageFilter } = require('../middleware/auth');
 const { reverseSignedUrl } = require('../utils/signedUrl');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
@@ -8,6 +9,7 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const Workboard = require('../models/Workboard');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../utils/validation');
 const { WORKBOARD_EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
@@ -49,7 +51,7 @@ router.get('/by-tag/:tagId', requireAuth, async (req, res) => {
   try {
     const project = await Project.findOne({
       tagId: req.params.tagId,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     });
 
     if (!project) {
@@ -165,7 +167,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     }).populate('tagId', 'name color');
 
     if (!project) {
@@ -202,11 +204,11 @@ router.get('/:id', requireAuth, async (req, res) => {
 // PUT /:id - 프로젝트 수정
 router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, res) => {
   try {
-    const { name, description, coverImage } = req.body;
+    const { name, description, coverImage, allowedGroupIds } = req.body;
 
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectManageFilter(req.user)
     });
 
     if (!project) {
@@ -215,6 +217,9 @@ router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, r
 
     if (name) project.name = name.trim();
     if (description !== undefined) project.description = description.trim();
+    // 공유 그룹 (#802) — 소유자·admin 만 이 라우트에 도달한다.
+    // 빈 배열로 되돌리면 다시 개인 전용이 된다.
+    if (Array.isArray(allowedGroupIds)) project.allowedGroupIds = allowedGroupIds;
 
     if (coverImage === null) {
       project.coverImage = undefined;
@@ -244,9 +249,18 @@ router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, r
 // POST /:id/workboards/:workboardId - 작업판을 프로젝트에 추가 (#396)
 router.post('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
   try {
-    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    const project = await Project.findOne({ _id: req.params.id, ...buildProjectManageFilter(req.user) });
     if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     const wbId = req.params.workboardId;
+
+    // 작업판 접근 검사 (#802) — 이 검사가 없어서 권한 없는 작업판을 프로젝트에 붙인 뒤
+    // 파이프라인으로 실행하는 우회가 가능했다. 첫 관문이다.
+    const wb = await Workboard.findById(wbId);
+    if (!wb) return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다' });
+    if (!userHasWorkboardAccess(req.user, wb)) {
+      return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다' });
+    }
+
     if (!project.workboardIds.some((id) => id.toString() === wbId)) {
       project.workboardIds.push(wbId);
       await project.save();
@@ -261,7 +275,7 @@ router.post('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
 // DELETE /:id/workboards/:workboardId - 작업판을 프로젝트에서 제거
 router.delete('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
   try {
-    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    const project = await Project.findOne({ _id: req.params.id, ...buildProjectManageFilter(req.user) });
     if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     const wbId = req.params.workboardId;
     project.workboardIds = project.workboardIds.filter((id) => id.toString() !== wbId);
@@ -276,7 +290,7 @@ router.delete('/:id/workboards/:workboardId', requireAuth, async (req, res) => {
 // GET /:id/workboards - 프로젝트의 작업판 목록 (populate)
 router.get('/:id/workboards', requireAuth, async (req, res) => {
   try {
-    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id })
+    const project = await Project.findOne({ _id: req.params.id, ...buildProjectAccessFilter(req.user) })
       .populate({
         path: 'workboardIds',
         // additionalInputFields 도 포함 — 파이프라인 빌더의 단계 추가 시 customField 정보 필요 (#400 후속)
@@ -284,7 +298,10 @@ router.get('/:id/workboards', requireAuth, async (req, res) => {
         populate: { path: 'serverId', select: 'name serverType' }
       });
     if (!project) return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
-    res.json({ success: true, data: { workboards: project.workboardIds || [] } });
+    // 접근 가능한 작업판만 내려보낸다 (#802).
+    // 예전 데이터에 권한 없는 작업판이 이미 붙어 있을 수 있으므로 조회 시점에도 거른다.
+    const visible = (project.workboardIds || []).filter((wb) => userHasWorkboardAccess(req.user, wb));
+    res.json({ success: true, data: { workboards: visible } });
   } catch (error) {
     console.error('Project workboards fetch error:', error);
     res.status(500).json({ success: false, message: error.message });
@@ -296,7 +313,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectManageFilter(req.user)
     });
 
     if (!project) {
@@ -349,7 +366,7 @@ router.post('/:id/favorite', requireAuth, async (req, res) => {
   try {
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     });
 
     if (!project) {
@@ -394,7 +411,7 @@ router.get('/:id/images', requireAuth, async (req, res) => {
 
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     });
 
     if (!project) {
@@ -445,7 +462,7 @@ router.get('/:id/prompt-data', requireAuth, async (req, res) => {
 
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     });
 
     if (!project) {
@@ -487,7 +504,7 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
 
     const project = await Project.findOne({
       _id: req.params.id,
-      userId: req.user._id
+      ...buildProjectAccessFilter(req.user)
     });
 
     if (!project) {
@@ -534,7 +551,7 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
 router.get('/:id/conversations', requireAuth, async (req, res) => {
   try {
     const { page = 1, limit = 20 } = req.query;
-    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id });
+    const project = await Project.findOne({ _id: req.params.id, ...buildProjectAccessFilter(req.user) });
     if (!project) {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
@@ -583,12 +600,11 @@ router.get('/:id/conversations', requireAuth, async (req, res) => {
 // binary(이미지/영상)는 v1 규격에서 제외 (기획 결정).
 router.get('/:id/export', requireAdmin, async (req, res) => {
   try {
-    const Workboard = require('../models/Workboard');
     const Server = require('../models/Server');
     const Pipeline = require('../models/Pipeline');
     const UploadedText = require('../models/UploadedText');
 
-    const project = await Project.findOne({ _id: req.params.id, userId: req.user._id }).populate('tagId');
+    const project = await Project.findOne({ _id: req.params.id, ...buildProjectManageFilter(req.user) }).populate('tagId');
     if (!project) {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
