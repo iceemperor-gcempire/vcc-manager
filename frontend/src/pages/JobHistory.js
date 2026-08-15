@@ -33,6 +33,7 @@ import {
   Delete,
   AccountTree,
   Subject,
+  MusicNote,
   CheckCircle,
   Close,
   ViewList,
@@ -54,6 +55,7 @@ import {
 import config from '../config';
 import ImageViewerDialog from '../components/common/ImageViewerDialog';
 import VideoViewerDialog from '../components/common/VideoViewerDialog';
+import AudioViewerDialog from '../components/common/AudioViewerDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { SavePromptDialog, JobDetailDialog } from '../components/common/JobHistoryPanel';
 import { ToneChip, TagChip } from '../components/common/WorkboardCatalog';
@@ -62,15 +64,15 @@ import SegmentTabs from '../components/common/SegmentTabs';
 import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from '../utils/historyItems';
 import {
-  buildSameWorkboardContinue,
-  buildCrossWorkboardContinue,
   buildWorkboardPickerContinue,
   storeContinueJobData,
 } from '../utils/continueJob';
 import { useJobActions } from '../hooks/useJobActions';
+import { useContinueJob } from '../hooks/useContinueJob';
 
-const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
+const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', audio: '오디오', text: '텍스트' };
 
 // ---- 상태 매핑 ----------------------------------------------------------
 function mapStatus(s) {
@@ -120,25 +122,28 @@ function projectFromTags(tags = []) {
 
 // ---- 정규화 -------------------------------------------------------------
 function jobToItem(job) {
+  // 오디오 (#805) — 썸네일이 없어 type 을 따로 둔다
+  const isAudio = (job.resultAudios?.length || 0) > 0;
   const isVideo = (job.resultVideos?.length || 0) > 0;
-  const type = isVideo ? 'video' : 'image';
-  const results = isVideo ? job.resultVideos : job.resultImages;
+  const type = isAudio ? 'audio' : isVideo ? 'video' : 'image';
+  const results = isAudio ? job.resultAudios : isVideo ? job.resultVideos : job.resultImages;
   return {
     id: job._id,
     kind: 'job',
     type,
     time: new Date(job.createdAt),
-    title: job.workboardId?.name || (isVideo ? '영상 생성' : '이미지 생성'),
+    title: job.workboardId?.name || (isAudio ? '오디오 생성' : isVideo ? '영상 생성' : '이미지 생성'),
     projectName: projectFromTags(job.inputData?.tags),
     model: extractModel(job.inputData?.aiModel),
     res: extractSize(job),
     count: results?.length || 0,
-    duration: isVideo ? results?.[0]?.metadata?.duration : null,
+    duration: (isVideo || isAudio) ? results?.[0]?.metadata?.duration : null,
     status: mapStatus(job.status),
-    thumb: results?.[0]?.url || null,
+    thumb: isAudio ? null : (results?.[0]?.url || null),   // 오디오는 썸네일이 없다
     videoThumb: isVideo ? (results?.[0]?.thumbnailUrl || null) : null, // #672 동영상 첫프레임 썸네일
     results: results || [],
     isVideo,
+    isAudio,
     raw: job,
   };
 }
@@ -179,7 +184,7 @@ function runToItem(run) {
 // ---- 좌측 비주얼 --------------------------------------------------------
 function RowVisual({ item }) {
   const size = 56;
-  if (item.type === 'image' || item.type === 'video') {
+  if (MEDIA_ITEM_TYPES.includes(item.type)) {
     return (
       <Box sx={{ position: 'relative', width: size, height: size, flex: '0 0 auto' }}>
         <Box
@@ -188,7 +193,10 @@ function RowVisual({ item }) {
             bgcolor: 'grey.100', display: 'grid', placeItems: 'center',
           }}
         >
-          {item.type === 'video' && item.videoThumb ? (
+          {item.type === 'audio' ? (
+            // 오디오는 썸네일이 없다 (#805) — 음표로 표시하고 클릭 시 재생 다이얼로그
+            <MusicNote fontSize="small" sx={{ color: 'grey.500' }} />
+          ) : item.type === 'video' && item.videoThumb ? (
             // 동영상 썸네일(첫 프레임 jpg) 우선 — 빠름 (#672)
             <Box component="img" src={item.videoThumb} alt="" loading="lazy"
               sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -270,13 +278,8 @@ function StepDots({ statuses }) {
 
 // ---- 한 행 --------------------------------------------------------------
 function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
-  const sub =
-    item.type === 'image' ? [item.projectName, item.model, item.res, item.count ? `${item.count}장` : '']
-      : item.type === 'video' ? [item.projectName, item.model, item.res, item.duration != null ? `${Math.round(item.duration)}초` : '']
-      : item.type === 'text' ? [item.model, item.tokens != null ? `${item.tokens.toLocaleString()} 토큰` : '']
-      : [item.projectName, item.stepStatuses.length ? `${item.stepStatuses.length}단계` : '', item.input];
-  const subStr = sub.filter(Boolean).join(' · ');
-  const clickable = item.type === 'image' || item.type === 'video';
+  const subStr = buildHistorySubtitle(item);
+  const clickable = MEDIA_ITEM_TYPES.includes(item.type);
 
   return (
     <Paper
@@ -322,7 +325,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           )}
 
           {/* 파이프라인 단계 dots + 진행률 */}
-          {item.type === 'pipeline' && item.stepStatuses.length > 0 && (
+          {item.type === 'pipeline' && item.stepStatuses?.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
               <StepDots statuses={item.stepStatuses} />
               {item.status === 'running' && (
@@ -398,7 +401,9 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
     >
       {/* 미디어 / 프리뷰 영역 */}
       <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.100', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-        {item.type === 'video' && item.videoThumb ? (
+        {item.type === 'audio' ? (
+          <MusicNote sx={{ fontSize: 40, color: 'grey.500' }} />
+        ) : item.type === 'video' && item.videoThumb ? (
           <Box component="img" src={item.videoThumb} alt="" loading="lazy"
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (item.type === 'image' || item.type === 'video') && item.thumb ? (
@@ -528,6 +533,7 @@ function JobHistory() {
   const [crossJob, setCrossJob] = useState(null);
   const [imgViewer, setImgViewer] = useState({ open: false, items: [], index: 0 });
   const [vidViewer, setVidViewer] = useState({ open: false, items: [], index: 0 });
+  const [audViewer, setAudViewer] = useState({ open: false, items: [] });   // #805
   const [textDetail, setTextDetail] = useState(null);
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
@@ -536,13 +542,15 @@ function JobHistory() {
   // 재시도/취소/삭제는 프로젝트 상세 패널(JobHistoryPanel)과 동작을 공유한다 (#728).
   // 예전에는 각자 구현이라 이 화면에만 재시도가 빠져 있었다.
   const jobActions = useJobActions({ invalidateKeys: ['historyJobs'] });
+  const { continueSameWorkboard, continueCrossWorkboard } = useContinueJob();   // #808
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
     onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)), });
 
   // ---- handlers ----
   const openMedia = (item) => {
-    if (item.isVideo) setVidViewer({ open: true, items: item.results, index: 0 });
+    if (item.isAudio) setAudViewer({ open: true, items: item.results });      // #805
+    else if (item.isVideo) setVidViewer({ open: true, items: item.results, index: 0 });
     else setImgViewer({ open: true, items: item.results, index: 0 });
   };
 
@@ -565,39 +573,13 @@ function JobHistory() {
   const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
   const handleCancel = (job) => { closeMenu(); jobActions.cancel(job); };
 
-  const handleContinue = async (job) => {
-    try {
-      let workboardId = typeof job.workboardId === 'string' ? job.workboardId : (job.workboardId?._id || job.workboardId?.id);
-      const fallback = () => {
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-      };
-      if (!workboardId || !/^[0-9a-fA-F]{24}$/.test(workboardId)) { toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      const wbRes = await workboardAPI.getById(workboardId);
-      const workboard = wbRes.data?.workboard;
-      if (!workboard || !workboard.isActive) { toast.error('작업판을 사용할 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      // #792 — sameWorkboard 플래그 포함. 직접 조립하다 #762 수정이 이 경로에 누락됐었다.
-      storeContinueJobData(buildSameWorkboardContinue({ workboardId, workboard, job }));
-      navigate(`/generate/${workboardId}`);
-      toast.success('작업 설정을 불러왔습니다');
-    } catch (error) {
-      toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-      storeContinueJobData(buildWorkboardPickerContinue(job));
-      navigate('/workboards');
-    }
-  };
+  const handleContinue = (job) => continueSameWorkboard(job);
 
   const handleWorkboardSelected = (workboard) => {
     if (!crossJob) return;
     const job = crossJob;
-    const lastImage = job.resultImages?.length ? job.resultImages[job.resultImages.length - 1] : null;
-    const lastVideo = job.resultVideos?.length ? job.resultVideos[job.resultVideos.length - 1] : null;
-    storeContinueJobData(buildCrossWorkboardContinue({
-      workboard, job, lastGeneratedMedia: { image: lastImage, video: lastVideo },
-    }));
     setCrossJob(null);
-    navigate(`/generate/${workboard._id}`);
-    toast.success('작업판이 선택되었습니다. 설정을 매칭합니다.');
+    continueCrossWorkboard(job, workboard);
   };
 
   const handleTextContinue = (item) => {
@@ -725,6 +707,12 @@ function JobHistory() {
         onClose={() => setImgViewer((v) => ({ ...v, open: false }))}
         title="생성된 이미지"
       />
+      <AudioViewerDialog
+        open={audViewer.open}
+        audios={audViewer.items}
+        onClose={() => setAudViewer({ open: false, items: [] })}
+      />
+
       <VideoViewerDialog
         videos={vidViewer.items}
         selectedIndex={vidViewer.index}

@@ -28,6 +28,7 @@
 | `comfyui/minimax-h3-fl2v.json` | MiniMax H3 - FL2V | 영상 + 스테레오 오디오 | H3 모델 4종 |
 | `comfyui/minimax-h3-r2v.json` | MiniMax H3 - R2V | 〃 | H3 모델 4종 + VHS_LoadVideo |
 | `comfyui/ltx-2.5-fl2v.json` | LTX-2.5 - FL2V | 영상 + 동기화 오디오 | LTX-2.5 모델 6종 · ComfyUI 0.32+ |
+| `comfyui/minimax-music-3-t2m.json` | MiniMax Music 3 - T2M | **음악 (mp3)** | MiniMax Music 3 모델 3종 · ComfyUI 0.33+ |
 
 ---
 
@@ -208,6 +209,35 @@ LTX 형식 프롬프트로 늘려준다.
 이미 워크플로 안에 있다.
 
 ---
+
+## MiniMax Music 3
+
+설명과 가사로 **완성곡**을 만든다. VCC 의 오디오 출력 작업판이며 결과는 mp3 로 저장된다.
+ComfyUI 0.33 이상이 필요하다 (공식 템플릿이 그때 들어왔다).
+
+### 필요한 모델
+
+```
+models/
+├── diffusion_models/minimax/minimax_music3_dit_fp16.safetensors
+│   (저VRAM 이면 minimax_music3_dit_int8_convrot.safetensors)
+├── text_encoders/minimax_music3_text_encoder_pruned_int8_convrot.safetensors
+└── vae/minimax/minimax_music3_dav.safetensors
+```
+
+받는 곳: [🤗 Comfy-Org/MiniMax-Music-3](https://huggingface.co/Comfy-Org/MiniMax-Music-3)
+텍스트 인코더는 루트에, 나머지는 `minimax/` 아래에 둔 기준이다.
+
+### 입력
+
+| 필드 | 설명 |
+|---|---|
+| 프롬프트 | 장르·BPM·조성·악기·분위기. `Global Metadata: ...` 형식이 잘 먹는다 |
+| 가사 (선택) | **비우면 연주곡**이 된다. `[verse]` `[chorus]` 구조 표기 사용 가능 |
+| 최대 길이 (초) | **상한값**이다. 실제 길이는 모델이 곡에 맞춰 정하며 더 짧게 나온다 |
+| 타일 디코드 | 메모리가 부족할 때 켠다. 조금 느려진다 |
+
+실측: 최대 120초 설정 · RTX PRO 6000 기준 **72초 소요 → 21초 곡** (mp3 44.1kHz 스테레오).
 
 ## 갱신 규칙
 

@@ -522,6 +522,7 @@ router.get('/:id/jobs', requireAuth, async (req, res) => {
         .populate('workboardId', 'name')
         .populate('resultImages')
         .populate('resultVideos')
+        .populate('resultAudios')
         .populate('inputData.tags', 'name color isProjectTag')
         .sort({ createdAt: -1 })
         .skip((parseInt(page) - 1) * parseInt(limit))

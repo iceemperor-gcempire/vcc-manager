@@ -69,6 +69,10 @@ const imageGenerationJobSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'GeneratedVideo'
   }],
+  resultAudios: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'GeneratedAudio'
+  }],
   error: {
     message: String,
     code: String,
@@ -148,6 +152,9 @@ imageGenerationJobSchema.methods.updateStatus = function(status, data = {}) {
 
   if (data.resultVideos) {
     this.resultVideos = data.resultVideos;
+  }
+  if (data.resultAudios) {
+    this.resultAudios = data.resultAudios;
   }
 
   // 비용 추정 (#364) — OpenAI 이미지 생성 worker 가 채움. 다른 provider 는 일단 null.

@@ -4,6 +4,7 @@
 
 import comfyImage from './ComfyUI-image.json';
 import comfyVideo from './ComfyUI-video.json';
+import comfyAudio from './ComfyUI-audio.json';
 import openAIImage from './OpenAI-image.json';
 import openAIText from './OpenAI-text.json';
 import geminiImage from './Gemini-image.json';
@@ -14,6 +15,7 @@ import dIceAllImage from './d-ice-all-image.json';
 const TEMPLATES = {
   'ComfyUI:image': comfyImage,
   'ComfyUI:video': comfyVideo,
+  'ComfyUI:audio': comfyAudio,
   'OpenAI:image': openAIImage,
   'OpenAI:text': openAIText,
   'Gemini:image': geminiImage,

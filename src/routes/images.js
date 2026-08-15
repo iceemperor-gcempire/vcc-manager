@@ -9,6 +9,7 @@ const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
@@ -1062,6 +1063,174 @@ router.post('/videos/:id/download', async (req, res) => {
     await video.incrementDownloadCount();
     
     res.download(video.path, video.originalName);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// ── 생성 오디오 (#805) — 생성 비디오와 대칭. 썸네일이 없어 thumbnailUrl 관련 처리가 없다 ──
+router.get('/audios', requireAuth, async (req, res) => {
+  try {
+    const { page = 1, limit = 12, search = '' } = req.query;
+    const skip = (page - 1) * limit;
+    
+    const filter = { userId: req.user._id };
+    
+    if (search) {
+      filter.$or = [
+        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
+        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
+      ];
+    }
+    
+    const audios = await GeneratedAudio.find(filter)
+      .populate('jobId', 'createdAt')
+      .populate('tags')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+    
+    const total = await GeneratedAudio.countDocuments(filter);
+    
+    res.json({
+      audios,
+      pagination: {
+        current: parseInt(page),
+        pages: Math.ceil(total / limit),
+        total
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.get('/audios/:id', requireAuth, async (req, res) => {
+  try {
+    const audio = await GeneratedAudio.findById(req.params.id)
+      .populate('jobId')
+      .populate('tags');
+    
+    if (!audio) {
+      return res.status(404).json({ message: 'Audio not found' });
+    }
+    
+    if (audio.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    res.json({ audio });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.put('/audios/:id', requireAuth, async (req, res) => {
+  try {
+    const { tags, isPublic } = req.body;
+    
+    const audio = await GeneratedAudio.findById(req.params.id);
+    
+    if (!audio) {
+      return res.status(404).json({ message: 'Audio not found' });
+    }
+    
+    if (audio.userId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    if (tags !== undefined) {
+      const newTags = Array.isArray(tags) ? tags : [];
+      const oldTags = audio.tags.map(t => t.toString());
+      
+      const addedTags = newTags.filter(t => !oldTags.includes(t));
+      const removedTags = oldTags.filter(t => !newTags.includes(t));
+      
+      if (addedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: addedTags } },
+          { $inc: { usageCount: 1 } }
+        );
+      }
+      if (removedTags.length > 0) {
+        await Tag.updateMany(
+          { _id: { $in: removedTags } },
+          { $inc: { usageCount: -1 } }
+        );
+      }
+      
+      audio.tags = newTags;
+    }
+    
+    if (isPublic !== undefined) {
+      audio.isPublic = isPublic;
+    }
+    
+    await audio.save();
+    await audio.populate('tags');
+    
+    res.json({
+      message: 'Audio updated successfully',
+      audio
+    });
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+router.delete('/audios/:id', requireAuth, async (req, res) => {
+  try {
+    const { deleteJob = false } = req.query;
+    
+    const audio = await GeneratedAudio.findById(req.params.id);
+    
+    if (!audio) {
+      return res.status(404).json({ message: 'Audio not found' });
+    }
+    
+    if (audio.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // 태그 사용 카운트 감소
+    if (audio.tags && audio.tags.length > 0) {
+      await Tag.updateMany(
+        { _id: { $in: audio.tags } },
+        { $inc: { usageCount: -1 } }
+      );
+    }
+
+    await deleteFile(audio.path);
+    
+    if (deleteJob === 'true' && audio.jobId) {
+      await ImageGenerationJob.findByIdAndDelete(audio.jobId);
+    }
+    
+    await GeneratedAudio.findByIdAndDelete(req.params.id);
+    
+    res.json({
+      message: `Audio${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+router.post('/audios/:id/download', async (req, res) => {
+  try {
+    const audio = await GeneratedAudio.findById(req.params.id);
+    
+    if (!audio) {
+      return res.status(404).json({ message: 'Audio not found' });
+    }
+    
+    if (!audio.isPublic && (!req.user || audio.userId.toString() !== req.user._id.toString())) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    await audio.incrementDownloadCount();
+    
+    res.download(audio.path, audio.originalName);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

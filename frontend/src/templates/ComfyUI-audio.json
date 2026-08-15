@@ -1,0 +1,20 @@
+{
+  "additionalInputFields": [
+    {
+      "name": "base_model",
+      "label": "베이스 모델",
+      "type": "baseModel",
+      "required": true,
+      "formatString": "{{##base_model##}}"
+    },
+    {
+      "name": "duration",
+      "label": "길이 (초)",
+      "type": "number",
+      "required": true,
+      "defaultValue": 30,
+      "formatString": "{{##duration##}}"
+    }
+  ],
+  "workflowData": "{\n  \"1\": {\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"inputs\": {\n      \"ckpt_name\": \"{{##base_model##}}\"\n    },\n    \"_meta\": {\n      \"title\": \"모델 로드\"\n    }\n  },\n  \"2\": {\n    \"class_type\": \"CLIPTextEncode\",\n    \"inputs\": {\n      \"clip\": [\n        \"1\",\n        1\n      ],\n      \"text\": \"{{##prompt##}}\"\n    },\n    \"_meta\": {\n      \"title\": \"프롬프트\"\n    }\n  },\n  \"3\": {\n    \"class_type\": \"CLIPTextEncode\",\n    \"inputs\": {\n      \"clip\": [\n        \"1\",\n        1\n      ],\n      \"text\": \"{{##negative_prompt##}}\"\n    },\n    \"_meta\": {\n      \"title\": \"부정 프롬프트\"\n    }\n  },\n  \"4\": {\n    \"class_type\": \"EmptyLatentAudio\",\n    \"inputs\": {\n      \"seconds\": \"{{##duration##}}\",\n      \"batch_size\": 1\n    },\n    \"_meta\": {\n      \"title\": \"빈 오디오 잠재\"\n    }\n  },\n  \"5\": {\n    \"class_type\": \"KSampler\",\n    \"inputs\": {\n      \"model\": [\n        \"1\",\n        0\n      ],\n      \"positive\": [\n        \"2\",\n        0\n      ],\n      \"negative\": [\n        \"3\",\n        0\n      ],\n      \"latent_image\": [\n        \"4\",\n        0\n      ],\n      \"seed\": \"{{##seed##}}\",\n      \"steps\": 50,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1\n    },\n    \"_meta\": {\n      \"title\": \"샘플러\"\n    }\n  },\n  \"6\": {\n    \"class_type\": \"VAEDecodeAudio\",\n    \"inputs\": {\n      \"samples\": [\n        \"5\",\n        0\n      ],\n      \"vae\": [\n        \"1\",\n        2\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"오디오 디코드\"\n    }\n  },\n  \"7\": {\n    \"class_type\": \"SaveAudio\",\n    \"inputs\": {\n      \"audio\": [\n        \"6\",\n        0\n      ],\n      \"filename_prefix\": \"{{##user_id##}}/audio/Generated\"\n    },\n    \"_meta\": {\n      \"title\": \"오디오 저장\"\n    }\n  }\n}"
+}

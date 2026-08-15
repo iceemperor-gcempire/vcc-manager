@@ -96,7 +96,7 @@ const workboardSchema = new mongoose.Schema({
   },
   outputFormat: {
     type: String,
-    enum: ['image', 'video', 'text'],
+    enum: ['image', 'video', 'text', 'audio'],
     default: 'image'
   },
   serverId: {

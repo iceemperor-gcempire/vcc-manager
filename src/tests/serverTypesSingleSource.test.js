@@ -36,7 +36,7 @@ describe('serverTypes 단일 source 정합성 (#745)', () => {
     for (const key of Object.keys(SERVICE_MAP)) {
       const [serverType, format] = key.split(':');
       expect(SERVER_TYPES).toContain(serverType);
-      expect(['image', 'video']).toContain(format);
+      expect(['image', 'video', 'audio']).toContain(format);   // #805
     }
   });
 

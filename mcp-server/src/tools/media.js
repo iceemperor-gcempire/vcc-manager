@@ -17,6 +17,20 @@ const MIME_TYPES = {
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
   '.mov': 'video/quicktime',
+  // 오디오 (#805)
+  '.mp3': 'audio/mpeg',
+  '.flac': 'audio/flac',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.opus': 'audio/opus',
+  '.m4a': 'audio/mp4',
+};
+
+// mediaType → 조회 경로 · 응답 키 · 기본 확장자/MIME (#805)
+const MEDIA_SPEC = {
+  image: { path: (id) => `/images/generated/${id}`, key: 'image', ext: 'png', mime: 'image/png' },
+  video: { path: (id) => `/images/videos/${id}`, key: 'video', ext: 'mp4', mime: 'video/mp4' },
+  audio: { path: (id) => `/images/audios/${id}`, key: 'audio', ext: 'mp3', mime: 'audio/mpeg' },
 };
 
 /**
@@ -36,31 +50,29 @@ export function registerMediaTools(server, apiRequest, options = {}) {
     'download_result',
     isHttp
       ? vccBaseUrl
-        ? 'Get a generated image or video via signed URL. Returns a direct-access URL for the media file. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
-        : 'Get a generated image or video. Images are returned as inline base64 data. Videos return metadata with size info. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
-      : 'Download a generated image or video file to local disk. Get media IDs from get_job_status results. Response includes responseType field to identify the format.',
+        ? 'Get a generated image, video or audio via signed URL. Returns a direct-access URL for the media file. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
+        : 'Get a generated image, video or audio. Images are returned as inline base64 data. Videos and audio return metadata with size info. Get media IDs from get_job_status results. Response includes responseType field to identify the format.'
+      : 'Download a generated image, video or audio file to local disk. Get media IDs from get_job_status results. Response includes responseType field to identify the format.',
     {
-      mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos)'),
-      mediaType: z.enum(['image', 'video']).describe('Type of media to download'),
+      mediaId: z.string().describe('Media ID (from get_job_status resultImages/resultVideos/resultAudios)'),
+      mediaType: z.enum(['image', 'video', 'audio']).describe('Type of media to download'),
       ...(!isHttp ? {
         downloadDir: z.string().optional().describe('Download directory (default: ~/Downloads/vcc or VCC_DOWNLOAD_DIR)'),
       } : {}),
     },
     async ({ mediaId, mediaType, downloadDir }) => {
       // Get media metadata
-      const metaPath = mediaType === 'image'
-        ? `/images/generated/${mediaId}`
-        : `/images/videos/${mediaId}`;
-      const meta = await apiRequest(metaPath);
-      const mediaItem = mediaType === 'image' ? meta.image : meta.video;
+      const spec = MEDIA_SPEC[mediaType];
+      const meta = await apiRequest(spec.path(mediaId));
+      const mediaItem = meta[spec.key];
 
       if (!mediaItem) {
         throw new Error(`${mediaType} not found`);
       }
 
-      const filename = mediaItem.originalName || `${mediaId}.${mediaType === 'image' ? 'png' : 'mp4'}`;
+      const filename = mediaItem.originalName || `${mediaId}.${spec.ext}`;
       const ext = extname(filename).toLowerCase();
-      const mimeType = MIME_TYPES[ext] || (mediaType === 'image' ? 'image/png' : 'video/mp4');
+      const mimeType = MIME_TYPES[ext] || spec.mime;
 
       // ── HTTP mode ─────────────────────────────────────────────────
       if (isHttp) {
@@ -80,9 +92,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
         }
 
         // Fallback: VCC_BASE_URL_FOR_MCP 미설정 또는 signed URL 생성 실패
-        const downloadPath = mediaType === 'image'
-          ? `/images/generated/${mediaId}/download`
-          : `/images/videos/${mediaId}/download`;
+        const downloadPath = `${spec.path(mediaId)}/download`;
 
         // 이미지: base64 인라인 반환
         if (mediaType === 'image') {
@@ -107,7 +117,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
           };
         }
 
-        // 비디오: 메타데이터만 반환
+        // 비디오·오디오: 인라인으로 싣기엔 크므로 메타데이터만 반환 (#805)
         return {
           content: [{
             type: 'text',
@@ -121,9 +131,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
       }
 
       // ── stdio mode: download to local disk ──────────────────────────
-      const downloadPath = mediaType === 'image'
-        ? `/images/generated/${mediaId}/download`
-        : `/images/videos/${mediaId}/download`;
+      const downloadPath = `${spec.path(mediaId)}/download`;
 
       const targetDir = downloadDir
         ? downloadDir.replace(/^~/, homedir())

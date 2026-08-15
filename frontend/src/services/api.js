@@ -182,6 +182,11 @@ export const imageAPI = {
   deleteUploadedAudio: (id) => api.delete(`/images/uploaded-audios/${id}`),
   getVideos: (params) => api.get('/images/videos', { params }),
   getVideoById: (id) => api.get(`/images/videos/${id}`),
+  // 생성 오디오 (#805)
+  getAudios: (params) => api.get('/images/audios', { params }),
+  getAudioById: (id) => api.get(`/images/audios/${id}`),
+  updateAudio: (id, data) => api.put(`/images/audios/${id}`, data),
+  deleteAudio: (id, deleteJob) => api.delete(`/images/audios/${id}`, { params: { deleteJob } }),
   updateVideo: (id, data) => api.put(`/images/videos/${id}`, data),
   deleteVideo: (id, deleteJob) => api.delete(`/images/videos/${id}`, {
     params: { deleteJob },
