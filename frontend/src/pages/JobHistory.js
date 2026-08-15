@@ -65,12 +65,11 @@ import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
 import {
-  buildSameWorkboardContinue,
-  buildCrossWorkboardContinue,
   buildWorkboardPickerContinue,
   storeContinueJobData,
 } from '../utils/continueJob';
 import { useJobActions } from '../hooks/useJobActions';
+import { useContinueJob } from '../hooks/useContinueJob';
 
 const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
 
@@ -547,6 +546,7 @@ function JobHistory() {
   // 재시도/취소/삭제는 프로젝트 상세 패널(JobHistoryPanel)과 동작을 공유한다 (#728).
   // 예전에는 각자 구현이라 이 화면에만 재시도가 빠져 있었다.
   const jobActions = useJobActions({ invalidateKeys: ['historyJobs'] });
+  const { continueSameWorkboard, continueCrossWorkboard } = useContinueJob();   // #808
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
     onError: (error) => toast.error('프롬프트 저장 실패: ' + (error.response?.data?.message || error.message)), });
@@ -577,39 +577,13 @@ function JobHistory() {
   const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
   const handleCancel = (job) => { closeMenu(); jobActions.cancel(job); };
 
-  const handleContinue = async (job) => {
-    try {
-      let workboardId = typeof job.workboardId === 'string' ? job.workboardId : (job.workboardId?._id || job.workboardId?.id);
-      const fallback = () => {
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-      };
-      if (!workboardId || !/^[0-9a-fA-F]{24}$/.test(workboardId)) { toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      const wbRes = await workboardAPI.getById(workboardId);
-      const workboard = wbRes.data?.workboard;
-      if (!workboard || !workboard.isActive) { toast.error('작업판을 사용할 수 없습니다. 작업판 선택 페이지로 이동합니다.'); return fallback(); }
-      // #792 — sameWorkboard 플래그 포함. 직접 조립하다 #762 수정이 이 경로에 누락됐었다.
-      storeContinueJobData(buildSameWorkboardContinue({ workboardId, workboard, job }));
-      navigate(`/generate/${workboardId}`);
-      toast.success('작업 설정을 불러왔습니다');
-    } catch (error) {
-      toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-      storeContinueJobData(buildWorkboardPickerContinue(job));
-      navigate('/workboards');
-    }
-  };
+  const handleContinue = (job) => continueSameWorkboard(job);
 
   const handleWorkboardSelected = (workboard) => {
     if (!crossJob) return;
     const job = crossJob;
-    const lastImage = job.resultImages?.length ? job.resultImages[job.resultImages.length - 1] : null;
-    const lastVideo = job.resultVideos?.length ? job.resultVideos[job.resultVideos.length - 1] : null;
-    storeContinueJobData(buildCrossWorkboardContinue({
-      workboard, job, lastGeneratedMedia: { image: lastImage, video: lastVideo },
-    }));
     setCrossJob(null);
-    navigate(`/generate/${workboard._id}`);
-    toast.success('작업판이 선택되었습니다. 설정을 매칭합니다.');
+    continueCrossWorkboard(job, workboard);
   };
 
   const handleTextContinue = (item) => {
