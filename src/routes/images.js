@@ -1111,7 +1111,7 @@ router.get('/audios/:id', requireAuth, async (req, res) => {
       .populate('jobId')
       .populate('tags');
     
-    if (!video) {
+    if (!audio) {
       return res.status(404).json({ message: 'Audio not found' });
     }
     
@@ -1131,7 +1131,7 @@ router.put('/audios/:id', requireAuth, async (req, res) => {
     
     const audio = await GeneratedAudio.findById(req.params.id);
     
-    if (!video) {
+    if (!audio) {
       return res.status(404).json({ message: 'Audio not found' });
     }
     
@@ -1170,8 +1170,8 @@ router.put('/audios/:id', requireAuth, async (req, res) => {
     await audio.populate('tags');
     
     res.json({
-      message: 'Video updated successfully',
-      video
+      message: 'Audio updated successfully',
+      audio
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -1184,7 +1184,7 @@ router.delete('/audios/:id', requireAuth, async (req, res) => {
     
     const audio = await GeneratedAudio.findById(req.params.id);
     
-    if (!video) {
+    if (!audio) {
       return res.status(404).json({ message: 'Audio not found' });
     }
     
@@ -1220,7 +1220,7 @@ router.post('/audios/:id/download', async (req, res) => {
   try {
     const audio = await GeneratedAudio.findById(req.params.id);
     
-    if (!video) {
+    if (!audio) {
       return res.status(404).json({ message: 'Audio not found' });
     }
     
