@@ -249,4 +249,5 @@ models/
 ## 관련 문서
 
 - [COMFYUI_WORKFLOW_AUTHORING.md](../docs/COMFYUI_WORKFLOW_AUTHORING.md) — 워크플로를 직접 만들 때
+- [AGENT_SKILL_INTEGRATION.md](../docs/AGENT_SKILL_INTEGRATION.md) — 모델 제작사 프롬프트 스킬을 어떻게 붙일지
 - [COMFYUI_WORKFLOW.md](../docs/COMFYUI_WORKFLOW.md) — VCC 내부 처리 로직
