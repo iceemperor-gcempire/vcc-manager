@@ -64,6 +64,7 @@ import SegmentTabs from '../components/common/SegmentTabs';
 import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from '../utils/historyItems';
 import {
   buildWorkboardPickerContinue,
   storeContinueJobData,
@@ -183,7 +184,7 @@ function runToItem(run) {
 // ---- 좌측 비주얼 --------------------------------------------------------
 function RowVisual({ item }) {
   const size = 56;
-  if (item.type === 'image' || item.type === 'video' || item.type === 'audio') {
+  if (MEDIA_ITEM_TYPES.includes(item.type)) {
     return (
       <Box sx={{ position: 'relative', width: size, height: size, flex: '0 0 auto' }}>
         <Box
@@ -277,16 +278,8 @@ function StepDots({ statuses }) {
 
 // ---- 한 행 --------------------------------------------------------------
 function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
-  const sub =
-    item.type === 'image' ? [item.projectName, item.model, item.res, item.count ? `${item.count}장` : '']
-      : item.type === 'video' ? [item.projectName, item.model, item.res, item.duration != null ? `${Math.round(item.duration)}초` : '']
-      : item.type === 'audio' ? [item.projectName, item.model, item.duration != null ? `${Math.round(item.duration)}초` : '']
-      : item.type === 'text' ? [item.model, item.tokens != null ? `${item.tokens.toLocaleString()} 토큰` : '']
-      // 나머지는 파이프라인 — stepStatuses 는 pipelineToItem 만 만든다.
-      // 새 미디어 타입이 여기로 떨어지면 undefined.length 로 렌더가 죽는다 (#805 오디오 사고)
-      : [item.projectName, item.stepStatuses?.length ? `${item.stepStatuses.length}단계` : '', item.input];
-  const subStr = sub.filter(Boolean).join(' · ');
-  const clickable = item.type === 'image' || item.type === 'video' || item.type === 'audio';
+  const subStr = buildHistorySubtitle(item);
+  const clickable = MEDIA_ITEM_TYPES.includes(item.type);
 
   return (
     <Paper
