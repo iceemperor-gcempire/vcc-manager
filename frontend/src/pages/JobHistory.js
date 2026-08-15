@@ -71,7 +71,7 @@ import {
 import { useJobActions } from '../hooks/useJobActions';
 import { useContinueJob } from '../hooks/useContinueJob';
 
-const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', text: '텍스트' };
+const TYPE_LABEL = { pipeline: '파이프라인', image: '이미지', video: '영상', audio: '오디오', text: '텍스트' };
 
 // ---- 상태 매핑 ----------------------------------------------------------
 function mapStatus(s) {
@@ -183,7 +183,7 @@ function runToItem(run) {
 // ---- 좌측 비주얼 --------------------------------------------------------
 function RowVisual({ item }) {
   const size = 56;
-  if (item.type === 'image' || item.type === 'video') {
+  if (item.type === 'image' || item.type === 'video' || item.type === 'audio') {
     return (
       <Box sx={{ position: 'relative', width: size, height: size, flex: '0 0 auto' }}>
         <Box
@@ -280,10 +280,13 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
   const sub =
     item.type === 'image' ? [item.projectName, item.model, item.res, item.count ? `${item.count}장` : '']
       : item.type === 'video' ? [item.projectName, item.model, item.res, item.duration != null ? `${Math.round(item.duration)}초` : '']
+      : item.type === 'audio' ? [item.projectName, item.model, item.duration != null ? `${Math.round(item.duration)}초` : '']
       : item.type === 'text' ? [item.model, item.tokens != null ? `${item.tokens.toLocaleString()} 토큰` : '']
-      : [item.projectName, item.stepStatuses.length ? `${item.stepStatuses.length}단계` : '', item.input];
+      // 나머지는 파이프라인 — stepStatuses 는 pipelineToItem 만 만든다.
+      // 새 미디어 타입이 여기로 떨어지면 undefined.length 로 렌더가 죽는다 (#805 오디오 사고)
+      : [item.projectName, item.stepStatuses?.length ? `${item.stepStatuses.length}단계` : '', item.input];
   const subStr = sub.filter(Boolean).join(' · ');
-  const clickable = item.type === 'image' || item.type === 'video';
+  const clickable = item.type === 'image' || item.type === 'video' || item.type === 'audio';
 
   return (
     <Paper
@@ -329,7 +332,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           )}
 
           {/* 파이프라인 단계 dots + 진행률 */}
-          {item.type === 'pipeline' && item.stepStatuses.length > 0 && (
+          {item.type === 'pipeline' && item.stepStatuses?.length > 0 && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
               <StepDots statuses={item.stepStatuses} />
               {item.status === 'running' && (
