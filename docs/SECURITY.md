@@ -137,7 +137,7 @@ const allowedTypes = [
 ];
 
 // 파일 크기 제한
-MAX_FILE_SIZE=10485760  // 10MB
+MAX_FILE_SIZE=31457280  // 30MB
 
 // 업로드 경로 보안
 UPLOAD_PATH=/app/uploads  // 컨테이너 내부 경로

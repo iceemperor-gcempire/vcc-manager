@@ -16,7 +16,8 @@ const VIDEO_EXT_BY_MIME = {
   'video/webm': '.webm',
   'video/quicktime': '.mov'
 };
-const MAX_VIDEO_SIZE = parseInt(process.env.MAX_VIDEO_SIZE) || 100 * 1024 * 1024; // 100MB
+// 이미지와 같은 상한을 쓴다 (#813) — MAX_FILE_SIZE 단일 설정
+const { MAX_FILE_SIZE: MAX_VIDEO_SIZE } = require('./fileUpload');
 
 // 이미지와 같은 reference/ 서브디렉토리 사용 — files.js allowlist·백업/무결성 스캔 재사용
 const REFERENCE_SUBDIR = 'reference';
@@ -127,5 +128,5 @@ module.exports = {
   processUploadedVideo,
   probeVideoMetadata,
   ALLOWED_VIDEO_TYPES,
-  MAX_VIDEO_SIZE
+  MAX_VIDEO_SIZE,   // = MAX_FILE_SIZE (#813)
 };

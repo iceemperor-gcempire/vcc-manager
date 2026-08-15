@@ -141,7 +141,7 @@ GOOGLE_CALLBACK_URL=http://localhost:3136/api/auth/google/callback
 
 ```bash
 UPLOAD_PATH=./uploads
-MAX_FILE_SIZE=10485760  # 10MB
+MAX_FILE_SIZE=31457280  # 30MB (이미지·비디오·오디오 공통)
 ```
 
 ### ComfyUI 연동 (선택사항)

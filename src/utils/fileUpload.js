@@ -5,7 +5,10 @@ const sharp = require('sharp');
 const { v4: uuidv4 } = require('uuid');
 
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE) || 10 * 1024 * 1024; // 10MB
+// 업로드 크기 상한 — 이미지·비디오·오디오 공통 (#813).
+// 예전에는 종류마다 따로 뒀는데(이미지 10MB / 비디오 100MB / 오디오 50MB) 나눌 실익이 없었다.
+// 참조 비디오는 모델 스펙상 짧다 (MiniMax H3 는 15초가 한계) — 100MB 를 열어둘 이유가 없다.
+const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE) || 30 * 1024 * 1024; // 30MB
 
 const storage = multer.memoryStorage();
 
