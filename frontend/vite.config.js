@@ -22,4 +22,16 @@ export default defineConfig({
     global: 'globalThis', // CRA 글로벌 shim 의존 라이브러리 대비
   },
   server: { port: 3000 },
+
+  // 테스트 러너 (#808) — 그동안 프론트엔드에 러너가 없어 UI 로직을 가드할 방법이 없었다.
+  // 작업 히스토리 이원화(#794) 정리처럼 회귀 위험이 큰 리팩터의 전제 조건이다.
+  //
+  // esbuild loader 설정(위)을 그대로 쓰므로 .js 안의 JSX 도 그대로 처리된다.
+  test: {
+    environment: 'jsdom',
+    globals: true,                      // describe/it/expect 를 import 없이
+    setupFiles: './src/setupTests.js',
+    include: ['src/**/*.{test,spec}.{js,jsx}'],
+    css: false,
+  },
 });

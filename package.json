@@ -10,7 +10,9 @@
     "env:doctor": "node scripts/env-doctor.js",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:headed": "playwright test --headed"
+    "test:e2e:headed": "playwright test --headed",
+    "test:frontend": "pnpm --dir frontend test",
+    "test:all": "npm test && npm run test:frontend"
   },
   "dependencies": {
     "archiver": "^7.0.1",

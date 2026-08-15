@@ -117,6 +117,27 @@ docker-compose down && docker-compose up --build -d
 docker-compose logs -f backend
 ```
 
+### 프론트엔드 단위 테스트 (vitest, #808)
+
+그동안 프론트엔드에 테스트 러너가 없어 UI 로직을 가드할 방법이 없었다 (`sanitizeHtml.test.js` 는
+실행되지 않는 고아 파일이었다). 작업 히스토리 이원화 정리(#794)처럼 회귀 위험이 큰 리팩터의
+전제 조건이라 연결했다.
+
+```bash
+npm run test:frontend      # 프론트만
+npm run test:all           # 백엔드(jest) + 프론트(vitest)
+pnpm --dir frontend test:watch
+```
+
+- 설정은 `frontend/vite.config.js` 의 `test` 블록 — 빌드와 같은 esbuild loader 를 쓰므로
+  `.js` 안의 JSX 도 그대로 처리된다
+- `frontend/src/setupTests.js` 에서 jest-dom matcher 등록 + 테스트 간 DOM cleanup
+- **프론트엔드는 pnpm 프로젝트다** (`pnpm-lock.yaml`). npm 으로 패키지를 추가하면 실패한다
+
+**무엇을 테스트하나** — 렌더링 스냅샷이 아니라 **계약과 판정 로직**을 고정한다.
+`utils/continueJob` 처럼 여러 화면이 공유하는 순수 모듈이 우선순위다. 실제로 그 계약이
+두 번 깨졌다 (#762 → #792).
+
 ### E2E 테스트 (Playwright, #359)
 critical user journey 자동 회귀 검증. `e2e/` 디렉토리 + `playwright.config.js` 참고.
 
