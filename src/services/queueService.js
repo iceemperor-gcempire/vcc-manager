@@ -163,7 +163,7 @@ async function handleGeminiImage({ workboardData, inputData, job, signal }) {
 
   const result = await geminiService.generateImage(
     workboardData.serverUrl,
-    workboardData.apiKey || process.env.GEMINI_API_KEY,
+    workboardData.apiKey,   // 키는 서버 설정에 at-rest 암호화 저장 (#594). env 폴백 제거 (#813)
     buildGeminiPrompt(inputData, workboardData),
     {
       model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
@@ -226,7 +226,7 @@ async function handleDIceAllImage({ workboardData, inputData, job, signal }) {
 async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
   const result = await gptImageService.generateImage(
     workboardData.serverUrl,
-    workboardData.apiKey || process.env.OPENAI_IMAGE_API_KEY,
+    workboardData.apiKey,   // 위와 동일 (#813)
     buildGeminiPrompt(inputData, workboardData),
     {
       model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),

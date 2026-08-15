@@ -30,8 +30,8 @@ const AUDIO_EXT_BY_MIME = {
   'audio/aac': '.aac'
 };
 
-// 오디오는 비디오보다 훨씬 작다 — 기본 50MB (WAV 무압축 스테레오 44.1kHz 기준 약 5분)
-const MAX_AUDIO_SIZE = parseInt(process.env.MAX_AUDIO_SIZE) || 50 * 1024 * 1024;
+// 이미지·비디오와 같은 상한을 쓴다 (#813) — MAX_FILE_SIZE 단일 설정
+const { MAX_FILE_SIZE: MAX_AUDIO_SIZE } = require('./fileUpload');
 
 // 이미지·비디오와 같은 reference/ 서브디렉토리 — files.js allowlist·백업/무결성 스캔 재사용
 const REFERENCE_SUBDIR = 'reference';
