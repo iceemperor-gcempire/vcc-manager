@@ -30,6 +30,7 @@ import {
   Info,
   Close,
   Videocam,
+  MusicNote,
   CheckCircle
 } from '@mui/icons-material';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
@@ -40,6 +41,7 @@ import Pagination from './Pagination';
 import VideoViewerDialog from './VideoViewerDialog';
 import ProjectTagChip from './ProjectTagChip';
 import { relativeTime } from '../../utils/relativeTime';
+import { MONO } from '../../theme';
 
 function ImageDetailDialog({ image, open, onClose, type }) {
   if (!image) return null;
@@ -300,6 +302,53 @@ function VideoCard({ video, onEdit, onDelete, onView, readOnly = false, showTags
   );
 }
 
+
+// 빈 상태 문구 (#805)
+const EMPTY_LABELS = {
+  video: '생성된 동영상',
+  audio: '생성된 오디오',
+  uploaded: '업로드된 이미지',
+  uploadedAudio: '업로드된 오디오',
+  generated: '생성된 이미지',
+};
+
+// 오디오 목록 (#805) — 썸네일이 없어 카드 그리드 대신 행 목록 + 인라인 플레이어로 그린다.
+// 생성물은 프롬프트가, 업로드본은 파일명이 식별자가 된다.
+function AudioList({ items, onDelete, readOnly }) {
+  const fmt = (sec) => {
+    if (sec == null) return '길이 미상';
+    const t = Math.round(sec);
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  };
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {items.map((item) => (
+        <Card key={item._id} sx={{ p: 1.5, display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+          <MusicNote fontSize="small" color="action" sx={{ mt: 0.5 }} />
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="body2" noWrap title={item.generationParams?.prompt || item.originalName}>
+              {item.generationParams?.prompt || item.originalName || '오디오'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ fontFamily: MONO }}>
+              {fmt(item.metadata?.duration)}
+              {item.metadata?.channels ? ` · ${item.metadata.channels}ch` : ''}
+              {item.metadata?.sampleRate ? ` · ${Math.round(item.metadata.sampleRate / 1000)}kHz` : ''}
+              {item.createdAt ? ` · ${relativeTime(item.createdAt)}` : ''}
+            </Typography>
+            <Box component="audio" controls preload="none" src={item.url}
+              sx={{ display: 'block', width: '100%', mt: 0.5, height: 32 }} />
+          </Box>
+          {!readOnly && onDelete && (
+            <IconButton aria-label="삭제" size="small" onClick={() => onDelete(item)}>
+              <Delete fontSize="small" />
+            </IconButton>
+          )}
+        </Card>
+      ))}
+    </Box>
+  );
+}
+
 function MediaGrid({
   type,
   fetchFn = null,
@@ -327,9 +376,14 @@ function MediaGrid({
   const [selectedMedia, setSelectedMedia] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
 
+  // 오디오는 썸네일이 없어 그리드가 아니라 목록으로 그린다 (#805)
+  const isAudio = type === 'audio' || type === 'uploadedAudio';
+
   // Default fetch functions based on type
   const defaultFetchFn = (params) => {
     if (type === 'video') return imageAPI.getVideos(params);
+    if (type === 'audio') return imageAPI.getAudios(params);              // #805
+    if (type === 'uploadedAudio') return imageAPI.getUploadedAudios(params);
     if (type === 'uploaded') return imageAPI.getUploaded(params);
     return imageAPI.getGenerated(params);
   };
@@ -346,6 +400,7 @@ function MediaGrid({
     const d = data?.data?.data || data?.data || {};
     let items;
     if (type === 'video') items = d.videos || [];
+    else if (type === 'audio' || type === 'uploadedAudio') items = d.audios || [];   // #805
     else items = d.images || [];
     return { items, pagination: d.pagination || {} };
   };
@@ -416,8 +471,16 @@ function MediaGrid({
         </Box>
       ) : items.length === 0 ? (
         <Alert severity="info">
-          {search ? '검색 결과가 없습니다.' : `${type === 'video' ? '생성된 동영상' : type === 'uploaded' ? '업로드된 이미지' : '생성된 이미지'}가 없습니다.`}
+          {search ? '검색 결과가 없습니다.' : `${EMPTY_LABELS[type] || '생성된 이미지'}가 없습니다.`}
         </Alert>
+      ) : isAudio ? (
+        <>
+          <AudioList
+            items={items}
+            onDelete={onDelete}
+            readOnly={readOnly}
+          />
+        </>
       ) : (
         <>
           <Grid container spacing={selectable ? 2 : 3}>

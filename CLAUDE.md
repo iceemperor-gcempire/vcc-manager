@@ -117,29 +117,70 @@ docker-compose down && docker-compose up --build -d
 docker-compose logs -f backend
 ```
 
+### 패키지 매니저는 pnpm 전용
+
+**npm 을 쓰지 않는다.** 루트 · `frontend/` · `mcp-server/` 모두 `pnpm-lock.yaml` 이며
+Dockerfile 3종도 `pnpm install --frozen-lockfile` 이다.
+
+```bash
+pnpm install                 # npm install (X)
+pnpm add -D <pkg>            # npm install -D (X)
+pnpm --dir frontend test     # 하위 프로젝트
+```
+
+**이유는 공급망 공격 대비다.** npm 의 기본 hoisting 은 선언하지 않은 패키지까지 require 가능한
+상태를 만들어, 침해된 전이 의존성이 코드에 닿을 표면을 넓힌다. pnpm 의 격리된 node_modules 는
+그 표면을 줄인다. 완전한 방어는 아니지만 최소한의 방책이다.
+
+- 설치는 `--frozen-lockfile` 로 — 락파일과 다르면 조용히 해결하지 말고 실패해야 한다
+- 의존성 추가 시 락파일 변경분을 PR 에서 확인할 것 (추가된 전이 의존성이 눈에 보이도록)
+- **npm 으로 패키지를 추가하면 실패한다** — pnpm 프로젝트에서 `npm install` 은
+  `Cannot read properties of null` 로 죽는다. 에러 메시지가 원인을 안 알려주니 주의
+
+### 프론트엔드 단위 테스트 (vitest, #808)
+
+그동안 프론트엔드에 테스트 러너가 없어 UI 로직을 가드할 방법이 없었다 (`sanitizeHtml.test.js` 는
+실행되지 않는 고아 파일이었다). 작업 히스토리 이원화 정리(#794)처럼 회귀 위험이 큰 리팩터의
+전제 조건이라 연결했다.
+
+```bash
+pnpm run test:frontend     # 프론트만
+pnpm run test:all          # 백엔드(jest) + 프론트(vitest)
+pnpm --dir frontend test:watch
+```
+
+- 설정은 `frontend/vite.config.js` 의 `test` 블록 — 빌드와 같은 esbuild loader 를 쓰므로
+  `.js` 안의 JSX 도 그대로 처리된다
+- `frontend/src/setupTests.js` 에서 jest-dom matcher 등록 + 테스트 간 DOM cleanup
+- **프론트엔드는 pnpm 프로젝트다** (`pnpm-lock.yaml`). npm 으로 패키지를 추가하면 실패한다
+
+**무엇을 테스트하나** — 렌더링 스냅샷이 아니라 **계약과 판정 로직**을 고정한다.
+`utils/continueJob` 처럼 여러 화면이 공유하는 순수 모듈이 우선순위다. 실제로 그 계약이
+두 번 깨졌다 (#762 → #792).
+
 ### E2E 테스트 (Playwright, #359)
 critical user journey 자동 회귀 검증. `e2e/` 디렉토리 + `playwright.config.js` 참고.
 
 ```bash
 # 첫 실행 — Playwright 브라우저 다운로드
-npx playwright install chromium
+pnpm exec playwright install chromium
 
 # 전체 실행에는 .env 에 E2E_ADMIN_SECRET 설정 필요 (#381) — 미설정 시
 # 승인/admin 필요한 테스트는 skip 됨. 알파 등 외부 노출 환경에는 절대 설정 금지.
 # (playwright.config 가 .env 에서 자동 로드, 백엔드는 docker-compose 가 주입)
 
 # 헤드리스 실행 (docker-compose 가 떠 있어야 함)
-npm run test:e2e
+pnpm run test:e2e
 
 # UI 모드 / 헤드 모드
-npm run test:e2e:ui
-npm run test:e2e:headed
+pnpm run test:e2e:ui
+pnpm run test:e2e:headed
 ```
 
 **유지보수 정책** — UI 변경 시 함께 갱신:
 - 셀렉터 / 네비게이션 흐름 / 라벨 텍스트 등이 바뀌면 관련 e2e spec 도 동시 수정. 별도 후속 작업으로 미루지 말 것.
 - 핵심 user journey 추가 (예: 신규 페이지, 새 인증 흐름) 시 smoke 1개 이상 추가 권장.
-- PR 머지 전 로컬에서 `npm run test:e2e` 통과 확인.
+- PR 머지 전 로컬에서 `pnpm run test:e2e` 통과 확인.
 - 테스트가 깨졌을 때 \"테스트가 잘못됨\" 으로 무조건 spec 만 고치지 말 것 — UI 실제 동작 검증 후 spec / 실 동작 어느 쪽이 맞는지 결정.
 
 ### 환경 변수 파일

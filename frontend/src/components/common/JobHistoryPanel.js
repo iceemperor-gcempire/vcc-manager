@@ -60,10 +60,9 @@ import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
 import { useJobActions } from '../../hooks/useJobActions';
+import { useContinueJob } from '../../hooks/useContinueJob';
 import { relativeTime } from '../../utils/relativeTime';
 import {
-  buildSameWorkboardContinue,
-  buildCrossWorkboardContinue,
   buildWorkboardPickerContinue,
   storeContinueJobData,
 } from '../../utils/continueJob';
@@ -488,6 +487,32 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
                 >
                   +{job.resultVideos.length - 6}
                 </Avatar>
+              )}
+            </Box>
+          </Box>
+        )}
+
+        {/* 생성된 오디오 (#805) — 썸네일이 없어 그리드가 아니라 인라인 플레이어로 보여준다 */}
+        {job.resultAudios?.length > 0 && (
+          <Box mb={{ xs: 1.5, md: 1 }}>
+            <Typography variant="caption" display="block" gutterBottom>
+              생성된 오디오 ({job.resultAudios.length}개)
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {job.resultAudios.slice(0, 3).map((audio, index) => (
+                <Box
+                  key={audio._id || index}
+                  component="audio"
+                  controls
+                  preload="none"
+                  src={audio.url}
+                  sx={{ width: '100%', height: 32 }}
+                />
+              ))}
+              {job.resultAudios.length > 3 && (
+                <Typography variant="caption" color="text.secondary">
+                  외 {job.resultAudios.length - 3}개
+                </Typography>
               )}
             </Box>
           </Box>
@@ -944,6 +969,7 @@ function JobHistoryPanel({
 
   // 재시도/취소/삭제는 전역 피드(pages/JobHistory.js)와 동작을 공유한다 (#728).
   // 사용자 설정(deleteContentWithHistory 등)도 훅이 함께 제공 — 중복 조회 제거.
+  const { continueSameWorkboard, continueCrossWorkboard } = useContinueJob();   // #808
   const jobActions = useJobActions({ invalidateKeys: [queryKey] });
   const userPreferences = jobActions.preferences;
 
@@ -980,57 +1006,7 @@ function JobHistoryPanel({
     }
   };
 
-  const handleContinueJob = async (job) => {
-    try {
-      let workboardId = null;
-      if (typeof job.workboardId === 'string') workboardId = job.workboardId;
-      else if (job.workboardId?._id) workboardId = job.workboardId._id;
-      else if (job.workboardId?.id) workboardId = job.workboardId.id;
-
-      if (!workboardId || workboardId === 'undefined' || workboardId === 'null') {
-        toast.error('작업판 정보를 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-        return;
-      }
-
-      if (!/^[0-9a-fA-F]{24}$/.test(workboardId)) {
-        toast.error('잘못된 작업판 ID입니다. 작업판 선택 페이지로 이동합니다.');
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-        return;
-      }
-
-      const workboardResponse = await workboardAPI.getById(workboardId);
-      const workboard = workboardResponse.data?.workboard;
-
-      if (!workboard) {
-        toast.error('작업판을 찾을 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-        return;
-      }
-
-      if (!workboard.isActive) {
-        toast.error('작업판이 비활성화되었습니다. 작업판 선택 페이지로 이동합니다.');
-        storeContinueJobData(buildWorkboardPickerContinue(job));
-        navigate('/workboards');
-        return;
-      }
-
-      storeContinueJobData(buildSameWorkboardContinue({ workboardId, workboard, job }));
-      navigate(`/generate/${workboardId}`);
-      toast.success('작업 설정을 불러왔습니다');
-    } catch (error) {
-      console.error('Continue job error:', error);
-      if (error.response?.status === 404) toast.error('작업판이 존재하지 않습니다. 작업판 선택 페이지로 이동합니다.');
-      else if (error.response?.status === 403) toast.error('작업판 접근 권한이 없습니다. 작업판 선택 페이지로 이동합니다.');
-      else toast.error('작업을 계속할 수 없습니다. 작업판 선택 페이지로 이동합니다.');
-
-      storeContinueJobData(buildWorkboardPickerContinue(job));
-      navigate('/workboards');
-    }
-  };
+  const handleContinueJob = (job) => continueSameWorkboard(job);   // #808 — 훅으로 통합
 
   const handleSavePrompt = (job) => { setSavingJob(job); setSavePromptOpen(true); };
   const handleSavePromptSubmit = (data) => { savePromptMutation.mutate(data); };
@@ -1042,26 +1018,10 @@ function JobHistoryPanel({
 
   const handleWorkboardSelected = (workboard) => {
     if (!crossWorkboardJob) return;
-
     const job = crossWorkboardJob;
-
-    // 마지막 생성 미디어 추출
-    const lastGeneratedImage = job.resultImages?.length > 0
-      ? job.resultImages[job.resultImages.length - 1]
-      : null;
-    const lastGeneratedVideo = job.resultVideos?.length > 0
-      ? job.resultVideos[job.resultVideos.length - 1]
-      : null;
-
-    storeContinueJobData(buildCrossWorkboardContinue({
-      workboard, job,
-      lastGeneratedMedia: { image: lastGeneratedImage, video: lastGeneratedVideo },
-    }));
-
     setCrossWorkboardOpen(false);
     setCrossWorkboardJob(null);
-    navigate(`/generate/${workboard._id}`);
-    toast.success('작업판이 선택되었습니다. 설정을 매칭합니다.');
+    continueCrossWorkboard(job, workboard);
   };
 
   return (

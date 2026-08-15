@@ -12,5 +12,6 @@ export const SERVER_TYPES = [
 export const OUTPUT_FORMATS = [
   "image",
   "video",
+  "audio",
   "text"
 ];

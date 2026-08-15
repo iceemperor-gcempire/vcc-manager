@@ -59,6 +59,7 @@ import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
+import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -673,6 +674,9 @@ function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
   );
 }
 
+// 출력 형식별 명사 (#805) — 토스트 문구용
+const OUTPUT_NOUN = { image: '이미지', video: '동영상', audio: '오디오', text: '텍스트' };
+
 // 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
   // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
@@ -847,7 +851,8 @@ function ImageGeneration() {
 
   const generateMutation = useMutation({ mutationFn: jobAPI.create,
       onSuccess: (data) => {
-        toast.success('이미지 생성 작업이 시작되었습니다');
+        // 출력 형식에 맞춘 문구 (#805) — 오디오 작업판에서도 "이미지" 라고 뜨던 것
+        toast.success(`${OUTPUT_NOUN[workboardData?.outputFormat] || '이미지'} 생성 작업이 시작되었습니다`);
         queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
         navigate('/jobs');
       },
@@ -1305,7 +1310,7 @@ function ImageGeneration() {
                 </Box>
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={['image', 'video', 'audio'].includes(field.type) ? 12 : 6} key={field.name}>
+                    <Grid item xs={12} sm={ATTACHMENT_FIELD_TYPES.includes(field.type) ? 12 : 6} key={field.name}>
                       {field.type === 'image' ? (
                         <Controller
                           name={`additionalParams.${field.name}`}

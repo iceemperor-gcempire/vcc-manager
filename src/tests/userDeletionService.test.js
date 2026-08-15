@@ -10,6 +10,7 @@ describe('#660 userDeletionService', () => {
     expect(names).toEqual([
       'ApiKey',
       'ConversationJob',
+      'GeneratedAudio',
       'GeneratedImage',
       'GeneratedText',
       'GeneratedVideo',

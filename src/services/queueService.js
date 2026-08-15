@@ -10,9 +10,11 @@ const gptImageService = require('./gptImageService');
 const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
 const { applyOmitDirectives } = require('../utils/workflowDirectives');
+const { ATTACHMENT_FIELD_TYPES, GENERATED_MEDIA_DIRS } = require('../constants/mediaTypes');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
@@ -102,9 +104,11 @@ const initializeQueues = async () => {
       console.log(`ComfyUI result:`, JSON.stringify(result, null, 2));
       console.log(`Result images count: ${result?.images?.length || 0}`);
       console.log(`Result videos count: ${result?.videos?.length || 0}`);
+      console.log(`Result audios count: ${result?.audios?.length || 0}`);
       await updateJobStatus(job.data.jobId, 'completed', {
         resultImages: result.images,
         resultVideos: result.videos,
+        resultAudios: result.audios,
         usage: result.usage,
         costEstimate: result.costEstimate
       });
@@ -140,6 +144,7 @@ const SERVICE_MAP = {
   'OpenAI Compatible:image': handleOpenAIImage,
   'ComfyUI:image': handleComfyUIWorkflow,
   'ComfyUI:video': handleComfyUIWorkflow,
+  'ComfyUI:audio': handleComfyUIWorkflow,   // #805
   'd-ice-all:image': handleDIceAllImage,
 };
 
@@ -403,15 +408,17 @@ const processImageGeneration = async (job) => {
     
     const hasImages = generationResult.images && generationResult.images.length > 0;
     const hasVideos = generationResult.videos && generationResult.videos.length > 0;
-    
-    if (!hasImages && !hasVideos) {
-      console.error('❌ No images or videos returned from generation backend!');
+    const hasAudios = generationResult.audios && generationResult.audios.length > 0;   // #805
+
+    if (!hasImages && !hasVideos && !hasAudios) {
+      console.error('❌ No media returned from generation backend!');
       console.error('🔍 Full generation result for debugging:', JSON.stringify(generationResult, null, 2));
       throw new Error('No media returned from generation backend');
     }
     
     let savedImages = [];
     let savedVideos = [];
+    let savedAudios = [];
     
     if (hasImages) {
       console.log(`💾 Starting to save ${generationResult.images.length} images...`);
@@ -424,6 +431,12 @@ const processImageGeneration = async (job) => {
       savedVideos = await saveGeneratedMedia(jobId, generationResult.videos, enhancedInputData, 'video', workboardData);
       console.log(`✅ Saved ${savedVideos.length} videos successfully`);
     }
+
+    if (hasAudios) {
+      console.log(`🔊 Starting to save ${generationResult.audios.length} audios...`);
+      savedAudios = await saveGeneratedMedia(jobId, generationResult.audios, enhancedInputData, 'audio', workboardData);
+      console.log(`✅ Saved ${savedAudios.length} audios successfully`);
+    }
     
     job.progress(100);
 
@@ -431,6 +444,7 @@ const processImageGeneration = async (job) => {
     return {
       images: savedImages,
       videos: savedVideos,
+      audios: savedAudios,   // #805
       usage: generationResult.usage,
       costEstimate: generationResult.costEstimate,
     };
@@ -909,7 +923,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
       // `{{##필드명_attached##}}` 가 1/0 (number) 으로 치환된다. 흰 PNG 자동 주입(#230)과
       // 무관하게 "사용자가 실제로 첨부했는가" 를 나타내므로, VCC Optional Image 노드나
       // 스위치 노드의 분기 입력, `_vcc.omitInputsUnless` (#771) 의 조건으로 사용할 수 있다.
-      if (field.type === 'image' || field.type === 'video' || field.type === 'audio') {
+      if (ATTACHMENT_FIELD_TYPES.includes(field.type)) {
         const hasAttachment = Array.isArray(rawValue)
           ? rawValue.length > 0
           : Boolean(extractValue(rawValue));
@@ -1041,13 +1055,23 @@ const getExtensionFromMimeType = (mimeType) => {
     'video/webm': 'webm',
     'video/quicktime': 'mov',
     'video/x-msvideo': 'avi',
-    'video/x-matroska': 'mkv'
+    'video/x-matroska': 'mkv',
+    // 오디오 (#805) — SaveAudioAdvanced 는 flac / mp3 / opus 를 낸다
+    'audio/flac': 'flac',
+    'audio/wav': 'wav',
+    'audio/mpeg': 'mp3',
+    'audio/ogg': 'ogg',
+    'audio/opus': 'opus',
+    'audio/mp4': 'm4a',
+    'audio/aac': 'aac'
   };
-  return mimeToExt[mimeType] || 'bin';
+  // 모르는 MIME 은 null 을 돌려준다 — 호출부가 원본 파일명 확장자로 넘어갈 수 있도록.
+  // 예전에는 'bin' 을 돌려줬는데, truthy 라서 호출부의 `||` 폴백이 죽어 있었다 (#805 에서 발견).
+  return mimeToExt[mimeType] || null;
 };
 
 const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workboard = null) => {
-  const typeLabel = mediaType === 'video' ? 'videos' : 'images';
+  const typeLabel = { video: 'videos', audio: 'audios' }[mediaType] || 'images';
   console.log(`🖼️ Starting to save ${mediaItems?.length || 0} generated ${typeLabel} for job ${jobId}`);
   console.log('📊 Media data:', mediaItems);
   console.log('📋 Input data for saving:', inputData);
@@ -1058,7 +1082,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
   }
   
   const savedItems = [];
-  const subDir = mediaType === 'video' ? 'videos' : 'generated';
+  const subDir = GENERATED_MEDIA_DIRS[mediaType] || GENERATED_MEDIA_DIRS.image;
   
   for (let i = 0; i < mediaItems.length; i++) {
     try {
@@ -1077,7 +1101,8 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         continue;
       }
       
-      const ext = getExtensionFromMimeType(itemData.mimeType) || itemData.filename?.split('.').pop() || (mediaType === 'video' ? 'mp4' : 'png');
+      const ext = getExtensionFromMimeType(itemData.mimeType) || itemData.filename?.split('.').pop()
+        || ({ video: 'mp4', audio: 'flac' }[mediaType] || 'png');
       const filename = `generated_${Date.now()}_${i}.${ext}`;
       const targetDir = path.join(process.env.UPLOAD_PATH || './uploads', subDir);
       
@@ -1119,6 +1144,17 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
       }
       
       // 동영상 첫 프레임 썸네일 생성 (#672, best-effort — 실패해도 동영상 저장은 계속)
+      // 오디오 메타데이터 (#805) — 업로드 경로(#772)와 같은 ffprobe 헬퍼를 쓴다
+      if (mediaType === 'audio') {
+        try {
+          const { probeAudioMetadata } = require('../utils/audioUpload');
+          metadata = await probeAudioMetadata(filePath);
+          console.log(`audio ${i + 1} metadata:`, JSON.stringify(metadata));
+        } catch (audioMetaError) {
+          console.warn(`Failed to extract audio metadata for ${i + 1}:`, audioMetaError.message);
+        }
+      }
+
       let thumbnailUrl = null;
       if (mediaType === 'video') {
         try {
@@ -1137,7 +1173,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
       const generatedData = {
         filename,
         originalName: itemData.filename || filename,
-        mimeType: itemData.mimeType || (mediaType === 'video' ? 'video/mp4' : 'image/png'),
+        mimeType: itemData.mimeType || ({ video: 'video/mp4', audio: 'audio/flac' }[mediaType] || 'image/png'),
         size: itemData.buffer.length,
         path: filePath,
         url: `/uploads/${subDir}/${filename}`,
@@ -1165,6 +1201,8 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
       let savedItem;
       if (mediaType === 'video') {
         savedItem = new GeneratedVideo(generatedData);
+      } else if (mediaType === 'audio') {
+        savedItem = new GeneratedAudio(generatedData);
       } else {
         savedItem = new GeneratedImage(generatedData);
       }

@@ -25,6 +25,7 @@
  *   감싸지만, 복원 시 정확히 round-trip 되고 구버전(평문) 백업도 호환됨 (#594 PR 설명 참고).
  */
 
+const { GENERATED_MEDIA_DIRS, UPLOAD_MEDIA_DIR } = require('../constants/mediaTypes');
 const User = require('../models/User');
 const Group = require('../models/Group');
 const PromptGuide = require('../models/PromptGuide');
@@ -36,6 +37,7 @@ const UploadedText = require('../models/UploadedText');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const PromptData = require('../models/PromptData');
 const Pipeline = require('../models/Pipeline');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -73,6 +75,7 @@ const BACKUP_COLLECTIONS = [
   { name: 'ConversationJob', model: ConversationJob },
   { name: 'GeneratedImage', model: GeneratedImage },
   { name: 'GeneratedVideo', model: GeneratedVideo },
+  { name: 'GeneratedAudio', model: GeneratedAudio },
   { name: 'GeneratedText', model: GeneratedText },
   { name: 'PipelineRun', model: PipelineRun },
   // 인증 / 시스템 설정
@@ -88,4 +91,14 @@ const CACHE_COLLECTIONS = [
   { name: 'ServerModelCache', model: ServerModelCache },
 ];
 
-module.exports = { BACKUP_COLLECTIONS, CACHE_COLLECTIONS };
+// 백업 대상 파일 디렉토리 (#805).
+//
+// backupService 와 restoreService 가 각자 배열을 하드코딩하고 있어서, 오디오 축(#805)을
+// 추가할 때 collections 만 챙기고 파일 디렉토리를 놓쳤다. 문서는 백업되는데 파일은 빠져
+// **복원 시 오디오가 전부 깨지는** 상태였다. 목록을 여기 하나로 모은다.
+const BACKUP_FILE_DIRS = Object.freeze([
+  ...new Set([...Object.values(GENERATED_MEDIA_DIRS), UPLOAD_MEDIA_DIR]),
+]);
+
+module.exports = {
+  BACKUP_FILE_DIRS, BACKUP_COLLECTIONS, CACHE_COLLECTIONS };

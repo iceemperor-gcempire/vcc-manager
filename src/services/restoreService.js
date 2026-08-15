@@ -9,7 +9,7 @@ const { ENCRYPTION_KEY } = backupService;
 
 // 복원 대상 컬렉션 — backup/restore 공유 단일 소스 (#588).
 // 복호화 대상은 백업 시 암호화한 필드(encryptFields)와 동일하게 적용.
-const { BACKUP_COLLECTIONS, CACHE_COLLECTIONS } = require('./backupCollections');
+const { BACKUP_COLLECTIONS, CACHE_COLLECTIONS, BACKUP_FILE_DIRS } = require('./backupCollections');
 
 const UPLOAD_DIR = process.env.UPLOAD_PATH || './uploads';
 const TEMP_DIR = process.env.TEMP_PATH || path.join(UPLOAD_DIR, 'restore-temp');
@@ -339,9 +339,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
   const statistics = {
     collectionsRestored: {},
     filesRestored: {
-      generated: 0,
-      reference: 0,
-      videos: 0
+      ...Object.fromEntries(BACKUP_FILE_DIRS.map((d) => [d, 0]))
     },
     skipped: 0,
     errors: 0,
@@ -387,7 +385,7 @@ async function executeRestore(jobId, zipPath, options = {}) {
 
     // 파일 복구
     if (!options.skipFiles) {
-      const fileDirs = ['generated', 'reference', 'videos'];
+      const fileDirs = BACKUP_FILE_DIRS;
 
       for (const dir of fileDirs) {
         currentStep++;

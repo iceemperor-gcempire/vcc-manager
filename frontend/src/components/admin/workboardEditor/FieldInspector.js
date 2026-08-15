@@ -23,11 +23,12 @@ import { Controller, useFieldArray } from 'react-hook-form';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import CustomFieldControl from '../../common/CustomFieldControl';
 import { ServerMetadataDefaultValueInput, FIELD_TYPES } from './shared';
+import { ATTACHMENT_FIELD_TYPES } from '../../../templates/capabilities';
 import { MONO } from '../../../theme';
 
 // 프리뷰 필드 — 실행 화면과 동일한 공용 렌더러의 preview 모드 (#711)
 export function PreviewField({ field }) {
-  if (field.type === 'image' || field.type === 'video' || field.type === 'audio') {
+  if (ATTACHMENT_FIELD_TYPES.includes(field.type)) {
     const uploadHint = {
       video: `비디오 업로드 (최대 ${field.videoConfig?.maxVideos || 1}개)`,
       audio: `오디오 업로드 (최대 ${field.audioConfig?.maxAudios || 1}개)`,

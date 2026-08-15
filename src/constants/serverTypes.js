@@ -23,7 +23,7 @@ const SERVER_TYPE_SPECS = Object.freeze({
   'ComfyUI': Object.freeze({
     label: 'ComfyUI',
     color: '#7e57c2', // 보라 — 서드파티/오픈소스 느낌
-    outputFormats: Object.freeze(['image', 'video']),
+    outputFormats: Object.freeze(['image', 'video', 'audio']),
     modelSource: 'checkpoint',
     healthCheck: Object.freeze({ path: '/system_stats', auth: 'bearer' }),
     defaultUrl: null,
