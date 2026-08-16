@@ -60,7 +60,10 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   if (!ALLOWED_AUDIO_TYPES.includes(file.mimetype)) {
-    return cb(new Error('Only MP3, WAV, FLAC, OGG, M4A, and AAC audio files are allowed'), false);
+    // status 400 — 없으면 500 으로 은닉된다 (#842)
+    const err = new Error(`지원하지 않는 오디오 형식입니다 (${file.mimetype || '알 수 없음'}). MP3·WAV·FLAC·OGG·M4A·AAC 만 업로드할 수 있습니다.`);
+    err.status = 400;
+    return cb(err, false);
   }
   cb(null, true);
 };
@@ -122,6 +125,7 @@ const processUploadedAudio = async (file) => {
 
 module.exports = {
   audioUpload,
+  fileFilter,   // 테스트용 (#842)
   processUploadedAudio,
   probeAudioMetadata,
   ALLOWED_AUDIO_TYPES,
