@@ -1,7 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
-const { getOmitConditionedFieldNames, workflowSupportsLora } = require('../utils/workflowDirectives');
+const { getOmitConditionedFieldNames, getSupportedBuiltinInputs } = require('../utils/workflowDirectives');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
@@ -518,8 +518,8 @@ router.get('/:id', requireAuth, async (req, res) => {
     // 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다.
     const payload = workboard.toObject();
     payload.omitConditionedFields = getOmitConditionedFieldNames(workboard.workflowData);
-    // LoRA 영역 표시 여부 (#816) — 워크플로에 LoRA 로더나 lora 필드가 있을 때만
-    payload.supportsLora = workflowSupportsLora(workboard.workflowData, workboard.additionalInputFields);
+    // 워크플로가 실제로 쓰는 내장 입력 (#820) — 쓰지 않는 칸은 화면에서 감춘다
+    payload.supportedInputs = getSupportedBuiltinInputs(workboard.workflowData, workboard.additionalInputFields);
 
     res.json({ workboard: payload });
   } catch (error) {
