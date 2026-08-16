@@ -209,4 +209,27 @@ function getOmitConditionedFieldNames(workflowData) {
   return [...names];
 }
 
-module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames };
+/**
+ * 이 워크플로가 LoRA 를 실제로 쓰는가 (#816).
+ *
+ * 생성 화면의 LoRA 영역은 그동안 "ComfyUI 작업판이면 무조건" 표시됐다. 그래서 LoRA 슬롯이
+ * 없는 워크플로(MiniMax H3 · Music 3 등)에서도 뜨고, 추가해도 아무 효과가 없었다.
+ *
+ * 판정 근거는 둘 중 하나다 — LoRA 로더 노드가 있거나, lora 타입 필드가 정의돼 있거나.
+ *
+ * @param {string} workflowData — 작업판 워크플로 JSON 문자열
+ * @param {Array} additionalInputFields
+ */
+function workflowSupportsLora(workflowData, additionalInputFields = []) {
+  if ((additionalInputFields || []).some((f) => f && f.type === 'lora')) return true;
+  if (!workflowData || typeof workflowData !== 'string') return false;
+  try {
+    const parsed = JSON.parse(workflowData);
+    return Object.values(parsed).some((n) => /lora/i.test(n?.class_type || ''));
+  } catch {
+    // 따옴표 없는 플레이스홀더로 파싱이 안 되는 경우 — 문자열 검사로 대체
+    return /"class_type"\s*:\s*"[^"]*[Ll]ora/.test(workflowData);
+  }
+}
+
+module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, workflowSupportsLora };

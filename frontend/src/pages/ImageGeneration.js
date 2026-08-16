@@ -677,6 +677,10 @@ function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
 // 출력 형식별 명사 (#805) — 토스트 문구용
 const OUTPUT_NOUN = { image: '이미지', video: '동영상', audio: '오디오', text: '텍스트' };
 
+// 반칸(sm=6) 이 아니라 한 줄을 다 쓰는 필드 (#816).
+// 첨부형은 미리보기 때문에, 텍스트는 여러 줄 입력이라 좁으면 쓰기 어렵다.
+const FULL_WIDTH_FIELD_TYPES = [...ATTACHMENT_FIELD_TYPES, 'string'];
+
 // 64비트 부호없는 정수 범위에서 랜덤 시드 생성
 const generateRandomSeed = () => {
   // ComfyUI는 64비트 부호없는 정수를 사용 (음수 불가)
@@ -1178,7 +1182,7 @@ function ImageGeneration() {
             <Paper variant="outlined" sx={{ mb: 4 }}>
               {/* 카드 헤더 — 목업 06: 제목 + 우측 텍스트 액션 */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="h6">기본 설정</Typography>
+                <Typography variant="h6">프롬프트</Typography>
                 <Box sx={{ flex: 1 }} />
                 <Button startIcon={<FolderOpen />} onClick={() => setPromptDataDialogOpen(true)}>
                   프롬프트 불러오기
@@ -1210,7 +1214,7 @@ function ImageGeneration() {
               />
 
               {/* LoRA — 프롬프트의 <lora:이름:가중치> 태그를 칩으로 표시 (목업 06, #552). 추가는 기존 prompt-insert 모달 */}
-              {isComfyUIWorkboard && (
+              {workboardData?.supportsLora && (
                 <Box>
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 1 }}>
                     LoRA
@@ -1306,11 +1310,11 @@ function ImageGeneration() {
             {workboardData?.additionalInputFields?.length > 0 && (
               <Paper variant="outlined" sx={{ mb: 4 }}>
                 <Box sx={{ px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-                  <Typography variant="h6">고급 설정</Typography>
+                  <Typography variant="h6">입력 항목</Typography>
                 </Box>
                 <Grid container spacing={3.5} sx={{ p: 4 }}>
                   {workboardData.additionalInputFields.map((field) => (
-                    <Grid item xs={12} sm={ATTACHMENT_FIELD_TYPES.includes(field.type) ? 12 : 6} key={field.name}>
+                    <Grid item xs={12} sm={FULL_WIDTH_FIELD_TYPES.includes(field.type) ? 12 : 6} key={field.name}>
                       {field.type === 'image' ? (
                         <Controller
                           name={`additionalParams.${field.name}`}
@@ -1441,11 +1445,11 @@ function ImageGeneration() {
                 disabled={generating || generateMutation.isPending}
                 startIcon={generating ? <CircularProgress size={20} /> : <Send />}
               >
-                {generating ? '생성 중...' : '이미지 생성 시작'}
+                {generating ? '생성 중...' : '생성 시작'}
               </Button>
 
               <Alert severity="info" sx={{ mt: 2.5 }}>
-                이미지 생성은 백그라운드에서 처리됩니다.
+                생성은 백그라운드에서 처리됩니다.
                 작업 히스토리에서 진행 상황을 확인할 수 있습니다.
               </Alert>
             </Paper>
@@ -1454,7 +1458,7 @@ function ImageGeneration() {
       </form>
 
       {/* LoRA 목록 모달 */}
-      {isComfyUIWorkboard && (
+      {workboardData?.supportsLora && (
         <MetadataPickerModal
           kind="lora"
           open={loraModalOpen}

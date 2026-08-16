@@ -26,6 +26,9 @@ import MetadataFieldInput from './MetadataFieldInput';
  * - preview 모드: 폼 없이 disabled 로 동일 UI 렌더 — 프리뷰가 정의상 실행과 같은 모습
  */
 
+// 텍스트 필드는 기본적으로 여러 줄을 받는다 (#816).
+// 예전에는 이름에 'prompt' 가 들어갈 때만 멀티라인이라, lyrics 처럼 긴 글이 들어오는
+// 필드가 한 줄짜리로 나왔다. 짧게 쓰고 싶으면 그냥 짧게 쓰면 되지만, 그 반대는 불가능하다.
 const isPromptLike = (field) => (field.name || '').includes('prompt');
 
 function requiredMessage(field) {
@@ -118,8 +121,9 @@ function FieldBody({ field, value, onChange, error, size, disabled, serverId, wo
           label={field.label}
           required={field.required}
           placeholder={field.placeholder}
-          multiline={isPromptLike(field)}
-          rows={isPromptLike(field) ? 2 : 1}
+          multiline
+          minRows={isPromptLike(field) ? 3 : 2}
+          maxRows={12}
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value)}
           error={!!error}
