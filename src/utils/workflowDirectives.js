@@ -210,26 +210,40 @@ function getOmitConditionedFieldNames(workflowData) {
 }
 
 /**
- * 이 워크플로가 LoRA 를 실제로 쓰는가 (#816).
+ * 워크플로가 실제로 쓰는 내장 입력 (#820).
  *
- * 생성 화면의 LoRA 영역은 그동안 "ComfyUI 작업판이면 무조건" 표시됐다. 그래서 LoRA 슬롯이
- * 없는 워크플로(MiniMax H3 · Music 3 등)에서도 뜨고, 추가해도 아무 효과가 없었다.
+ * 생성 화면은 프롬프트·부정 프롬프트·시드·LoRA 를 **작업판과 무관하게 항상** 보여줬다.
+ * 그래서 워크플로가 쓰지 않는 칸에 사용자가 입력하면 아무 데도 안 가고 조용히 버려졌다.
+ * MiniMax Music 3 는 negative 를 caption 조건의 ZeroOut 으로 만들어 부정 프롬프트를
+ * 받지 않는데, 화면에는 칸이 떠 있어 "입력해도 무시된다" 는 혼란을 낳았다.
  *
- * 판정 근거는 둘 중 하나다 — LoRA 로더 노드가 있거나, lora 타입 필드가 정의돼 있거나.
+ * 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다 (#774 와 같은 방식).
  *
- * @param {string} workflowData — 작업판 워크플로 JSON 문자열
+ * @param {string} workflowData
  * @param {Array} additionalInputFields
+ * @returns {{ prompt: boolean, negativePrompt: boolean, seed: boolean, lora: boolean }}
  */
-function workflowSupportsLora(workflowData, additionalInputFields = []) {
-  if ((additionalInputFields || []).some((f) => f && f.type === 'lora')) return true;
-  if (!workflowData || typeof workflowData !== 'string') return false;
-  try {
-    const parsed = JSON.parse(workflowData);
-    return Object.values(parsed).some((n) => /lora/i.test(n?.class_type || ''));
-  } catch {
-    // 따옴표 없는 플레이스홀더로 파싱이 안 되는 경우 — 문자열 검사로 대체
-    return /"class_type"\s*:\s*"[^"]*[Ll]ora/.test(workflowData);
+function getSupportedBuiltinInputs(workflowData, additionalInputFields = []) {
+  const wf = typeof workflowData === 'string' ? workflowData : '';
+  const uses = (name) => wf.includes(`{{##${name}##}}`);
+
+  // LoRA 는 플레이스홀더가 아니라 노드/필드로 판정한다 —
+  // LoRA 태그는 프롬프트 문자열에 섞여 들어가므로 전용 플레이스홀더가 없다.
+  let lora = (additionalInputFields || []).some((f) => f && f.type === 'lora');
+  if (!lora && wf) {
+    try {
+      lora = Object.values(JSON.parse(wf)).some((n) => /lora/i.test(n?.class_type || ''));
+    } catch {
+      lora = /"class_type"\s*:\s*"[^"]*[Ll]ora/.test(wf);
+    }
   }
+
+  return {
+    prompt: uses('prompt'),
+    negativePrompt: uses('negative_prompt'),
+    seed: uses('seed'),
+    lora,
+  };
 }
 
-module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, workflowSupportsLora };
+module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, getSupportedBuiltinInputs };

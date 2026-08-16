@@ -866,6 +866,10 @@ function ImageGeneration() {
 
   const workboardData = workboard?.data?.workboard;
   const isComfyUIWorkboard = workboardData?.serverId?.serverType === 'ComfyUI';
+  // 워크플로가 실제로 쓰는 내장 입력 (#820). 백엔드가 계산해 내려준다.
+  // 예전 작업판(필드 미제공)은 전부 표시 — 감추는 쪽이 안전한 기본값이 아니다.
+  const supportedInputs = workboardData?.supportedInputs
+    || { prompt: true, negativePrompt: true, seed: true, lora: isComfyUIWorkboard };
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
@@ -1214,7 +1218,7 @@ function ImageGeneration() {
               />
 
               {/* LoRA — 프롬프트의 <lora:이름:가중치> 태그를 칩으로 표시 (목업 06, #552). 추가는 기존 prompt-insert 모달 */}
-              {workboardData?.supportsLora && (
+              {supportedInputs.lora && (
                 <Box>
                   <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500, display: 'block', mb: 1 }}>
                     LoRA
@@ -1245,7 +1249,8 @@ function ImageGeneration() {
                 </Box>
               )}
 
-              {/* 부정 프롬프트 */}
+              {/* 부정 프롬프트 — 워크플로가 실제로 쓸 때만 (#820) */}
+              {supportedInputs.negativePrompt && (
               <Controller
                 name="negativePrompt"
                 control={control}
@@ -1260,8 +1265,10 @@ function ImageGeneration() {
                   />
                 )}
               />
+              )}
 
-              {/* 시드 값 설정 */}
+              {/* 시드 값 설정 — 워크플로가 실제로 쓸 때만 (#820) */}
+              {supportedInputs.seed && (
               <Paper variant="outlined" sx={{ p: 3 }}>
                 <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
                   <Typography variant="subtitle1">시드 (Seed)</Typography>
@@ -1303,6 +1310,7 @@ function ImageGeneration() {
                   }}
                 />
               </Paper>
+              )}
               </Box>
             </Paper>
 
@@ -1458,7 +1466,7 @@ function ImageGeneration() {
       </form>
 
       {/* LoRA 목록 모달 */}
-      {workboardData?.supportsLora && (
+      {supportedInputs.lora && (
         <MetadataPickerModal
           kind="lora"
           open={loraModalOpen}
