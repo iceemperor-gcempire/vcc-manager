@@ -67,7 +67,7 @@ cp .env.production.example .env.production
 | 변수 | 설명 | 기본값 |
 |---|---|---|
 | `UPLOAD_PATH` | 미디어 저장 경로 | `./uploads` (개발) / `/app/uploads` (프로덕션) |
-| `MAX_FILE_SIZE` | 업로드 최대 byte | `10485760` (10MB) |
+| `MAX_FILE_SIZE` | 업로드 최대 byte — 이미지·비디오·오디오 공통 | `31457280` (30MB) |
 | `BACKUP_PATH` | 백업 ZIP 저장 경로 | `./backups` (개발) / `/app/backups` (프로덕션) |
 
 ## CORS / 프론트엔드

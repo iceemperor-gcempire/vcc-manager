@@ -400,6 +400,7 @@ updatelog 가 아니라 **GitHub 이슈의 version label 검색** 으로 확인.
 - `workboards/README.md` - 배포용 작업판 (import 로 바로 등록 가능한 완성품)
 - `docs/API.md` - API 문서
 - `docs/MCP_SERVER_API.md` - MCP Server 도구 호출 명세
+- `docs/AGENT_SKILL_INTEGRATION.md` - 모델별 프롬프트 스킬을 프롬프트 가이드로 넣을지 MCP 로 처리할지 판단
 - `docs/DEPLOYMENT.md` - 배포 가이드
 
 ---

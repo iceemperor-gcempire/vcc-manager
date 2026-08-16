@@ -209,4 +209,41 @@ function getOmitConditionedFieldNames(workflowData) {
   return [...names];
 }
 
-module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames };
+/**
+ * 워크플로가 실제로 쓰는 내장 입력 (#820).
+ *
+ * 생성 화면은 프롬프트·부정 프롬프트·시드·LoRA 를 **작업판과 무관하게 항상** 보여줬다.
+ * 그래서 워크플로가 쓰지 않는 칸에 사용자가 입력하면 아무 데도 안 가고 조용히 버려졌다.
+ * MiniMax Music 3 는 negative 를 caption 조건의 ZeroOut 으로 만들어 부정 프롬프트를
+ * 받지 않는데, 화면에는 칸이 떠 있어 "입력해도 무시된다" 는 혼란을 낳았다.
+ *
+ * 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다 (#774 와 같은 방식).
+ *
+ * @param {string} workflowData
+ * @param {Array} additionalInputFields
+ * @returns {{ prompt: boolean, negativePrompt: boolean, seed: boolean, lora: boolean }}
+ */
+function getSupportedBuiltinInputs(workflowData, additionalInputFields = []) {
+  const wf = typeof workflowData === 'string' ? workflowData : '';
+  const uses = (name) => wf.includes(`{{##${name}##}}`);
+
+  // LoRA 는 플레이스홀더가 아니라 노드/필드로 판정한다 —
+  // LoRA 태그는 프롬프트 문자열에 섞여 들어가므로 전용 플레이스홀더가 없다.
+  let lora = (additionalInputFields || []).some((f) => f && f.type === 'lora');
+  if (!lora && wf) {
+    try {
+      lora = Object.values(JSON.parse(wf)).some((n) => /lora/i.test(n?.class_type || ''));
+    } catch {
+      lora = /"class_type"\s*:\s*"[^"]*[Ll]ora/.test(wf);
+    }
+  }
+
+  return {
+    prompt: uses('prompt'),
+    negativePrompt: uses('negative_prompt'),
+    seed: uses('seed'),
+    lora,
+  };
+}
+
+module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, getSupportedBuiltinInputs };

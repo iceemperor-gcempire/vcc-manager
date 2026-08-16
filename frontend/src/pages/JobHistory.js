@@ -338,7 +338,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
 
           {/* 액션 */}
           <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
-            {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
+            {MEDIA_ITEM_TYPES.includes(item.type) && item.status !== 'error' && (
               <>
                 <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
                   계속하기
@@ -374,7 +374,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
               전문 보기 →
             </Typography>
           )}
-          {(item.type === 'image' || item.type === 'video') && (
+          {MEDIA_ITEM_TYPES.includes(item.type) && (
             <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}>
               <MoreVert fontSize="small" />
             </IconButton>
@@ -388,7 +388,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
 // ---- 페이지 -------------------------------------------------------------
 // 큰 썸네일(그리드) 카드 — 리스트(HistoryRow)와 동일 핸들러 재사용 (#675)
 function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
-  const clickable = item.type === 'image' || item.type === 'video';
+  const clickable = MEDIA_ITEM_TYPES.includes(item.type);
   return (
     <Paper
       variant="outlined"
@@ -406,7 +406,7 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
         ) : item.type === 'video' && item.videoThumb ? (
           <Box component="img" src={item.videoThumb} alt="" loading="lazy"
             sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (item.type === 'image' || item.type === 'video') && item.thumb ? (
+        ) : MEDIA_ITEM_TYPES.includes(item.type) && item.thumb ? (
           item.type === 'video' ? (
             <Box component="video" src={`${item.thumb}#t=0.1`} muted playsInline preload="metadata"
               sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -447,7 +447,7 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
         </Box>
         <Typography sx={{ fontSize: 11, color: 'text.secondary', fontFamily: MONO }}>{relativeTime(item.time)}</Typography>
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }} onClick={(e) => e.stopPropagation()}>
-          {(item.type === 'image' || item.type === 'video') && item.status !== 'error' && (
+          {MEDIA_ITEM_TYPES.includes(item.type) && item.status !== 'error' && (
             <>
               <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
               <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
@@ -510,6 +510,7 @@ function JobHistory() {
     pipeline: items.filter((i) => i.type === 'pipeline').length,
     image: items.filter((i) => i.type === 'image').length,
     video: items.filter((i) => i.type === 'video').length,
+    audio: items.filter((i) => i.type === 'audio').length,   // #818
     text: items.filter((i) => i.type === 'text').length,
   }), [items]);
 
@@ -617,6 +618,7 @@ function JobHistory() {
           { value: 'pipeline', label: '파이프라인', count: counts.pipeline },
           { value: 'image', label: '이미지', count: counts.image },
           { value: 'video', label: '영상', count: counts.video },
+          { value: 'audio', label: '오디오', count: counts.audio },
           { value: 'text', label: '텍스트', count: counts.text },
         ]}
       />
@@ -667,7 +669,7 @@ function JobHistory() {
         </Box>
       )}
 
-      {/* 이미지/영상 행 오버플로우 메뉴 */}
+      {/* 미디어 행 오버플로우 메뉴 — 항목은 모두 출력 형식과 무관하다 (#818) */}
       <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={closeMenu}>
         <MenuItem onClick={() => menuJob && handleViewDetail(menuJob)}>
           <Info fontSize="small" sx={{ mr: 1 }} /> 상세
