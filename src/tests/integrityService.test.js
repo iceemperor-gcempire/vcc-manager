@@ -33,7 +33,8 @@ jest.mock('../models/GeneratedVideo', () => MockGenVideo);
 jest.mock('../models/UploadedImage', () => MockUploadedImage);
 jest.mock('../models/UploadedVideo', () => mockModel('UploadedVideo'));
 jest.mock('../models/UploadedAudio', () => mockModel('UploadedAudio'));
-jest.mock('../models/GeneratedAudio', () => mockModel('GeneratedAudio'));
+const MockGenAudio = mockModel('GeneratedAudio');
+jest.mock('../models/GeneratedAudio', () => MockGenAudio);
 jest.mock('../models/Project', () => mockModel('Project'));
 jest.mock('../models/Tag', () => mockModel('Tag'));
 jest.mock('../models/Workboard', () => mockModel('Workboard'));
@@ -123,6 +124,16 @@ describe('cleanupOwnerOrphans — dry-run 기본', () => {
 });
 
 describe('checkDanglingJobRefs', () => {
+  test('생성물 세 축을 모두 본다 (#808) — 오디오가 빠지지 않는다', async () => {
+    // 예전에는 [GeneratedImage, GeneratedVideo] 를 직접 적어 오디오가 검사에서 빠져 있었다.
+    // GeneratedAudio 도 같은 jobId 필드를 갖는다.
+    MockJob.distinct.mockResolvedValue([]);
+    const result = await checkDanglingJobRefs();
+    expect(result.map((r) => r.collection).sort()).toEqual(
+      ['GeneratedAudio', 'GeneratedImage', 'GeneratedVideo']
+    );
+  });
+
   test('jobId 값이 있는데 Job 이 없으면 비정상으로 집계 (null 은 검사 제외)', async () => {
     MockJob.distinct.mockResolvedValue(['job-1']);
     MockGenImage.distinct.mockResolvedValue(['job-1', 'gone-job', null]);
