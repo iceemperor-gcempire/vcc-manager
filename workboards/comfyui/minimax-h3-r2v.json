@@ -68,8 +68,27 @@
         "type": "video",
         "required": false,
         "options": [],
-        "description": "영상의 사운드트랙도 함께 참조됩니다",
+        "description": "프롬프트에서 <Video 1> 로 지칭합니다. 앞 15초(24fps)만 사용됩니다.",
         "formatString": "{{##ref_video_1##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      },
+      {
+        "name": "use_video_audio_1",
+        "label": "참조 영상 1의 소리도 참조",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": true,
+        "description": "끄면 영상의 모션·구도만 참조하고 소리는 무시합니다.",
+        "formatString": "{{##use_video_audio_1##}}",
         "imageConfig": {
           "maxImages": 1
         },
@@ -87,6 +106,64 @@
         "required": false,
         "options": [],
         "formatString": "{{##ref_video_2##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "description": "프롬프트에서 <Video 2> 로 지칭합니다. 앞 15초(24fps)만 사용됩니다."
+      },
+      {
+        "name": "use_video_audio_2",
+        "label": "참조 영상 2의 소리도 참조",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": true,
+        "description": "끄면 영상의 모션·구도만 참조하고 소리는 무시합니다.",
+        "formatString": "{{##use_video_audio_2##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      },
+      {
+        "name": "ref_audio_1",
+        "label": "참조 오디오 1 (선택)",
+        "type": "audio",
+        "required": false,
+        "options": [],
+        "defaultValue": null,
+        "description": "영상 없이 소리만 참조합니다 (목소리·배경음 등). 프롬프트에서 <Audio 1> 로 지칭합니다.",
+        "formatString": "{{##ref_audio_1##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      },
+      {
+        "name": "ref_audio_2",
+        "label": "참조 오디오 2 (선택)",
+        "type": "audio",
+        "required": false,
+        "options": [],
+        "defaultValue": null,
+        "description": "프롬프트에서 <Audio 2> 로 지칭합니다.",
+        "formatString": "{{##ref_audio_2##}}",
         "imageConfig": {
           "maxImages": 1
         },
@@ -211,7 +288,7 @@
         }
       }
     ],
-    "workflowData": "{\n  \"127\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"H3 디퓨전 모델\"\n    }\n  },\n  \"128\": {\n    \"inputs\": {\n      \"clip_name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\",\n      \"type\": \"minimax\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"H3 텍스트 인코더\"\n    }\n  },\n  \"119\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_video_vae_fp16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"비디오 VAE\"\n    }\n  },\n  \"120\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_audio_vae_fp32.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"오디오 VAE\"\n    }\n  },\n  \"151\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_1##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 1\"\n    }\n  },\n  \"152\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_2##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 2\"\n    }\n  },\n  \"153\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_3##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 3\"\n    }\n  },\n  \"161\": {\n    \"inputs\": {\n      \"video\": \"{{##ref_video_1##}}\",\n      \"force_rate\": 0,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 0,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"참조 비디오 1\"\n    }\n  },\n  \"162\": {\n    \"inputs\": {\n      \"video\": \"{{##ref_video_2##}}\",\n      \"force_rate\": 0,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 0,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"참조 비디오 2\"\n    }\n  },\n  \"136\": {\n    \"inputs\": {\n      \"clip\": [\n        \"128\",\n        0\n      ],\n      \"vae\": [\n        \"119\",\n        0\n      ],\n      \"audio_vae\": [\n        \"120\",\n        0\n      ],\n      \"prompt\": \"{{##prompt##}}\",\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"length\": \"{{##length##}}\",\n      \"ref_image_size\": \"match\",\n      \"ref_images.ref_image_0\": [\n        \"151\",\n        0\n      ],\n      \"ref_images.ref_image_1\": [\n        \"152\",\n        0\n      ],\n      \"ref_images.ref_image_2\": [\n        \"153\",\n        0\n      ],\n      \"ref_videos.ref_video_0\": [\n        \"161\",\n        0\n      ],\n      \"ref_video_audios.ref_video_audio_0\": [\n        \"161\",\n        2\n      ],\n      \"ref_videos.ref_video_1\": [\n        \"162\",\n        0\n      ],\n      \"ref_video_audios.ref_video_audio_1\": [\n        \"162\",\n        2\n      ]\n    },\n    \"class_type\": \"MiniMaxH3ReferenceToVideo\",\n    \"_meta\": {\n      \"title\": \"H3 조건화 (R2V — 참조 가변)\"\n    },\n    \"_vcc\": {\n      \"omitInputsUnless\": {\n        \"ref_images.ref_image_0\": \"{{##ref_image_1_attached##}}\",\n        \"ref_images.ref_image_1\": \"{{##ref_image_2_attached##}}\",\n        \"ref_images.ref_image_2\": \"{{##ref_image_3_attached##}}\",\n        \"ref_videos.ref_video_0\": \"{{##ref_video_1_attached##}}\",\n        \"ref_video_audios.ref_video_audio_0\": \"{{##ref_video_1_attached##}}\",\n        \"ref_videos.ref_video_1\": \"{{##ref_video_2_attached##}}\",\n        \"ref_video_audios.ref_video_audio_1\": \"{{##ref_video_2_attached##}}\"\n      }\n    }\n  },\n  \"126\": {\n    \"inputs\": {\n      \"model\": [\n        \"127\",\n        0\n      ],\n      \"conditioning\": [\n        \"136\",\n        0\n      ]\n    },\n    \"class_type\": \"BasicGuider\",\n    \"_meta\": {\n      \"title\": \"가이더\"\n    }\n  },\n  \"124\": {\n    \"inputs\": {\n      \"model\": [\n        \"127\",\n        0\n      ],\n      \"scheduler\": \"simple\",\n      \"steps\": \"{{##steps##}}\",\n      \"denoise\": 1\n    },\n    \"class_type\": \"BasicScheduler\",\n    \"_meta\": {\n      \"title\": \"스케줄러\"\n    }\n  },\n  \"123\": {\n    \"inputs\": {\n      \"sampler_name\": \"res_multistep\"\n    },\n    \"class_type\": \"KSamplerSelect\",\n    \"_meta\": {\n      \"title\": \"샘플러 선택\"\n    }\n  },\n  \"129\": {\n    \"inputs\": {\n      \"noise_seed\": \"{{##seed##}}\"\n    },\n    \"class_type\": \"RandomNoise\",\n    \"_meta\": {\n      \"title\": \"노이즈 시드\"\n    }\n  },\n  \"125\": {\n    \"inputs\": {\n      \"noise\": [\n        \"129\",\n        0\n      ],\n      \"guider\": [\n        \"126\",\n        0\n      ],\n      \"sampler\": [\n        \"123\",\n        0\n      ],\n      \"sigmas\": [\n        \"124\",\n        0\n      ],\n      \"latent_image\": [\n        \"136\",\n        1\n      ]\n    },\n    \"class_type\": \"SamplerCustomAdvanced\",\n    \"_meta\": {\n      \"title\": \"샘플링\"\n    }\n  },\n  \"122\": {\n    \"inputs\": {\n      \"samples\": [\n        \"125\",\n        0\n      ],\n      \"vae\": [\n        \"119\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"비디오 디코드\"\n    }\n  },\n  \"121\": {\n    \"inputs\": {\n      \"samples\": [\n        \"125\",\n        0\n      ],\n      \"vae\": [\n        \"120\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecodeAudio\",\n    \"_meta\": {\n      \"title\": \"오디오 디코드\"\n    }\n  },\n  \"130\": {\n    \"inputs\": {\n      \"images\": [\n        \"122\",\n        0\n      ],\n      \"audio\": [\n        \"121\",\n        0\n      ],\n      \"fps\": 24\n    },\n    \"class_type\": \"CreateVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 합성 (24fps)\"\n    }\n  },\n  \"92\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}/video/MiniMax_H3_r2v\",\n      \"format\": \"auto\",\n      \"codec\": \"auto\",\n      \"video\": [\n        \"130\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 저장\"\n    }\n  }\n}\n",
+    "workflowData": "{\n  \"127\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"H3 디퓨전 모델\"\n    }\n  },\n  \"128\": {\n    \"inputs\": {\n      \"clip_name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\",\n      \"type\": \"minimax\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"H3 텍스트 인코더\"\n    }\n  },\n  \"119\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_video_vae_fp16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"비디오 VAE\"\n    }\n  },\n  \"120\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_audio_vae_fp32.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"오디오 VAE\"\n    }\n  },\n  \"151\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_1##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 1\"\n    }\n  },\n  \"152\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_2##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 2\"\n    }\n  },\n  \"153\": {\n    \"inputs\": {\n      \"image\": \"{{##ref_image_3##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"참조 이미지 3\"\n    }\n  },\n  \"161\": {\n    \"inputs\": {\n      \"video\": \"{{##ref_video_1##}}\",\n      \"force_rate\": 24,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 360,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"참조 비디오 1\"\n    }\n  },\n  \"162\": {\n    \"inputs\": {\n      \"video\": \"{{##ref_video_2##}}\",\n      \"force_rate\": 24,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 360,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"참조 비디오 2\"\n    }\n  },\n  \"136\": {\n    \"inputs\": {\n      \"clip\": [\n        \"128\",\n        0\n      ],\n      \"vae\": [\n        \"119\",\n        0\n      ],\n      \"audio_vae\": [\n        \"120\",\n        0\n      ],\n      \"prompt\": \"{{##prompt##}}\",\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"length\": \"{{##length##}}\",\n      \"ref_image_size\": \"match\",\n      \"ref_images.ref_image_0\": [\n        \"151\",\n        0\n      ],\n      \"ref_images.ref_image_1\": [\n        \"152\",\n        0\n      ],\n      \"ref_images.ref_image_2\": [\n        \"153\",\n        0\n      ],\n      \"ref_videos.ref_video_0\": [\n        \"161\",\n        0\n      ],\n      \"ref_video_audios.ref_video_audio_0\": [\n        \"161\",\n        2\n      ],\n      \"ref_videos.ref_video_1\": [\n        \"162\",\n        0\n      ],\n      \"ref_video_audios.ref_video_audio_1\": [\n        \"162\",\n        2\n      ],\n      \"ref_audios.ref_audio_0\": [\n        \"163\",\n        0\n      ],\n      \"ref_audios.ref_audio_1\": [\n        \"164\",\n        0\n      ]\n    },\n    \"class_type\": \"MiniMaxH3ReferenceToVideo\",\n    \"_meta\": {\n      \"title\": \"H3 조건화 (R2V — 참조 가변)\"\n    },\n    \"_vcc\": {\n      \"omitInputsUnless\": {\n        \"ref_images.ref_image_0\": \"{{##ref_image_1_attached##}}\",\n        \"ref_images.ref_image_1\": \"{{##ref_image_2_attached##}}\",\n        \"ref_images.ref_image_2\": \"{{##ref_image_3_attached##}}\",\n        \"ref_videos.ref_video_0\": \"{{##ref_video_1_attached##}}\",\n        \"ref_video_audios.ref_video_audio_0\": [\n          \"{{##ref_video_1_attached##}}\",\n          \"{{##use_video_audio_1##}}\"\n        ],\n        \"ref_videos.ref_video_1\": \"{{##ref_video_2_attached##}}\",\n        \"ref_video_audios.ref_video_audio_1\": [\n          \"{{##ref_video_2_attached##}}\",\n          \"{{##use_video_audio_2##}}\"\n        ],\n        \"ref_audios.ref_audio_0\": \"{{##ref_audio_1_attached##}}\",\n        \"ref_audios.ref_audio_1\": \"{{##ref_audio_2_attached##}}\"\n      }\n    }\n  },\n  \"126\": {\n    \"inputs\": {\n      \"model\": [\n        \"127\",\n        0\n      ],\n      \"conditioning\": [\n        \"136\",\n        0\n      ]\n    },\n    \"class_type\": \"BasicGuider\",\n    \"_meta\": {\n      \"title\": \"가이더\"\n    }\n  },\n  \"124\": {\n    \"inputs\": {\n      \"model\": [\n        \"127\",\n        0\n      ],\n      \"scheduler\": \"simple\",\n      \"steps\": \"{{##steps##}}\",\n      \"denoise\": 1\n    },\n    \"class_type\": \"BasicScheduler\",\n    \"_meta\": {\n      \"title\": \"스케줄러\"\n    }\n  },\n  \"123\": {\n    \"inputs\": {\n      \"sampler_name\": \"res_multistep\"\n    },\n    \"class_type\": \"KSamplerSelect\",\n    \"_meta\": {\n      \"title\": \"샘플러 선택\"\n    }\n  },\n  \"129\": {\n    \"inputs\": {\n      \"noise_seed\": \"{{##seed##}}\"\n    },\n    \"class_type\": \"RandomNoise\",\n    \"_meta\": {\n      \"title\": \"노이즈 시드\"\n    }\n  },\n  \"125\": {\n    \"inputs\": {\n      \"noise\": [\n        \"129\",\n        0\n      ],\n      \"guider\": [\n        \"126\",\n        0\n      ],\n      \"sampler\": [\n        \"123\",\n        0\n      ],\n      \"sigmas\": [\n        \"124\",\n        0\n      ],\n      \"latent_image\": [\n        \"136\",\n        1\n      ]\n    },\n    \"class_type\": \"SamplerCustomAdvanced\",\n    \"_meta\": {\n      \"title\": \"샘플링\"\n    }\n  },\n  \"122\": {\n    \"inputs\": {\n      \"samples\": [\n        \"125\",\n        0\n      ],\n      \"vae\": [\n        \"119\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"비디오 디코드\"\n    }\n  },\n  \"121\": {\n    \"inputs\": {\n      \"samples\": [\n        \"125\",\n        0\n      ],\n      \"vae\": [\n        \"120\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecodeAudio\",\n    \"_meta\": {\n      \"title\": \"오디오 디코드\"\n    }\n  },\n  \"130\": {\n    \"inputs\": {\n      \"images\": [\n        \"122\",\n        0\n      ],\n      \"audio\": [\n        \"121\",\n        0\n      ],\n      \"fps\": 24\n    },\n    \"class_type\": \"CreateVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 합성 (24fps)\"\n    }\n  },\n  \"92\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}/video/MiniMax_H3_r2v\",\n      \"format\": \"auto\",\n      \"codec\": \"auto\",\n      \"video\": [\n        \"130\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveVideo\",\n    \"_meta\": {\n      \"title\": \"비디오 저장\"\n    }\n  },\n  \"163\": {\n    \"inputs\": {\n      \"audio\": \"{{##ref_audio_1##}}\"\n    },\n    \"class_type\": \"LoadAudio\",\n    \"_meta\": {\n      \"title\": \"참조 오디오 1\"\n    }\n  },\n  \"164\": {\n    \"inputs\": {\n      \"audio\": \"{{##ref_audio_2##}}\"\n    },\n    \"class_type\": \"LoadAudio\",\n    \"_meta\": {\n      \"title\": \"참조 오디오 2\"\n    }\n  }\n}",
     "allowedModelTypes": [],
     "modelExposurePolicy": "full",
     "modelWhitelist": [],
