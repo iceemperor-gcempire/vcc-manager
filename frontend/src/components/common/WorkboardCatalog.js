@@ -61,7 +61,7 @@ export const SERVER_AXIS = [
   { k: 'openai', label: 'OpenAI' },
   { k: 'gemini', label: 'Gemini' },
 ];
-const OUT_TONE = { image: 'accent', video: 'warning', text: 'info' };
+const OUT_TONE = { image: 'accent', video: 'warning', audio: 'error', text: 'info' };
 
 // 원본 .chip--tag 톤 칩 — 은은한 틴트 배경 + 진한 글씨 (height 20, padding 0 7px, 11.5px).
 // ToneChip 은 common/ToneChip 으로 승격 (#548) — 기존 import 호환 재export
@@ -210,21 +210,23 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         '&:hover': admin ? {} : { borderColor: 'primary.main', boxShadow: 2 },
       }}
     >
-      {/* header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2.5 }}>
-        <Box sx={{ width: 32, height: 32, borderRadius: 1.5, bgcolor: kind.tint, color: kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
-          <KindIcon sx={{ fontSize: 18 }} />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{wb.name}</Typography>
-            {admin && <WbStatusBadge isActive={wb.isActive} />}
+      {/* header — 제목은 단독 라인 (#823).
+          아이콘·상태배지·출력칩과 한 줄을 나눠 쓰던 때는 제목에 카드 폭의 절반 남짓만 남아
+          모델명을 담은 이름이 대부분 말줄임으로 잘렸다. 제목을 위로 올려 폭 전체를 주고
+          나머지는 메타 행으로 내린다. 2줄 허용은 안 한다 — 카드 높이가 어긋난다. */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{wb.name}</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: kind.tint, color: kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
+            <KindIcon sx={{ fontSize: 14 }} />
           </Box>
-          <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, mt: 0.25 }} noWrap>
+          <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, minWidth: 0 }} noWrap>
             {kind.label}{wb.version ? ` · v${wb.version}` : ''}
           </Typography>
+          <Box sx={{ flex: 1 }} />
+          {admin && <WbStatusBadge isActive={wb.isActive} />}
+          <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
         </Box>
-        <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
       </Box>
 
       {/* description — 없으면 자리만 비운다. 카드 높이 정렬을 위해 minHeight 는 유지하되
