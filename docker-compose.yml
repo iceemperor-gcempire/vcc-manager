@@ -103,6 +103,11 @@ services:
     logging: *default-logging
     ports:
       - "${FRONTEND_PORT:-8136}:80"
+    environment:
+      # 업로드 상한 — 백엔드 MAX_FILE_SIZE 와 짝 (#815).
+      # 이 값이 더 작으면 nginx 가 먼저 413 을 내는데 앱 로그에 아무것도 남지 않는다.
+      # MAX_FILE_SIZE 를 올릴 때 여기도 함께 올릴 것 (nginxBodySize.test.js 가 가드).
+      NGINX_MAX_BODY_SIZE: ${NGINX_MAX_BODY_SIZE:-150M}
     depends_on:
       - backend
     networks:

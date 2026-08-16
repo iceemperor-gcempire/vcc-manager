@@ -1,6 +1,6 @@
 # 빌드 컨텍스트 제외 목록 (#527)
 # 주의: .dockerignore 패턴은 .gitignore 와 달리 컨텍스트 루트 기준 앵커링.
-#       'nginx.conf' 는 Dockerfile.frontend 가 COPY 하므로 제외 금지.
+#       'nginx.conf.template' 은 Dockerfile.frontend 가 COPY 하므로 제외 금지 (#815).
 
 # 의존성 / 빌드 산출물 (이미지 내부에서 설치/빌드)
 node_modules

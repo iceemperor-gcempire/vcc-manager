@@ -110,7 +110,7 @@ rsync -av uploads/ /backup/uploads_$(date +%Y%m%d)/
 
 # 설정 파일 백업
 cp docker-compose.yml /backup/config/
-cp nginx.conf /backup/config/
+cp nginx.conf.template /backup/config/
 cp .env /backup/config/
 ```
 
