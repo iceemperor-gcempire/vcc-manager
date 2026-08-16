@@ -88,6 +88,22 @@ const deleteFile = async (filepath) => {
   }
 };
 
+/**
+ * DB 의 `/uploads/...` URL 을 디스크 경로로 변환. uploads 밖(비정상)은 null.
+ *
+ * 정합성 검사(integrityService)와 삭제 경로(mediaFileCleanup)가 같은 변환을 해야 한다 —
+ * 한쪽만 다르게 계산하면 "지웠다고 보고했는데 남는" 또는 그 반대가 된다. 모델을 참조하지
+ * 않는 순수 함수라 여기(util)에 둔다 (서비스에 두면 순환 참조가 생긴다).
+ */
+const uploadUrlToDiskPath = (url, uploadRoot) => {
+  if (!url || typeof url !== 'string') return null;
+  const normalized = url.split('?')[0];
+  if (!normalized.startsWith('/uploads/')) return null;
+  const rel = normalized.slice('/uploads/'.length);
+  if (rel.includes('..') || rel.includes('\0')) return null;
+  return path.join(uploadRoot, rel);
+};
+
 const getImageInfo = async (filepath) => {
   try {
     const metadata = await sharp(filepath).metadata();
@@ -150,6 +166,7 @@ module.exports = {
   getImageInfo,
   validateImageDimensions,
   createThumbnail,
+  uploadUrlToDiskPath,
   ALLOWED_IMAGE_TYPES,
   MAX_FILE_SIZE
 };

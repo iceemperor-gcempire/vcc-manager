@@ -49,6 +49,7 @@ const {
   cleanupOwnerOrphans,
   checkDanglingJobRefs,
   checkFileIntegrity,
+  cleanupOrphanFiles,
   uploadUrlToDiskPath,
 } = require('../services/integrityService');
 
@@ -165,6 +166,99 @@ describe('checkFileIntegrity (P1)', () => {
     expect(result.missing[0]).toMatchObject({ collection: 'GeneratedImage', id: 'i2' });
     expect(result.orphanFileCount).toBe(1);
     expect(result.orphanFiles[0]).toContain('orphan.png');
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+});
+
+// #806 — 삭제 경로 수정은 앞으로를 막을 뿐이라, 이미 쌓인 고아 파일은 여기서만 회수된다.
+describe('#806 cleanupOrphanFiles', () => {
+  const HOUR = 60 * 60 * 1000;
+
+  /** 임시 uploads 루트에 파일을 만들고 mtime 을 과거로 돌린다 */
+  function makeRoot(files) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vcc-orphan-'));
+    fs.mkdirSync(path.join(root, 'generated'), { recursive: true });
+    for (const [name, { body = 'x', ageMs = 0 }] of Object.entries(files)) {
+      const full = path.join(root, 'generated', name);
+      fs.writeFileSync(full, body);
+      if (ageMs) {
+        const t = new Date(Date.now() - ageMs);
+        fs.utimesSync(full, t, t);
+      }
+    }
+    return root;
+  }
+
+  beforeEach(() => {
+    setFindSample(MockGenImage, []);
+    setFindSample(MockGenVideo, []);
+    setFindSample(MockUploadedImage, []);
+    jest.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  test('dry-run 이 기본 — 후보만 세고 지우지 않는다', async () => {
+    const root = makeRoot({ 'old.png': { ageMs: 2 * HOUR } });
+
+    const r = await cleanupOrphanFiles({ uploadRoot: root });
+
+    expect(r.apply).toBe(false);
+    expect(r.candidates).toBe(1);
+    expect(r.deleted).toBe(0);
+    expect(fs.existsSync(path.join(root, 'generated/old.png'))).toBe(true);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('apply:true 면 실제로 지우고 회수 용량을 보고한다', async () => {
+    const root = makeRoot({ 'old.png': { body: 'abcde', ageMs: 2 * HOUR } });
+
+    const r = await cleanupOrphanFiles({ uploadRoot: root, apply: true });
+
+    expect(r.deleted).toBe(1);
+    expect(r.failed).toBe(0);
+    expect(r.freedBytes).toBe(5);
+    expect(fs.existsSync(path.join(root, 'generated/old.png'))).toBe(false);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('최근 파일은 지우지 않는다 — 생성 중인 결과물 보호', async () => {
+    // 생성 파이프라인은 파일을 먼저 쓰고 DB 문서를 나중에 만든다. 그 사이에 스캔하면
+    // 정상 파일이 "참조 없음" 으로 보인다. 이 가드가 없으면 진행 중인 작업물을 지운다.
+    const root = makeRoot({
+      'fresh.png': { ageMs: 0 },
+      'old.png': { ageMs: 2 * HOUR },
+    });
+
+    const r = await cleanupOrphanFiles({ uploadRoot: root, apply: true });
+
+    expect(r.skippedRecent).toBe(1);
+    expect(r.deleted).toBe(1);
+    expect(fs.existsSync(path.join(root, 'generated/fresh.png'))).toBe(true);
+    expect(fs.existsSync(path.join(root, 'generated/old.png'))).toBe(false);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('DB 가 참조하는 파일은 오래됐어도 건드리지 않는다', async () => {
+    const root = makeRoot({ 'referenced.png': { ageMs: 99 * HOUR } });
+    setFindSample(MockGenImage, [{ _id: 'i1', url: '/uploads/generated/referenced.png' }]);
+
+    const r = await cleanupOrphanFiles({ uploadRoot: root, apply: true });
+
+    expect(r.candidates).toBe(0);
+    expect(fs.existsSync(path.join(root, 'generated/referenced.png'))).toBe(true);
+
+    fs.rmSync(root, { recursive: true, force: true });
+  });
+
+  test('대상이 0건이어도 로그를 남긴다', async () => {
+    const root = makeRoot({});
+    const r = await cleanupOrphanFiles({ uploadRoot: root });
+
+    expect(r.candidates).toBe(0);
+    expect(console.log).toHaveBeenCalledWith(expect.stringContaining('고아 파일 정제'));
 
     fs.rmSync(root, { recursive: true, force: true });
   });
