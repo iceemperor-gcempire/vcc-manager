@@ -494,3 +494,36 @@ LTX-2.5 템플릿에는 `TextGenerateLTX2Prompt` 노드가 있다. 짧은 프롬
 - [COMFYUI_WORKFLOW.md](COMFYUI_WORKFLOW.md) — VCC 내부 처리 로직, 플레이스홀더 치환 구현, D-1/D-2 계약
 - [`workboards/README.md`](../workboards/README.md) — 완성된 배포용 작업판 (모델 준비물 · 모델별 제약)
 - [DEVELOPMENT.md](DEVELOPMENT.md) — 신규 serverType 추가 절차
+
+
+## 부록 — 영상 출력 인코딩 (#846)
+
+### SaveVideo (core) 의 화질 기본값 함정
+
+codec `auto` 는 H.264 CRF 23 으로 인코딩된다 — "출력 화질이 나쁘다" 는 커뮤니티 지적의 실체.
+중첩 동적 콤보로 CRF 를 낮출 수 있다 (dotted key):
+
+```json
+"codec": "h264",
+"codec.encoding": "re-encode",
+"codec.encoding.crf": 14
+```
+
+CRF 14 는 시각적 준무손실. 실측: 같은 성격의 5초 클립 기준 0.72MB(auto) → 2.46MB(crf 14).
+
+### 더 나은 코덱 — VHS_VideoCombine
+
+core SaveVideo 는 h264 뿐이다. AV1/H.265/PNG 시퀀스는 `VHS_VideoCombine` 으로:
+`CreateVideo + SaveVideo` 를 통째로 대체하며 images·audio 를 직접 받는다.
+`video/nvenc_av1-mp4`(하드웨어 AV1, bitrate Mbps 단위)가 화질/용량/속도 균형이 좋다.
+출력은 history `gifs` 키로 나오는데 우리 수집기가 이미 읽는다.
+
+### ⚠️ Windows ComfyUI 의 경로 분리자
+
+**VHS 계열 노드의 `filename_prefix` 하위 경로는 역슬래시(`\`)여야 한다.** 슬래시(`/`)를 쓰면
+권한 오류로 실패한다 (실측). core `SaveVideo` 는 슬래시를 받아주지만, VHS 는 아니다.
+
+```json
+"filename_prefix": "{{##user_id##}}\\video\\MyPrefix"     // VHS — 역슬래시
+"filename_prefix": "{{##user_id##}}/video/MyPrefix"       // core SaveVideo — 슬래시 허용
+```
