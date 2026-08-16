@@ -14,16 +14,8 @@
  * 정합성 검사가 고아로 잡아낼 수 있지만, 문서가 남으면 삭제 자체가 실패한 것이 된다.
  */
 const { GENERATED_MEDIA_MODELS, UPLOADED_MEDIA_MODELS } = require('../constants/mediaTypes');
+const { BY_NAME: MEDIA_MODELS } = require('../models/mediaModels');
 const { deleteFile, uploadUrlToDiskPath } = require('../utils/fileUpload');
-
-const MEDIA_MODELS = {
-  GeneratedImage: require('../models/GeneratedImage'),
-  GeneratedVideo: require('../models/GeneratedVideo'),
-  GeneratedAudio: require('../models/GeneratedAudio'),
-  UploadedImage: require('../models/UploadedImage'),
-  UploadedVideo: require('../models/UploadedVideo'),
-  UploadedAudio: require('../models/UploadedAudio'),
-};
 
 /** 본체 외에 별도 파일로 만들어지는 파생 산출물(썸네일)이 있는 모델 */
 const THUMBNAIL_MODELS = new Set(['GeneratedVideo', 'UploadedVideo']);

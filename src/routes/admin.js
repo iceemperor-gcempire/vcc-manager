@@ -3,13 +3,12 @@ const { requireAdmin } = require('../middleware/auth');
 const User = require('../models/User');
 const Workboard = require('../models/Workboard');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const UploadedImage = require('../models/UploadedImage');
 const SystemSettings = require('../models/SystemSettings');
 const integrityService = require('../services/integrityService');
 const ApiKey = require('../models/ApiKey');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { deleteUserAndContent } = require('../services/userDeletionService');
+const { GENERATED_MEDIA_MODELS_BY_TYPE } = require('../models/mediaModels');
 const router = express.Router();
 
 router.get('/users', requireAdmin, async (req, res) => {
@@ -146,7 +145,7 @@ router.get('/stats', requireAdmin, async (req, res) => {
       userStats,
       jobStats,
       workboardStats,
-      imageStats
+      mediaStats
     ] = await Promise.all([
       User.aggregate([
         {
@@ -178,17 +177,24 @@ router.get('/stats', requireAdmin, async (req, res) => {
           }
         }
       ]),
-      GeneratedImage.aggregate([
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            totalSize: { $sum: '$size' }
-          }
-        }
-      ])
+      // 생성물 통계는 세 축을 모두 센다 (#807). 예전에는 GeneratedImage 만 세어
+      // 영상·음악을 주로 만드는 인스턴스에서는 통계가 거의 비어 보였다.
+      Promise.all(
+        Object.entries(GENERATED_MEDIA_MODELS_BY_TYPE).map(async ([type, Model]) => {
+          const [row] = await Model.aggregate([
+            { $group: { _id: null, total: { $sum: 1 }, totalSize: { $sum: '$size' } } }
+          ]);
+          return [type, row ? { total: row.total, totalSize: row.totalSize || 0 } : { total: 0, totalSize: 0 }];
+        })
+      )
     ]);
-    
+
+    const mediaByType = Object.fromEntries(mediaStats);
+    const mediaTotals = Object.values(mediaByType).reduce(
+      (acc, m) => ({ total: acc.total + m.total, totalSize: acc.totalSize + m.totalSize }),
+      { total: 0, totalSize: 0 }
+    );
+
     const stats = {
       users: userStats[0] || { total: 0, active: 0, admins: 0, pending: 0, approved: 0, rejected: 0 },
       workboards: workboardStats[0] || { total: 0, active: 0 },
@@ -199,7 +205,10 @@ router.get('/stats', requireAdmin, async (req, res) => {
         completed: jobStats.find(s => s._id === 'completed')?.count || 0,
         failed: jobStats.find(s => s._id === 'failed')?.count || 0
       },
-      images: imageStats[0] || { total: 0, totalSize: 0 }
+      // `images` 는 예전 이름 — 이미지만 담던 시절의 소비처 호환을 위해 남긴다 (#807).
+      // 새 코드는 `media` 를 쓴다.
+      images: mediaByType.image,
+      media: { ...mediaTotals, byType: mediaByType }
     };
     
     res.json(stats);

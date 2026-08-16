@@ -338,7 +338,7 @@ export const pipelineRunAPI = {
 // 대시보드 위젯 전용 집계 (#453)
 export const dashboardAPI = {
   getActivePipelineRuns: () => api.get('/dashboard/active-pipeline-runs'),
-  getImageTrend: (days = 7) => api.get('/dashboard/image-trend', { params: { days } }),
+  getMediaTrend: (days = 7) => api.get('/dashboard/media-trend', { params: { days } }),
   getWorkboardUsage: (limit = 4) => api.get('/dashboard/workboard-usage', { params: { limit } }),
   // 작업 히스토리 통합 피드 — 전역(전 프로젝트) 파이프라인 런
   getAllPipelineRuns: (params) => api.get('/dashboard/pipeline-runs', { params }),
