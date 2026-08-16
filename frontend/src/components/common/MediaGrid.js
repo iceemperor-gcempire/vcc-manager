@@ -370,6 +370,9 @@ function MediaGrid({
   onBulkToggle,
   onStateChange,
   extraQuery = null,  // 추가 query params (e.g. tags 필터) — Phase 5c 후속
+  // 전역 기본값(5분, App.js)을 덮어쓴다. 선택 다이얼로그처럼 "열 때마다 현재 상태여야 하는"
+  // 곳은 0 을 준다 (#827) — 방금 생성한 이미지가 안 보이던 원인.
+  staleTime,
 }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
@@ -394,7 +397,7 @@ function MediaGrid({
   // extraQuery 변화 시 자동으로 새 쿼리 — queryKey 에 직렬화 포함
   const extraQueryKey = extraQuery ? JSON.stringify(extraQuery) : '';
   useEffect(() => { setPage(1); }, [extraQueryKey]);
-  const { data, isLoading } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData });
+  const { data, isLoading } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData, ...(staleTime !== undefined && { staleTime }) });
 
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};
