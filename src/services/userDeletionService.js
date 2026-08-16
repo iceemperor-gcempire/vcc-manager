@@ -25,6 +25,7 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedText = require('../models/UploadedText');
 const PipelineRun = require('../models/PipelineRun');
 const ApiKey = require('../models/ApiKey');
+const { deleteMediaFilesFor } = require('./mediaFileCleanup');
 
 // userId 로 소유자를 참조하는 개인 콘텐츠/작업 모델 — User 삭제 시 함께 제거.
 const USER_CONTENT_MODELS = [
@@ -44,9 +45,14 @@ const USER_CONTENT_MODELS = [
 
 /**
  * 사용자와 그 개인 콘텐츠를 모두 삭제.
- * 콘텐츠를 먼저 일괄 삭제한 뒤 User 문서를 삭제한다.
+ *
+ * 순서: **디스크 파일 → 콘텐츠 문서 → User 문서.**
+ * 파일을 먼저 지우는 이유는 문서가 사라지면 경로를 알 수 없어 영구 고아가 되기 때문이다 (#806).
+ * 예전에는 `deleteMany` 만 호출해 문서만 지웠고, 계정을 삭제해도 그 사람이 만든
+ * 이미지·영상·오디오가 디스크에 그대로 남았다 — 용량 누적이자 탈퇴 처리의 불완전함이었다.
  */
 async function deleteUserAndContent(userId) {
+  await deleteMediaFilesFor({ userId });
   await Promise.all(USER_CONTENT_MODELS.map((Model) => Model.deleteMany({ userId })));
   await User.findByIdAndDelete(userId);
 }

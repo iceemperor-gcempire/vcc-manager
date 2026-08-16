@@ -333,4 +333,18 @@ router.post('/integrity/cleanup-owner-orphans', requireAdmin, async (req, res) =
   }
 });
 
+// 고아 파일 회수 — body.apply === true 일 때만 실제 삭제 (기본 dry-run).
+// 삭제 경로 수정(#806)은 앞으로를 막을 뿐이라, 이미 쌓인 파일은 여기서만 회수된다.
+// 생성 중인 파일을 지우지 않도록 minAgeMs(기본 1시간)보다 젊은 파일은 제외한다.
+router.post('/integrity/cleanup-orphan-files', requireAdmin, async (req, res) => {
+  try {
+    const apply = req.body?.apply === true;
+    const result = await integrityService.cleanupOrphanFiles({ apply });
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('Orphan file cleanup error:', error);
+    res.status(500).json({ success: false, message: '고아 파일 정제에 실패했습니다.' });
+  }
+});
+
 module.exports = router;
