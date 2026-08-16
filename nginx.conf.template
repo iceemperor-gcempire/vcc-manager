@@ -2,7 +2,11 @@ server {
     listen 80;
     server_name localhost;
 
-    client_max_body_size 150M; # 참조 비디오 업로드 수용 (#753)
+    # 업로드 상한 — 백엔드 MAX_FILE_SIZE 와 짝을 이룬다 (#815).
+    # 이 값이 더 작으면 nginx 가 먼저 413 으로 잘라내고, 그 오류는 앱 로그에 남지 않아
+    # ".env 를 올렸는데 왜 안 되지" 로 두 번 헤맸다 (5d610d5, #753). 반드시 MAX_FILE_SIZE 이상.
+    # 값은 docker-compose 가 NGINX_MAX_BODY_SIZE 로 주입하며, 기동 시 envsubst 로 치환된다.
+    client_max_body_size ${NGINX_MAX_BODY_SIZE};
 
     root /usr/share/nginx/html;
     index index.html index.htm;
