@@ -19,15 +19,9 @@ const fs = require('fs');
 const path = require('path');
 const User = require('../models/User');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const UploadedVideo = require('../models/UploadedVideo');
 const { GENERATED_MEDIA_MODELS, UPLOADED_MEDIA_MODELS } = require('../constants/mediaTypes');
 const { BACKUP_FILE_DIRS } = require('./backupCollections');
 const { uploadUrlToDiskPath } = require('../utils/fileUpload');
-const UploadedAudio = require('../models/UploadedAudio');
-const GeneratedAudio = require('../models/GeneratedAudio');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const Workboard = require('../models/Workboard');
@@ -36,6 +30,7 @@ const Server = require('../models/Server');
 const Group = require('../models/Group');
 const { USER_CONTENT_MODELS } = require('./userDeletionService');
 const { deleteMediaFilesFor } = require('./mediaFileCleanup');
+const { BY_NAME: MEDIA_MODELS_BY_NAME, GENERATED_MEDIA_MODELS_BY_TYPE } = require('../models/mediaModels');
 
 // 구조 리소스 — 소유 필드가 끊겨도 삭제하지 않는다 (소유권 이전 정책 별개, 리포트 전용)
 const STRUCTURAL_CHECKS = [
@@ -184,13 +179,17 @@ async function checkDanglingGroupRefs() {
 /**
  * 끊긴 jobId 진단 — jobId 값이 있는데 해당 ImageGenerationJob 이 없는 콘텐츠.
  * (jobId 미보유는 히스토리 삭제 시 콘텐츠 보존 설계라 정상 — 검사 제외)
+ *
+ * 생성물 세 축을 모두 본다 (#808). 예전에는 [GeneratedImage, GeneratedVideo] 를 직접 적어
+ * 오디오가 빠져 있었다 — GeneratedAudio 도 같은 jobId 필드를 갖는다. 축이 늘 때마다
+ * 반복되는 자리라 매핑을 경유한다.
  */
 async function checkDanglingJobRefs() {
   const jobIds = await ImageGenerationJob.distinct('_id');
   const jobIdSet = new Set(jobIds.map((id) => String(id)));
 
   const results = [];
-  for (const Model of [GeneratedImage, GeneratedVideo]) {
+  for (const Model of Object.values(GENERATED_MEDIA_MODELS_BY_TYPE)) {
     const refs = await Model.distinct('jobId');
     const dangling = refs
       .filter((id) => id && !jobIdSet.has(String(id)))
@@ -229,9 +228,8 @@ function walkFiles(dir, out = []) {
 // 미디어 모델 목록은 constants/mediaTypes 가 단일 소스 (#808).
 // urlFields 는 모델마다 다르므로(비디오만 thumbnailUrl 이 있다) 여기서 보완한다.
 const THUMBNAIL_MODELS = new Set(['GeneratedVideo', 'UploadedVideo']);
-const MEDIA_MODELS = { GeneratedImage, GeneratedVideo, GeneratedAudio, UploadedImage, UploadedVideo, UploadedAudio };
 const FILE_CHECKS = [...GENERATED_MEDIA_MODELS, ...UPLOADED_MEDIA_MODELS].map((name) => ({
-  Model: MEDIA_MODELS[name],
+  Model: MEDIA_MODELS_BY_NAME[name],
   urlFields: THUMBNAIL_MODELS.has(name) ? ['url', 'thumbnailUrl'] : ['url'],
 }));
 
