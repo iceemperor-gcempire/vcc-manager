@@ -29,7 +29,7 @@ describe('fileFilter 거부는 400 + 사유 (#842)', () => {
   // multer() 인스턴스는 filter 를 내부에 캡슐화하므로, 각 유틸이 filter 를 export 하는지가
   // 아니라 "거부 오류의 모양"을 본다. 유틸 내부 filter 에 접근하기 위해 모듈에서 새로 만든다.
   const cases = [
-    ['videoUpload', require('../utils/videoUpload'), 'video/x-matroska', '영상'],
+    ['videoUpload', require('../utils/videoUpload'), 'video/x-msvideo', '영상'],
     ['audioUpload', require('../utils/audioUpload'), 'audio/midi', '오디오'],
     ['fileUpload', require('../utils/fileUpload'), 'image/tiff', '이미지'],
   ];

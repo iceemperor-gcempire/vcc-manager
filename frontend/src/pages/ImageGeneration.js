@@ -440,9 +440,9 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
+    accept: { 'video/*': ['.mp4', '.webm', '.mov', '.mkv'] },   // MKV 는 서버가 mp4 로 재포장 (#844)
     onDropRejected: (rejected) => alert({ title: '첨부할 수 없는 파일입니다', severity: 'error',
-      description: `${rejected.map((r) => r.file.name).join(', ')} — MP4·WebM·MOV 영상만 첨부할 수 있습니다.` }),
+      description: `${rejected.map((r) => r.file.name).join(', ')} — MP4·WebM·MOV·MKV 영상만 첨부할 수 있습니다.` }),
     maxFiles: maxVideos - selectedVideos.length,
     disabled: selectedVideos.length >= maxVideos,
     onDrop: handleNewUpload
@@ -484,7 +484,7 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
         >
           <input {...getInputProps()} />
           <Typography variant="body2" color="text.secondary">
-            비디오를 드래그하거나 클릭하여 업로드 (MP4/WebM/MOV)
+            비디오를 드래그하거나 클릭하여 업로드 (MP4/WebM/MOV/MKV)
           </Typography>
           <Typography variant="caption" color="text.secondary">
             최대 {maxVideos}개
