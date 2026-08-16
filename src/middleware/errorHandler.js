@@ -22,6 +22,18 @@ const errorHandler = (err, req, res, next) => {
     });
   }
 
+  // multer 자체 오류 (#842) — 용량 초과 등이 status 없이 올라와 500 으로 은닉되던 것.
+  // 용량 초과는 사용자가 직접 고칠 수 있는 문제라 상한을 함께 알려준다.
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      const limitMb = Math.floor((parseInt(process.env.MAX_FILE_SIZE) || 30 * 1024 * 1024) / (1024 * 1024));
+      return res.status(413).json({
+        message: `파일이 너무 큽니다. 업로드 상한은 ${limitMb}MB 입니다.`
+      });
+    }
+    return res.status(400).json({ message: `업로드 오류: ${err.message}` });
+  }
+
   if (err.name === 'JsonWebTokenError') {
     return res.status(401).json({
       message: 'Invalid token'

@@ -46,7 +46,12 @@ const storage = multer.diskStorage({
 
 const fileFilter = (req, file, cb) => {
   if (!ALLOWED_VIDEO_TYPES.includes(file.mimetype)) {
-    return cb(new Error('Only MP4, WebM, and MOV video files are allowed'), false);
+    // status 400 을 명시한다 (#842). 없으면 errorHandler 가 500 으로 취급해 메시지를 숨기고,
+    // 사용자에게는 "Internal server error" 만 남는다. 수신 mimetype 을 함께 적어
+    // "왜 거부됐나" 를 사용자·로그 양쪽이 알 수 있게 한다.
+    const err = new Error(`지원하지 않는 영상 형식입니다 (${file.mimetype || '알 수 없음'}). MP4·WebM·MOV 만 업로드할 수 있습니다.`);
+    err.status = 400;
+    return cb(err, false);
   }
   cb(null, true);
 };
@@ -125,6 +130,7 @@ const processUploadedVideo = async (file) => {
 
 module.exports = {
   videoUpload,
+  fileFilter,   // 테스트용 (#842)
   processUploadedVideo,
   probeVideoMetadata,
   ALLOWED_VIDEO_TYPES,
