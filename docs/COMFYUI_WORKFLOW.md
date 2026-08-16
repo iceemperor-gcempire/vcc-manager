@@ -444,6 +444,55 @@ replacements["{{##customParam##}}"] = { value: 10, type: "number" };
 - 사용자 입력 값 sanitization
 - 파일 업로드 크기 및 타입 제한
 
+### 8.4 ComfyUI 호스트 메모리 — 대형 모델 교차 실행 (#825)
+
+**서로 다른 대형 체크포인트를 쓰는 작업판을 번갈아 실행하면 ComfyUI 프로세스가 죽을 수 있다.**
+VCC 코드 문제가 아니라 ComfyUI 호스트의 메모리 설정 문제다.
+
+**왜 교차할 때만인가.** 같은 작업판을 연속 실행하면 ComfyUI 의 실행 캐시가 살아 있어
+`UNETLoader` 가 아예 호출되지 않는다. 교차할 때만 새 체크포인트를 매핑하고, 그 시점에
+**이전 모델이 아직 메모리에 상주**한다. 20GB 모델 둘이면 순간적으로 40GB 가 걸린다.
+
+**메모리 사용량만 보면 안 보인다.** Windows 의 커밋 한도는 `물리 RAM + 페이지 파일` 이고,
+Python/torch 가 대형 체크포인트를 적재할 때 요구하는 **커밋량은 실제 상주 사용량보다 훨씬 크다.**
+그래서 이런 조합이 나온다:
+
+- 작업 관리자의 메모리 **사용량**은 한가하다 → "메모리 문제 아니네" 로 오판하기 쉽다
+- 그런데 **커밋**은 한도에 닿아 있다
+- 실패가 `MemoryError` 가 아니라 **access violation** 으로 나타난다 (mmap 페이지 인 실패는
+  깔끔한 예외를 못 던진다)
+
+**증상**
+
+```
+[INFO] got prompt
+Windows fatal exception: access violation
+
+  torch/storage.py     __getitem__
+  comfy/utils.py       load_torch_file        ← safetensors mmap 읽기
+  comfy/sd.py          load_diffusion_model
+  nodes.py             load_unet
+```
+
+프로세스가 즉사하므로 ComfyUI 로그가 우리 쪽으로 넘어오지 않는다. 백엔드에는
+`⚠️ Polling check failed: timeout` 만 남는다. **ComfyUI 콘솔을 직접 봐야 한다 —
+재시작하면 날아간다.**
+
+**확인**
+
+작업 관리자 > 성능 > 메모리 > `커밋됨 XX/YY GB`. 뒤 숫자가 한도이며, 앞 숫자가 거기 닿으면 이 건이다.
+
+**조치**
+
+페이지 파일을 "시스템이 관리" 로 두거나 충분히 크게 잡는다. RAM 이 넉넉하다고 줄이면 안 된다 —
+커밋 한도가 곧 RAM 크기로 고정되어 대형 모델 교차를 못 버틴다.
+
+**진단 시 유용한 것**
+
+`ImageGenerationJob.resolvedWorkflowData` 에 ComfyUI 로 실제 전송된 워크플로가 그대로 남는다.
+어떤 작업이 어떤 체크포인트를 요청했는지 사후에 정확히 재구성할 수 있다 — #825 조사에서
+"모델을 갈라놨는데도 죽는다" 를 확인한 근거가 이것이었다.
+
 ---
 
 **작성일**: 2026-01-24 / **마지막 검토**: 2026-05-02 (v1.8.x 기준 적용 범위 명시)  
