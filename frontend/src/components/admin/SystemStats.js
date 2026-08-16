@@ -17,6 +17,7 @@ import {
 import { useQuery } from '@tanstack/react-query';
 import { adminAPI, jobAPI } from '../../services/api';
 import config from '../../config';
+import { getOutputFormatLabel } from '../../templates/capabilities';
 import PageHeader from '../common/PageHeader';
 
 function SystemStats() {
@@ -170,12 +171,18 @@ function SystemStats() {
                 저장소 통계
               </Typography>
 
+              {/* 이미지만 세던 것을 세 축 합계로 (#807) — 영상·음악 인스턴스는 거의 비어 보였다 */}
               <Box mb={3}>
                 <Typography variant="body2" color="text.secondary" gutterBottom>
-                  총 이미지 수
+                  총 생성물 수
                 </Typography>
                 <Typography variant="h4">
-                  {systemStats.images?.total || 0}
+                  {systemStats.media?.total || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {Object.entries(systemStats.media?.byType || {})
+                    .map(([type, m]) => `${getOutputFormatLabel(type)} ${m.total}`)
+                    .join(' · ')}
                 </Typography>
               </Box>
 
@@ -184,7 +191,12 @@ function SystemStats() {
                   사용 중인 저장 공간
                 </Typography>
                 <Typography variant="h5">
-                  {formatBytes(systemStats.images?.totalSize || 0)}
+                  {formatBytes(systemStats.media?.totalSize || 0)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                  {Object.entries(systemStats.media?.byType || {})
+                    .map(([type, m]) => `${getOutputFormatLabel(type)} ${formatBytes(m.totalSize)}`)
+                    .join(' · ')}
                 </Typography>
               </Box>
             </Paper>
