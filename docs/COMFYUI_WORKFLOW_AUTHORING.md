@@ -231,6 +231,18 @@ ComfyUI 의 optional 입력은 **키가 없는 것**이 곧 미사용이다. 그
 - `_vcc` 는 조건 유무와 무관하게 **항상 제거**되어 ComfyUI 로 가지 않는다
 - 조건은 아무 플레이스홀더나 쓸 수 있다. `_attached` 전용이 아니다
 
+**배열은 AND 다 (#839).** 전부 truthy 여야 입력이 살아남는다.
+
+```json
+"ref_video_audios.ref_video_audio_0":
+  ["{{##ref_video_1_attached##}}", "{{##use_video_audio_1##}}"]
+```
+
+위는 "영상이 첨부됐고 **그리고** 소리 스위치가 켜졌을 때"만 사운드트랙을 조건에 넣는다.
+스위치만 보면 영상 없이 스위치가 켜진 요청에서 고아 오디오 링크가 남는다 — 첨부 여부와
+사용자 옵션을 함께 걸어야 하는 입력은 이렇게 배열로 쓴다. 빈 배열은 falsy 로 취급된다
+(저작 실수를 "항상 유지" 로 해석하지 않는다).
+
 ### 3.3 노드는 지우지 않아도 된다
 
 입력 키가 사라지면 상류 `LoadImage` 는 고아가 된다. **ComfyUI 는 출력 노드에서 도달할 수 없는 노드를 검증도 실행도 하지 않는다.** 존재하지 않는 파일을 가리켜도 무해하다.
@@ -482,3 +494,36 @@ LTX-2.5 템플릿에는 `TextGenerateLTX2Prompt` 노드가 있다. 짧은 프롬
 - [COMFYUI_WORKFLOW.md](COMFYUI_WORKFLOW.md) — VCC 내부 처리 로직, 플레이스홀더 치환 구현, D-1/D-2 계약
 - [`workboards/README.md`](../workboards/README.md) — 완성된 배포용 작업판 (모델 준비물 · 모델별 제약)
 - [DEVELOPMENT.md](DEVELOPMENT.md) — 신규 serverType 추가 절차
+
+
+## 부록 — 영상 출력 인코딩 (#846)
+
+### SaveVideo (core) 의 화질 기본값 함정
+
+codec `auto` 는 H.264 CRF 23 으로 인코딩된다 — "출력 화질이 나쁘다" 는 커뮤니티 지적의 실체.
+중첩 동적 콤보로 CRF 를 낮출 수 있다 (dotted key):
+
+```json
+"codec": "h264",
+"codec.encoding": "re-encode",
+"codec.encoding.crf": 14
+```
+
+CRF 14 는 시각적 준무손실. 실측: 같은 성격의 5초 클립 기준 0.72MB(auto) → 2.46MB(crf 14).
+
+### 더 나은 코덱 — VHS_VideoCombine
+
+core SaveVideo 는 h264 뿐이다. AV1/H.265/PNG 시퀀스는 `VHS_VideoCombine` 으로:
+`CreateVideo + SaveVideo` 를 통째로 대체하며 images·audio 를 직접 받는다.
+`video/nvenc_av1-mp4`(하드웨어 AV1, bitrate Mbps 단위)가 화질/용량/속도 균형이 좋다.
+출력은 history `gifs` 키로 나오는데 우리 수집기가 이미 읽는다.
+
+### ⚠️ Windows ComfyUI 의 경로 분리자
+
+**VHS 계열 노드의 `filename_prefix` 하위 경로는 역슬래시(`\`)여야 한다.** 슬래시(`/`)를 쓰면
+권한 오류로 실패한다 (실측). core `SaveVideo` 는 슬래시를 받아주지만, VHS 는 아니다.
+
+```json
+"filename_prefix": "{{##user_id##}}\\video\\MyPrefix"     // VHS — 역슬래시
+"filename_prefix": "{{##user_id##}}/video/MyPrefix"       // core SaveVideo — 슬래시 허용
+```

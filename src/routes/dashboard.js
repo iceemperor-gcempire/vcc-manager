@@ -3,7 +3,7 @@ const router = express.Router();
 
 const { requireAuth, buildWorkboardAccessFilter } = require('../middleware/auth');
 const PipelineRun = require('../models/PipelineRun');
-const GeneratedImage = require('../models/GeneratedImage');
+const { GENERATED_MEDIA_MODELS_BY_TYPE } = require('../models/mediaModels');
 const Workboard = require('../models/Workboard');
 
 // 대시보드 위젯 전용 읽기 전용 집계 엔드포인트 (#453).
@@ -85,33 +85,44 @@ router.get('/pipeline-runs', requireAuth, async (req, res) => {
   }
 });
 
-// 2) 일별 생성 이미지 추이 — 최근 N일(기본 7, 최대 31). KST 기준 일별 카운트.
+// 2) 일별 생성물 추이 — 최근 N일(기본 7, 최대 31). KST 기준 일별 카운트.
 //    빈 날짜는 0 으로 채워 연속 배열을 반환. 오늘/평균/피크 요약 포함.
-router.get('/image-trend', requireAuth, async (req, res) => {
+//
+//    이미지·영상·오디오 세 축을 모두 센다 (#807). 예전에는 GeneratedImage 만 세어
+//    영상·음악을 주로 만드는 사용자는 그래프가 거의 비어 보였다.
+//    `/image-trend` 는 이미지만 세던 시절의 이름 — 기존 호출 호환으로 남긴다.
+router.get(['/media-trend', '/image-trend'], requireAuth, async (req, res) => {
   try {
     const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 31);
 
     const since = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000);
     since.setHours(0, 0, 0, 0);
 
-    const rows = await GeneratedImage.aggregate([
-      { $match: { userId: req.user._id, createdAt: { $gte: since } } },
-      {
-        $group: {
-          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: TZ } },
-          count: { $sum: 1 },
-        },
-      },
-    ]);
+    const perType = await Promise.all(
+      Object.entries(GENERATED_MEDIA_MODELS_BY_TYPE).map(async ([type, Model]) => {
+        const rows = await Model.aggregate([
+          { $match: { userId: req.user._id, createdAt: { $gte: since } } },
+          {
+            $group: {
+              _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt', timezone: TZ } },
+              count: { $sum: 1 },
+            },
+          },
+        ]);
+        return [type, new Map(rows.map((r) => [r._id, r.count]))];
+      })
+    );
 
-    const counts = new Map(rows.map((r) => [r._id, r.count]));
     const fmt = (d) => d.toLocaleDateString('en-CA', { timeZone: TZ }); // YYYY-MM-DD
 
     const trend = [];
     const now = Date.now();
     for (let i = days - 1; i >= 0; i--) {
       const key = fmt(new Date(now - i * 24 * 60 * 60 * 1000));
-      trend.push({ date: key, count: counts.get(key) || 0 });
+      // count 는 합계 — 그래프가 쓰는 값. byType 은 내역 (툴팁·범례용)
+      const byType = Object.fromEntries(perType.map(([type, m]) => [type, m.get(key) || 0]));
+      const count = Object.values(byType).reduce((a, b) => a + b, 0);
+      trend.push({ date: key, count, byType });
     }
 
     const values = trend.map((t) => t.count);
@@ -122,7 +133,7 @@ router.get('/image-trend', requireAuth, async (req, res) => {
 
     res.json({ success: true, data: { trend, today, average, peak, days } });
   } catch (error) {
-    console.error('대시보드 image-trend 오류:', error);
+    console.error('대시보드 media-trend 오류:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

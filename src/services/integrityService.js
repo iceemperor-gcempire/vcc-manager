@@ -19,14 +19,9 @@ const fs = require('fs');
 const path = require('path');
 const User = require('../models/User');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
-const GeneratedImage = require('../models/GeneratedImage');
-const GeneratedVideo = require('../models/GeneratedVideo');
-const UploadedImage = require('../models/UploadedImage');
-const UploadedVideo = require('../models/UploadedVideo');
 const { GENERATED_MEDIA_MODELS, UPLOADED_MEDIA_MODELS } = require('../constants/mediaTypes');
 const { BACKUP_FILE_DIRS } = require('./backupCollections');
-const UploadedAudio = require('../models/UploadedAudio');
-const GeneratedAudio = require('../models/GeneratedAudio');
+const { uploadUrlToDiskPath } = require('../utils/fileUpload');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
 const Workboard = require('../models/Workboard');
@@ -34,6 +29,8 @@ const Pipeline = require('../models/Pipeline');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
 const { USER_CONTENT_MODELS } = require('./userDeletionService');
+const { deleteMediaFilesFor } = require('./mediaFileCleanup');
+const { BY_NAME: MEDIA_MODELS_BY_NAME, GENERATED_MEDIA_MODELS_BY_TYPE } = require('../models/mediaModels');
 
 // 구조 리소스 — 소유 필드가 끊겨도 삭제하지 않는다 (소유권 이전 정책 별개, 리포트 전용)
 const STRUCTURAL_CHECKS = [
@@ -103,11 +100,23 @@ async function checkOwnerOrphans() {
 /**
  * 개인 콘텐츠 소유자 orphan 정제. 기본 dry-run — apply:true 일 때만 실제 삭제.
  * 구조 리소스는 대상에서 제외 (리포트 전용 정책).
- * @returns {{ apply: boolean, results: Array<{collection, matched, deleted}> }}
+ * 문서뿐 아니라 딸린 디스크 파일도 함께 지운다 (#806) — 예전에는 문서만 지워 고아 파일이 쌓였다.
+ * @returns {{ apply: boolean, results: Array<{collection, matched, deleted}>, files: {deleted, absent, byCollection} }}
  */
 async function cleanupOwnerOrphans({ apply = false } = {}) {
   const userIdSet = await loadExistingUserIdSet();
   const results = [];
+
+  // 문서보다 파일을 먼저 지운다 — 문서를 잃으면 경로를 알 수 없어 영구 고아가 된다 (#806).
+  // dry-run 에서는 당연히 지우지 않는다.
+  let files = { deleted: 0, absent: 0, byCollection: [] };
+  if (apply) {
+    const owners = new Set();
+    for (const Model of USER_CONTENT_MODELS) {
+      (await findOrphanOwnersForModel(Model, 'userId', userIdSet)).forEach((id) => owners.add(id));
+    }
+    if (owners.size > 0) files = await deleteMediaFilesFor({ userId: { $in: [...owners] } });
+  }
 
   for (const Model of USER_CONTENT_MODELS) {
     const orphanOwners = await findOrphanOwnersForModel(Model, 'userId', userIdSet);
@@ -125,7 +134,7 @@ async function cleanupOwnerOrphans({ apply = false } = {}) {
     results.push({ collection: Model.modelName, matched, deleted });
   }
 
-  return { apply, results };
+  return { apply, results, files };
 }
 
 /**
@@ -170,13 +179,17 @@ async function checkDanglingGroupRefs() {
 /**
  * 끊긴 jobId 진단 — jobId 값이 있는데 해당 ImageGenerationJob 이 없는 콘텐츠.
  * (jobId 미보유는 히스토리 삭제 시 콘텐츠 보존 설계라 정상 — 검사 제외)
+ *
+ * 생성물 세 축을 모두 본다 (#808). 예전에는 [GeneratedImage, GeneratedVideo] 를 직접 적어
+ * 오디오가 빠져 있었다 — GeneratedAudio 도 같은 jobId 필드를 갖는다. 축이 늘 때마다
+ * 반복되는 자리라 매핑을 경유한다.
  */
 async function checkDanglingJobRefs() {
   const jobIds = await ImageGenerationJob.distinct('_id');
   const jobIdSet = new Set(jobIds.map((id) => String(id)));
 
   const results = [];
-  for (const Model of [GeneratedImage, GeneratedVideo]) {
+  for (const Model of Object.values(GENERATED_MEDIA_MODELS_BY_TYPE)) {
     const refs = await Model.distinct('jobId');
     const dangling = refs
       .filter((id) => id && !jobIdSet.has(String(id)))
@@ -197,15 +210,9 @@ async function checkDanglingJobRefs() {
 
 // ── P1: 파일↔DB 정합성 ─────────────────────────────────────────
 
-// DB 의 /uploads/... 경로를 디스크 경로로 변환. uploads 밖(비정상)은 null.
-function uploadUrlToDiskPath(url, uploadRoot) {
-  if (!url || typeof url !== 'string') return null;
-  const normalized = url.split('?')[0];
-  if (!normalized.startsWith('/uploads/')) return null;
-  const rel = normalized.slice('/uploads/'.length);
-  if (rel.includes('..') || rel.includes('\0')) return null;
-  return path.join(uploadRoot, rel);
-}
+// DB 의 /uploads/... 경로 → 디스크 경로 변환은 utils/fileUpload 이 단일 소스다 (#806).
+// 삭제 경로(mediaFileCleanup)와 같은 규칙이어야 "지웠다고 했는데 남는" 어긋남이 없다.
+// 기존 import 경로 호환을 위해 여기서도 재export 한다.
 
 function walkFiles(dir, out = []) {
   if (!fs.existsSync(dir)) return out;
@@ -221,9 +228,8 @@ function walkFiles(dir, out = []) {
 // 미디어 모델 목록은 constants/mediaTypes 가 단일 소스 (#808).
 // urlFields 는 모델마다 다르므로(비디오만 thumbnailUrl 이 있다) 여기서 보완한다.
 const THUMBNAIL_MODELS = new Set(['GeneratedVideo', 'UploadedVideo']);
-const MEDIA_MODELS = { GeneratedImage, GeneratedVideo, GeneratedAudio, UploadedImage, UploadedVideo, UploadedAudio };
 const FILE_CHECKS = [...GENERATED_MEDIA_MODELS, ...UPLOADED_MEDIA_MODELS].map((name) => ({
-  Model: MEDIA_MODELS[name],
+  Model: MEDIA_MODELS_BY_NAME[name],
   urlFields: THUMBNAIL_MODELS.has(name) ? ['url', 'thumbnailUrl'] : ['url'],
 }));
 
@@ -231,11 +237,10 @@ const FILE_CHECKS = [...GENERATED_MEDIA_MODELS, ...UPLOADED_MEDIA_MODELS].map((n
 const CHECKED_SUBDIRS = BACKUP_FILE_DIRS;   // #808 — 백업 대상과 같은 목록이어야 한다
 
 /**
- * 파일↔DB 정합성 진단 (P1).
- * - missing: DB 가 가리키는데 디스크에 없는 파일
- * - orphanFiles: 검사 대상 서브디렉토리에 있는데 DB 어디에도 참조가 없는 파일
+ * 파일↔DB 대조 — 진단과 정제가 공유하는 계산. 잘라내지 않은 전체 목록을 돌려준다.
+ * (리포트용 슬라이스는 호출자가 한다 — 정제는 전체가 필요하다)
  */
-async function checkFileIntegrity({ uploadRoot = process.env.UPLOAD_PATH || './uploads' } = {}) {
+async function scanFiles(uploadRoot) {
   const known = new Set();
   const missing = [];
 
@@ -261,11 +266,89 @@ async function checkFileIntegrity({ uploadRoot = process.env.UPLOAD_PATH || './u
     }
   }
 
+  return { missing, orphanFiles };
+}
+
+/**
+ * 파일↔DB 정합성 진단 (P1).
+ * - missing: DB 가 가리키는데 디스크에 없는 파일
+ * - orphanFiles: 검사 대상 서브디렉토리에 있는데 DB 어디에도 참조가 없는 파일
+ */
+async function checkFileIntegrity({ uploadRoot = process.env.UPLOAD_PATH || './uploads' } = {}) {
+  const { missing, orphanFiles } = await scanFiles(uploadRoot);
   return {
     missingCount: missing.length,
     missing: missing.slice(0, 50),
     orphanFileCount: orphanFiles.length,
     orphanFiles: orphanFiles.slice(0, 50),
+  };
+}
+
+/**
+ * 고아 파일 회수 (#806). 기본 dry-run — apply:true 일 때만 실제 삭제.
+ *
+ * 삭제 경로를 고친 것(#806)은 **앞으로** 고아가 생기지 않게 할 뿐이다. 이미 쌓인 것은
+ * 여기서만 회수된다 (알파 기준 62개 / 30MB+).
+ *
+ * **최근 파일은 건드리지 않는다.** 생성 파이프라인은 파일을 먼저 쓰고 DB 문서를 나중에
+ * 만든다 — 그 사이에 스캔하면 정상 파일이 "참조 없음" 으로 보인다. `minAgeMs` 보다 젊은
+ * 파일을 제외해 이 경합을 피한다. 이 가드가 없으면 진행 중인 작업의 결과물을 지울 수 있다.
+ *
+ * @returns {{apply, candidates, skippedRecent, deleted, failed, freedBytes, sample}}
+ */
+async function cleanupOrphanFiles({
+  apply = false,
+  uploadRoot = process.env.UPLOAD_PATH || './uploads',
+  minAgeMs = 60 * 60 * 1000,   // 1시간
+} = {}) {
+  const { orphanFiles } = await scanFiles(uploadRoot);
+
+  const cutoff = Date.now() - minAgeMs;
+  const candidates = [];
+  let skippedRecent = 0;
+  let freedBytes = 0;
+
+  for (const file of orphanFiles) {
+    let stat;
+    try {
+      stat = fs.statSync(file);
+    } catch {
+      continue;   // 스캔과 여기 사이에 사라진 것 — 이미 정리됨
+    }
+    if (stat.mtimeMs > cutoff) { skippedRecent += 1; continue; }
+    candidates.push(file);
+    freedBytes += stat.size;
+  }
+
+  let deleted = 0;
+  let failed = 0;
+  if (apply) {
+    for (const file of candidates) {
+      try {
+        fs.unlinkSync(file);
+        deleted += 1;
+      } catch (error) {
+        failed += 1;
+        console.error('고아 파일 삭제 실패:', file, error.message);
+      }
+    }
+  }
+
+  // 0건이어도 남긴다 — 스캔 결과가 비었는지, 최근 파일이라 걸러졌는지 구분되어야 한다
+  console.log(
+    `🗑️ 고아 파일 정제 (${apply ? 'apply' : 'dry-run'}): 스캔 ${orphanFiles.length}건 → ` +
+    `대상 ${candidates.length}건 · 최근이라 제외 ${skippedRecent}건 · 삭제 ${deleted}건 · 실패 ${failed}건 · ` +
+    `${(freedBytes / 1048576).toFixed(1)}MB`
+  );
+
+  return {
+    apply,
+    candidates: candidates.length,
+    skippedRecent,
+    deleted,
+    failed,
+    freedBytes,
+    sample: candidates.slice(0, 50),
   };
 }
 
@@ -275,6 +358,7 @@ module.exports = {
   checkDanglingJobRefs,
   checkDanglingGroupRefs,
   checkFileIntegrity,
+  cleanupOrphanFiles,
   uploadUrlToDiskPath,
   STRUCTURAL_CHECKS,
 };

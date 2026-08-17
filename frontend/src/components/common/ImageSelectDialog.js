@@ -97,6 +97,9 @@ function ImageSelectDialog({
           type={getType()}
           fetchFn={fetchFn}
           queryKey={`imageSelect-${tab}-${tagsParam}`}
+          // 열 때마다 새로 받는다 (#827). 전역 5분 캐시를 상속하면 방금 생성한 이미지가
+          // 목록에 없고, 새로고침해야 나타났다. 12개짜리 모달이라 재조회 비용이 작다.
+          staleTime={0}
           selectable
           multiSelect={multiple}
           selectedItems={selectedImages}

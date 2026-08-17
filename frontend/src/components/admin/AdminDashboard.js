@@ -103,10 +103,11 @@ function AdminDashboard() {
         </Grid>
         
         <Grid item xs={12} sm={6} md={3}>
+          {/* 이미지만 세던 것을 세 축 합계로 (#807) */}
           <StatCard
-            title="생성된 이미지"
-            value={systemStats.images?.total || 0}
-            subtitle={`${(systemStats.images?.totalSize / (1024 * 1024 * 1024) || 0).toFixed(1)} GB`}
+            title="생성물"
+            value={systemStats.media?.total || 0}
+            subtitle={`${((systemStats.media?.totalSize || 0) / (1024 * 1024 * 1024)).toFixed(1)} GB`}
             icon={<Image color="success" />}
             color="success"
           />
@@ -180,9 +181,9 @@ function AdminDashboard() {
               </Alert>
             )}
             
-            {systemStats.images?.totalSize > 10 * 1024 * 1024 * 1024 && (
+            {systemStats.media?.totalSize > 10 * 1024 * 1024 * 1024 && (
               <Alert severity="warning">
-                저장된 이미지 용량이 {(systemStats.images.totalSize / (1024 * 1024 * 1024)).toFixed(1)} GB입니다. 
+                저장된 생성물 용량이 {(systemStats.media.totalSize / (1024 * 1024 * 1024)).toFixed(1)} GB입니다.
                 디스크 공간을 확인해주세요.
               </Alert>
             )}

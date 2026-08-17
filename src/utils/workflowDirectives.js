@@ -93,7 +93,13 @@ function applyOmitDirectives(workflowObj) {
     if (rules && typeof rules === 'object' && node.inputs && typeof node.inputs === 'object') {
       for (const [inputKey, condition] of Object.entries(rules)) {
         if (!Object.prototype.hasOwnProperty.call(node.inputs, inputKey)) continue;
-        if (!isFalsy(condition)) continue;
+        // 배열이면 AND (#839) — 전부 truthy 여야 입력이 살아남는다.
+        // 예: 참조 영상의 사운드트랙은 "영상이 첨부됐고" AND "소리 스위치가 켜졌을 때"만.
+        // 한쪽만 보면 영상 없이 스위치만 켜진 경우 고아 오디오 링크가 남는다.
+        const keep = Array.isArray(condition)
+          ? condition.length > 0 && condition.every((c) => !isFalsy(c))
+          : !isFalsy(condition);
+        if (keep) continue;
         delete node.inputs[inputKey];
         omitted.push({ node: nodeId, input: inputKey });
       }
@@ -201,9 +207,14 @@ function getOmitConditionedFieldNames(workflowData) {
     const rules = node && node._vcc && node._vcc.omitInputsUnless;
     if (!rules || typeof rules !== 'object') continue;
     for (const condition of Object.values(rules)) {
-      if (typeof condition !== 'string') continue;
-      const m = condition.trim().match(ATTACHED);
-      if (m) names.add(m[1]);
+      // 배열(AND, #839)이면 각 원소를 같은 규칙으로 본다 — 조건 중 하나라도
+      // `필드_attached` 형태면 그 필드는 조건부 생략 대상이다
+      const parts = Array.isArray(condition) ? condition : [condition];
+      for (const part of parts) {
+        if (typeof part !== 'string') continue;
+        const m = part.trim().match(ATTACHED);
+        if (m) names.add(m[1]);
+      }
     }
   }
   return [...names];

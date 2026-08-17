@@ -91,6 +91,8 @@ function VideoSelectDialog({
           type="video"
           fetchFn={fetchFn}
           queryKey={`videoSelect-${tab}`}
+          // 열 때마다 새로 받는다 (#827) — ImageSelectDialog 와 같은 이유
+          staleTime={0}
           selectable
           multiSelect={multiple}
           selectedItems={selectedVideos}

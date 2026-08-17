@@ -14,7 +14,10 @@ const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (!ALLOWED_IMAGE_TYPES.includes(file.mimetype)) {
-    return cb(new Error('Only JPEG, PNG, and WebP image files are allowed'), false);
+    // status 400 — 없으면 500 으로 은닉된다 (#842)
+    const err = new Error(`지원하지 않는 이미지 형식입니다 (${file.mimetype || '알 수 없음'}). JPEG·PNG·WebP 만 업로드할 수 있습니다.`);
+    err.status = 400;
+    return cb(err, false);
   }
   cb(null, true);
 };
@@ -88,6 +91,22 @@ const deleteFile = async (filepath) => {
   }
 };
 
+/**
+ * DB 의 `/uploads/...` URL 을 디스크 경로로 변환. uploads 밖(비정상)은 null.
+ *
+ * 정합성 검사(integrityService)와 삭제 경로(mediaFileCleanup)가 같은 변환을 해야 한다 —
+ * 한쪽만 다르게 계산하면 "지웠다고 보고했는데 남는" 또는 그 반대가 된다. 모델을 참조하지
+ * 않는 순수 함수라 여기(util)에 둔다 (서비스에 두면 순환 참조가 생긴다).
+ */
+const uploadUrlToDiskPath = (url, uploadRoot) => {
+  if (!url || typeof url !== 'string') return null;
+  const normalized = url.split('?')[0];
+  if (!normalized.startsWith('/uploads/')) return null;
+  const rel = normalized.slice('/uploads/'.length);
+  if (rel.includes('..') || rel.includes('\0')) return null;
+  return path.join(uploadRoot, rel);
+};
+
 const getImageInfo = async (filepath) => {
   try {
     const metadata = await sharp(filepath).metadata();
@@ -145,11 +164,13 @@ const createThumbnail = async (inputPath, outputPath, size = 256) => {
 
 module.exports = {
   upload,
+  fileFilter: fileFilter,   // 테스트용 (#842)
   processAndSaveImage,
   deleteFile,
   getImageInfo,
   validateImageDimensions,
   createThumbnail,
+  uploadUrlToDiskPath,
   ALLOWED_IMAGE_TYPES,
   MAX_FILE_SIZE
 };

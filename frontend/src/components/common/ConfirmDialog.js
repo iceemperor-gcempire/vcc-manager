@@ -22,6 +22,20 @@ export function useConfirm() {
   return ctx;
 }
 
+// 단일 버튼 알림 (#842) — 업로드 거부처럼 **사용자가 원인을 읽어야 하는 오류**용.
+// 토스트는 우상단에서 수 초 만에 사라져 "왜 실패했는지" 를 추출할 틈이 없다.
+// confirm 과 같은 다이얼로그를 쓰되 취소 버튼이 없고, 어떻게 닫아도 resolve 된다.
+//
+//   const alert = useAlert();
+//   await alert({ title: '업로드 실패', description: serverMessage, severity: 'error' });
+export function useAlert() {
+  const confirm = useConfirm();
+  return useCallback(
+    (options) => confirm({ ...(typeof options === 'string' ? { title: options } : options || {}), alert: true }),
+    [confirm]
+  );
+}
+
 export function ConfirmProvider({ children }) {
   const [pending, setPending] = useState(null);
 
@@ -48,13 +62,15 @@ export function ConfirmProvider({ children }) {
       {children}
       <Dialog
         open={!!pending}
-        onClose={() => settle(false)}
+        onClose={() => settle(!!o.alert)}
         maxWidth="xs"
         fullWidth
         aria-labelledby="confirm-dialog-title"
       >
         <DialogTitle id="confirm-dialog-title" sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
-          {danger && <WarningAmberRounded fontSize="small" sx={{ color: 'error.main' }} />}
+          {(danger || o.severity === 'error') && (
+            <WarningAmberRounded fontSize="small" sx={{ color: 'error.main' }} />
+          )}
           {o.title}
         </DialogTitle>
         <DialogContent>
@@ -77,10 +93,13 @@ export function ConfirmProvider({ children }) {
           )}
         </DialogContent>
         <DialogActions>
-          {/* 파괴적 동작에서는 취소가 기본 포커스 — Enter 오폭 방지 */}
-          <Button onClick={() => settle(false)} autoFocus={danger}>
-            {o.cancelLabel || '취소'}
-          </Button>
+          {/* alert 모드(#842)는 선택지가 없으므로 취소 버튼을 두지 않는다 */}
+          {!o.alert && (
+            /* 파괴적 동작에서는 취소가 기본 포커스 — Enter 오폭 방지 */
+            <Button onClick={() => settle(false)} autoFocus={danger}>
+              {o.cancelLabel || '취소'}
+            </Button>
+          )}
           <Button
             variant="contained"
             color={danger ? 'error' : 'primary'}

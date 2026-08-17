@@ -9,7 +9,7 @@ const geminiService = require('./geminiService');
 const gptImageService = require('./gptImageService');
 const dIceAllService = require('./dIceAllService');
 const { computeOpenAIImageCost, computeGeminiImageCost } = require('../utils/pricing');
-const { applyOmitDirectives } = require('../utils/workflowDirectives');
+const { applyOmitDirectives, getOmitConditionedFieldNames } = require('../utils/workflowDirectives');
 const { ATTACHMENT_FIELD_TYPES, GENERATED_MEDIA_DIRS } = require('../constants/mediaTypes');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedImage = require('../models/GeneratedImage');
@@ -271,10 +271,15 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
 }
 
 async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
+  // 미첨부 시 입력 슬롯이 통째로 제거되는 필드 (#771 `_vcc.omitInputsUnless`).
+  // 이 필드들은 흰 PNG 를 올려도 모델에 도달하지 않으므로 업로드 자체를 건너뛴다 (#786).
+  const omitConditionedFields = new Set(getOmitConditionedFieldNames(workboardData.workflowData));
+
   const uploadedImageMap = await uploadImageFieldsToComfyUI(
     workboardData.serverUrl,
     workboardData.additionalInputFields || [],
-    inputData
+    inputData,
+    omitConditionedFields
   );
   // 비디오 필드도 같은 필드명→ComfyUI 파일명 맵에 합류 (#753)
   const uploadedVideoMap = await uploadVideoFieldsToComfyUI(
@@ -592,7 +597,7 @@ const uploadBlankWhitePngToComfyUI = async (serverUrl, cache) => {
 };
 
 // 이미지 타입 필드들을 ComfyUI에 업로드하고 파일명 맵 반환
-const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData) => {
+const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inputData, omitConditionedFields = new Set()) => {
   const uploadedImageMap = {};
   const blankCache = {};
 
@@ -616,6 +621,15 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
 
     // 미첨부 / imageId 부재 시 흰색 1024x1024 PNG 자동 주입 (#230)
     if (!imageId) {
+      // 단, 조건부 생략 필드라면 주입하지 않는다 (#786). 이 필드의 입력 슬롯은
+      // applyOmitDirectives 가 곧 제거하므로, 올려둔 흰 PNG 는 고아가 된 LoadImage 만
+      // 참조해 모델에 도달하지 않는다 — 순수 낭비였다. R2V 처럼 슬롯이 많은 작업판에서 증폭된다.
+      // 맵에 넣지 않으면 치환 단계가 '' 로 채우고, 그 LoadImage 는 출력에서 도달 불가라
+      // ComfyUI 의 validate_prompt 대상에서도 빠진다 (출력 노드에서 역방향으로만 검증).
+      if (omitConditionedFields.has(fieldName)) {
+        console.log(`⏭️ 조건부 생략 필드 "${fieldName}" 미첨부 — 흰 PNG 업로드 생략 (#786)`);
+        continue;
+      }
       try {
         const blankName = await uploadBlankWhitePngToComfyUI(serverUrl, blankCache);
         uploadedImageMap[fieldName] = blankName;

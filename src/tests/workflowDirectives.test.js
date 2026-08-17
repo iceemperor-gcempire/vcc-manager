@@ -51,6 +51,33 @@ describe('applyOmitDirectives (#771)', () => {
       expect(omitted).toHaveLength(0);
     });
 
+    // 배열 = AND (#839). 참조 영상의 사운드트랙이 대표 사례 — "영상이 첨부됐고" AND
+    // "소리 스위치가 켜졌을 때"만 조건이 된다. 한쪽만 보면 영상 없이 스위치만 켜진 경우
+    // 고아 오디오 링크가 남는다.
+    describe('배열 조건 — AND (#839)', () => {
+      const audioKey = 'ref_video_audios.ref_video_audio_0';
+
+      test.each([
+        [[1, true], true],          // 영상 있음 + 스위치 on → 유지
+        [[1, false], false],        // 영상 있음 + 스위치 off → 제거 (무음 참조)
+        [[0, true], false],         // 영상 없음 + 스위치 on → 제거 (고아 방지)
+        [[0, false], false],
+        [['1', 'true'], true],      // 치환 결과가 문자열이어도 동일
+        [['1', 'false'], false],
+      ])('%j → 유지=%s', (condition, kept) => {
+        const wf = { 136: node({ [audioKey]: ['161', 2] }, { [audioKey]: condition }) };
+        const { workflow } = applyOmitDirectives(wf);
+        expect(Object.prototype.hasOwnProperty.call(workflow['136'].inputs, audioKey)).toBe(kept);
+      });
+
+      test('빈 배열은 제거 — 조건 없는 AND 를 "항상 유지" 로 보지 않는다', () => {
+        // 빈 배열은 저작 실수다. 항상-유지로 해석하면 지시자를 걸어둔 의도와 반대로 동작한다.
+        const wf = { 136: node({ [audioKey]: ['161', 2] }, { [audioKey]: [] }) };
+        const { workflow } = applyOmitDirectives(wf);
+        expect(workflow['136'].inputs).not.toHaveProperty([audioKey]);
+      });
+    });
+
     test('여러 슬롯을 개별 판정 — 가변 개수의 핵심', () => {
       const wf = {
         136: node(
@@ -142,6 +169,24 @@ describe('getOmitConditionedFieldNames (#774)', () => {
       },
     });
     expect(getOmitConditionedFieldNames(s)).toEqual(['ref_image_1']);
+  });
+
+  test('배열(AND) 조건 안의 _attached 도 추출한다 (#839)', () => {
+    // 사운드트랙 조건이 [영상_attached, 스위치] 배열이 되면서, 배열 원소도 같은 규칙으로
+    // 훑어야 영상 필드의 "미첨부 안내" 가 유지된다. 스위치 쪽(_attached 아님)은 무시.
+    const s = wf({
+      136: {
+        class_type: 'X',
+        inputs: { 'ref_video_audios.ref_video_audio_0': ['161', 2] },
+        _vcc: {
+          omitInputsUnless: {
+            'ref_video_audios.ref_video_audio_0':
+              ['{{##ref_video_1_attached##}}', '{{##use_video_audio_1##}}'],
+          },
+        },
+      },
+    });
+    expect(getOmitConditionedFieldNames(s)).toEqual(['ref_video_1']);
   });
 
   test('여러 노드·여러 슬롯에서 중복 없이 모은다', () => {

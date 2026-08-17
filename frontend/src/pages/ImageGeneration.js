@@ -60,6 +60,7 @@ import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
 import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
+import { useAlert } from '../components/common/ConfirmDialog';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -180,6 +181,7 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
 
 // 사용자 정의 이미지 입력 필드 컴포넌트
 function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false, omitConditioned = false }) {
+  const alert = useAlert();
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -223,7 +225,8 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
       onChange(updated);
       toast.success(`${toAdd.length}개 이미지 업로드 완료`);
     } catch (error) {
-      toast.error('이미지 업로드 실패');
+      await alert({ title: '이미지 업로드 실패', severity: 'error',
+        description: error.response?.data?.message || '알 수 없는 오류로 업로드하지 못했습니다.' });
     }
   };
 
@@ -246,6 +249,9 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
+    // 필터에 걸린 파일이 소리 없이 사라지지 않게 한다 (#842) — 이전에는 아무 표시가 없었다
+    onDropRejected: (rejected) => alert({ title: '첨부할 수 없는 파일입니다', severity: 'error',
+      description: `${rejected.map((r) => r.file.name).join(', ')} — JPEG·PNG·WebP 이미지만 첨부할 수 있습니다.` }),
     maxFiles: maxImages - selectedImages.length,
     disabled: selectedImages.length >= maxImages,
     onDrop: handleNewUpload
@@ -377,6 +383,7 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
 
 // 참조 비디오 필드 (#753) — CustomImageField 와 대칭. MiniMax H3 등 비디오 참조 워크플로우용.
 function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
+  const alert = useAlert();
   const [selectedVideos, setSelectedVideos] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -421,7 +428,8 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
       onChange(updated);
       toast.success(`${toAdd.length}개 비디오 업로드 완료`);
     } catch (error) {
-      toast.error(error.response?.data?.message || '비디오 업로드 실패');
+      await alert({ title: '비디오 업로드 실패', severity: 'error',
+        description: error.response?.data?.message || '알 수 없는 오류로 업로드하지 못했습니다.' });
     }
   };
 
@@ -432,7 +440,9 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
   };
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: { 'video/*': ['.mp4', '.webm', '.mov'] },
+    accept: { 'video/*': ['.mp4', '.webm', '.mov', '.mkv'] },   // MKV 는 서버가 mp4 로 재포장 (#844)
+    onDropRejected: (rejected) => alert({ title: '첨부할 수 없는 파일입니다', severity: 'error',
+      description: `${rejected.map((r) => r.file.name).join(', ')} — MP4·WebM·MOV·MKV 영상만 첨부할 수 있습니다.` }),
     maxFiles: maxVideos - selectedVideos.length,
     disabled: selectedVideos.length >= maxVideos,
     onDrop: handleNewUpload
@@ -474,7 +484,7 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
         >
           <input {...getInputProps()} />
           <Typography variant="body2" color="text.secondary">
-            비디오를 드래그하거나 클릭하여 업로드 (MP4/WebM/MOV)
+            비디오를 드래그하거나 클릭하여 업로드 (MP4/WebM/MOV/MKV)
           </Typography>
           <Typography variant="caption" color="text.secondary">
             최대 {maxVideos}개
@@ -532,6 +542,7 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
 // 참조 오디오 필드 (#772) — CustomVideoField 와 대칭.
 // 오디오는 썸네일이 없어 카드 대신 파일명 + 인라인 플레이어로 보여준다.
 function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
+  const alert = useAlert();
   const [selectedAudios, setSelectedAudios] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -576,7 +587,8 @@ function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
       onChange(updated);
       toast.success(`${toAdd.length}개 오디오 업로드 완료`);
     } catch (error) {
-      toast.error(error.response?.data?.message || '오디오 업로드 실패');
+      await alert({ title: '오디오 업로드 실패', severity: 'error',
+        description: error.response?.data?.message || '알 수 없는 오류로 업로드하지 못했습니다.' });
     }
   };
 
@@ -588,6 +600,8 @@ function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'audio/*': ['.mp3', '.wav', '.flac', '.ogg', '.m4a', '.aac'] },
+    onDropRejected: (rejected) => alert({ title: '첨부할 수 없는 파일입니다', severity: 'error',
+      description: `${rejected.map((r) => r.file.name).join(', ')} — MP3·WAV·FLAC·OGG·M4A·AAC 오디오만 첨부할 수 있습니다.` }),
     maxFiles: maxAudios - selectedAudios.length,
     disabled: selectedAudios.length >= maxAudios,
     onDrop: handleNewUpload

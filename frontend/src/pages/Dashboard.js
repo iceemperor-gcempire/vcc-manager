@@ -150,8 +150,8 @@ function Dashboard() {
   const { data: activeRunsRes } = useQuery({ queryKey: ['dashboardActiveRuns'], queryFn: dashboardAPI.getActivePipelineRuns, refetchInterval: config.monitoring.recentJobsInterval });
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({ queryKey: ['dashboardProjects'], queryFn: () => projectAPI.getAll() });
   const { data: imagesRes, isLoading: imagesLoading } = useQuery({ queryKey: ['dashboardRecentImages'], queryFn: () => imageAPI.getGenerated({ limit: 12 }) });
-  const { data: trendRes } = useQuery({ queryKey: ['dashboardImageTrend'], queryFn: () =>
-    dashboardAPI.getImageTrend(7) });
+  const { data: trendRes } = useQuery({ queryKey: ['dashboardMediaTrend'], queryFn: () =>
+    dashboardAPI.getMediaTrend(7) });
   const { data: serversRes } = useQuery({ queryKey: ['dashboardServers'], queryFn: () => serverAPI.getServers(), refetchInterval: config.monitoring.queueStatusInterval });
   const { data: workboardsRes } = useQuery({ queryKey: ['dashboardWorkboardUsage'], queryFn: () =>
     dashboardAPI.getWorkboardUsage(4) });
@@ -221,7 +221,8 @@ function Dashboard() {
             )}
             {deltaPct != null && deltaPct !== 0 && (
               <>
-                {' '}어제 대비 이미지 생성량이{' '}
+                {/* 이미지만 세던 시절의 문구 — 이제 영상·오디오도 포함한다 (#807) */}
+                {' '}어제 대비 생성량이{' '}
                 <Box
                   component="b"
                   sx={{ color: deltaPct > 0 ? 'success.main' : 'error.main' }}

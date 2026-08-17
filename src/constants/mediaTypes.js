@@ -32,21 +32,40 @@ const GENERATED_MEDIA_DIRS = Object.freeze({
 const UPLOAD_MEDIA_DIR = 'reference';
 
 /**
- * 생성물 미디어 모델 이름.
+ * 축 → 생성물 미디어 모델 이름.
  *
- * 백업·무결성 검사·계정 삭제가 전부 이 셋을 함께 다뤄야 한다.
+ * 백업·무결성 검사·계정 삭제·통계가 전부 이 셋을 함께 다뤄야 한다.
  * 모델 객체가 아니라 **이름**으로 두는 이유는 순환 참조를 피하기 위해서다 —
- * 각 서비스가 자기 시점에 require 한다.
+ * 각 서비스가 자기 시점에 require 한다 (models/mediaModels 가 이름→모델 해석을 담당).
+ *
+ * 축을 키로 두는 이유는 통계처럼 **종류별 내역**이 필요한 곳 때문이다 (#807).
+ * 배열만 있으면 순서에 기대어 축을 맞추게 되고, 그건 조용히 어긋난다.
  */
-const GENERATED_MEDIA_MODELS = Object.freeze(['GeneratedImage', 'GeneratedVideo', 'GeneratedAudio']);
+const GENERATED_MEDIA_MODEL_BY_TYPE = Object.freeze({
+  image: 'GeneratedImage',
+  video: 'GeneratedVideo',
+  audio: 'GeneratedAudio',
+});
+
+/** 축 → 업로드본 미디어 모델 이름 */
+const UPLOADED_MEDIA_MODEL_BY_TYPE = Object.freeze({
+  image: 'UploadedImage',
+  video: 'UploadedVideo',
+  audio: 'UploadedAudio',
+});
+
+/** 생성물 미디어 모델 이름 (위 매핑에서 파생 — 따로 적지 않는다) */
+const GENERATED_MEDIA_MODELS = Object.freeze(Object.values(GENERATED_MEDIA_MODEL_BY_TYPE));
 
 /** 업로드본 미디어 모델 이름 */
-const UPLOADED_MEDIA_MODELS = Object.freeze(['UploadedImage', 'UploadedVideo', 'UploadedAudio']);
+const UPLOADED_MEDIA_MODELS = Object.freeze(Object.values(UPLOADED_MEDIA_MODEL_BY_TYPE));
 
 module.exports = {
   ATTACHMENT_FIELD_TYPES,
   GENERATED_MEDIA_DIRS,
   UPLOAD_MEDIA_DIR,
+  GENERATED_MEDIA_MODEL_BY_TYPE,
+  UPLOADED_MEDIA_MODEL_BY_TYPE,
   GENERATED_MEDIA_MODELS,
   UPLOADED_MEDIA_MODELS,
 };
