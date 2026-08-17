@@ -1,0 +1,204 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-17T15:49:49.292Z",
+  "workboard": {
+    "name": "Sketch to Image - SDXL",
+    "description": "스케치·러프를 올리면 그 구도를 따라 이미지를 생성합니다 (ControlNet). 크기는 스케치 비율 기준 1M 픽셀로 자동 계산되고, 결과는 원본 크기와 업스케일본이 함께 저장됩니다.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "sketch",
+        "label": "스케치",
+        "type": "image",
+        "required": true,
+        "options": [],
+        "defaultValue": null,
+        "description": "흰 바탕에 그린 스케치·러프·선화. 이 이미지의 비율로 1M 픽셀(32px 단위) 크기가 자동 계산됩니다.",
+        "formatString": "{{##sketch##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "options": [],
+        "defaultValue": "IXL\\waiIllustriousSDXL_v170.safetensors",
+        "description": "SDXL 계열 체크포인트 (Illustrious/NoobAI 등)",
+        "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "controlnet",
+        "label": "컨트롤넷",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "MangaLine (선화·러프 권장)",
+            "value": "noobaiXLControlnet_epsMangaLine.safetensors"
+          },
+          {
+            "key": "Lineart Realistic",
+            "value": "noobaiXLControlnet_epsLineartRealistic.safetensors"
+          },
+          {
+            "key": "Canny (전처리 켜기 권장)",
+            "value": "noobaiXLControlnet_epsCanny.safetensors"
+          },
+          {
+            "key": "SAI Sketch (LoRA형)",
+            "value": "sai_xl_sketch_256lora.safetensors"
+          },
+          {
+            "key": "Scribble Anime (controllllite)",
+            "value": "controllllite\\kohya_controllllite_xl_scribble_anime.safetensors"
+          },
+          {
+            "key": "Canny Anime (controllllite)",
+            "value": "controllllite\\kohya_controllllite_xl_canny_anime.safetensors"
+          }
+        ],
+        "defaultValue": "noobaiXLControlnet_epsMangaLine.safetensors",
+        "description": "스케치를 어떻게 따라갈지 결정합니다. 선화·러프는 MangaLine 권장, Canny 는 아래 전처리와 함께.",
+        "formatString": "{{##controlnet##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "control_strength",
+        "label": "컨트롤 강도",
+        "type": "number",
+        "required": false,
+        "options": [],
+        "defaultValue": 0.8,
+        "description": "0.5(느슨) ~ 1.2(엄격). 스케치를 얼마나 충실히 따를지.",
+        "formatString": "{{##control_strength##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "invert_lines",
+        "label": "선 반전 (흰 바탕 스케치)",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": true,
+        "description": "컨트롤넷은 검은 바탕·흰 선을 기대합니다. 흰 종이에 그린 스케치면 켜두세요.",
+        "formatString": "{{##invert_lines##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "use_canny",
+        "label": "Canny 윤곽 전처리",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": false,
+        "description": "스케치 대신 사진·채색 이미지를 참조로 쓸 때 켭니다. Canny 계열 컨트롤넷과 함께.",
+        "formatString": "{{##use_canny##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "AnimeSharp V4 (2x)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast (2x)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          },
+          {
+            "key": "Remacri (4x)",
+            "value": "4x_foolhardy_Remacri.pth"
+          },
+          {
+            "key": "RealESRGAN anime6B (4x)",
+            "value": "RealESRGAN_x4plus_anime_6B.pth"
+          }
+        ],
+        "defaultValue": "2x-AnimeSharpV4_RCAN.safetensors",
+        "description": "생성 후 업스케일에 쓸 모델. 원본 크기와 업스케일본이 함께 저장됩니다.",
+        "formatString": "{{##upscale_model##}}"
+      }
+    ],
+    "workflowData": "{\n  \"1\": {\n    \"inputs\": {\n      \"image\": \"{{##sketch##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"스케치\"\n    }\n  },\n  \"2\": {\n    \"inputs\": {\n      \"image\": [\n        \"1\",\n        0\n      ]\n    },\n    \"class_type\": \"GetImageSize\",\n    \"_meta\": {\n      \"title\": \"스케치 크기\"\n    }\n  },\n  \"3\": {\n    \"inputs\": {\n      \"expression\": \"32*int((a*(1000000.0/(a*b))**0.5)/32+0.5)\",\n      \"values.a\": [\n        \"2\",\n        0\n      ],\n      \"values.b\": [\n        \"2\",\n        1\n      ]\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"생성 너비 (1MP·32버킷)\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"expression\": \"32*int((b*(1000000.0/(a*b))**0.5)/32+0.5)\",\n      \"values.a\": [\n        \"2\",\n        0\n      ],\n      \"values.b\": [\n        \"2\",\n        1\n      ]\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"생성 높이 (1MP·32버킷)\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"image\": [\n        \"1\",\n        0\n      ],\n      \"upscale_method\": \"lanczos\",\n      \"width\": [\n        \"3\",\n        1\n      ],\n      \"height\": [\n        \"4\",\n        1\n      ],\n      \"crop\": \"disabled\"\n    },\n    \"class_type\": \"ImageScale\",\n    \"_meta\": {\n      \"title\": \"스케치 리스케일\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageInvert\",\n    \"_meta\": {\n      \"title\": \"선 반전\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##invert_lines##}}\",\n        \"passthrough\": {\n          \"0\": \"image\"\n        }\n      }\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"image\": [\n        \"6\",\n        0\n      ],\n      \"low_threshold\": 0.3,\n      \"high_threshold\": 0.7\n    },\n    \"class_type\": \"Canny\",\n    \"_meta\": {\n      \"title\": \"Canny 전처리\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##use_canny##}}\",\n        \"passthrough\": {\n          \"0\": \"image\"\n        }\n      }\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"ckpt_name\": \"{{##base_model##}}\"\n    },\n    \"class_type\": \"CheckpointLoaderSimple\",\n    \"_meta\": {\n      \"title\": \"체크포인트\"\n    }\n  },\n  \"9\": {\n    \"inputs\": {\n      \"text\": \"masterpiece, best quality, {{##prompt##}}\",\n      \"clip\": [\n        \"8\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"긍정\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {\n      \"text\": \"worst quality, low quality, watermark, {{##negative_prompt##}}\",\n      \"clip\": [\n        \"8\",\n        1\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"부정\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"control_net_name\": \"{{##controlnet##}}\"\n    },\n    \"class_type\": \"ControlNetLoader\",\n    \"_meta\": {\n      \"title\": \"컨트롤넷\"\n    }\n  },\n  \"12\": {\n    \"inputs\": {\n      \"positive\": [\n        \"9\",\n        0\n      ],\n      \"negative\": [\n        \"10\",\n        0\n      ],\n      \"control_net\": [\n        \"11\",\n        0\n      ],\n      \"image\": [\n        \"7\",\n        0\n      ],\n      \"strength\": \"{{##control_strength##}}\",\n      \"start_percent\": 0.0,\n      \"end_percent\": 1.0\n    },\n    \"class_type\": \"ControlNetApplyAdvanced\",\n    \"_meta\": {\n      \"title\": \"컨트롤 적용\"\n    }\n  },\n  \"13\": {\n    \"inputs\": {\n      \"width\": [\n        \"3\",\n        1\n      ],\n      \"height\": [\n        \"4\",\n        1\n      ],\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"잠재 이미지\"\n    }\n  },\n  \"14\": {\n    \"inputs\": {\n      \"seed\": \"{{##seed##}}\",\n      \"steps\": 28,\n      \"cfg\": 5,\n      \"sampler_name\": \"euler\",\n      \"scheduler\": \"normal\",\n      \"denoise\": 1.0,\n      \"model\": [\n        \"8\",\n        0\n      ],\n      \"positive\": [\n        \"12\",\n        0\n      ],\n      \"negative\": [\n        \"12\",\n        1\n      ],\n      \"latent_image\": [\n        \"13\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"샘플러\"\n    }\n  },\n  \"15\": {\n    \"inputs\": {\n      \"samples\": [\n        \"14\",\n        0\n      ],\n      \"vae\": [\n        \"8\",\n        2\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"디코드\"\n    }\n  },\n  \"16\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\sketch_sdxl\",\n      \"images\": [\n        \"15\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"저장 (원본 크기)\"\n    }\n  },\n  \"17\": {\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"class_type\": \"UpscaleModelLoader\",\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"18\": {\n    \"inputs\": {\n      \"upscale_model\": [\n        \"17\",\n        0\n      ],\n      \"image\": [\n        \"15\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"_meta\": {\n      \"title\": \"업스케일\"\n    }\n  },\n  \"19\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\sketch_sdxl_up\",\n      \"images\": [\n        \"18\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"저장 (업스케일)\"\n    }\n  }\n}",
+    "allowedModelTypes": [
+      "Anima"
+    ],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 4
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}

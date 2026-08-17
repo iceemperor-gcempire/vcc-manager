@@ -1,0 +1,181 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-17T15:49:49.303Z",
+  "workboard": {
+    "name": "Sketch to Image - Anima",
+    "description": "스케치·러프를 올리면 Anima 가 그 구도를 따라 생성합니다 (ControlNet-LLLite). ⚠️ Comfy-Org/Anima-LLLite 가중치를 ComfyUI models/model_patches/ 에 설치해야 동작합니다. 크기는 스케치 비율 기준 1M 픽셀 자동, 원본과 업스케일본 함께 저장.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "sketch",
+        "label": "스케치",
+        "type": "image",
+        "required": true,
+        "options": [],
+        "defaultValue": null,
+        "description": "흰 바탕에 그린 스케치·러프·선화. 이 이미지의 비율로 1M 픽셀(32px 단위) 크기가 자동 계산됩니다.",
+        "formatString": "{{##sketch##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "options": [],
+        "defaultValue": "Anima\\anima_baseV10.safetensors",
+        "description": "Anima 계열. LLLite 패치는 Anima-Base v1.0 에 최적화되어 있습니다.",
+        "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "control_patch",
+        "label": "컨트롤 패치",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "혼합 v2 (선화·스크리블·그레이스케일 권장)",
+            "value": "anima-lllite-any-test-like-v2.safetensors"
+          },
+          {
+            "key": "Lineart (프리뷰판)",
+            "value": "anima-lllite-lineart-1.safetensors"
+          },
+          {
+            "key": "Scribble (프리뷰판)",
+            "value": "anima-lllite-scribble-1.safetensors"
+          },
+          {
+            "key": "Depth (프리뷰판)",
+            "value": "anima-lllite-depth-1.safetensors"
+          },
+          {
+            "key": "Pose (프리뷰판)",
+            "value": "anima-lllite-pose-1.safetensors"
+          }
+        ],
+        "defaultValue": "anima-lllite-any-test-like-v2.safetensors",
+        "description": "Comfy-Org/Anima-LLLite 가중치가 models/model_patches/ 에 설치돼 있어야 합니다.",
+        "formatString": "{{##control_patch##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "control_strength",
+        "label": "컨트롤 강도",
+        "type": "number",
+        "required": false,
+        "options": [],
+        "defaultValue": 0.8,
+        "description": "0.5(느슨) ~ 1.2(엄격)",
+        "formatString": "{{##control_strength##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "invert_lines",
+        "label": "선 반전 (흰 바탕 스케치)",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": true,
+        "description": "흰 종이에 그린 스케치면 켜두세요.",
+        "formatString": "{{##invert_lines##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "AnimeSharp V4 (2x)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast (2x)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          },
+          {
+            "key": "Remacri (4x)",
+            "value": "4x_foolhardy_Remacri.pth"
+          },
+          {
+            "key": "RealESRGAN anime6B (4x)",
+            "value": "RealESRGAN_x4plus_anime_6B.pth"
+          }
+        ],
+        "defaultValue": "2x-AnimeSharpV4_RCAN.safetensors",
+        "description": "원본 크기와 업스케일본이 함께 저장됩니다.",
+        "formatString": "{{##upscale_model##}}"
+      }
+    ],
+    "workflowData": "{\n  \"1\": {\n    \"inputs\": {\n      \"image\": \"{{##sketch##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"스케치\"\n    }\n  },\n  \"2\": {\n    \"inputs\": {\n      \"image\": [\n        \"1\",\n        0\n      ]\n    },\n    \"class_type\": \"GetImageSize\",\n    \"_meta\": {\n      \"title\": \"스케치 크기\"\n    }\n  },\n  \"3\": {\n    \"inputs\": {\n      \"expression\": \"32*int((a*(1000000.0/(a*b))**0.5)/32+0.5)\",\n      \"values.a\": [\n        \"2\",\n        0\n      ],\n      \"values.b\": [\n        \"2\",\n        1\n      ]\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"생성 너비 (1MP·32버킷)\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"expression\": \"32*int((b*(1000000.0/(a*b))**0.5)/32+0.5)\",\n      \"values.a\": [\n        \"2\",\n        0\n      ],\n      \"values.b\": [\n        \"2\",\n        1\n      ]\n    },\n    \"class_type\": \"ComfyMathExpression\",\n    \"_meta\": {\n      \"title\": \"생성 높이 (1MP·32버킷)\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"image\": [\n        \"1\",\n        0\n      ],\n      \"upscale_method\": \"lanczos\",\n      \"width\": [\n        \"3\",\n        1\n      ],\n      \"height\": [\n        \"4\",\n        1\n      ],\n      \"crop\": \"disabled\"\n    },\n    \"class_type\": \"ImageScale\",\n    \"_meta\": {\n      \"title\": \"스케치 리스케일\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"image\": [\n        \"5\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageInvert\",\n    \"_meta\": {\n      \"title\": \"선 반전\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##invert_lines##}}\",\n        \"passthrough\": {\n          \"0\": \"image\"\n        }\n      }\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"Anima 모델\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"name\": \"{{##control_patch##}}\"\n    },\n    \"class_type\": \"ModelPatchLoader\",\n    \"_meta\": {\n      \"title\": \"LLLite 패치\"\n    }\n  },\n  \"9\": {\n    \"inputs\": {\n      \"model\": [\n        \"7\",\n        0\n      ],\n      \"model_patch\": [\n        \"8\",\n        0\n      ],\n      \"image\": [\n        \"6\",\n        0\n      ],\n      \"strength\": \"{{##control_strength##}}\",\n      \"start_percent\": 0.0,\n      \"end_percent\": 1.0\n    },\n    \"class_type\": \"AnimaLLLiteApply\",\n    \"_meta\": {\n      \"title\": \"컨트롤 적용 (LLLite)\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {\n      \"clip_name\": \"qwen_3_06b_base.safetensors\",\n      \"type\": \"stable_diffusion\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"텍스트 인코더\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"vae_name\": \"qwen\\\\qwen_image_vae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"VAE\"\n    }\n  },\n  \"12\": {\n    \"inputs\": {\n      \"text\": \"masterpiece, best quality, score_7, safe, anime, {{##prompt##}}\",\n      \"clip\": [\n        \"10\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"긍정\"\n    }\n  },\n  \"13\": {\n    \"inputs\": {\n      \"text\": \"worst quality, low quality, score_1, score_2, score_3, blurry, jpeg artifacts, {{##negative_prompt##}}\",\n      \"clip\": [\n        \"10\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"부정\"\n    }\n  },\n  \"14\": {\n    \"inputs\": {\n      \"width\": [\n        \"3\",\n        1\n      ],\n      \"height\": [\n        \"4\",\n        1\n      ],\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"잠재 이미지\"\n    }\n  },\n  \"15\": {\n    \"inputs\": {\n      \"seed\": \"{{##seed##}}\",\n      \"steps\": 30,\n      \"cfg\": 4,\n      \"sampler_name\": \"er_sde\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1.0,\n      \"model\": [\n        \"9\",\n        0\n      ],\n      \"positive\": [\n        \"12\",\n        0\n      ],\n      \"negative\": [\n        \"13\",\n        0\n      ],\n      \"latent_image\": [\n        \"14\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"샘플러\"\n    }\n  },\n  \"16\": {\n    \"inputs\": {\n      \"samples\": [\n        \"15\",\n        0\n      ],\n      \"vae\": [\n        \"11\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"디코드\"\n    }\n  },\n  \"17\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\sketch_anima\",\n      \"images\": [\n        \"16\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"저장 (원본 크기)\"\n    }\n  },\n  \"18\": {\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"class_type\": \"UpscaleModelLoader\",\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"19\": {\n    \"inputs\": {\n      \"upscale_model\": [\n        \"18\",\n        0\n      ],\n      \"image\": [\n        \"16\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"_meta\": {\n      \"title\": \"업스케일\"\n    }\n  },\n  \"20\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\sketch_anima_up\",\n      \"images\": [\n        \"19\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"저장 (업스케일)\"\n    }\n  }\n}",
+    "allowedModelTypes": [
+      "Anima"
+    ],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 4
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}
