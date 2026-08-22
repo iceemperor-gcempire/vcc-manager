@@ -50,6 +50,11 @@ const inputFieldSchema = new mongoose.Schema({
     maxLength: Number,
     pattern: String
   },
+  // boolean 필드 전용 (#859) — "이 스위치는 저 video 필드의 오디오를 쓴다" 선언.
+  // 값은 같은 작업판의 video 타입 필드 name (예: 'ref_video_1'). 선언되면:
+  // - 제출 시 대상 영상에 오디오 트랙이 없으면 400 (무음 영상 → ComfyUI 원인불명 실패 방지)
+  // - 프론트에서 무음 영상 첨부 시 스위치 비활성화
+  audioOfVideoField: String,
   // 이미지 타입 전용 설정
   imageConfig: {
     maxImages: {

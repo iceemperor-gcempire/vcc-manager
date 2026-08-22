@@ -43,7 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, jobAPI, imageAPI, promptDataAPI, userAPI, projectAPI } from '../services/api';
@@ -379,6 +379,24 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
       />
     </Box>
   );
+}
+
+// "소리도 참조" 스위치 (#859) — audioOfVideoField 로 선언된 boolean 필드 전용 래퍼.
+// 짝지어진 video 필드의 첨부물에 오디오 트랙이 없으면(hasAudio === false) 스위치를 끄고
+// 비활성화한다. hasAudio 미상(구 레코드)은 허용 — 서버 제출 가드가 최종 백스톱.
+function VideoAudioToggleField({ field, control, name, setValue }) {
+  const pairedValue = useWatch({ control, name: `additionalParams.${field.audioOfVideoField}` });
+  const first = Array.isArray(pairedValue) ? pairedValue[0] : pairedValue;
+  const noAudio = first?.video?.metadata?.hasAudio === false;
+
+  useEffect(() => {
+    if (noAudio) setValue(name, false);
+  }, [noAudio, name, setValue]);
+
+  const effectiveField = noAudio
+    ? { ...field, description: '첨부한 영상에 오디오 트랙이 없어 사용할 수 없습니다' }
+    : field;
+  return <CustomFieldControl field={effectiveField} control={control} name={name} disabled={noAudio} />;
 }
 
 // 참조 비디오 필드 (#753) — CustomImageField 와 대칭. MiniMax H3 등 비디오 참조 워크플로우용.
@@ -1410,6 +1428,14 @@ function ImageGeneration() {
                               )}
                             </Box>
                           )}
+                        />
+                      ) : field.type === 'boolean' && field.audioOfVideoField ? (
+                        // 소리 참조 스위치 (#859) — 무음 영상 첨부 시 자동 off + 비활성화
+                        <VideoAudioToggleField
+                          field={field}
+                          control={control}
+                          name={`additionalParams.${field.name}`}
+                          setValue={setValue}
                         />
                       ) : (
                         // 공용 렌더러 (#711) — required 강제 포함. 편집기 프리뷰와 동일 렌더 보장

@@ -97,7 +97,8 @@
         },
         "audioConfig": {
           "maxAudios": 1
-        }
+        },
+        "audioOfVideoField": "ref_video_1"
       },
       {
         "name": "ref_video_2",
@@ -134,7 +135,8 @@
         },
         "audioConfig": {
           "maxAudios": 1
-        }
+        },
+        "audioOfVideoField": "ref_video_2"
       },
       {
         "name": "ref_audio_1",

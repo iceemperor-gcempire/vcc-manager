@@ -74,12 +74,13 @@ const videoUpload = multer({
 });
 
 // ffprobe 로 비디오 메타데이터 추출 (ffmpeg 패키지에 동봉 — Dockerfile.backend 에서 설치됨)
+// 전 스트림을 조회한다 (#859) — 예전에는 -select_streams v:0 으로 비디오만 봐서
+// 오디오 트랙 유무(hasAudio)를 알 수 없었고, 무음 영상 + "소리도 참조" 조합을 막을 근거가 없었다.
 const probeVideoMetadata = (filePath) => {
   return new Promise((resolve) => {
     execFile('ffprobe', [
       '-v', 'error',
-      '-select_streams', 'v:0',
-      '-show_entries', 'stream=width,height,codec_name,avg_frame_rate:format=duration,format_name',
+      '-show_entries', 'stream=codec_type,width,height,codec_name,avg_frame_rate:format=duration,format_name',
       '-of', 'json',
       filePath
     ], { timeout: 15000 }, (error, stdout) => {
@@ -89,7 +90,8 @@ const probeVideoMetadata = (filePath) => {
       }
       try {
         const parsed = JSON.parse(stdout);
-        const stream = parsed.streams?.[0] || {};
+        const streams = parsed.streams || [];
+        const stream = streams.find((s) => s.codec_type === 'video') || {};
         const format = parsed.format || {};
         let frameRate;
         if (stream.avg_frame_rate && stream.avg_frame_rate !== '0/0') {
@@ -102,7 +104,8 @@ const probeVideoMetadata = (filePath) => {
           duration: format.duration ? Math.round(parseFloat(format.duration) * 100) / 100 : undefined,
           frameRate,
           codec: stream.codec_name,
-          format: format.format_name
+          format: format.format_name,
+          hasAudio: streams.some((s) => s.codec_type === 'audio')
         });
       } catch {
         resolve({});
