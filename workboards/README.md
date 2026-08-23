@@ -37,6 +37,9 @@
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
 
+| `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** | H3 non-pruned 모델 + Turbo LoRA⁴ |
+| `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS_LoadVideo |
+
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
 **외부 ffmpeg** 이 필요하다 — H.264·VP9 는 아무 빌드나 되지만(VHS 의 pip 의존성이 최소
@@ -52,6 +55,15 @@ core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:
 https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 `anima-lllite-any-test-like-v2.safetensors`(혼합, 권장) 외 lineart/scribble/depth/pose 프리뷰판 선택 가능.
+
+⁴ **(Turbo) 판**은 lightx2v 증류 LoRA 로 20스텝을 4~8스텝으로 줄인다 (실측 3~5배).
+LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
+작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
+`optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스는 non-pruned int8 권장**
+(`minimax_h3_*_int8_convrot.safetensors` — pruned 조합은 미검증). FL2V 판은 터보 LoRA·스텝·
+시프트를 짝으로 노출한다: 8step v1.0(544p mixed, 세로비 포함 전 해상도)=스텝 8·시프트 12,
+4step v1.1 768p(가로 1344x768 전용)=스텝 4·시프트 6. R2V 판은 4step v0.1 고정이며
+참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 
 ---
 
