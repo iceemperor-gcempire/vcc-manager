@@ -55,6 +55,12 @@ const inputFieldSchema = new mongoose.Schema({
   // - 제출 시 대상 영상에 오디오 트랙이 없으면 400 (무음 영상 → ComfyUI 원인불명 실패 방지)
   // - 프론트에서 무음 영상 첨부 시 스위치 비활성화
   audioOfVideoField: String,
+  // image 필드 전용 (#862) — "이 이미지는 저 크기 select 의 캔버스에 늘려 넣어진다" 선언.
+  // anchorSizeField: 'WxH' 값을 갖는 select 필드 name (예: 'image_size').
+  // anchorFitField(선택): 맞춤 방식 select name — 값이 'disabled'(늘리기)일 때만 방향 가드 발동.
+  // 미선언 시 항상 발동. 첨부 이미지와 캔버스의 가로/세로 방향이 어긋나면 제출을 400 으로 막는다.
+  anchorSizeField: String,
+  anchorFitField: String,
   // 이미지 타입 전용 설정
   imageConfig: {
     maxImages: {
