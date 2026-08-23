@@ -182,7 +182,7 @@
         "type": "baseModel",
         "required": true,
         "options": [],
-        "defaultValue": "minimax\\minimax_h3_ref2va_pruned_int8_convrot.safetensors",
+        "defaultValue": "minimax\\minimax_h3_ref2va_int8_convrot.safetensors",
         "formatString": "{{##base_model##}}",
         "imageConfig": {
           "maxImages": 1
