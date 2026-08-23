@@ -25,8 +25,6 @@
 
 | 파일 | 작업판 | 출력 | 요구 사항 |
 |---|---|---|---|
-| `comfyui/minimax-h3-fl2v.json` | MiniMax H3 - FL2V | 영상 + 스테레오 오디오 | H3 모델 4종 |
-| `comfyui/minimax-h3-r2v.json` | MiniMax H3 - R2V | 〃 | H3 모델 4종 + VHS_LoadVideo |
 | `comfyui/ltx-2.5-fl2v.json` | LTX-2.5 - FL2V | 영상 + 동기화 오디오 | LTX-2.5 모델 6종 · ComfyUI 0.32+ |
 | `comfyui/minimax-music-3-t2m.json` | MiniMax Music 3 - T2M | **음악 (mp3)** | MiniMax Music 3 모델 3종 · ComfyUI 0.33+ |
 | `comfyui/minimax-h3-fl2v-av1.json` | MiniMax H3 - FL2V (AV1) | 영상 + 오디오 · **코덱 선택** | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ |
@@ -37,13 +35,17 @@
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
 
+| `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ |
+
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
 **외부 ffmpeg** 이 필요하다 — H.264·VP9 는 아무 빌드나 되지만(VHS 의 pip 의존성이 최소
 바이너리를 깔아줌), **AV1 은 `libsvtav1` 포함 full 빌드**가 필요하다. Windows 는
 `VHS_FORCE_FFMPEG_PATH` 환경변수로 경로를 못박는 것을 권장. 코덱 없는 ffmpeg 을 만나면
-저장 단계에서 `[Errno 22]` 로 실패한다. 무코덱-스위치 판(위 세 개)은 ffmpeg 없이 동작하므로
-환경이 안 되면 그쪽을 쓰면 된다.
+저장 단계에서 `[Errno 22]` 로 실패한다. **H3 는 코덱 선택 판으로 일원화됐다** (#866) —
+H.264 만 쓰면 VHS 동봉 바이너리로 충분해 별도 ffmpeg 설치가 필요 없다. 무코덱-스위치
+판은 LTX-2.5 기본판만 남아 있다.
 
 ² **Sketch to Image 3종**은 업로드한 스케치의 비율로 **1M 픽셀·32px 버킷** 크기를 자동 계산하고,
 원본 크기와 업스케일본(선택한 모델: AnimeSharp 2x / Remacri 4x / RealESRGAN 4x 등)을 함께 저장한다.
@@ -52,6 +54,15 @@ core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:
 https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 `anima-lllite-any-test-like-v2.safetensors`(혼합, 권장) 외 lineart/scribble/depth/pose 프리뷰판 선택 가능.
+
+⁴ **(Turbo) 판**은 lightx2v 증류 LoRA 로 20스텝을 4~8스텝으로 줄인다 (실측 3~5배).
+LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
+작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
+`optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스는 non-pruned int8 권장**
+(`minimax_h3_*_int8_convrot.safetensors` — pruned 조합은 미검증). FL2V 판은 터보 LoRA·스텝·
+시프트를 짝으로 노출한다: 8step v1.0(544p mixed, 세로비 포함 전 해상도)=스텝 8·시프트 12,
+4step v1.1 768p(가로 1344x768 전용)=스텝 4·시프트 6. R2V 판은 4step v0.1 고정이며
+참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 
 ---
 

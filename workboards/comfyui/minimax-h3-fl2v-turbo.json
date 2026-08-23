@@ -1,0 +1,325 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-23T17:25:54.030Z",
+  "workboard": {
+    "name": "MiniMax H3 - FL2V (Turbo)",
+    "description": "증류 LoRA 로 FL2V 를 4~8스텝으로 가속한 판입니다. 터보 LoRA·스텝·시프트를 짝으로 맞춰 쓰세요. 품질이 아쉬우면 기본 FL2V 판을 쓰세요. (non-pruned int8 베이스 · euler)",
+    "workboardType": "image",
+    "outputFormat": "video",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "first_frame",
+        "label": "첫 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지에서 영상이 시작됩니다.",
+        "formatString": "{{##first_frame##}}",
+        "options": [],
+        "anchorSizeField": "image_size",
+        "anchorFitField": "first_frame_fit"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "last_frame",
+        "label": "끝 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지로 영상이 끝납니다.",
+        "formatString": "{{##last_frame##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "defaultValue": "minimax\\minimax_h3_fl2va_int8_convrot.safetensors",
+        "formatString": "{{##base_model##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "영상 크기",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "864x480 (0.4MP 가로)",
+            "value": "864x480"
+          },
+          {
+            "key": "1216x672 (0.8MP 가로)",
+            "value": "1216x672"
+          },
+          {
+            "key": "1344x768 (네이티브 가로)",
+            "value": "1344x768"
+          },
+          {
+            "key": "480x864 (0.4MP 세로)",
+            "value": "480x864"
+          },
+          {
+            "key": "672x1216 (0.8MP 세로)",
+            "value": "672x1216"
+          },
+          {
+            "key": "768x1344 (네이티브 세로)",
+            "value": "768x1344"
+          }
+        ],
+        "defaultValue": "864x480",
+        "description": "H3 네이티브는 짧은 변 768px · 32의 배수",
+        "formatString": "{{##image_size##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "length",
+        "label": "길이",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "3초 (73프레임)",
+            "value": "73"
+          },
+          {
+            "key": "5초 (124프레임)",
+            "value": "124"
+          },
+          {
+            "key": "10초 (243프레임)",
+            "value": "243"
+          },
+          {
+            "key": "15초 (362프레임)",
+            "value": "362"
+          }
+        ],
+        "defaultValue": "124",
+        "description": "H3 는 17k+5 프레임 격자만 지원합니다",
+        "formatString": "{{##length##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "steps",
+        "label": "샘플링 스텝",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "8 (8step LoRA 기본)",
+            "value": "8"
+          },
+          {
+            "key": "4 (4step LoRA / 빠른 8step)",
+            "value": "4"
+          }
+        ],
+        "defaultValue": "8",
+        "formatString": "{{##steps##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "use_sol_attn",
+        "label": "가속 — Sol-Attn",
+        "type": "boolean",
+        "required": false,
+        "defaultValue": false,
+        "description": "어텐션 커널을 교체해 생성을 빠르게 합니다. 근사 연산이라 결과가 미세하게 달라질 수 있습니다.",
+        "formatString": "{{##use_sol_attn##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "turbo_lora",
+        "label": "터보 LoRA",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "8step v1.0 — 모든 해상도·세로비 (544p mixed 학습)",
+            "value": "optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors"
+          },
+          {
+            "key": "4step v1.1 768p — 가로 1344x768 전용",
+            "value": "optimizer\\minimax\\minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors"
+          }
+        ],
+        "defaultValue": "optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_comfyui_bf16.safetensors",
+        "description": "스텝·시프트와 짝: 8step→스텝8·시프트12 / 768p→스텝4·시프트6",
+        "formatString": "{{##turbo_lora##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "shift_video",
+        "label": "비디오 시프트",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "12 (8step LoRA 용)",
+            "value": "12"
+          },
+          {
+            "key": "6 (768p LoRA 용)",
+            "value": "6"
+          }
+        ],
+        "defaultValue": "12",
+        "description": "터보 LoRA 학습 시프트와 일치해야 함",
+        "formatString": "{{##shift_video##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "first_frame_fit",
+        "label": "첫 프레임 맞춤 방식",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "크롭 (비율 유지 · 중앙 잘라내기)",
+            "value": "center"
+          },
+          {
+            "key": "늘리기 (비율 무시 · 기존 동작)",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "center",
+        "description": "첨부 이미지와 영상 크기의 비율이 다를 때 처리 방식. 늘리기는 방향이 어긋나면 이미지가 심하게 왜곡됩니다.",
+        "formatString": "{{##first_frame_fit##}}"
+      },
+      {
+        "name": "output_codec",
+        "label": "출력 코덱",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "H.264 (mp4 · 모든 기기 재생)",
+            "value": "video/h264-mp4"
+          },
+          {
+            "key": "VP9 (webm · 고효율)",
+            "value": "video/webm"
+          },
+          {
+            "key": "AV1 (webm · 최고 효율 · Safari 는 M3 이후만 재생)",
+            "value": "video/av1-webm"
+          }
+        ],
+        "defaultValue": "video/h264-mp4",
+        "description": "영상 압축 방식입니다. 잘 모르면 H.264 — 어디서나 재생됩니다. AV1 은 ComfyUI 머신에 libsvtav1 포함 ffmpeg(full 빌드)이 필요합니다.",
+        "formatString": "{{##output_codec##}}",
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        }
+      }
+    ],
+    "workflowData": "{\n  \"6\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"H3 디퓨전 모델\"\n    }\n  },\n  \"9\": {\n    \"inputs\": {\n      \"model\": [\n        \"200\",\n        0\n      ],\n      \"scheduler\": \"simple\",\n      \"steps\": \"{{##steps##}}\",\n      \"denoise\": 1\n    },\n    \"class_type\": \"BasicScheduler\",\n    \"_meta\": {\n      \"title\": \"스케줄러\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {\n      \"samples\": [\n        \"14\",\n        0\n      ],\n      \"vae\": [\n        \"11\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"비디오 디코드\"\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_video_vae_fp16.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"비디오 VAE\"\n    }\n  },\n  \"13\": {\n    \"inputs\": {\n      \"clip_name\": \"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\",\n      \"type\": \"minimax\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"H3 텍스트 인코더\"\n    }\n  },\n  \"14\": {\n    \"inputs\": {\n      \"noise\": [\n        \"15\",\n        0\n      ],\n      \"guider\": [\n        \"16\",\n        0\n      ],\n      \"sampler\": [\n        \"17\",\n        0\n      ],\n      \"sigmas\": [\n        \"9\",\n        0\n      ],\n      \"latent_image\": [\n        \"104\",\n        1\n      ]\n    },\n    \"class_type\": \"SamplerCustomAdvanced\",\n    \"_meta\": {\n      \"title\": \"샘플링\"\n    }\n  },\n  \"15\": {\n    \"inputs\": {\n      \"noise_seed\": \"{{##seed##}}\"\n    },\n    \"class_type\": \"RandomNoise\",\n    \"_meta\": {\n      \"title\": \"노이즈 시드\"\n    }\n  },\n  \"16\": {\n    \"inputs\": {\n      \"model\": [\n        \"200\",\n        0\n      ],\n      \"conditioning\": [\n        \"104\",\n        0\n      ]\n    },\n    \"class_type\": \"BasicGuider\",\n    \"_meta\": {\n      \"title\": \"가이더\"\n    }\n  },\n  \"17\": {\n    \"inputs\": {\n      \"sampler_name\": \"euler\"\n    },\n    \"class_type\": \"KSamplerSelect\",\n    \"_meta\": {\n      \"title\": \"샘플러 선택\"\n    }\n  },\n  \"23\": {\n    \"inputs\": {\n      \"samples\": [\n        \"14\",\n        0\n      ],\n      \"vae\": [\n        \"24\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecodeAudio\",\n    \"_meta\": {\n      \"title\": \"오디오 디코드\"\n    }\n  },\n  \"24\": {\n    \"inputs\": {\n      \"vae_name\": \"minimax\\\\minimax_h3_audio_vae_fp32.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"오디오 VAE\"\n    }\n  },\n  \"104\": {\n    \"inputs\": {\n      \"clip\": [\n        \"13\",\n        0\n      ],\n      \"vae\": [\n        \"11\",\n        0\n      ],\n      \"prompt\": \"{{##prompt##}}\",\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"length\": \"{{##length##}}\",\n      \"first_frame\": [\n        \"116\",\n        0\n      ],\n      \"last_frame\": [\n        \"115\",\n        0\n      ]\n    },\n    \"class_type\": \"MiniMaxH3ImageToVideo\",\n    \"_meta\": {\n      \"title\": \"H3 조건화 (I2V — 시작 프레임)\"\n    },\n    \"_vcc\": {\n      \"omitInputsUnless\": {\n        \"first_frame\": \"{{##first_frame_attached##}}\",\n        \"last_frame\": \"{{##last_frame_attached##}}\"\n      }\n    }\n  },\n  \"114\": {\n    \"inputs\": {\n      \"image\": \"{{##first_frame##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load First Frame\"\n    }\n  },\n  \"115\": {\n    \"inputs\": {\n      \"image\": \"{{##last_frame##}}\"\n    },\n    \"class_type\": \"LoadImage\",\n    \"_meta\": {\n      \"title\": \"Load Last Frame\"\n    }\n  },\n  \"116\": {\n    \"inputs\": {\n      \"image\": [\n        \"114\",\n        0\n      ],\n      \"upscale_method\": \"lanczos\",\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"crop\": \"{{##first_frame_fit##}}\"\n    },\n    \"class_type\": \"ImageScale\",\n    \"_meta\": {\n      \"title\": \"첫 프레임 맞춤 (크롭/늘리기)\"\n    }\n  },\n  \"200\": {\n    \"inputs\": {\n      \"model\": [\n        \"211\",\n        0\n      ],\n      \"tau\": 1.3,\n      \"start_percent\": 0.2,\n      \"end_percent\": 0.9,\n      \"min_tokens\": 4096,\n      \"int8_qk\": true,\n      \"sink_conditioning\": \"exact_kv_and_rows\",\n      \"morton\": false,\n      \"morton_curve\": \"2d_frame\",\n      \"verbose\": false,\n      \"use_tma\": false,\n      \"dense_blocks\": \"\"\n    },\n    \"class_type\": \"SolAttnPatch\",\n    \"_meta\": {\n      \"title\": \"Sol-Attn (가속)\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##use_sol_attn##}}\",\n        \"passthrough\": {\n          \"0\": \"model\"\n        }\n      }\n    }\n  },\n  \"210\": {\n    \"inputs\": {\n      \"model\": [\n        \"6\",\n        0\n      ],\n      \"lora_name\": \"{{##turbo_lora##}}\",\n      \"strength_model\": 1\n    },\n    \"class_type\": \"LoraLoaderModelOnly\",\n    \"_meta\": {\n      \"title\": \"Turbo LoRA (증류)\"\n    }\n  },\n  \"211\": {\n    \"inputs\": {\n      \"model\": [\n        \"210\",\n        0\n      ],\n      \"shift_video\": \"{{##shift_video##}}\",\n      \"shift_audio\": 3\n    },\n    \"class_type\": \"MiniMaxH3SigmaShift\",\n    \"_meta\": {\n      \"title\": \"터보 시그마 시프트\"\n    }\n  },\n  \"201\": {\n    \"inputs\": {\n      \"images\": [\n        \"10\",\n        0\n      ],\n      \"audio\": [\n        \"23\",\n        0\n      ],\n      \"frame_rate\": 24,\n      \"loop_count\": 0,\n      \"filename_prefix\": \"{{##user_id##}}\\\\video\\\\MiniMax_H3_fl2v_turbo\",\n      \"format\": \"{{##output_codec##}}\",\n      \"pix_fmt\": \"yuv420p\",\n      \"crf\": 16,\n      \"save_metadata\": true,\n      \"pingpong\": false,\n      \"save_output\": true\n    },\n    \"class_type\": \"VHS_VideoCombine\",\n    \"_meta\": {\n      \"title\": \"영상 저장 (코덱 선택)\"\n    }\n  }\n}",
+    "allowedModelTypes": [],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 3
+  },
+  "server": {
+    "name": "ComfyUI-Video",
+    "serverType": "ComfyUI"
+  }
+}

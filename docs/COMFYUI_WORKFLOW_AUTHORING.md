@@ -243,6 +243,36 @@ ComfyUI 의 optional 입력은 **키가 없는 것**이 곧 미사용이다. 그
 사용자 옵션을 함께 걸어야 하는 입력은 이렇게 배열로 쓴다. 빈 배열은 falsy 로 취급된다
 (저작 실수를 "항상 유지" 로 해석하지 않는다).
 
+**소리 스위치에는 `audioOfVideoField` 를 함께 선언한다 (#859).** 스위치(boolean 필드)
+정의에 대상 video 필드의 name 을 적는다:
+
+```json
+{ "name": "use_video_audio_1", "type": "boolean", "audioOfVideoField": "ref_video_1", ... }
+```
+
+선언하면 두 가지 가드가 작동한다 — 제출 시 대상 영상에 오디오 트랙이 없으면 400 사유
+반환(무음 영상은 `VHS_LoadVideo` 오디오 출력에서 원인불명으로 실패한다), 프론트에서
+무음 영상 첨부 시 스위치 자동 off + 비활성화. 선언이 없으면 가드는 조용히 건너뛴다.
+
+**캔버스에 늘려 넣는 이미지에는 `anchorSizeField` 를 선언한다 (#862).** H3 FL2V 의
+first_frame 처럼 노드가 이미지를 영상 크기로 스트레치하는 경우, image 필드에 크기
+select 의 name 을 적고, 맞춤 방식 select 가 있으면 `anchorFitField` 도 함께 적는다:
+
+```json
+{ "name": "first_frame", "type": "image",
+  "anchorSizeField": "image_size", "anchorFitField": "first_frame_fit", ... }
+```
+
+제출 시 이미지와 캔버스의 가로/세로 방향이 어긋나면 400 으로 막는다 — 단 맞춤 방식이
+늘리기(`disabled`)일 때만. 왜곡 자체의 해결은 코어 `ImageScale` 을 이미지 앞에 끼우는
+것으로 한다 (`crop` 에 placeholder — `center` = 비율 유지 중앙 크롭, `disabled` = 스트레치):
+
+```json
+"116": { "class_type": "ImageScale", "inputs": { "image": ["114", 0],
+  "upscale_method": "lanczos", "width": "{{##width##}}", "height": "{{##height##}}",
+  "crop": "{{##first_frame_fit##}}" } }
+```
+
 ### 3.3 노드는 지우지 않아도 된다
 
 입력 키가 사라지면 상류 `LoadImage` 는 고아가 된다. **ComfyUI 는 출력 노드에서 도달할 수 없는 노드를 검증도 실행도 하지 않는다.** 존재하지 않는 파일을 가리켜도 무해하다.

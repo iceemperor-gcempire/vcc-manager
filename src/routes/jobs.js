@@ -21,6 +21,8 @@ const Tag = require('../models/Tag');
 const UploadedText = require('../models/UploadedText');
 const { loadVisionImages } = require('../utils/visionImages');
 const { decryptSecret } = require('../utils/secretCrypto');
+const { findSilentVideoViolation } = require('../services/videoAudioGuard');
+const { findOrientationViolation } = require('../services/imageOrientationGuard');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -91,6 +93,18 @@ router.post('/generate', requireAuth, async (req, res) => {
           message: `필수 첨부가 누락되었습니다: ${field.label || field.name}`
         });
       }
+    }
+
+    // 무음 영상 + "소리도 참조" 차단 (#859) — 통과시키면 ComfyUI 에서 원인불명 실패가 된다
+    const silentViolation = await findSilentVideoViolation(wb, { ...req.body, additionalParams: ap0 });
+    if (silentViolation) {
+      return res.status(400).json({ message: silentViolation });
+    }
+
+    // 이미지·영상 방향 불일치 차단 (#862) — 늘리기 모드의 세로↔가로 조합은 시작 프레임을 뭉갠다
+    const orientationViolation = await findOrientationViolation(wb, { ...req.body, additionalParams: ap0 });
+    if (orientationViolation) {
+      return res.status(400).json({ message: orientationViolation });
     }
 
     // 모델 / 이미지 크기 추출 — customField 이름이 임의일 수 있어 schema-aware lookup.
@@ -379,7 +393,20 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
     if (!job.canRetry()) {
       return res.status(400).json({ message: 'Maximum retry attempts reached' });
     }
-    
+
+    // 무음 영상 + "소리도 참조" 조합의 재시도는 반드시 같은 이유로 죽는다 — 여기서 사유를 알린다 (#859)
+    const retryWb = await Workboard.findById(job.workboardId).lean();
+    if (retryWb) {
+      const silentViolation = await findSilentVideoViolation(retryWb, job.inputData || {});
+      if (silentViolation) {
+        return res.status(400).json({ message: silentViolation });
+      }
+      const orientationViolation = await findOrientationViolation(retryWb, job.inputData || {});
+      if (orientationViolation) {
+        return res.status(400).json({ message: orientationViolation });
+      }
+    }
+
     await job.incrementRetry();
     
     const newJob = await addImageGenerationJob(

@@ -1169,6 +1169,19 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         }
       }
 
+      // 비디오 메타데이터 (#859) — 업로드 경로(#753)와 같은 ffprobe 헬퍼.
+      // hasAudio 를 저장해야 생성물을 참조로 재활용할 때 "소리도 참조" 가드가 probe 없이 판정한다.
+      if (mediaType === 'video') {
+        try {
+          const { probeVideoMetadata } = require('../utils/videoUpload');
+          const probed = await probeVideoMetadata(filePath);
+          metadata = { ...metadata, ...probed };
+          console.log(`video ${i + 1} metadata:`, JSON.stringify(metadata));
+        } catch (videoMetaError) {
+          console.warn(`Failed to extract video metadata for ${i + 1}:`, videoMetaError.message);
+        }
+      }
+
       let thumbnailUrl = null;
       if (mediaType === 'video') {
         try {

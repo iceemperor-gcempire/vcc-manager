@@ -45,7 +45,9 @@ const generatedVideoSchema = new mongoose.Schema({
     height: Number,
     format: String,
     duration: Number,
-    frameRate: Number
+    frameRate: Number,
+    codec: String,
+    hasAudio: Boolean  // 오디오 트랙 유무 (#859) — 구 레코드는 미상(undefined)
   },
   generationParams: {
     prompt: String,

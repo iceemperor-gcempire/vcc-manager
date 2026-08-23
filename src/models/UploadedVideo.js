@@ -42,7 +42,8 @@ const uploadedVideoSchema = new mongoose.Schema({
     duration: Number, // seconds
     frameRate: Number,
     codec: String,
-    format: String
+    format: String,
+    hasAudio: Boolean  // 오디오 트랙 유무 (#859) — 구 레코드는 미상(undefined)
   },
   tags: [{
     type: mongoose.Schema.Types.ObjectId,

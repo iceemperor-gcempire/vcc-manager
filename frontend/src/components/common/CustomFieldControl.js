@@ -143,6 +143,7 @@ function CustomFieldControl({
   workboardId,
   allowedModelTypes,
   preview = false,
+  disabled = false,   // 폼 모드에서 조건부 비활성화 (#859 — 무음 영상의 "소리도 참조" 등)
 }) {
   // 프리뷰(편집기 "사용자 시점") — 폼 없이 기본값을 disabled 로 표시
   if (preview || !control) {
@@ -184,6 +185,7 @@ function CustomFieldControl({
           onChange={formField.onChange}
           error={fieldState.error}
           size={size}
+          disabled={disabled}
           serverId={serverId}
           workboardId={workboardId}
           allowedModelTypes={allowedModelTypes}
