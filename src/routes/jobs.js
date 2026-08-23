@@ -22,6 +22,7 @@ const UploadedText = require('../models/UploadedText');
 const { loadVisionImages } = require('../utils/visionImages');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { findSilentVideoViolation } = require('../services/videoAudioGuard');
+const { findOrientationViolation } = require('../services/imageOrientationGuard');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -98,6 +99,12 @@ router.post('/generate', requireAuth, async (req, res) => {
     const silentViolation = await findSilentVideoViolation(wb, { ...req.body, additionalParams: ap0 });
     if (silentViolation) {
       return res.status(400).json({ message: silentViolation });
+    }
+
+    // 이미지·영상 방향 불일치 차단 (#862) — 늘리기 모드의 세로↔가로 조합은 시작 프레임을 뭉갠다
+    const orientationViolation = await findOrientationViolation(wb, { ...req.body, additionalParams: ap0 });
+    if (orientationViolation) {
+      return res.status(400).json({ message: orientationViolation });
     }
 
     // 모델 / 이미지 크기 추출 — customField 이름이 임의일 수 있어 schema-aware lookup.
@@ -393,6 +400,10 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
       const silentViolation = await findSilentVideoViolation(retryWb, job.inputData || {});
       if (silentViolation) {
         return res.status(400).json({ message: silentViolation });
+      }
+      const orientationViolation = await findOrientationViolation(retryWb, job.inputData || {});
+      if (orientationViolation) {
+        return res.status(400).json({ message: orientationViolation });
       }
     }
 
