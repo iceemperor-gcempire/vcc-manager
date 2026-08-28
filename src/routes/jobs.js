@@ -125,7 +125,10 @@ router.post('/generate', requireAuth, async (req, res) => {
       additionalParamsKeys: Object.keys(ap)
     });
 
-    if (!aiModel) {
+    // 베이스 모델 필드가 없는 유틸리티 작업판(픽셀 업스케일 등, #871)은 aiModel 없이 허용.
+    // 필드가 있는데 값이 없는 경우만 사용자 실수로 본다.
+    const hasBaseModelField = (wb.additionalInputFields || []).some((f) => f.type === 'baseModel');
+    if (!aiModel && hasBaseModelField) {
       console.error('❌ aiModel 추출 실패 — workboard customField (type=baseModel) 또는 inputData 확인 필요');
       return res.status(400).json({
         message: '베이스 모델이 지정되지 않았습니다. 작업판 \"입력 양식\" 에 베이스 모델 타입 필드가 있는지, 사용자 페이지에서 모델을 선택했는지 확인하세요.'
