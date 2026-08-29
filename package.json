@@ -1,6 +1,6 @@
 {
   "name": "vcc-manager",
-  "version": "4.0.4",
+  "version": "4.0.5",
   "description": "Visual Content Creator Manager - ComfyUI integration service",
   "main": "src/server.js",
   "scripts": {

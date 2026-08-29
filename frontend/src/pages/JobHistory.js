@@ -40,6 +40,8 @@ import {
   GridView,
   RestartAlt,
   StopCircle,
+  EditNote,
+  Notes,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -64,6 +66,8 @@ import SegmentTabs from '../components/common/SegmentTabs';
 import EmptyState from '../components/common/EmptyState';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
+import { formatDuration } from '../utils/formatDuration';   // #879
+import JobMemoDialog from '../components/common/JobMemoDialog';   // #879
 import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from '../utils/historyItems';
 import {
   buildWorkboardPickerContinue,
@@ -139,6 +143,8 @@ function jobToItem(job) {
     count: results?.length || 0,
     duration: (isVideo || isAudio) ? results?.[0]?.metadata?.duration : null,
     status: mapStatus(job.status),
+    memo: job.memo || '',                 // #879 사용자 메모
+    elapsedMs: job.actualTime || null,    // #879 소요 시간 (완료/실패 후에만 값이 있다)
     thumb: isAudio ? null : (results?.[0]?.url || null),   // 오디오는 썸네일이 없다
     videoThumb: isVideo ? (results?.[0]?.thumbnailUrl || null) : null, // #672 동영상 첫프레임 썸네일
     results: results || [],
@@ -277,7 +283,7 @@ function StepDots({ statuses }) {
 }
 
 // ---- 한 행 --------------------------------------------------------------
-function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
+function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
   const subStr = buildHistorySubtitle(item);
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
 
@@ -307,6 +313,14 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           {subStr && (
             <Typography sx={{ fontSize: 12, color: 'text.secondary', mt: 0.5 }} noWrap>
               {subStr}
+            </Typography>
+          )}
+
+          {/* 사용자 메모 (#879) */}
+          {item.memo && (
+            <Typography sx={{ fontSize: 12.5, mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5 }} noWrap title={item.memo}>
+              <Notes sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
+              {item.memo}
             </Typography>
           )}
 
@@ -362,6 +376,11 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
           <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontFamily: MONO, whiteSpace: 'nowrap' }}>
             {relativeTime(item.time)}
           </Typography>
+          {item.elapsedMs && (
+            <Typography sx={{ fontSize: 11.5, color: 'text.secondary', fontFamily: MONO, whiteSpace: 'nowrap' }} title="소요 시간">
+              ⏱ {formatDuration(item.elapsedMs)}
+            </Typography>
+          )}
           {item.type === 'pipeline' && item.projectId && (
             <Typography component="button" onClick={() => onPipelineDetail(item)}
               sx={{ fontSize: 12, color: 'primary.main', fontWeight: 500, border: 0, bgcolor: 'transparent', cursor: 'pointer', p: 0 }}>
@@ -375,9 +394,16 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
             </Typography>
           )}
           {MEDIA_ITEM_TYPES.includes(item.type) && (
-            <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}>
-              <MoreVert fontSize="small" />
-            </IconButton>
+            <Box sx={{ display: 'flex', gap: 0.25 }}>
+              <Tooltip title={item.memo ? '메모 수정' : '메모 추가'}>
+                <IconButton aria-label="메모" size="small" onClick={() => onMemo(item.raw)}>
+                  <EditNote fontSize="small" />
+                </IconButton>
+              </Tooltip>
+              <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}>
+                <MoreVert fontSize="small" />
+              </IconButton>
+            </Box>
           )}
         </Box>
       </Box>
@@ -387,7 +413,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCont
 
 // ---- 페이지 -------------------------------------------------------------
 // 큰 썸네일(그리드) 카드 — 리스트(HistoryRow)와 동일 핸들러 재사용 (#675)
-function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
+function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
   return (
     <Paper
@@ -445,12 +471,25 @@ function HistoryCard({ item, onOpenMedia, onMenu, onContinue, onCross, onTextCon
           <Typography variant="body2" sx={{ fontWeight: 600, flex: 1, minWidth: 0 }} noWrap>{item.title}</Typography>
           <StatusChip status={item.status} />
         </Box>
-        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontFamily: MONO }}>{relativeTime(item.time)}</Typography>
+        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontFamily: MONO }}>
+          {relativeTime(item.time)}{item.elapsedMs ? ` · ⏱ ${formatDuration(item.elapsedMs)}` : ''}
+        </Typography>
+        {item.memo && (
+          <Typography sx={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 0.5 }} noWrap title={item.memo}>
+            <Notes sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
+            {item.memo}
+          </Typography>
+        )}
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }} onClick={(e) => e.stopPropagation()}>
           {MEDIA_ITEM_TYPES.includes(item.type) && item.status !== 'error' && (
             <>
               <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
               <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
+            </>
+          )}
+          {MEDIA_ITEM_TYPES.includes(item.type) && (
+            <>
+              <IconButton aria-label="메모" size="small" onClick={() => onMemo(item.raw)}><EditNote fontSize="small" /></IconButton>
               <IconButton aria-label="더보기" size="small" onClick={(e) => onMenu(e, item)}><MoreVert fontSize="small" /></IconButton>
             </>
           )}
@@ -520,7 +559,7 @@ function JobHistory() {
       .filter((i) => seg === 'all' || i.type === seg)
       .filter((i) => {
         if (!q) return true;
-        return [i.title, i.projectName, i.model, i.preview, i.input]
+        return [i.title, i.projectName, i.model, i.preview, i.input, i.memo]
           .filter(Boolean).join(' ').toLowerCase().includes(q);
       });
   }, [items, seg, search]);
@@ -536,6 +575,7 @@ function JobHistory() {
   const [vidViewer, setVidViewer] = useState({ open: false, items: [], index: 0 });
   const [audViewer, setAudViewer] = useState({ open: false, items: [] });   // #805
   const [textDetail, setTextDetail] = useState(null);
+  const [memoJob, setMemoJob] = useState(null);   // #879
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
 
@@ -571,6 +611,8 @@ function JobHistory() {
   };
 
   const handleDelete = (job) => { closeMenu(); jobActions.remove(job); };
+  const handleMemo = (job) => { closeMenu(); setMemoJob(job); };
+  const handleMemoSave = async (memo) => { await jobActions.saveMemo(memoJob, memo); setMemoJob(null); };
   const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
   const handleCancel = (job) => { closeMenu(); jobActions.cancel(job); };
 
@@ -636,6 +678,7 @@ function JobHistory() {
               item={item}
               onOpenMedia={openMedia}
               onMenu={handleMenu}
+              onMemo={handleMemo}
               onContinue={handleContinue}
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
@@ -652,6 +695,7 @@ function JobHistory() {
               item={item}
               onOpenMedia={openMedia}
               onMenu={handleMenu}
+              onMemo={handleMemo}
               onContinue={handleContinue}
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
@@ -673,6 +717,9 @@ function JobHistory() {
       <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={closeMenu}>
         <MenuItem onClick={() => menuJob && handleViewDetail(menuJob)}>
           <Info fontSize="small" sx={{ mr: 1 }} /> 상세
+        </MenuItem>
+        <MenuItem onClick={() => menuJob && handleMemo(menuJob)}>
+          <EditNote fontSize="small" sx={{ mr: 1 }} /> {menuJob?.memo ? '메모 수정' : '메모 추가'}
         </MenuItem>
         {menuJob && ['completed', 'failed'].includes(menuJob.status) && (
           <MenuItem onClick={() => { const j = menuJob; closeMenu(); setSaveJob(j); }}>
@@ -727,6 +774,13 @@ function JobHistory() {
         onClose={() => setSaveJob(null)}
         job={saveJob}
         onSave={(data) => savePromptMutation.mutate(data)}
+      />
+      <JobMemoDialog
+        open={!!memoJob}
+        job={memoJob}
+        onClose={() => setMemoJob(null)}
+        onSave={handleMemoSave}
+        saving={jobActions.isSavingMemo}
       />
       <WorkboardSelectDialog
         open={!!crossJob}

@@ -78,6 +78,8 @@ const imageGenerationJobSchema = new mongoose.Schema({
     code: String,
     details: mongoose.Schema.Types.Mixed
   },
+  // 사용자가 작업 후 남기는 한 줄 메모 (#879). 길이 상한·정규화는 constants/jobMemo.js.
+  memo: { type: String, default: '', maxlength: 100, trim: true },
   estimatedTime: Number,
   actualTime: Number,
   startedAt: Date,
