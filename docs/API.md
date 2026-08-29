@@ -84,6 +84,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `DELETE` | `/jobs/:id` | 작업 삭제 | Yes |
 | `POST` | `/jobs/:id/retry` | 실패 작업 재시도 | Yes |
 | `POST` | `/jobs/:id/cancel` | 진행 중 작업 취소 | Yes |
+| `PATCH` | `/jobs/:id/memo` | 작업 메모 저장 — `{ memo }` ≤100자, 빈 값이면 삭제 (본인/admin) | Yes |
 | `GET` | `/jobs/queue/stats` | 큐 상태 조회 | Yes |
 
 ### `POST /jobs/generate` 요청 예시

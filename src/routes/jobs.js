@@ -23,6 +23,7 @@ const { loadVisionImages } = require('../utils/visionImages');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { findSilentVideoViolation } = require('../services/videoAudioGuard');
 const { findOrientationViolation } = require('../services/imageOrientationGuard');
+const { normalizeJobMemo } = require('../constants/jobMemo');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -202,12 +203,10 @@ router.get('/my', requireAuth, async (req, res) => {
     const filter = { userId: req.user._id };
     if (status) filter.status = status;
     
-    // 프롬프트 검색 기능 추가
+    // 프롬프트 검색 — 메모도 함께 (#879). 메모는 "이게 뭐였는지" 를 적는 칸이라 검색어가 거기 있을 때가 많다.
     if (search) {
-      filter['inputData.prompt'] = {
-        $regex: escapeRegex(search),
-        $options: 'i' // case insensitive
-      };
+      const re = { $regex: escapeRegex(search), $options: 'i' };
+      filter.$or = [{ 'inputData.prompt': re }, { memo: re }];
     }
     
     const jobs = await ImageGenerationJob.find(filter)
@@ -429,6 +428,30 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(400).json({ message: error.message });
+  }
+});
+
+// 작업 메모 저장 (#879) — 본인 또는 admin. 빈 값/누락은 메모 삭제.
+// 검증·정규화는 constants/jobMemo.js (프론트 mirror 와 상한 공유).
+router.patch('/:id/memo', requireAuth, async (req, res) => {
+  try {
+    const { memo, error } = normalizeJobMemo(req.body ? req.body.memo : undefined);
+    if (error) {
+      return res.status(400).json({ message: error });
+    }
+
+    const job = await ImageGenerationJob.findById(req.params.id).select('userId memo');
+    if (!job) {
+      return res.status(404).json({ message: 'Job not found' });
+    }
+    if (job.userId.toString() !== req.user._id.toString() && !req.user.isAdmin) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    await ImageGenerationJob.updateOne({ _id: job._id }, { $set: { memo } });
+    res.json({ job: { _id: job._id, memo } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 

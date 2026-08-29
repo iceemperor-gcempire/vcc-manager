@@ -117,6 +117,7 @@ export const jobAPI = {
   }),
   retry: (id) => api.post(`/jobs/${id}/retry`),
   cancel: (id) => api.post(`/jobs/${id}/cancel`),
+  updateMemo: (id, memo) => api.patch(`/jobs/${id}/memo`, { memo }),   // #879
   getQueueStats: () => api.get('/jobs/queue/stats'),
 };
 
