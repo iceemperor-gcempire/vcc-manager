@@ -61,9 +61,10 @@ https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
 `optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스는 non-pruned int8 권장**
-(`minimax_h3_*_int8_convrot.safetensors` — pruned 조합은 미검증). FL2V 판은 터보 LoRA·스텝·
-시프트를 짝으로 노출한다: 8step v1.0(544p mixed, 세로비 포함 전 해상도)=스텝 8·시프트 12,
-4step v1.1 768p(가로 1344x768 전용)=스텝 4·시프트 6. R2V 판은 4step v0.1 고정이며
+(`minimax_h3_*_int8_convrot.safetensors` — pruned 조합은 미검증). FL2V 판은 **768p 학습 LoRA 2종**만 노출한다 (기본 1344x768 · 시프트 6/3):
+8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
+A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
+R2V 판은 4step v0.1 고정이며
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 
 ⁵ **인코딩 전 업스케일** — H3 4종은 "업스케일 (인코딩 전)" 선택으로 생성 직후·인코딩 **전**에
