@@ -27,16 +27,18 @@
 |---|---|---|---|
 | `comfyui/ltx-2.5-fl2v.json` | LTX-2.5 - FL2V | 영상 + 동기화 오디오 | LTX-2.5 모델 6종 · ComfyUI 0.32+ |
 | `comfyui/minimax-music-3-t2m.json` | MiniMax Music 3 - T2M | **음악 (mp3)** | MiniMax Music 3 모델 3종 · ComfyUI 0.33+ |
-| `comfyui/minimax-h3-fl2v-av1.json` | MiniMax H3 - FL2V (AV1) | 영상 + 오디오 · **코덱 선택** | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ |
-| `comfyui/minimax-h3-r2v-av1.json` | MiniMax H3 - R2V (AV1) | 〃 | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/minimax-h3-fl2v-av1.json` | MiniMax H3 - FL2V (AV1) | 영상 + 오디오 · **코덱 선택** · 업스케일 옵션⁵ | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-r2v-av1.json` | MiniMax H3 - R2V (AV1) | 〃 | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/ltx-2.5-fl2v-av1.json` | LTX-2.5 - FL2V (AV1) | 〃 | LTX-2.5 모델 6종 + VHS 노드팩 · ffmpeg¹ |
 
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
 
-| `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ |
-| `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+
+| `comfyui/video-upscale-pixel.json` | 영상 업스케일 (픽셀) | 영상 (원본 오디오 유지) · **2x/4x 픽셀 업스케일** | 업스케일 모델² + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
@@ -63,6 +65,14 @@ LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `m
 시프트를 짝으로 노출한다: 8step v1.0(544p mixed, 세로비 포함 전 해상도)=스텝 8·시프트 12,
 4step v1.1 768p(가로 1344x768 전용)=스텝 4·시프트 6. R2V 판은 4step v0.1 고정이며
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
+
+⁵ **인코딩 전 업스케일** — H3 4종은 "업스케일 (인코딩 전)" 선택으로 생성 직후·인코딩 **전**에
+AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되어 이전과 동일 경로). 별도 판으로
+업스케일하면 480p 손실 인코딩을 한 번 더 통과해 압축 노이즈까지 키우게 되는데, 워크플로 안에서
+처리하면 프레임이 디스크를 거치지 않아 그 손실이 없다 (동일 시드 실측: 하늘 평탄부 노이즈 −27%,
+디테일 유지). 시간 +약 40초 / 파일 약 3배 (5초 기준). `영상 업스케일 (픽셀)` 판은 **이미 만들어진
+영상**을 나중에 키울 때 쓴다 (AnimeSharp 2x · RealESRGAN 4x · Remacri 4x). 두 경우 모두
+업스케일 모델은 `models/upscale_models/` 에 있어야 한다. H.264 기본 CRF 는 14 (준무손실).
 
 ---
 
