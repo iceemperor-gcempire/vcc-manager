@@ -44,7 +44,9 @@ import {
   Code,
   ContentCopy,
   ExpandMore,
-  ExpandLess
+  ExpandLess,
+  EditNote,
+  Notes
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -60,6 +62,8 @@ import ProjectTagChip from './ProjectTagChip';
 import WorkboardSelectDialog from './WorkboardSelectDialog';
 import { DEFAULT_TAG_COLOR } from '../../theme';
 import { useJobActions } from '../../hooks/useJobActions';
+import { formatDuration } from '../../utils/formatDuration';   // #879 공용 승격
+import JobMemoDialog from './JobMemoDialog';   // #879
 import { useContinueJob } from '../../hooks/useContinueJob';
 import { relativeTime } from '../../utils/relativeTime';
 import {
@@ -308,21 +312,11 @@ function JobStatusChip({ status }) {
   );
 }
 
-function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue, onCrossWorkboard, onSavePrompt, readOnly = false, showTags = true }) {
+function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onContinue, onCrossWorkboard, onSavePrompt, onMemo, readOnly = false, showTags = true }) {
   const canCancel = ['pending', 'processing'].includes(job.status);
   const canRetry = job.status === 'failed';
   const canContinue = ['completed', 'failed'].includes(job.status);
   const isProcessing = job.status === 'processing';
-
-  const formatDuration = (ms) => {
-    if (!ms) return '-';
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    if (hours > 0) return `${hours}시간 ${minutes % 60}분`;
-    if (minutes > 0) return `${minutes}분 ${seconds % 60}초`;
-    return `${seconds}초`;
-  };
 
   // 태그 표시 (populate된 객체 배열)
   const tags = showTags ? (job.inputData?.tags || []) : [];
@@ -380,6 +374,13 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               </Box>
             )}
           </Box>
+          {/* 사용자 메모 (#879) */}
+          {job.memo && (
+            <Typography variant="body2" sx={{ fontSize: '12.5px', mt: 0.5, display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={job.memo}>
+              <Notes sx={{ fontSize: 14, color: 'text.secondary', flexShrink: 0 }} />
+              {job.memo}
+            </Typography>
+          )}
         </Box>
 
         {isProcessing && (
@@ -601,6 +602,11 @@ function JobCard({ job, onView, onRetry, onCancel, onDelete, onImageView, onCont
               >
                 상세
               </Button>
+              <Button onClick={() => onMemo(job)} startIcon={<EditNote />}
+                sx={{ '& .MuiButton-startIcon': { mx: { xs: 0, sm: '-4px' }, mr: { xs: 0.5, sm: 1 } } }}
+              >
+                메모
+              </Button>
 
               {canContinue && (
                 <>
@@ -776,6 +782,14 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
               {job.completedAt ? new Date(job.completedAt).toLocaleString() : '-'}
             </Typography>
           </Grid>
+          <Grid item xs={6}>
+            <Typography variant="body2" color="text.secondary">소요 시간</Typography>
+            <Typography variant="body1">{formatDuration(job.actualTime)}</Typography>
+          </Grid>
+          <Grid item xs={12}>
+            <Typography variant="body2" color="text.secondary">메모</Typography>
+            <Typography variant="body1" sx={{ wordBreak: 'break-word' }}>{job.memo || '-'}</Typography>
+          </Grid>
           {job.costEstimate?.amount !== undefined && (
             <Grid item xs={12}>
               <Typography variant="body2" color="text.secondary">
@@ -947,6 +961,7 @@ function JobHistoryPanel({
   const [savingJob, setSavingJob] = useState(null);
   const [crossWorkboardOpen, setCrossWorkboardOpen] = useState(false);
   const [crossWorkboardJob, setCrossWorkboardJob] = useState(null);
+  const [memoJob, setMemoJob] = useState(null);   // #879
 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -993,6 +1008,8 @@ function JobHistoryPanel({
   const handleRetry = jobActions.retry;
   const handleCancel = jobActions.cancel;
   const handleDelete = jobActions.remove;
+  const handleMemo = (job) => setMemoJob(job);   // #879
+  const handleMemoSave = async (memo) => { await jobActions.saveMemo(memoJob, memo); setMemoJob(null); };
 
   const handleImageView = (items, index = 0, isVideo = false) => {
     if (isVideo) {
@@ -1087,6 +1104,7 @@ function JobHistoryPanel({
               onContinue={handleContinueJob}
               onCrossWorkboard={handleCrossWorkboard}
               onSavePrompt={handleSavePrompt}
+              onMemo={handleMemo}
               readOnly={readOnly}
               showTags={showTags}
             />
@@ -1141,6 +1159,14 @@ function JobHistoryPanel({
         open={crossWorkboardOpen}
         onClose={() => { setCrossWorkboardOpen(false); setCrossWorkboardJob(null); }}
         onSelect={handleWorkboardSelected}
+      />
+
+      <JobMemoDialog
+        open={!!memoJob}
+        job={memoJob}
+        onClose={() => setMemoJob(null)}
+        onSave={handleMemoSave}
+        saving={jobActions.isSavingMemo}
       />
     </>
   );

@@ -56,6 +56,14 @@ export function useJobActions({ invalidateKeys }) {
     onError: (error) => toast.error('삭제 실패: ' + (error.response?.data?.message || error.message)),
   });
 
+  // 작업 메모 (#879) — 다이얼로그(JobMemoDialog)는 화면이 띄우고, 저장은 여기로 모은다.
+  const memoMutation = useMutation({
+    mutationFn: ({ id, memo }) => jobAPI.updateMemo(id, memo),
+    onSuccess: () => { toast.success('메모가 저장되었습니다'); invalidate(); },
+    onError: (error) => toast.error('메모 저장 실패: ' + (error.response?.data?.message || error.message)),
+  });
+  const saveMemo = (job, memo) => memoMutation.mutateAsync({ id: job._id, memo });
+
   const retry = async (job) => {
     const ok = await confirm({
       title: '작업을 재시도하시겠습니까?',
@@ -102,6 +110,8 @@ export function useJobActions({ invalidateKeys }) {
     retry,
     cancel,
     remove,
+    saveMemo,
+    isSavingMemo: memoMutation.isPending,
     preferences,
     isPending: retryMutation.isPending || cancelMutation.isPending || deleteMutation.isPending,
   };
