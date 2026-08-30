@@ -1,1 +1,105 @@
-{"_exportVersion":1,"appVersion":{"major":4,"minor":0},"exportedAt":"2026-08-28T15:17:30.040Z","workboard":{"name":"영상 업스케일 (픽셀)","description":"영상을 AI 픽셀 업스케일러로 2~4배 키웁니다. 재확산이 없어 그림·인물이 절대 변하지 않고 선명해지기만 합니다. 프롬프트는 사용되지 않습니다 (메모용).","workboardType":"image","outputFormat":"video","additionalInputFields":[{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"input_video","label":"업스케일할 영상","type":"video","required":true,"description":"그림이 전혀 변형되지 않는 픽셀 업스케일입니다. 소리·길이·모션 모두 원본 그대로 유지됩니다.","formatString":"{{##input_video##}}","options":[]},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"upscale_model","label":"업스케일 모델","type":"select","required":true,"options":[{"key":"AnimeSharp 2x (애니·일러스트 권장)","value":"2x-AnimeSharpV4_RCAN.safetensors"},{"key":"AnimeSharp 2x Fast (빠름)","value":"2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"},{"key":"RealESRGAN anime 4x (4배 · 큰 파일 주의)","value":"RealESRGAN_x4plus_anime_6B.pth"},{"key":"Remacri 4x (실사·범용 · 4배)","value":"4x_foolhardy_Remacri.pth"}],"defaultValue":"2x-AnimeSharpV4_RCAN.safetensors","description":"2x 모델은 가로·세로 2배, 4x 는 4배가 됩니다 (864x480 → 4x 시 3456x1920).","formatString":"{{##upscale_model##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"output_codec","label":"출력 코덱","type":"select","required":true,"options":[{"key":"H.264 (mp4 · 모든 기기 재생)","value":"video/h264-mp4"},{"key":"VP9 (webm · 고효율)","value":"video/webm"},{"key":"AV1 (webm · 최고 효율 · Safari 는 M3 이후만 재생)","value":"video/av1-webm"}],"defaultValue":"video/h264-mp4","description":"영상 압축 방식입니다. 잘 모르면 H.264 — 어디서나 재생됩니다.","formatString":"{{##output_codec##}}"}],"workflowData":"{\n  \"1\": {\n    \"inputs\": {\n      \"video\": \"{{##input_video##}}\",\n      \"force_rate\": 0,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 0,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"영상 로드\"\n    }\n  },\n  \"2\": {\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"class_type\": \"UpscaleModelLoader\",\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"3\": {\n    \"inputs\": {\n      \"upscale_model\": [\n        \"2\",\n        0\n      ],\n      \"image\": [\n        \"1\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"_meta\": {\n      \"title\": \"프레임별 업스케일\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"images\": [\n        \"3\",\n        0\n      ],\n      \"audio\": [\n        \"1\",\n        2\n      ],\n      \"frame_rate\": 24,\n      \"loop_count\": 0,\n      \"filename_prefix\": \"{{##user_id##}}\\\\video\\\\upscale_pixel\",\n      \"format\": \"{{##output_codec##}}\",\n      \"pix_fmt\": \"yuv420p\",\n      \"crf\": 16,\n      \"save_metadata\": true,\n      \"pingpong\": false,\n      \"save_output\": true\n    },\n    \"class_type\": \"VHS_VideoCombine\",\n    \"_meta\": {\n      \"title\": \"영상 저장 (원본 오디오 유지)\"\n    }\n  }\n}","allowedModelTypes":[],"modelExposurePolicy":"full","modelWhitelist":[],"loraExposurePolicy":"full","loraWhitelist":[],"version":1},"server":{"name":"ComfyUI-Video","serverType":"ComfyUI"}}
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-28T15:17:30.040Z",
+  "workboard": {
+    "name": "영상 업스케일 (픽셀)",
+    "description": "영상을 AI 픽셀 업스케일러로 2~4배 키웁니다. 재확산이 없어 그림·인물이 절대 변하지 않고 선명해지기만 합니다. 프롬프트는 사용되지 않습니다 (메모용).",
+    "workboardType": "image",
+    "outputFormat": "video",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "input_video",
+        "label": "업스케일할 영상",
+        "type": "video",
+        "required": true,
+        "description": "그림이 전혀 변형되지 않는 픽셀 업스케일입니다. 소리·길이·모션 모두 원본 그대로 유지됩니다. 앞 15초(368프레임)까지 처리됩니다.",
+        "formatString": "{{##input_video##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "AnimeSharp 2x (애니·일러스트 권장)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp 2x Fast (빠름)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          }
+        ],
+        "defaultValue": "2x-AnimeSharpV4_RCAN.safetensors",
+        "description": "2x 픽셀 업스케일 (프레임 독립·원본 충실). 15초 1728x960 기준 램 약 17GB — 4x 는 램 초과로 제외.",
+        "formatString": "{{##upscale_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "output_codec",
+        "label": "출력 코덱",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "H.264 (mp4 · 모든 기기 재생)",
+            "value": "video/h264-mp4"
+          },
+          {
+            "key": "VP9 (webm · 고효율)",
+            "value": "video/webm"
+          },
+          {
+            "key": "AV1 (webm · 최고 효율 · Safari 는 M3 이후만 재생)",
+            "value": "video/av1-webm"
+          }
+        ],
+        "defaultValue": "video/h264-mp4",
+        "description": "영상 압축 방식입니다. 잘 모르면 H.264 — 어디서나 재생됩니다.",
+        "formatString": "{{##output_codec##}}"
+      }
+    ],
+    "workflowData": "{\n  \"1\": {\n    \"inputs\": {\n      \"video\": \"{{##input_video##}}\",\n      \"force_rate\": 0,\n      \"custom_width\": 0,\n      \"custom_height\": 0,\n      \"frame_load_cap\": 368,\n      \"skip_first_frames\": 0,\n      \"select_every_nth\": 1\n    },\n    \"class_type\": \"VHS_LoadVideo\",\n    \"_meta\": {\n      \"title\": \"영상 로드\"\n    }\n  },\n  \"2\": {\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"class_type\": \"UpscaleModelLoader\",\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"3\": {\n    \"inputs\": {\n      \"upscale_model\": [\n        \"2\",\n        0\n      ],\n      \"image\": [\n        \"1\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"_meta\": {\n      \"title\": \"프레임별 업스케일\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"images\": [\n        \"3\",\n        0\n      ],\n      \"audio\": [\n        \"1\",\n        2\n      ],\n      \"frame_rate\": 24,\n      \"loop_count\": 0,\n      \"filename_prefix\": \"{{##user_id##}}\\\\video\\\\upscale_pixel\",\n      \"format\": \"{{##output_codec##}}\",\n      \"pix_fmt\": \"yuv420p\",\n      \"crf\": 16,\n      \"save_metadata\": true,\n      \"pingpong\": false,\n      \"save_output\": true\n    },\n    \"class_type\": \"VHS_VideoCombine\",\n    \"_meta\": {\n      \"title\": \"영상 저장 (원본 오디오 유지)\"\n    }\n  }\n}",
+    "allowedModelTypes": [],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 1
+  },
+  "server": {
+    "name": "ComfyUI-Video",
+    "serverType": "ComfyUI"
+  }
+}
