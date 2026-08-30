@@ -165,8 +165,9 @@ app.use('/api/prompt-guides', promptGuideRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 
 // Health check endpoint
+// version: sync-workboards CLI (#886) 가 export 의 appVersion 과 대조하는 데 쓴다
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({ status: 'OK', version: require('../package.json').version, timestamp: new Date().toISOString() });
 });
 
 // Error handling middleware
