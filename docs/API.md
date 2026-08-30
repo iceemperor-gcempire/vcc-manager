@@ -68,7 +68,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `DELETE` | `/workboards/:id` | 작업판 삭제 | **Admin** |
 | `POST` | `/workboards/:id/duplicate` | 작업판 복제 | **Admin** |
 | `GET` | `/workboards/:id/export` | 작업판 내보내기 (JSON) | **Admin** |
-| `POST` | `/workboards/import` | 작업판 가져오기 | **Admin** |
+| `POST` | `/workboards/import` | 작업판 가져오기 — `mode: 'update'` 면 같은 이름의 판을 제자리 갱신 (`dryRun`, 위험 변경 시 `acknowledge` 필요 → 409) | **Admin** |
 | `GET` | `/workboards/:id/stats` | 작업판 사용 통계 | **Admin** |
 | `GET` | `/workboards/:id/lora-models` | 작업판 LoRA 모델 | Yes |
 | `POST` | `/workboards/:id/lora-models/refresh` | LoRA 캐시 갱신 | Yes |
