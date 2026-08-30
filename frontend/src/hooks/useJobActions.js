@@ -56,6 +56,22 @@ export function useJobActions({ invalidateKeys }) {
     onError: (error) => toast.error('삭제 실패: ' + (error.response?.data?.message || error.message)),
   });
 
+  // 선택 삭제 (#902) — 단건 remove 와 같은 설정(deleteContentWithHistory)·같은 확인 문구 체계
+  const bulkDeleteMutation = useMutation({
+    mutationFn: ({ ids, deleteContent }) => jobAPI.bulkDelete(ids, deleteContent),
+    onSuccess: (response) => {
+      const { deleted = 0, skipped = 0, deletedImagesCount = 0, deletedVideosCount = 0, deletedAudiosCount = 0 } = response.data || {};
+      const content = deletedImagesCount + deletedVideosCount + deletedAudiosCount;
+      toast.success(`${deleted}개 작업 삭제${content ? ` (콘텐츠 ${content}개 포함)` : ''}${skipped ? ` · ${skipped}개 건너뜀` : ''}`);
+      if (content) {
+        queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
+        queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
+      }
+      invalidate();
+    },
+    onError: (error) => toast.error('선택 삭제 실패: ' + (error.response?.data?.message || error.message)),
+  });
+
   // 작업 메모 (#879) — 다이얼로그(JobMemoDialog)는 화면이 띄우고, 저장은 여기로 모은다.
   const memoMutation = useMutation({
     mutationFn: ({ id, memo }) => jobAPI.updateMemo(id, memo),
@@ -106,14 +122,31 @@ export function useJobActions({ invalidateKeys }) {
     if (ok) deleteMutation.mutate({ id: job._id, deleteContent: withContent });
   };
 
+  /** 여러 작업 삭제 — 확인 후 실행. 성공/취소 여부를 돌려준다 (화면이 선택 상태를 정리하도록) */
+  const removeMany = async (jobs) => {
+    const list = (jobs || []).filter(Boolean);
+    if (list.length === 0) return false;
+    const contentCount = list.reduce((n, j) => n + (j.resultImages?.length || 0) + (j.resultVideos?.length || 0) + (j.resultAudios?.length || 0), 0);
+    const withContent = !!preferences.deleteContentWithHistory && contentCount > 0;
+    const ok = await confirm(
+      withContent
+        ? { title: `${list.length}개 작업과 콘텐츠를 함께 삭제하시겠습니까?`, description: `연관된 ${contentCount}개의 콘텐츠(이미지/동영상/오디오)도 같이 삭제됩니다.`, danger: true, confirmLabel: '모두 삭제' }
+        : { title: `${list.length}개 작업 히스토리를 삭제하시겠습니까?`, description: '생성된 콘텐츠는 보존됩니다.', confirmLabel: '삭제' }
+    );
+    if (!ok) return false;
+    await bulkDeleteMutation.mutateAsync({ ids: list.map((j) => j._id), deleteContent: withContent });
+    return true;
+  };
+
   return {
     retry,
     cancel,
     remove,
+    removeMany,
     saveMemo,
     isSavingMemo: memoMutation.isPending,
     preferences,
-    isPending: retryMutation.isPending || cancelMutation.isPending || deleteMutation.isPending,
+    isPending: retryMutation.isPending || cancelMutation.isPending || deleteMutation.isPending || bulkDeleteMutation.isPending,
   };
 }
 
