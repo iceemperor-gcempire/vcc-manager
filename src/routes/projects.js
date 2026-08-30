@@ -9,7 +9,9 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
+const GeneratedAudio = require('../models/GeneratedAudio');
 const Workboard = require('../models/Workboard');
+const { buildProjectCounts } = require('../utils/projectCounts');   // #838 — 세 곳 공용
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../utils/validation');
 const { WORKBOARD_EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
@@ -26,18 +28,10 @@ router.get('/favorites', requireAuth, async (req, res) => {
     const projects = user.favoriteProjects || [];
 
     // 각 프로젝트의 콘텐츠 카운트 조회
-    const projectsWithCounts = await Promise.all(projects.map(async (project) => {
-      const [imageCount, videoCount, promptDataCount, jobCount] = await Promise.all([
-        GeneratedImage.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-        GeneratedVideo.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-        PromptData.countDocuments({ createdBy: req.user._id, tags: project.tagId._id }),
-        ImageGenerationJob.countDocuments({ userId: req.user._id, 'inputData.tags': project.tagId._id })
-      ]);
-      return {
-        ...project.toObject(),
-        counts: { images: imageCount + videoCount, promptData: promptDataCount, jobs: jobCount }
-      };
-    }));
+    const projectsWithCounts = await Promise.all(projects.map(async (project) => ({
+      ...project.toObject(),
+      counts: await buildProjectCounts(req.user._id, project.tagId._id),
+    })));
 
     res.json({ success: true, data: { projects: projectsWithCounts } });
   } catch (error) {
@@ -83,18 +77,10 @@ router.get('/', requireAuth, async (req, res) => {
       .sort({ createdAt: -1 });
 
     // 각 프로젝트의 콘텐츠 카운트 조회
-    const projectsWithCounts = await Promise.all(projects.map(async (project) => {
-      const [imageCount, videoCount, promptDataCount, jobCount] = await Promise.all([
-        GeneratedImage.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-        GeneratedVideo.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-        PromptData.countDocuments({ createdBy: req.user._id, tags: project.tagId._id }),
-        ImageGenerationJob.countDocuments({ userId: req.user._id, 'inputData.tags': project.tagId._id })
-      ]);
-      return {
-        ...project.toObject(),
-        counts: { images: imageCount + videoCount, promptData: promptDataCount, jobs: jobCount }
-      };
-    }));
+    const projectsWithCounts = await Promise.all(projects.map(async (project) => ({
+      ...project.toObject(),
+      counts: await buildProjectCounts(req.user._id, project.tagId._id),
+    })));
 
     // 즐겨찾기 목록 가져오기
     const user = await User.findById(req.user._id).select('favoriteProjects');
@@ -174,12 +160,7 @@ router.get('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
 
-    const [imageCount, videoCount, promptDataCount, jobCount] = await Promise.all([
-      GeneratedImage.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-      GeneratedVideo.countDocuments({ userId: req.user._id, tags: project.tagId._id }),
-      PromptData.countDocuments({ createdBy: req.user._id, tags: project.tagId._id }),
-      ImageGenerationJob.countDocuments({ userId: req.user._id, 'inputData.tags': project.tagId._id })
-    ]);
+    const counts = await buildProjectCounts(req.user._id, project.tagId._id);
 
     // 즐겨찾기 여부 확인
     const user = await User.findById(req.user._id).select('favoriteProjects');
@@ -190,7 +171,7 @@ router.get('/:id', requireAuth, async (req, res) => {
       data: {
         project: {
           ...project.toObject(),
-          counts: { images: imageCount + videoCount, promptData: promptDataCount, jobs: jobCount },
+          counts,
           isFavorite
         }
       }
@@ -332,6 +313,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
         { userId: req.user._id, tags: tagId },
         { $pull: { tags: tagId } }
       ),
+      GeneratedAudio.updateMany(   // #838 — 오디오도 같은 규칙으로 태그 해제
+        { userId: req.user._id, tags: tagId },
+        { $pull: { tags: tagId } }
+      ),
       PromptData.updateMany(
         { createdBy: req.user._id, tags: tagId },
         { $pull: { tags: tagId } }
@@ -420,19 +405,19 @@ router.get('/:id/images', requireAuth, async (req, res) => {
 
     const filter = { userId: req.user._id, tags: project.tagId };
 
-    const [images, videos, imageTotal, videoTotal] = await Promise.all([
-      GeneratedImage.find(filter)
-        .populate('tags', 'name color')
-        .sort({ createdAt: -1 })
-        .skip((parseInt(page) - 1) * parseInt(limit))
-        .limit(parseInt(limit)),
-      GeneratedVideo.find(filter)
-        .populate('tags', 'name color')
-        .sort({ createdAt: -1 })
-        .skip((parseInt(page) - 1) * parseInt(limit))
-        .limit(parseInt(limit)),
+    const pageQuery = (Model) => Model.find(filter)
+      .populate('tags', 'name color')
+      .sort({ createdAt: -1 })
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .limit(parseInt(limit));
+    // 오디오 (#838) — 세 종류를 같은 페이지 규칙으로. 프론트는 종류별 total 로 각자 페이지 수를 계산한다
+    const [images, videos, audios, imageTotal, videoTotal, audioTotal] = await Promise.all([
+      pageQuery(GeneratedImage),
+      pageQuery(GeneratedVideo),
+      pageQuery(GeneratedAudio),
       GeneratedImage.countDocuments(filter),
-      GeneratedVideo.countDocuments(filter)
+      GeneratedVideo.countDocuments(filter),
+      GeneratedAudio.countDocuments(filter)
     ]);
 
     res.json({
@@ -440,12 +425,14 @@ router.get('/:id/images', requireAuth, async (req, res) => {
       data: {
         images,
         videos,
+        audios,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total: imageTotal + videoTotal,
+          total: imageTotal + videoTotal + audioTotal,
           imageTotal,
-          videoTotal
+          videoTotal,
+          audioTotal
         }
       }
     });
