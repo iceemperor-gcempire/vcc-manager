@@ -7,7 +7,8 @@ import {
   Box,
   Typography,
   IconButton,
-  Avatar
+  Avatar,
+  CircularProgress
 } from '@mui/material';
 import { Download, Close } from '@mui/icons-material';
 import toast from 'react-hot-toast';
@@ -36,19 +37,36 @@ function ImageViewerDialog({
     }
   }, [open, selectedIndex]);
 
-  if (!images || images.length === 0) return null;
+  // 로드 완료된 URL 집합 (#894). 이미지를 넘길 때 새 src 가 도착하기 전까지 <img> 가 빈 상태로
+  // 레이아웃돼 다이얼로그가 쪼그라들었다 — 업스케일본(수 MB)에서 눈에 띄고, 캐시되면 재현이
+  // 안 돼 "가끔 작게 나온다" 로 보였다. 로드 전엔 스피너를 띄우고 영역 높이를 고정한다.
+  const [loadedUrls, setLoadedUrls] = useState(() => new Set());
+  const markLoaded = (url) => setLoadedUrls((prev) => (prev.has(url) ? prev : new Set(prev).add(url)));
 
-  const normalizedImages = images.map(img => {
-    if (typeof img === 'string') {
-      return { url: img };
-    }
-    return img;
-  });
+  const normalizedImages = (images || []).map(img => (typeof img === 'string' ? { url: img } : img));
+  const safeIndexForEffect = Math.min(Math.max(currentIndex, 0), Math.max(normalizedImages.length - 1, 0));
+
+  // 인접 이미지 프리로드 — 넘김 지연 자체를 줄인다
+  useEffect(() => {
+    if (!open || normalizedImages.length < 2) return;
+    [safeIndexForEffect - 1, safeIndexForEffect + 1].forEach((i) => {
+      const img = normalizedImages[i];
+      if (!img || !img.url || typeof Image === 'undefined') return;
+      const pre = new Image();
+      pre.onload = () => markLoaded(img.url);
+      pre.src = img.url;
+    });
+    // normalizedImages 는 매 렌더 새 배열 — url 목록 문자열로 의존성을 고정
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, safeIndexForEffect, normalizedImages.map((i) => i.url).join('|')]);
+
+  if (!images || images.length === 0) return null;
 
   // 이전 항목에서 선택했던 인덱스가 더 짧은 이미지 목록으로 이월돼
   // 범위를 벗어나면 흰 화면이 뜨므로 유효 범위로 보정한다.
   const safeIndex = Math.min(Math.max(currentIndex, 0), normalizedImages.length - 1);
   const currentImage = normalizedImages[safeIndex];
+  const isLoaded = loadedUrls.has(currentImage.url);
   
   const handleDownload = async () => {
     try {
@@ -90,16 +108,30 @@ function ImageViewerDialog({
         </Box>
       </DialogTitle>
       <DialogContent sx={{ textAlign: 'center', p: 2, bgcolor: 'black' }}>
-        <img
-          src={currentImage.url}
-          alt={`Image ${safeIndex + 1}`}
-          style={{
-            maxWidth: '100%',
-            maxHeight: '70vh',
-            objectFit: 'contain',
-            borderRadius: '8px'
-          }}
-        />
+        {/* 높이를 고정해 로드 전후로 다이얼로그가 출렁이지 않게 한다 (#894) */}
+        <Box sx={{ position: 'relative', height: '70vh', display: 'grid', placeItems: 'center' }}>
+          <img
+            key={currentImage.url}
+            src={currentImage.url}
+            alt={`Image ${safeIndex + 1}`}
+            onLoad={() => markLoaded(currentImage.url)}
+            onError={() => markLoaded(currentImage.url)}
+            style={{
+              maxWidth: '100%',
+              maxHeight: '100%',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              opacity: isLoaded ? 1 : 0.35,
+              transition: 'opacity 150ms'
+            }}
+          />
+          {!isLoaded && (
+            <Box role="progressbar" aria-label="이미지 불러오는 중"
+              sx={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center', pointerEvents: 'none' }}>
+              <CircularProgress sx={{ color: 'common.white' }} />
+            </Box>
+          )}
+        </Box>
         
         {showMetadata && currentImage.metadata && (
           <Box mt={2} sx={{ color: 'white' }}>
