@@ -153,7 +153,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `PUT` | `/projects/:id` | 프로젝트 수정 (커버 이미지 포함) | Yes |
 | `DELETE` | `/projects/:id` | 프로젝트 삭제 | Yes |
 | `POST` | `/projects/:id/favorite` | 즐겨찾기 토글 | Yes |
-| `GET` | `/projects/:id/images` | 프로젝트 이미지 | Yes |
+| `GET` | `/projects/:id/images` | 프로젝트 콘텐츠 — `images` · `videos` · `audios` + 종류별 total (#838) | Yes |
 | `GET` | `/projects/:id/jobs` | 프로젝트 작업 | Yes |
 | `GET` | `/projects/:id/prompt-data` | 프로젝트 프롬프트 데이터 | Yes |
 

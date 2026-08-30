@@ -167,6 +167,16 @@ function ImagesTab({ projectId }) {
       },
       onError: () => toast.error('삭제 실패') });
 
+  // 오디오 (#838) — 썸네일이 없어 MediaGrid 가 목록형(AudioList)으로 그린다. 일괄 선택은 미지원(단건 삭제만)
+  const deleteAudioMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteAudio(id, deleteJob),
+      onSuccess: () => {
+        toast.success('오디오가 삭제되었습니다');
+        queryClient.invalidateQueries({ queryKey: [`projectAudios-${projectId}`] });
+        queryClient.invalidateQueries({ queryKey: ['generatedAudios'] });
+        queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      },
+      onError: () => toast.error('삭제 실패') });
+
   const deleteVideoMutation = useMutation({ mutationFn: ({ id, deleteJob }) => imageAPI.deleteVideo(id, deleteJob),
       onSuccess: () => {
         toast.success('동영상이 삭제되었습니다');
@@ -218,6 +228,14 @@ function ImagesTab({ projectId }) {
       ? { title: '동영상과 작업 히스토리를 함께 삭제하시겠습니까?', description: '동영상을 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
       : { title: '동영상을 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
     if (ok) deleteVideoMutation.mutate({ id: item._id, deleteJob: withHistory });
+  };
+
+  const handleDeleteAudio = async (item) => {
+    const withHistory = !!userPreferences.deleteHistoryWithContent && !!item.jobId;
+    const ok = await confirm(withHistory
+      ? { title: '오디오와 작업 히스토리를 함께 삭제하시겠습니까?', description: '오디오를 만든 작업 기록도 같이 사라집니다.', danger: true, confirmLabel: '모두 삭제' }
+      : { title: '오디오를 삭제하시겠습니까?', description: '작업 히스토리는 보존됩니다.', confirmLabel: '삭제' });
+    if (ok) deleteAudioMutation.mutate({ id: item._id, deleteJob: withHistory });
   };
 
   const handleImageBulkToggle = useCallback((id) => {
@@ -343,6 +361,23 @@ function ImagesTab({ projectId }) {
           return {
             items: d.videos || [],
             pagination: { ...d.pagination, pages: d.pagination ? Math.ceil(d.pagination.videoTotal / 20) : 1 }
+          };
+        }}
+      />
+
+      <Typography variant="subtitle2" sx={{ mt: 3, mb: 1 }}>오디오</Typography>
+      <MediaGrid
+        type="audio"
+        fetchFn={(params) => projectAPI.getImages(projectId, params)}
+        queryKey={`projectAudios-${projectId}`}
+        showSearch={false}
+        pageSize={20}
+        onDelete={handleDeleteAudio}
+        responseExtractor={(data) => {
+          const d = data?.data?.data || {};
+          return {
+            items: d.audios || [],
+            pagination: { ...d.pagination, pages: d.pagination ? Math.ceil((d.pagination.audioTotal || 0) / 20) : 1 }
           };
         }}
       />
@@ -817,7 +852,7 @@ function ProjectHero({ project, isMobile, onEdit, onDelete, onToggleFavorite, on
               sx={{ bgcolor: project.tagId?.color || 'primary.main', color: 'white' }}
             />
           )}
-          <Chip icon={<ImageIcon />} label={`이미지 ${project.counts?.images || 0}`} variant="outlined" />
+          <Chip icon={<ImageIcon />} label={`콘텐츠 ${project.counts?.media ?? project.counts?.images ?? 0}`} variant="outlined" />
           <Chip icon={<TextSnippet />} label={`프롬프트 ${project.counts?.promptData || 0}`} variant="outlined" />
           <Chip icon={<History />} label={`작업 ${project.counts?.jobs || 0}`} variant="outlined" />
         </Box>
@@ -1035,7 +1070,7 @@ function ProjectDetail() {
           <Tab label={<TabLabel label="파이프라인" count={pipelinesCount} />} />
           <Tab label="세계관" />
           <Tab icon={<TextSnippet fontSize="small" />} iconPosition="start" label={<TabLabel label="프롬프트 데이터" count={project.counts?.promptData} />} />
-          <Tab icon={<ImageIcon fontSize="small" />} iconPosition="start" label={<TabLabel label="이미지" count={project.counts?.images} />} />
+          <Tab icon={<ImageIcon fontSize="small" />} iconPosition="start" label={<TabLabel label="콘텐츠" count={project.counts?.media ?? project.counts?.images} />} />
           <Tab icon={<History fontSize="small" />} iconPosition="start" label={<TabLabel label="파이프라인 히스토리" count={runsCount} />} />
           <Tab label={<TabLabel label="대화 히스토리" count={convCount} />} />
         </Tabs>
