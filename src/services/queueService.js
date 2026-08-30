@@ -519,6 +519,15 @@ const findVideoDocumentById = async (videoId) => {
   return videoDoc;
 };
 
+// 오디오 참조 조회 (#841) — 비디오와 같은 순서. 만든 곡(GeneratedAudio)을 R2V 참조 오디오로 재활용
+const findAudioDocumentById = async (audioId) => {
+  let audioDoc = await UploadedAudio.findById(audioId);
+  if (!audioDoc) {
+    audioDoc = await GeneratedAudio.findById(audioId);
+  }
+  return audioDoc;
+};
+
 const loadImageInput = async (imageId) => {
   if (!imageId) return null;
 
@@ -750,7 +759,7 @@ const uploadAudioFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
     }
 
     try {
-      const audioDoc = await UploadedAudio.findById(audioId);
+      const audioDoc = await findAudioDocumentById(audioId);
       if (!audioDoc?.path || !fs.existsSync(audioDoc.path)) {
         console.warn(`⚠️ Audio not found for field "${fieldName}": ${audioId}`);
         continue;
