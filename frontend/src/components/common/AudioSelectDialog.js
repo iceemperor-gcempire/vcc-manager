@@ -13,7 +13,9 @@ import {
   Checkbox,
   CircularProgress,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { Search, MusicNote } from '@mui/icons-material';
 import { imageAPI } from '../../services/api';
@@ -30,8 +32,9 @@ const formatDuration = (seconds) => {
 // 참조 오디오 선택 다이얼로그 (#772) — VideoSelectDialog 와 대칭이지만 그리드가 아닌 목록이다.
 // 오디오는 썸네일이 없어 MediaGrid 를 쓸 수 없다. 파일명·길이로 식별하고 인라인 재생으로 확인한다.
 //
-// 생성물 탭이 없는 것도 의도 — 오디오는 현재 VCC 의 출력 형식이 아니다 (#772 는 입력 필드만 다룬다).
-// H3 가 만드는 오디오는 비디오에 실려 나오므로 독립 오디오 생성물이 존재하지 않는다.
+// 생성한 오디오 탭 (#841): v4.0.0 에서 오디오가 출력 형식이 되면서(MiniMax Music 3) 만든 곡을
+// 참조로 다시 쓰는 흐름이 생겼다. Video 다이얼로그와 같은 두 탭 구조. 선택 결과의 `audioType` 은
+// 소비처가 필요하면 쓰도록 넣어 두었고, 백엔드는 id 로 업로드본→생성물 순으로 찾는다.
 function AudioSelectDialog({
   open,
   onClose,
@@ -47,6 +50,7 @@ function AudioSelectDialog({
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [search, setSearch] = useState('');
+  const [tab, setTab] = useState(0);   // 0 업로드한 · 1 생성한 (#841)
 
   useEffect(() => {
     if (open) {
@@ -59,7 +63,8 @@ function AudioSelectDialog({
   const fetchAudios = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await imageAPI.getUploadedAudios({ page, limit: 10, search });
+      const params = { page, limit: 10, search };
+      const res = tab === 0 ? await imageAPI.getUploadedAudios(params) : await imageAPI.getAudios(params);
       setAudios(res.data.audios || []);
       setTotalPages(res.data.pagination?.pages || 1);
     } catch {
@@ -67,7 +72,7 @@ function AudioSelectDialog({
     } finally {
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, tab]);
 
   useEffect(() => {
     if (open) fetchAudios();
@@ -76,7 +81,7 @@ function AudioSelectDialog({
   const isSelected = (audio) => selected.some((s) => s.audioId === audio._id);
 
   const toggle = (audio) => {
-    const entry = { audioId: audio._id, audio };
+    const entry = { audioId: audio._id, audio, audioType: tab === 0 ? 'uploaded' : 'generated' };
     if (isSelected(audio)) {
       setSelected(selected.filter((s) => s.audioId !== audio._id));
     } else if (multiple) {
@@ -109,6 +114,10 @@ function AudioSelectDialog({
         )}
       </DialogTitle>
       <DialogContent>
+        <Tabs value={tab} onChange={(e, v) => { setTab(v); setPage(1); }} sx={{ mb: 2 }}>
+          <Tab label="업로드한 오디오" />
+          <Tab label="생성한 오디오" />
+        </Tabs>
         <TextField
           fullWidth
           size="small"
@@ -133,7 +142,7 @@ function AudioSelectDialog({
           <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
             <MusicNote sx={{ fontSize: 40, opacity: 0.4, mb: 1 }} />
             <Typography variant="body2">
-              {search ? '검색 결과가 없습니다' : '업로드한 오디오가 없습니다'}
+              {search ? '검색 결과가 없습니다' : (tab === 0 ? '업로드한 오디오가 없습니다' : '생성한 오디오가 없습니다')}
             </Typography>
           </Box>
         ) : (
@@ -153,7 +162,7 @@ function AudioSelectDialog({
                   sx={{ mt: 0.5 }}
                 />
                 <ListItemText
-                  primary={audio.originalName}
+                  primary={audio.originalName || audio.filename}
                   secondary={
                     <Box component="span" sx={{ display: 'block' }}>
                       <Typography component="span" variant="caption" sx={{ fontFamily: MONO }}>
