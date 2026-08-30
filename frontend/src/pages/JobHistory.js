@@ -593,16 +593,6 @@ function JobHistory() {
       });
   }, [items, seg, search]);
 
-  // 목록이 바뀌면 사라진 항목을 선택에서 뺀다 (#902)
-  React.useEffect(() => { setSelected((prev) => pruneSelection(prev, visible)); }, [visible]);
-  // ESC 로 선택 모드 종료
-  React.useEffect(() => {
-    if (!selectMode) return undefined;
-    const onKey = (e) => { if (e.key === 'Escape') { setSelectMode(false); setSelected(new Set()); } };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [selectMode]);
-
   // ---- 메뉴 / 다이얼로그 상태 ----
   const [menuAnchor, setMenuAnchor] = useState(null);
   const [menuJob, setMenuJob] = useState(null);
@@ -617,6 +607,17 @@ function JobHistory() {
   const [memoJob, setMemoJob] = useState(null);   // #879
   const [selectMode, setSelectMode] = useState(false);          // #902 멀티셀렉트
   const [selected, setSelected] = useState(() => new Set());
+
+  // 목록이 바뀌면 사라진 항목을 선택에서 뺀다 (#902)
+  React.useEffect(() => { setSelected((prev) => pruneSelection(prev, visible)); }, [visible]);
+  // ESC 로 선택 모드 종료
+  React.useEffect(() => {
+    if (!selectMode) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { setSelectMode(false); setSelected(new Set()); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectMode]);
+
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
 
