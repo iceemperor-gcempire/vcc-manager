@@ -367,14 +367,6 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
         </Grid>
       )}
 
-      <PromptEditorDialog
-        open={!!promptEditorField}
-        title={promptEditorField === 'negativePrompt' ? '부정 프롬프트 편집' : '프롬프트 편집'}
-        value={promptEditorField ? (getValues(promptEditorField) || '') : ''}
-        helperText={promptEditorField === 'negativePrompt' ? undefined : '명사 위주, 콤마로 구분. 가중치는 (word:1.2) 문법. Ctrl/⌘+Enter 저장'}
-        onClose={() => setPromptEditorField(null)}
-        onSave={(text) => { setValue(promptEditorField, text, { shouldDirty: true }); setPromptEditorField(null); }}
-      />
       <ImageSelectDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -1551,6 +1543,14 @@ function ImageGeneration() {
       />
 
       {/* AI 프롬프트 생성 다이얼로그 */}
+      <PromptEditorDialog
+        open={!!promptEditorField}
+        title={promptEditorField === 'negativePrompt' ? '부정 프롬프트 편집' : '프롬프트 편집'}
+        value={promptEditorField ? (getValues(promptEditorField) || '') : ''}
+        helperText={promptEditorField === 'negativePrompt' ? undefined : '명사 위주, 콤마로 구분. 가중치는 (word:1.2) 문법. Ctrl/⌘+Enter 저장'}
+        onClose={() => setPromptEditorField(null)}
+        onSave={(text) => { setValue(promptEditorField, text, { shouldDirty: true }); setPromptEditorField(null); }}
+      />
       <PromptGeneratorDialog
         open={promptGeneratorDialogOpen}
         onClose={() => setPromptGeneratorDialogOpen(false)}
