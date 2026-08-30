@@ -11,6 +11,9 @@ const comfyUIService = require('../services/comfyUIService');
 const { SERVER_TYPES, MODEL_SYNC_SERVER_TYPES } = require('../constants/serverTypes');
 const { encryptSecret } = require('../utils/secretCrypto');
 const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../utils/validation');
+const { inferBaseModelSource } = require('../utils/workboardModelSource');
+const { getFieldByRole } = require('../utils/customFieldHelpers');
+const { FIELD_ROLES } = require('../constants/fieldRoles');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', verifyJWT, async (req, res) => {
@@ -348,6 +351,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
       // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D) + outputFormat 자동 유추 (#354)
       let whitelist = undefined;
       let outputFormat = outputFormatQuery || undefined;
+      let source = undefined;
       if (workboardId) {
         const wb = await Workboard.findById(workboardId);
         if (!wb) {
@@ -365,6 +369,12 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         if (!outputFormat && wb.outputFormat) {
           outputFormat = wb.outputFormat;
         }
+        // 베이스 모델 로더 폴더로 picker 한정 (#898) — ComfyUI 작업판만 의미 있음
+        if (server.serverType === 'ComfyUI') {
+          const baseField = getFieldByRole(wb, FIELD_ROLES.MODEL);
+          const placeholder = (baseField && baseField.formatString) || '{{##base_model##}}';
+          source = inferBaseModelSource(wb.workflowData, placeholder) || undefined;
+        }
       }
 
       const result = await modelMetadataService.searchServerModels(server._id, {
@@ -374,6 +384,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
         allowedBaseModels,
         whitelist,
         outputFormat,
+        source,
         serverType: server.serverType,
         page: parseInt(page),
         limit: parseInt(limit)
