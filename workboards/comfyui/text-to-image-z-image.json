@@ -1,0 +1,200 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-30T00:00:00.000Z",
+  "workboard": {
+    "name": "Text to Image - Z-Image",
+    "description": "프롬프트만으로 이미지를 만드는 Z-Image 터보 작업판입니다. 8스텝·CFG 1 이라 부정 프롬프트는 쓰지 않습니다 (자연어 프롬프트 권장, 영어·중국어). 원본과 업스케일본이 함께 저장됩니다.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "defaultValue": "Z-Image\\z_image_turbo_bf16.safetensors",
+        "description": "Z-Image 계열 모델 (터보 = 8스텝·CFG 1). 파인튜닝판을 골라도 같은 설정으로 동작합니다.",
+        "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "크기",
+        "type": "select",
+        "required": true,
+        "defaultValue": "1024x1024",
+        "description": "Z-Image 기본 1MP. 1.5MP 는 시간이 약 1.5배.",
+        "formatString": "{{##image_size##}}",
+        "options": [
+          {
+            "key": "1024x1024 (1:1)",
+            "value": "1024x1024"
+          },
+          {
+            "key": "1152x896 (가로 9:7)",
+            "value": "1152x896"
+          },
+          {
+            "key": "896x1152 (세로 7:9)",
+            "value": "896x1152"
+          },
+          {
+            "key": "1216x832 (가로 3:2)",
+            "value": "1216x832"
+          },
+          {
+            "key": "832x1216 (세로 2:3)",
+            "value": "832x1216"
+          },
+          {
+            "key": "1344x768 (가로 16:9)",
+            "value": "1344x768"
+          },
+          {
+            "key": "768x1344 (세로 9:16)",
+            "value": "768x1344"
+          },
+          {
+            "key": "1536x1024 (가로 3:2 · 1.5MP)",
+            "value": "1536x1024"
+          },
+          {
+            "key": "1024x1536 (세로 2:3 · 1.5MP)",
+            "value": "1024x1536"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "steps",
+        "label": "스텝",
+        "type": "select",
+        "required": false,
+        "defaultValue": "8",
+        "description": "터보 모델 기준 8. 파인튜닝판이 흐리면 9~12.",
+        "formatString": "{{##steps##}}",
+        "options": [
+          {
+            "key": "8 (터보 기본)",
+            "value": "8"
+          },
+          {
+            "key": "9",
+            "value": "9"
+          },
+          {
+            "key": "12",
+            "value": "12"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "sampler",
+        "label": "샘플러",
+        "type": "select",
+        "required": false,
+        "defaultValue": "res_multistep",
+        "description": "res_multistep 이 기본. euler 는 조금 더 빠르고 부드럽습니다.",
+        "formatString": "{{##sampler##}}",
+        "options": [
+          {
+            "key": "res_multistep",
+            "value": "res_multistep"
+          },
+          {
+            "key": "euler",
+            "value": "euler"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": true,
+        "defaultValue": "2x-AnimeSharpV4_RCAN.safetensors",
+        "description": "생성 후 업스케일에 쓸 모델. 원본 크기와 업스케일본이 함께 저장됩니다.",
+        "formatString": "{{##upscale_model##}}",
+        "options": [
+          {
+            "key": "AnimeSharp V4 (2x)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast (2x)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          },
+          {
+            "key": "Remacri (4x · 실사·일반)",
+            "value": "4x_foolhardy_Remacri.pth"
+          },
+          {
+            "key": "RealESRGAN anime 6B (4x)",
+            "value": "RealESRGAN_x4plus_anime_6B.pth"
+          }
+        ]
+      }
+    ],
+    "workflowData": "{\n  \"1\": {\n    \"class_type\": \"UNETLoader\",\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"_meta\": {\n      \"title\": \"Z-Image 모델\"\n    }\n  },\n  \"2\": {\n    \"class_type\": \"CLIPLoader\",\n    \"inputs\": {\n      \"clip_name\": \"qwen_3_4b.safetensors\",\n      \"type\": \"lumina2\",\n      \"device\": \"default\"\n    },\n    \"_meta\": {\n      \"title\": \"텍스트 인코더 (Qwen3 4B)\"\n    }\n  },\n  \"3\": {\n    \"class_type\": \"VAELoader\",\n    \"inputs\": {\n      \"vae_name\": \"Z-Image\\\\ae.safetensors\"\n    },\n    \"_meta\": {\n      \"title\": \"VAE\"\n    }\n  },\n  \"4\": {\n    \"class_type\": \"ModelSamplingAuraFlow\",\n    \"inputs\": {\n      \"model\": [\n        \"1\",\n        0\n      ],\n      \"shift\": 3.0\n    },\n    \"_meta\": {\n      \"title\": \"시프트 3\"\n    }\n  },\n  \"5\": {\n    \"class_type\": \"CLIPTextEncode\",\n    \"inputs\": {\n      \"text\": \"{{##prompt##}}\",\n      \"clip\": [\n        \"2\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"프롬프트\"\n    }\n  },\n  \"6\": {\n    \"class_type\": \"ConditioningZeroOut\",\n    \"inputs\": {\n      \"conditioning\": [\n        \"5\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"부정 프롬프트 없음 (CFG 1)\"\n    }\n  },\n  \"7\": {\n    \"class_type\": \"EmptySD3LatentImage\",\n    \"inputs\": {\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"batch_size\": 1\n    },\n    \"_meta\": {\n      \"title\": \"빈 latent\"\n    }\n  },\n  \"8\": {\n    \"class_type\": \"KSampler\",\n    \"inputs\": {\n      \"seed\": \"{{##seed##}}\",\n      \"steps\": \"{{##steps##}}\",\n      \"cfg\": 1.0,\n      \"sampler_name\": \"{{##sampler##}}\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1.0,\n      \"model\": [\n        \"4\",\n        0\n      ],\n      \"positive\": [\n        \"5\",\n        0\n      ],\n      \"negative\": [\n        \"6\",\n        0\n      ],\n      \"latent_image\": [\n        \"7\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"샘플러\"\n    }\n  },\n  \"9\": {\n    \"class_type\": \"VAEDecode\",\n    \"inputs\": {\n      \"samples\": [\n        \"8\",\n        0\n      ],\n      \"vae\": [\n        \"3\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"디코드\"\n    }\n  },\n  \"10\": {\n    \"class_type\": \"SaveImage\",\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\zimage_t2i\",\n      \"images\": [\n        \"9\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"저장 (원본)\"\n    }\n  },\n  \"11\": {\n    \"class_type\": \"UpscaleModelLoader\",\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"12\": {\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"inputs\": {\n      \"upscale_model\": [\n        \"11\",\n        0\n      ],\n      \"image\": [\n        \"9\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"업스케일\"\n    }\n  },\n  \"13\": {\n    \"class_type\": \"SaveImage\",\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\zimage_t2i_up\",\n      \"images\": [\n        \"12\",\n        0\n      ]\n    },\n    \"_meta\": {\n      \"title\": \"저장 (업스케일)\"\n    }\n  }\n}",
+    "allowedModelTypes": [
+      "ZImageTurbo",
+      "ZImageBase"
+    ],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 1
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}

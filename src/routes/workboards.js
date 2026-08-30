@@ -17,6 +17,7 @@ const { validateBody, workboardCreateSchema, workboardUpdateSchema } = require('
 const router = express.Router();
 
 const { WORKBOARD_EXPORT_VERSION: EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
+const { diffWorkboard, UPDATABLE_FIELDS } = require('../utils/workboardDiff');
 
 // 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
 // Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
@@ -370,9 +371,17 @@ router.post('/reboot-comfyui', requireAdmin, async (req, res) => {
 });
 
 
+// 작업판 가져오기.
+//   mode: 'create' (기본) — 항상 새 판 (기존 동작, 관리자 UI)
+//   mode: 'update' (#886) — 같은 이름의 판이 있으면 **제자리 갱신**, 없으면 생성.
+//     갱신은 UPDATABLE_FIELDS 만 덮어쓰고 _id·serverId·allowedGroupIds·isActive·usageCount·createdBy 는
+//     유지한다 (히스토리의 계속하기·권한·통계 보존). version 은 +1.
+//   dryRun: true — 저장하지 않고 diff·경고만 반환
+//   acknowledge: true — diff 에 위험 경고가 있어도 갱신 진행. 없으면 409 로 거부한다.
+//     (입력·출력 계약이 깨지는 변경을 사람이 보고 승인하게 하는 지점)
 router.post('/import', requireAdmin, async (req, res) => {
   try {
-    const { data, serverId: overrideServerId } = req.body;
+    const { data, serverId: overrideServerId, mode = 'create', dryRun = false, acknowledge = false } = req.body;
 
     if (!data || !data._exportVersion) {
       return res.status(400).json({ message: '올바른 작업판 백업 파일이 아닙니다.' });
@@ -381,8 +390,44 @@ router.post('/import', requireAdmin, async (req, res) => {
     if (data._exportVersion !== EXPORT_VERSION) {
       return res.status(400).json({ message: `지원하지 않는 내보내기 버전입니다. (v${data._exportVersion})` });
     }
+    if (!['create', 'update'].includes(mode)) {
+      return res.status(400).json({ message: `mode 는 create 또는 update 여야 합니다. (${mode})` });
+    }
 
     const warnings = [];
+
+    if (mode === 'update' && data.workboard && data.workboard.name) {
+      const existing = await Workboard.findOne({ name: data.workboard.name });
+      if (existing) {
+        const diff = diffWorkboard(existing, data.workboard);
+        const base = {
+          action: 'update',
+          workboard: { _id: existing._id, name: existing.name, version: existing.version, isActive: existing.isActive },
+          diff,
+        };
+        if (dryRun) {
+          return res.json({ ...base, dryRun: true, message: diff.identical ? '변경 없음' : `변경 ${diff.changes.length}건 · 경고 ${diff.warnings.length}건` });
+        }
+        if (diff.identical) {
+          return res.json({ ...base, updated: false, message: '변경 없음 — 갱신하지 않았습니다.' });
+        }
+        if (diff.warnings.length > 0 && !acknowledge) {
+          return res.status(409).json({
+            ...base,
+            requiresAcknowledge: true,
+            message: `위험 변경 ${diff.warnings.length}건이 있어 갱신하지 않았습니다. 내용을 확인한 뒤 acknowledge: true 로 다시 보내세요.`,
+          });
+        }
+        for (const k of UPDATABLE_FIELDS) {
+          if (data.workboard[k] !== undefined) existing[k] = data.workboard[k];
+        }
+        existing.version = (existing.version || 1) + 1;
+        await existing.save();
+        console.log(`♻️ 작업판 갱신 (#886): "${existing.name}" v${existing.version} — 변경 ${diff.changes.length}건, 경고 ${diff.warnings.length}건${acknowledge ? ' (승인됨)' : ''}`);
+        return res.json({ ...base, workboard: { ...base.workboard, version: existing.version }, updated: true, acknowledged: !!acknowledge, message: '작업판을 갱신했습니다.' });
+      }
+      // 같은 이름이 없으면 생성 경로로 (아래)
+    }
 
     // 앱 버전 호환성 경고
     if (data.appVersion && data.appVersion.major !== APP_VERSION.major) {
@@ -450,6 +495,9 @@ router.post('/import', requireAdmin, async (req, res) => {
 
     // 새 Workboard 생성
     const wb = data.workboard;
+    if (dryRun) {
+      return res.json({ dryRun: true, action: 'create', workboard: { name: wb && wb.name }, serverMatch: serverMatchInfo, warnings, message: '같은 이름의 작업판이 없어 새로 만들어집니다.' });
+    }
     const server = await Server.findById(matchedServerId);
 
     // import 시 allowedGroupIds 는 기본 그룹으로 자동 할당 (export 에는 미포함, ObjectId 매칭 불가)
@@ -483,6 +531,7 @@ router.post('/import', requireAdmin, async (req, res) => {
 
     res.status(201).json({
       message: '작업판을 가져왔습니다.',
+      action: 'create',
       workboard: newWorkboard,
       serverMatch: serverMatchInfo,
       warnings

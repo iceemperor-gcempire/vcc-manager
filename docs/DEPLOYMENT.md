@@ -367,6 +367,37 @@ docker-compose up -d --build
 # 특정 서비스만 재시작
 docker-compose restart
 
+### 4. 작업판 갱신 (저장소 export → 인스턴스, #886)
+
+`workboards/comfyui/*.json` 은 배포용 완성품이고, 릴리스 태그의 것이 정본이다. 인스턴스의 작업판은
+**`scripts/sync-workboards.js` 로 제자리 갱신**한다 — 관리자 UI 의 "가져오기" 는 항상 새 판을 만들어
+같은 이름이 둘이 되고, 히스토리의 "계속하기" 가 옛 판을 가리키게 된다.
+
+```bash
+git checkout v4.0.7                       # 배포한 태그로 (dev 작업본을 프로덕션에 넣지 않는다)
+source ~/.claude/secrets.env              # VCC_PROD_API_KEY (관리자 계정의 API 키)
+
+# 1) dry-run — 무엇이 바뀌는지, 위험 경고가 있는지 본다 (저장 안 함)
+VCC_BASE_URL=https://vcc.example VCC_API_KEY=$VCC_PROD_API_KEY \
+  node scripts/sync-workboards.js workboards/comfyui/*.json
+
+# 2) 적용 — 경고 없는 판만 갱신, 경고 있는 판은 409 로 건너뜀
+VCC_BASE_URL=… VCC_API_KEY=… node scripts/sync-workboards.js --apply workboards/comfyui/*.json
+
+# 3) 경고를 읽고 감수하기로 했으면 승인 적용
+VCC_BASE_URL=… VCC_API_KEY=… node scripts/sync-workboards.js --apply --yes workboards/comfyui/minimax-h3-fl2v-turbo.json
+```
+
+- 갱신은 설명·입력 필드·워크플로·출력 형식·모델/LoRA 정책만 덮어쓴다. **`_id`·서버·허용 그룹·활성 여부·
+  사용 횟수·작성자는 유지**되고 version 이 +1 된다
+- **위험 경고**(입력 필드 삭제/이름 변경/타입 변경/필수화/선택지 축소, 출력 형식 변경, 저장 노드 변경,
+  필드 없는 placeholder)는 기존 작업의 계속하기·재시도를 깨뜨릴 수 있어 서버가 `acknowledge` 없이는
+  거부한다. dry-run 출력의 `⚠` 줄을 읽고 결정할 것
+- 같은 이름의 판이 없으면 새로 만든다 (서버 자동 매칭 실패 시 `--server-id`). 판 삭제·비활성화는 하지 않는다
+- 서버 `/health` 의 `version` 과 export 의 `appVersion` 이 major.minor 에서 다르면 스크립트가 멈춘다
+- 갱신 후 새 모델·LoRA 파일이 필요한 판은 `workboards/README.md` 각주대로 ComfyUI 에 파일을 두어야 한다
+
+
 ## 문제 해결
 
 ### 일반적인 문제들
