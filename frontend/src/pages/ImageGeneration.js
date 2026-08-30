@@ -39,7 +39,8 @@ import {
   AutoFixHigh,
   Storage as StorageIcon,
   ContentCopy,
-  MusicNote
+  MusicNote,
+  OpenInFull
 } from '@mui/icons-material';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
@@ -53,6 +54,7 @@ import CustomFieldControl from '../components/common/CustomFieldControl';
 import { extractLoraName, insertLoraTag, insertTriggerWordWithLora } from '../utils/promptUtils';
 import Pagination from '../components/common/Pagination';
 import ImageSelectDialog from '../components/common/ImageSelectDialog';
+import PromptEditorDialog from '../components/common/PromptEditorDialog';   // #900
 import VideoSelectDialog from '../components/common/VideoSelectDialog';
 import AudioSelectDialog from '../components/common/AudioSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
@@ -365,6 +367,14 @@ function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = f
         </Grid>
       )}
 
+      <PromptEditorDialog
+        open={!!promptEditorField}
+        title={promptEditorField === 'negativePrompt' ? '부정 프롬프트 편집' : '프롬프트 편집'}
+        value={promptEditorField ? (getValues(promptEditorField) || '') : ''}
+        helperText={promptEditorField === 'negativePrompt' ? undefined : '명사 위주, 콤마로 구분. 가중치는 (word:1.2) 문법. Ctrl/⌘+Enter 저장'}
+        onClose={() => setPromptEditorField(null)}
+        onSave={(text) => { setValue(promptEditorField, text, { shouldDirty: true }); setPromptEditorField(null); }}
+      />
       <ImageSelectDialog
         open={dialogOpen}
         onClose={() => setDialogOpen(false)}
@@ -731,6 +741,8 @@ function ImageGeneration() {
   const [seedValue, setSeedValue] = useState(generateRandomSeed);
   const [loraModalOpen, setLoraModalOpen] = useState(false);
   const [promptDataDialogOpen, setPromptDataDialogOpen] = useState(false);
+  // 프롬프트 크게 편집 (#900) — 'prompt' | 'negativePrompt' | null
+  const [promptEditorField, setPromptEditorField] = useState(null);
   const [promptGeneratorDialogOpen, setPromptGeneratorDialogOpen] = useState(false);
   const [continuedTags, setContinuedTags] = useState([]);
   const initializedRef = useRef(null);
@@ -1220,6 +1232,9 @@ function ImageGeneration() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
                 <Typography variant="h6">프롬프트</Typography>
                 <Box sx={{ flex: 1 }} />
+                <Button startIcon={<OpenInFull />} onClick={() => setPromptEditorField('prompt')}>
+                  크게 편집
+                </Button>
                 <Button startIcon={<FolderOpen />} onClick={() => setPromptDataDialogOpen(true)}>
                   프롬프트 불러오기
                 </Button>
@@ -1238,7 +1253,8 @@ function ImageGeneration() {
                     inputRef={promptInputRef}
                     fullWidth
                     multiline
-                    rows={4}
+                    minRows={4}
+                    maxRows={24}   // 계속하기·불러오기로 긴 텍스트가 오면 그만큼 커진다 (#900)
                     label="프롬프트"
                     required // 고급 설정의 '베이스 모델*' 등과 필수 표시를 맞춤 (#730)
                     placeholder="생성하고 싶은 이미지에 대한 설명을 입력하세요..."
@@ -1291,9 +1307,17 @@ function ImageGeneration() {
                     {...field}
                     fullWidth
                     multiline
-                    rows={2}
+                    minRows={2}
+                    maxRows={12}
                     label="부정 프롬프트 (선택사항)"
                     placeholder="생성하지 않았으면 하는 요소들을 입력하세요..."
+                    InputProps={{
+                      endAdornment: (
+                        <IconButton size="small" aria-label="부정 프롬프트 크게 편집" onClick={() => setPromptEditorField('negativePrompt')} sx={{ alignSelf: 'flex-start' }}>
+                          <OpenInFull sx={{ fontSize: 16 }} />
+                        </IconButton>
+                      ),
+                    }}
                   />
                 )}
               />
