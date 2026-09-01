@@ -630,8 +630,9 @@ const resetSyncStatus = async (serverId) => {
  * @param {string} opts.baseModel — civitai.baseModel 단일 매칭 (사용자 dropdown 필터용)
  * @param {string[]} opts.allowedBaseModels — civitai.baseModel 다중 매칭
  *   (작업판의 allowedModelTypes 와 매핑 — 필터 활성 시 Civitai 미등록 모델은 제외, #320)
+ * @param {string} opts.source — 'checkpoints' | 'diffusion_models' — 작업판 로더 폴더로 한정 (#898)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, serverType, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, serverType, source, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
@@ -649,6 +650,12 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
   )].sort();
 
   let filtered = [...cache.models];
+
+  // source: 작업판의 로더 노드가 읽는 폴더로 한정 (#898). UNETLoader 판에 AIO 체크포인트가 떠서
+  // 고르면 value_not_in_list 로 실패하던 것을 막는다. source 가 없는 옛 캐시 항목은 남긴다.
+  if (source) {
+    filtered = filtered.filter(m => !m.source || m.source === source);
+  }
 
   if (search) {
     const s = search.toLowerCase();

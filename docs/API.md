@@ -82,6 +82,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `GET` | `/jobs/my` | 내 작업 목록 | Yes |
 | `GET` | `/jobs/:id` | 작업 상세 | Yes |
 | `DELETE` | `/jobs/:id` | 작업 삭제 | Yes |
+| `POST` | `/jobs/bulk-delete` | 선택 삭제 — `{ ids[], deleteContent }` (≤200, 건별 결과·합계 반환, 처리중/타인은 건너뜀) | Yes |
 | `POST` | `/jobs/:id/retry` | 실패 작업 재시도 | Yes |
 | `POST` | `/jobs/:id/cancel` | 진행 중 작업 취소 | Yes |
 | `PATCH` | `/jobs/:id/memo` | 작업 메모 저장 — `{ memo }` ≤100자, 빈 값이면 삭제 (본인/admin) | Yes |
@@ -152,7 +153,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `PUT` | `/projects/:id` | 프로젝트 수정 (커버 이미지 포함) | Yes |
 | `DELETE` | `/projects/:id` | 프로젝트 삭제 | Yes |
 | `POST` | `/projects/:id/favorite` | 즐겨찾기 토글 | Yes |
-| `GET` | `/projects/:id/images` | 프로젝트 이미지 | Yes |
+| `GET` | `/projects/:id/images` | 프로젝트 콘텐츠 — `images` · `videos` · `audios` + 종류별 total (#838) | Yes |
 | `GET` | `/projects/:id/jobs` | 프로젝트 작업 | Yes |
 | `GET` | `/projects/:id/prompt-data` | 프로젝트 프롬프트 데이터 | Yes |
 

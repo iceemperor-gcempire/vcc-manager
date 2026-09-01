@@ -20,6 +20,7 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Tooltip,
+  Checkbox,
 } from '@mui/material';
 import {
   Search,
@@ -42,6 +43,7 @@ import {
   StopCircle,
   EditNote,
   Notes,
+  CheckBox as CheckBoxIcon,
 } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -69,6 +71,7 @@ import { relativeTime } from '../utils/relativeTime';
 import { formatDuration } from '../utils/formatDuration';   // #879
 import JobMemoDialog from '../components/common/JobMemoDialog';   // #879
 import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from '../utils/historyItems';
+import { isSelectable, selectableIds, toggleId, toggleAll, pruneSelection } from '../utils/historySelection';   // #902
 import {
   buildWorkboardPickerContinue,
   storeContinueJobData,
@@ -283,22 +286,38 @@ function StepDots({ statuses }) {
 }
 
 // ---- 한 행 --------------------------------------------------------------
-function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
+function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
   const subStr = buildHistorySubtitle(item);
+  const selectable = selectMode && isSelectable(item);
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
+  // 선택 모드에선 행 클릭이 선택 토글 (#902) — 미디어 열기는 체크박스 밖 더블클릭 대신 모드 해제 후
+  const handleClick = selectable ? () => onToggleSelect(item.id) : (clickable && !selectMode ? () => onOpenMedia(item) : undefined);
 
   return (
     <Paper
       variant="outlined"
-      onClick={clickable ? () => onOpenMedia(item) : undefined}
+      onClick={handleClick}
       sx={{
         p: { xs: 2.5, sm: '12px 14px' },
-        cursor: clickable ? 'pointer' : 'default',
+        cursor: handleClick ? 'pointer' : 'default',
         transition: 'border-color 120ms, background 120ms',
         '&:hover': { borderColor: 'primary.main' },
+        ...(selected ? { borderColor: 'primary.main', bgcolor: 'primary.light' } : {}),
+        ...(selectMode && !selectable ? { opacity: 0.55 } : {}),
       }}
     >
       <Box sx={{ display: 'flex', gap: { xs: 2.5, sm: 3.5 }, alignItems: 'flex-start' }}>
+        {selectMode && (
+          <Checkbox
+            size="small"
+            checked={selected}
+            disabled={!selectable}
+            onChange={() => onToggleSelect(item.id)}
+            onClick={(e) => e.stopPropagation()}
+            inputProps={{ 'aria-label': `${item.title} 선택` }}
+            sx={{ p: 0.5, mt: 1.5 }}
+          />
+        )}
         <RowVisual item={item} />
 
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -413,20 +432,30 @@ function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, on
 
 // ---- 페이지 -------------------------------------------------------------
 // 큰 썸네일(그리드) 카드 — 리스트(HistoryRow)와 동일 핸들러 재사용 (#675)
-function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail }) {
+function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
+  const selectable = selectMode && isSelectable(item);
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
+  const handleClick = selectable ? () => onToggleSelect(item.id) : (clickable && !selectMode ? () => onOpenMedia(item) : undefined);
   return (
     <Paper
       variant="outlined"
-      onClick={clickable ? () => onOpenMedia(item) : undefined}
+      onClick={handleClick}
       sx={{
         overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%',
-        cursor: clickable ? 'pointer' : 'default', transition: 'border-color 120ms',
+        cursor: handleClick ? 'pointer' : 'default', transition: 'border-color 120ms',
         '&:hover': { borderColor: 'primary.main' },
+        ...(selected ? { borderColor: 'primary.main', boxShadow: (t) => `0 0 0 2px ${t.palette.primary.main}` } : {}),
+        ...(selectMode && !selectable ? { opacity: 0.55 } : {}),
       }}
     >
       {/* 미디어 / 프리뷰 영역 */}
       <Box sx={{ position: 'relative', aspectRatio: '4 / 3', bgcolor: 'grey.100', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
+        {selectMode && (
+          <Box sx={{ position: 'absolute', top: 4, right: 4, zIndex: 1, bgcolor: 'background.paper', borderRadius: 1 }} onClick={(e) => e.stopPropagation()}>
+            <Checkbox size="small" checked={selected} disabled={!selectable} onChange={() => onToggleSelect(item.id)}
+              inputProps={{ 'aria-label': `${item.title} 선택` }} sx={{ p: 0.5 }} />
+          </Box>
+        )}
         {item.type === 'audio' ? (
           <MusicNote sx={{ fontSize: 40, color: 'grey.500' }} />
         ) : item.type === 'video' && item.videoThumb ? (
@@ -576,6 +605,19 @@ function JobHistory() {
   const [audViewer, setAudViewer] = useState({ open: false, items: [] });   // #805
   const [textDetail, setTextDetail] = useState(null);
   const [memoJob, setMemoJob] = useState(null);   // #879
+  const [selectMode, setSelectMode] = useState(false);          // #902 멀티셀렉트
+  const [selected, setSelected] = useState(() => new Set());
+
+  // 목록이 바뀌면 사라진 항목을 선택에서 뺀다 (#902)
+  React.useEffect(() => { setSelected((prev) => pruneSelection(prev, visible)); }, [visible]);
+  // ESC 로 선택 모드 종료
+  React.useEffect(() => {
+    if (!selectMode) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') { setSelectMode(false); setSelected(new Set()); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectMode]);
+
   const [viewMode, setViewMode] = useState(() => localStorage.getItem('jobHistoryViewMode') || 'list'); // #675 리스트/그리드 뷰
   const changeViewMode = (mode) => { if (mode) { setViewMode(mode); localStorage.setItem('jobHistoryViewMode', mode); } };
 
@@ -612,6 +654,15 @@ function JobHistory() {
 
   const handleDelete = (job) => { closeMenu(); jobActions.remove(job); };
   const handleMemo = (job) => { closeMenu(); setMemoJob(job); };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+  const handleToggleSelect = (id) => setSelected((prev) => toggleId(prev, id));
+  const handleToggleAll = () => setSelected((prev) => toggleAll(prev, visible));
+  const handleBulkDelete = async () => {
+    const jobs = visible.filter((i) => selected.has(i.id)).map((i) => i.raw);
+    const done = await jobActions.removeMany(jobs);
+    if (done) exitSelectMode();
+  };
+  const selectableCount = selectableIds(visible).length;
   const handleMemoSave = async (memo) => { await jobActions.saveMemo(memoJob, memo); setMemoJob(null); };
   const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
   const handleCancel = (job) => { closeMenu(); jobActions.cancel(job); };
@@ -645,7 +696,29 @@ function JobHistory() {
           sx={{ maxWidth: { sm: 360 }, width: '100%', flex: { sm: 1 } }}
           InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
         />
-        <ToggleButtonGroup size="small" exclusive value={viewMode} onChange={(e, v) => changeViewMode(v)} sx={{ ml: { sm: 'auto' } }}>
+        {/* 멀티셀렉트 (#902) */}
+        {selectMode ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: { sm: 'auto' }, flexWrap: 'wrap' }}>
+            <Checkbox
+              size="small"
+              checked={selectableCount > 0 && selected.size === selectableCount}
+              indeterminate={selected.size > 0 && selected.size < selectableCount}
+              onChange={handleToggleAll}
+              inputProps={{ 'aria-label': '전체 선택' }}
+              sx={{ p: 0.5 }}
+            />
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontFamily: MONO }}>{selected.size}/{selectableCount}</Typography>
+            <Button variant="contained" color="error" startIcon={<Delete />} disabled={selected.size === 0 || jobActions.isPending} onClick={handleBulkDelete}>
+              선택 삭제{selected.size > 0 ? ` (${selected.size})` : ''}
+            </Button>
+            <Button onClick={exitSelectMode}>취소</Button>
+          </Box>
+        ) : (
+          <Button startIcon={<CheckBoxIcon />} onClick={() => setSelectMode(true)} sx={{ ml: { sm: 'auto' } }}>
+            선택
+          </Button>
+        )}
+        <ToggleButtonGroup size="small" exclusive value={viewMode} onChange={(e, v) => changeViewMode(v)}>
           <ToggleButton value="list" aria-label="리스트 보기"><ViewList fontSize="small" /></ToggleButton>
           <ToggleButton value="grid" aria-label="큰 썸네일 보기"><GridView fontSize="small" /></ToggleButton>
         </ToggleButtonGroup>
@@ -676,6 +749,9 @@ function JobHistory() {
             <HistoryCard
               key={`${item.kind}-${item.id}`}
               item={item}
+              selectMode={selectMode}
+              selected={selected.has(item.id)}
+              onToggleSelect={handleToggleSelect}
               onOpenMedia={openMedia}
               onMenu={handleMenu}
               onMemo={handleMemo}
@@ -693,6 +769,9 @@ function JobHistory() {
             <HistoryRow
               key={`${item.kind}-${item.id}`}
               item={item}
+              selectMode={selectMode}
+              selected={selected.has(item.id)}
+              onToggleSelect={handleToggleSelect}
               onOpenMedia={openMedia}
               onMenu={handleMenu}
               onMemo={handleMemo}

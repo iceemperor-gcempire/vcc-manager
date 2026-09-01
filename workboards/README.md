@@ -34,12 +34,14 @@
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
-| `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×2 (원본+업스케일) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
+| `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
+| `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
 | `comfyui/video-upscale-pixel.json` | 영상 업스케일 (픽셀) | 영상 (원본 오디오 유지) · **2x/4x 픽셀 업스케일** | 업스케일 모델² + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
@@ -75,6 +77,11 @@ AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되
 디테일 유지). 시간 +약 40초 / 파일 약 3배 (5초 기준). `영상 업스케일 (픽셀)` 판은 **이미 만들어진
 영상**을 나중에 키울 때 쓴다 (AnimeSharp 2x · RealESRGAN 4x · Remacri 4x). 두 경우 모두
 업스케일 모델은 `models/upscale_models/` 에 있어야 한다. H.264 기본 CRF 는 14 (준무손실).
+
+⁶ **LTX IC-LoRA 업스케일 판**은 Lightricks 공식 `ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors`
+(`models/loras/optimizer/LTX-2/`) 로 영상을 2배 해상도로 **다시 그린다** — 픽셀 판(완전 충실)과 달리 선 정리·디테일 재생성.
+동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
+5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
 
 ---
 
