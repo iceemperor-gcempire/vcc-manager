@@ -1,1 +1,349 @@
-{"_exportVersion":1,"appVersion":{"major":4,"minor":0},"exportedAt":"2026-08-29T19:24:06.726Z","workboard":{"name":"MiniMax H3 - FL2V (Turbo)","description":"증류 LoRA 로 FL2V 를 4~8스텝으로 가속한 판입니다 (768p 학습 LoRA · 기본 1344x768). 터보 LoRA 와 스텝을 짝으로 맞춰 쓰세요. 품질이 아쉬우면 기본 FL2V 판을 쓰세요. (non-pruned int8 베이스 · euler · 시프트 6/3)","workboardType":"image","outputFormat":"video","additionalInputFields":[{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"first_frame","label":"첫 프레임 (선택)","type":"image","required":false,"description":"첨부하면 이 이미지에서 영상이 시작됩니다.","formatString":"{{##first_frame##}}","options":[],"anchorSizeField":"image_size","anchorFitField":"first_frame_fit"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"last_frame","label":"끝 프레임 (선택)","type":"image","required":false,"description":"첨부하면 이 이미지로 영상이 끝납니다.","formatString":"{{##last_frame##}}","options":[]},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"base_model","label":"베이스 모델","type":"baseModel","required":true,"defaultValue":"minimax\\minimax_h3_fl2va_int8_convrot.safetensors","formatString":"{{##base_model##}}","options":[]},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"image_size","label":"영상 크기","type":"select","required":true,"options":[{"key":"864x480 (0.4MP 가로)","value":"864x480"},{"key":"1216x672 (0.8MP 가로)","value":"1216x672"},{"key":"1344x768 (네이티브 가로)","value":"1344x768"},{"key":"480x864 (0.4MP 세로)","value":"480x864"},{"key":"672x1216 (0.8MP 세로)","value":"672x1216"},{"key":"768x1344 (네이티브 세로)","value":"768x1344"}],"defaultValue":"1344x768","description":"H3 네이티브는 짧은 변 768px · 32의 배수","formatString":"{{##image_size##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"length","label":"길이","type":"select","required":true,"options":[{"key":"3초 (73프레임)","value":"73"},{"key":"5초 (124프레임)","value":"124"},{"key":"10초 (243프레임)","value":"243"},{"key":"15초 (362프레임)","value":"362"}],"defaultValue":"124","description":"H3 는 17k+5 프레임 격자만 지원합니다","formatString":"{{##length##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"steps","label":"샘플링 스텝","type":"select","required":false,"options":[{"key":"8 (8step LoRA 기본)","value":"8"},{"key":"4 (4step LoRA)","value":"4"}],"defaultValue":"8","formatString":"{{##steps##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"use_sol_attn","label":"가속 — Sol-Attn","type":"boolean","required":false,"defaultValue":false,"description":"어텐션 커널을 교체해 생성을 빠르게 합니다. 근사 연산이라 결과가 미세하게 달라질 수 있습니다.","formatString":"{{##use_sol_attn##}}","options":[]},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"turbo_lora","label":"터보 LoRA","type":"select","required":false,"options":[{"key":"8step v1.0 768p — 기본 (1344x768 학습 · 화질·구도 준수 우위)","value":"optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"},{"key":"4step v1.1 768p — 더 빠름 (1344x768 학습)","value":"optimizer\\minimax\\minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors"}],"defaultValue":"optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors","description":"스텝과 짝: 8step→스텝 8 / 4step→스텝 4 (시프트 6 공통). 둘 다 1344x768 학습 — 저해상도에선 디테일이 떨어집니다.","formatString":"{{##turbo_lora##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"shift_video","label":"비디오 시프트","type":"select","required":false,"options":[{"key":"6 (768p LoRA 기본)","value":"6"},{"key":"12 (구 544p 계열 LoRA 용 · 실험)","value":"12"}],"defaultValue":"6","description":"터보 LoRA 학습 시프트와 일치해야 함","formatString":"{{##shift_video##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"first_frame_fit","label":"첫 프레임 맞춤 방식","type":"select","required":false,"options":[{"key":"크롭 (비율 유지 · 중앙 잘라내기)","value":"center"},{"key":"늘리기 (비율 무시 · 기존 동작)","value":"disabled"}],"defaultValue":"center","description":"첨부 이미지와 영상 크기의 비율이 다를 때 처리 방식. 늘리기는 방향이 어긋나면 이미지가 심하게 왜곡됩니다.","formatString":"{{##first_frame_fit##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"output_codec","label":"출력 코덱","type":"select","required":true,"options":[{"key":"H.264 (mp4 · 모든 기기 재생)","value":"video/h264-mp4"},{"key":"VP9 (webm · 고효율)","value":"video/webm"},{"key":"AV1 (webm · 최고 효율 · Safari 는 M3 이후만 재생)","value":"video/av1-webm"}],"defaultValue":"video/h264-mp4","description":"영상 압축 방식입니다. 잘 모르면 H.264 — 어디서나 재생됩니다. AV1 은 ComfyUI 머신에 libsvtav1 포함 ffmpeg(full 빌드)이 필요합니다.","formatString":"{{##output_codec##}}"},{"imageConfig":{"maxImages":1},"videoConfig":{"maxVideos":1},"audioConfig":{"maxAudios":1},"name":"upscale_model","label":"업스케일 (인코딩 전)","type":"select","required":false,"defaultValue":"0","options":[{"key":"없음","value":"0"},{"key":"AnimeSharp V4 2x (선명, 애니 전용)","value":"2x-AnimeSharpV4_RCAN.safetensors"},{"key":"AnimeSharp V4 Fast 2x (빠름)","value":"2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"}],"description":"생성 직후 인코딩 전에 2배 업스케일합니다. 압축 노이즈가 섞이기 전이라 별도 업스케일보다 깨끗합니다. 시간·파일 크기 증가 (5초 기준 약 3배).","formatString":"{{##upscale_model##}}"}],"workflowData":"{\"6\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"H3 디퓨전 모델\"}},\"9\":{\"inputs\":{\"model\":[\"200\",0],\"scheduler\":\"simple\",\"steps\":\"{{##steps##}}\",\"denoise\":1},\"class_type\":\"BasicScheduler\",\"_meta\":{\"title\":\"스케줄러\"}},\"10\":{\"inputs\":{\"samples\":[\"14\",0],\"vae\":[\"11\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"비디오 디코드\"}},\"11\":{\"inputs\":{\"vae_name\":\"minimax\\\\minimax_h3_video_vae_fp16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"비디오 VAE\"}},\"13\":{\"inputs\":{\"clip_name\":\"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\",\"type\":\"minimax\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"H3 텍스트 인코더\"}},\"14\":{\"inputs\":{\"noise\":[\"15\",0],\"guider\":[\"16\",0],\"sampler\":[\"17\",0],\"sigmas\":[\"9\",0],\"latent_image\":[\"104\",1]},\"class_type\":\"SamplerCustomAdvanced\",\"_meta\":{\"title\":\"샘플링\"}},\"15\":{\"inputs\":{\"noise_seed\":\"{{##seed##}}\"},\"class_type\":\"RandomNoise\",\"_meta\":{\"title\":\"노이즈 시드\"}},\"16\":{\"inputs\":{\"model\":[\"200\",0],\"conditioning\":[\"104\",0]},\"class_type\":\"BasicGuider\",\"_meta\":{\"title\":\"가이더\"}},\"17\":{\"inputs\":{\"sampler_name\":\"euler\"},\"class_type\":\"KSamplerSelect\",\"_meta\":{\"title\":\"샘플러 선택\"}},\"23\":{\"inputs\":{\"samples\":[\"14\",0],\"vae\":[\"24\",0]},\"class_type\":\"VAEDecodeAudio\",\"_meta\":{\"title\":\"오디오 디코드\"}},\"24\":{\"inputs\":{\"vae_name\":\"minimax\\\\minimax_h3_audio_vae_fp32.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"오디오 VAE\"}},\"104\":{\"inputs\":{\"clip\":[\"13\",0],\"vae\":[\"11\",0],\"prompt\":\"{{##prompt##}}\",\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"length\":\"{{##length##}}\",\"first_frame\":[\"116\",0],\"last_frame\":[\"115\",0]},\"class_type\":\"MiniMaxH3ImageToVideo\",\"_meta\":{\"title\":\"H3 조건화 (I2V — 시작 프레임)\"},\"_vcc\":{\"omitInputsUnless\":{\"first_frame\":\"{{##first_frame_attached##}}\",\"last_frame\":\"{{##last_frame_attached##}}\"}}},\"114\":{\"inputs\":{\"image\":\"{{##first_frame##}}\"},\"class_type\":\"LoadImage\",\"_meta\":{\"title\":\"Load First Frame\"}},\"115\":{\"inputs\":{\"image\":\"{{##last_frame##}}\"},\"class_type\":\"LoadImage\",\"_meta\":{\"title\":\"Load Last Frame\"}},\"116\":{\"inputs\":{\"image\":[\"114\",0],\"upscale_method\":\"lanczos\",\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"crop\":\"{{##first_frame_fit##}}\"},\"class_type\":\"ImageScale\",\"_meta\":{\"title\":\"첫 프레임 맞춤 (크롭/늘리기)\"}},\"200\":{\"inputs\":{\"model\":[\"211\",0],\"tau\":1.3,\"start_percent\":0.2,\"end_percent\":0.9,\"min_tokens\":4096,\"int8_qk\":true,\"sink_conditioning\":\"exact_kv_and_rows\",\"morton\":false,\"morton_curve\":\"2d_frame\",\"verbose\":false,\"use_tma\":false,\"dense_blocks\":\"\"},\"class_type\":\"SolAttnPatch\",\"_meta\":{\"title\":\"Sol-Attn (가속)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##use_sol_attn##}}\",\"passthrough\":{\"0\":\"model\"}}}},\"201\":{\"inputs\":{\"images\":[\"213\",0],\"audio\":[\"23\",0],\"frame_rate\":24,\"loop_count\":0,\"filename_prefix\":\"{{##user_id##}}\\\\video\\\\MiniMax_H3_fl2v_turbo\",\"format\":\"{{##output_codec##}}\",\"pix_fmt\":\"yuv420p\",\"crf\":14,\"save_metadata\":true,\"pingpong\":false,\"save_output\":true},\"class_type\":\"VHS_VideoCombine\",\"_meta\":{\"title\":\"영상 저장 (코덱 선택)\"}},\"210\":{\"inputs\":{\"model\":[\"6\",0],\"lora_name\":\"{{##turbo_lora##}}\",\"strength_model\":1},\"class_type\":\"LoraLoaderModelOnly\",\"_meta\":{\"title\":\"Turbo LoRA (증류)\"}},\"211\":{\"inputs\":{\"model\":[\"210\",0],\"shift_video\":\"{{##shift_video##}}\",\"shift_audio\":3},\"class_type\":\"MiniMaxH3SigmaShift\",\"_meta\":{\"title\":\"터보 시그마 시프트\"}},\"212\":{\"class_type\":\"UpscaleModelLoader\",\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"_meta\":{\"title\":\"Upscale Model (VCC)\"}},\"213\":{\"class_type\":\"ImageUpscaleWithModel\",\"inputs\":{\"upscale_model\":[\"212\",0],\"image\":[\"10\",0]},\"_meta\":{\"title\":\"Upscale before encode (VCC)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}}}","allowedModelTypes":[],"modelExposurePolicy":"full","modelWhitelist":[],"loraExposurePolicy":"full","loraWhitelist":[],"version":3},"server":{"name":"ComfyUI-Video","serverType":"ComfyUI"}}
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 0
+  },
+  "exportedAt": "2026-08-29T19:24:06.726Z",
+  "workboard": {
+    "name": "MiniMax H3 - FL2V (Turbo)",
+    "description": "증류 LoRA 로 FL2V 를 4~8스텝으로 가속한 판입니다 (768p 학습 LoRA · 기본 1344x768). 터보 LoRA 와 스텝을 짝으로 맞춰 쓰세요. 품질이 아쉬우면 기본 FL2V 판을 쓰세요. (non-pruned int8 베이스 · euler · 시프트 6/3)",
+    "workboardType": "image",
+    "outputFormat": "video",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "first_frame",
+        "label": "첫 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지에서 영상이 시작됩니다.",
+        "formatString": "{{##first_frame##}}",
+        "options": [],
+        "anchorSizeField": "image_size",
+        "anchorFitField": "first_frame_fit"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "last_frame",
+        "label": "끝 프레임 (선택)",
+        "type": "image",
+        "required": false,
+        "description": "첨부하면 이 이미지로 영상이 끝납니다.",
+        "formatString": "{{##last_frame##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "defaultValue": "minimax\\minimax_h3_fl2va_int8_convrot.safetensors",
+        "formatString": "{{##base_model##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "영상 크기",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "1216x672 (0.8MP 가로)",
+            "value": "1216x672"
+          },
+          {
+            "key": "1344x768 (네이티브 가로)",
+            "value": "1344x768"
+          },
+          {
+            "key": "672x1216 (0.8MP 세로)",
+            "value": "672x1216"
+          },
+          {
+            "key": "768x1344 (네이티브 세로)",
+            "value": "768x1344"
+          }
+        ],
+        "defaultValue": "1344x768",
+        "description": "H3 네이티브는 짧은 변 768px · 32의 배수. 터보(증류) LoRA 는 768p 기준이라 480p 는 격자 아티팩트로 제외",
+        "formatString": "{{##image_size##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "length",
+        "label": "길이",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "3초 (73프레임)",
+            "value": "73"
+          },
+          {
+            "key": "5초 (124프레임)",
+            "value": "124"
+          },
+          {
+            "key": "10초 (243프레임)",
+            "value": "243"
+          },
+          {
+            "key": "15초 (362프레임)",
+            "value": "362"
+          }
+        ],
+        "defaultValue": "124",
+        "description": "H3 는 17k+5 프레임 격자만 지원합니다",
+        "formatString": "{{##length##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "steps",
+        "label": "샘플링 스텝",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "8 (8step LoRA 기본)",
+            "value": "8"
+          },
+          {
+            "key": "4 (4step LoRA)",
+            "value": "4"
+          }
+        ],
+        "defaultValue": "8",
+        "formatString": "{{##steps##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "use_sol_attn",
+        "label": "가속 — Sol-Attn",
+        "type": "boolean",
+        "required": false,
+        "defaultValue": false,
+        "description": "어텐션 커널을 교체해 생성을 빠르게 합니다. 근사 연산이라 결과가 미세하게 달라질 수 있습니다.",
+        "formatString": "{{##use_sol_attn##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "turbo_lora",
+        "label": "터보 LoRA",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "8step v1.0 768p — 기본 (1344x768 학습 · 화질·구도 준수 우위)",
+            "value": "optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors"
+          },
+          {
+            "key": "4step v1.1 768p — 더 빠름 (1344x768 학습)",
+            "value": "optimizer\\minimax\\minimax_h3_fl2v_turbo_4step_v1.1_768p_comfyui_bf16.safetensors"
+          }
+        ],
+        "defaultValue": "optimizer\\minimax\\minimax_h3_fl2v_turbo_8step_v1.0_768p_comfyui_bf16.safetensors",
+        "description": "스텝과 짝: 8step→스텝 8 / 4step→스텝 4 (시프트 6 공통). 둘 다 1344x768 학습 — 저해상도에선 디테일이 떨어집니다.",
+        "formatString": "{{##turbo_lora##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "shift_video",
+        "label": "비디오 시프트",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "6 (768p LoRA 기본)",
+            "value": "6"
+          },
+          {
+            "key": "12 (구 544p 계열 LoRA 용 · 실험)",
+            "value": "12"
+          }
+        ],
+        "defaultValue": "6",
+        "description": "터보 LoRA 학습 시프트와 일치해야 함",
+        "formatString": "{{##shift_video##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "first_frame_fit",
+        "label": "첫 프레임 맞춤 방식",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "크롭 (비율 유지 · 중앙 잘라내기)",
+            "value": "center"
+          },
+          {
+            "key": "늘리기 (비율 무시 · 기존 동작)",
+            "value": "disabled"
+          }
+        ],
+        "defaultValue": "center",
+        "description": "첨부 이미지와 영상 크기의 비율이 다를 때 처리 방식. 늘리기는 방향이 어긋나면 이미지가 심하게 왜곡됩니다.",
+        "formatString": "{{##first_frame_fit##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "output_codec",
+        "label": "출력 코덱",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "H.264 (mp4 · 모든 기기 재생)",
+            "value": "video/h264-mp4"
+          },
+          {
+            "key": "VP9 (webm · 고효율)",
+            "value": "video/webm"
+          },
+          {
+            "key": "AV1 (webm · 최고 효율 · Safari 는 M3 이후만 재생)",
+            "value": "video/av1-webm"
+          }
+        ],
+        "defaultValue": "video/h264-mp4",
+        "description": "영상 압축 방식입니다. 잘 모르면 H.264 — 어디서나 재생됩니다. AV1 은 ComfyUI 머신에 libsvtav1 포함 ffmpeg(full 빌드)이 필요합니다.",
+        "formatString": "{{##output_codec##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 (인코딩 전)",
+        "type": "select",
+        "required": false,
+        "defaultValue": "0",
+        "options": [
+          {
+            "key": "없음",
+            "value": "0"
+          },
+          {
+            "key": "AnimeSharp V4 2x (선명, 애니 전용)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast 2x (빠름)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          }
+        ],
+        "description": "생성 직후 인코딩 전에 2배 업스케일합니다. 압축 노이즈가 섞이기 전이라 별도 업스케일보다 깨끗합니다. 시간·파일 크기 증가 (5초 기준 약 3배).",
+        "formatString": "{{##upscale_model##}}"
+      }
+    ],
+    "workflowData": "{\"6\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"H3 디퓨전 모델\"}},\"9\":{\"inputs\":{\"model\":[\"200\",0],\"scheduler\":\"simple\",\"steps\":\"{{##steps##}}\",\"denoise\":1},\"class_type\":\"BasicScheduler\",\"_meta\":{\"title\":\"스케줄러\"}},\"10\":{\"inputs\":{\"samples\":[\"14\",0],\"vae\":[\"11\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"비디오 디코드\"}},\"11\":{\"inputs\":{\"vae_name\":\"minimax\\\\minimax_h3_video_vae_fp16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"비디오 VAE\"}},\"13\":{\"inputs\":{\"clip_name\":\"qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors\",\"type\":\"minimax\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"H3 텍스트 인코더\"}},\"14\":{\"inputs\":{\"noise\":[\"15\",0],\"guider\":[\"16\",0],\"sampler\":[\"17\",0],\"sigmas\":[\"9\",0],\"latent_image\":[\"104\",1]},\"class_type\":\"SamplerCustomAdvanced\",\"_meta\":{\"title\":\"샘플링\"}},\"15\":{\"inputs\":{\"noise_seed\":\"{{##seed##}}\"},\"class_type\":\"RandomNoise\",\"_meta\":{\"title\":\"노이즈 시드\"}},\"16\":{\"inputs\":{\"model\":[\"200\",0],\"conditioning\":[\"104\",0]},\"class_type\":\"BasicGuider\",\"_meta\":{\"title\":\"가이더\"}},\"17\":{\"inputs\":{\"sampler_name\":\"euler\"},\"class_type\":\"KSamplerSelect\",\"_meta\":{\"title\":\"샘플러 선택\"}},\"23\":{\"inputs\":{\"samples\":[\"14\",0],\"vae\":[\"24\",0]},\"class_type\":\"VAEDecodeAudio\",\"_meta\":{\"title\":\"오디오 디코드\"}},\"24\":{\"inputs\":{\"vae_name\":\"minimax\\\\minimax_h3_audio_vae_fp32.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"오디오 VAE\"}},\"104\":{\"inputs\":{\"clip\":[\"13\",0],\"vae\":[\"11\",0],\"prompt\":\"{{##prompt##}}\",\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"length\":\"{{##length##}}\",\"first_frame\":[\"116\",0],\"last_frame\":[\"115\",0]},\"class_type\":\"MiniMaxH3ImageToVideo\",\"_meta\":{\"title\":\"H3 조건화 (I2V — 시작 프레임)\"},\"_vcc\":{\"omitInputsUnless\":{\"first_frame\":\"{{##first_frame_attached##}}\",\"last_frame\":\"{{##last_frame_attached##}}\"}}},\"114\":{\"inputs\":{\"image\":\"{{##first_frame##}}\"},\"class_type\":\"LoadImage\",\"_meta\":{\"title\":\"Load First Frame\"}},\"115\":{\"inputs\":{\"image\":\"{{##last_frame##}}\"},\"class_type\":\"LoadImage\",\"_meta\":{\"title\":\"Load Last Frame\"}},\"116\":{\"inputs\":{\"image\":[\"114\",0],\"upscale_method\":\"lanczos\",\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"crop\":\"{{##first_frame_fit##}}\"},\"class_type\":\"ImageScale\",\"_meta\":{\"title\":\"첫 프레임 맞춤 (크롭/늘리기)\"}},\"200\":{\"inputs\":{\"model\":[\"211\",0],\"tau\":1.3,\"start_percent\":0.2,\"end_percent\":0.9,\"min_tokens\":4096,\"int8_qk\":true,\"sink_conditioning\":\"exact_kv_and_rows\",\"morton\":false,\"morton_curve\":\"2d_frame\",\"verbose\":false,\"use_tma\":false,\"dense_blocks\":\"\"},\"class_type\":\"SolAttnPatch\",\"_meta\":{\"title\":\"Sol-Attn (가속)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##use_sol_attn##}}\",\"passthrough\":{\"0\":\"model\"}}}},\"201\":{\"inputs\":{\"images\":[\"213\",0],\"audio\":[\"23\",0],\"frame_rate\":24,\"loop_count\":0,\"filename_prefix\":\"{{##user_id##}}\\\\video\\\\MiniMax_H3_fl2v_turbo\",\"format\":\"{{##output_codec##}}\",\"pix_fmt\":\"yuv420p\",\"crf\":14,\"save_metadata\":true,\"pingpong\":false,\"save_output\":true},\"class_type\":\"VHS_VideoCombine\",\"_meta\":{\"title\":\"영상 저장 (코덱 선택)\"}},\"210\":{\"inputs\":{\"model\":[\"6\",0],\"lora_name\":\"{{##turbo_lora##}}\",\"strength_model\":1},\"class_type\":\"LoraLoaderModelOnly\",\"_meta\":{\"title\":\"Turbo LoRA (증류)\"}},\"211\":{\"inputs\":{\"model\":[\"210\",0],\"shift_video\":\"{{##shift_video##}}\",\"shift_audio\":3},\"class_type\":\"MiniMaxH3SigmaShift\",\"_meta\":{\"title\":\"터보 시그마 시프트\"}},\"212\":{\"class_type\":\"UpscaleModelLoader\",\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"_meta\":{\"title\":\"Upscale Model (VCC)\"}},\"213\":{\"class_type\":\"ImageUpscaleWithModel\",\"inputs\":{\"upscale_model\":[\"212\",0],\"image\":[\"10\",0]},\"_meta\":{\"title\":\"Upscale before encode (VCC)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}}}",
+    "allowedModelTypes": [],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 3
+  },
+  "server": {
+    "name": "ComfyUI-Video",
+    "serverType": "ComfyUI"
+  }
+}
