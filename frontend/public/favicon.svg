@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- hand-authored 정본 (favicon 단층 단순화판) — CONCEPT.md §4 웹 서비스 favicon 표의 vcc-manager (노드 3개+연결선, 병합 2→1 + 금 점). 색은 brand/tokens/colors.json -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="night" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1024">
+    <stop offset="0" stop-color="#0B1524"/><stop offset="1" stop-color="#050A12"/></linearGradient>
+  <linearGradient id="frost" gradientUnits="userSpaceOnUse" x1="0" y1="1024" x2="1024" y2="0">
+    <stop offset="0" stop-color="#3BC0FF"/><stop offset="1" stop-color="#E6FBFF"/></linearGradient>
+  <linearGradient id="gold" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1024">
+    <stop offset="0" stop-color="#F7DE8A"/><stop offset="1" stop-color="#E3B64E"/></linearGradient>
+</defs>
+<rect x="0" y="0" width="1024" height="1024" rx="225.28" ry="225.28" fill="url(#night)"/>
+<path d="M 326.6 355.7 L 676.6 537.7 A 29.0 29.0 0 0 0 703.4 486.3 L 353.4 304.3 A 29.0 29.0 0 0 0 326.6 355.7 Z" fill="url(#frost)"/>
+<path d="M 353.4 719.7 L 703.4 537.7 A 29.0 29.0 0 0 0 676.6 486.3 L 326.6 668.3 A 29.0 29.0 0 0 0 353.4 719.7 Z" fill="url(#frost)"/>
+<rect x="195" y="238" width="250" height="185" rx="52" ry="52" fill="url(#frost)"/>
+<rect x="195" y="602" width="250" height="185" rx="52" ry="52" fill="url(#frost)"/>
+<rect x="579" y="420" width="250" height="185" rx="52" ry="52" fill="url(#frost)"/>
+<circle cx="829" cy="420" r="42" fill="url(#gold)"/>
+</svg>
