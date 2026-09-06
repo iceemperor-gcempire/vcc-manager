@@ -1,5 +1,6 @@
 const express = require('express');
-const { requireAuth, userHasWorkboardAccess } = require('../middleware/auth');
+const { requireAuth, userHasWorkboardAccess, userHasProjectAccess } = require('../middleware/auth');
+const { loadContextDocs, loadSystemPromptDoc, resolveProjectTag } = require('../services/containerDocAccess');
 const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
 const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
@@ -37,16 +38,19 @@ const { loadGuidesForWorkboard } = require('../services/promptGuideService');
 // 프로젝트의 세계관 UploadedText 들 로드 (#396 → #400 일반화).
 // 더 이상 flag (isWorldviewTag) 가 아닌 name 으로 세계관 태그를 조회 — 일반화된 태그 시스템.
 const { BUILTIN_TAG_NAMES } = require('../constants/builtinTags');
-async function getProjectWorldview(userId, projectId) {
-  if (!projectId) return [];
-  const project = await Project.findOne({ _id: projectId, userId }).lean();
+// 세계관 문서는 **프로젝트 소유자**의 문서다 (#923) — 공유 프로젝트의 독자가 실행해도
+// 소유자의 세계관이 주입된다. 접근은 프로젝트가 판정한다 (userHasProjectAccess).
+async function getProjectWorldview(viewer, project) {
   if (!project || !project.tagId) return [];
-  const worldviewTag = await Tag.findOne({ userId, name: BUILTIN_TAG_NAMES.WORLDVIEW }).lean();
+  if (!userHasProjectAccess(viewer, project)) return [];
+  const ownerId = project.userId;
+  const worldviewTag = await Tag.findOne({ userId: ownerId, name: BUILTIN_TAG_NAMES.WORLDVIEW }).lean();
   if (!worldviewTag) return [];
   const texts = await UploadedText.find({
-    userId,
+    userId: ownerId,
     tags: { $all: [project.tagId, worldviewTag._id] },
   }).sort({ createdAt: 1 }).lean();
+  console.log(`[containerDocAccess] worldview(project ${project._id}): found=${texts.length}`);
   return texts;
 }
 const router = express.Router();
@@ -566,25 +570,19 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       // 우선순위:
       //   1. 명시적 doc IDs (파이프라인 단계가 보낸 contextDocIds / systemPromptDocId)
       //   2. useWorldview + projectId → 프로젝트의 모든 세계관 문서 (단일샷 fallback)
+      // 문서는 컨테이너(프로젝트) 기준으로 읽는다 (#923) — pipelineRunService 와 같은 헬퍼.
+      const project = projectId ? await Project.findById(projectId).lean() : null;
       let worldviewTexts = [];
       let resolvedSystemPrompt = systemPrompt; // 작업판 customField 의 system_prompt 가 기본
       if (Array.isArray(contextDocIds) && contextDocIds.length > 0) {
-        worldviewTexts = await UploadedText.find({
-          userId: req.user._id,
-          _id: { $in: contextDocIds },
-        }).sort({ createdAt: 1 }).lean();
+        worldviewTexts = await loadContextDocs({ docIds: contextDocIds, viewer: req.user, project, label: 'job contextDocs' });
       } else if (useWorldview) {
-        worldviewTexts = await getProjectWorldview(req.user._id, projectId);
+        worldviewTexts = await getProjectWorldview(req.user, project);
       }
-      if (systemPromptDocId) {
-        const spDoc = await UploadedText.findOne({
-          userId: req.user._id,
-          _id: systemPromptDocId,
-        }).lean();
-        if (spDoc) {
-          // 문서의 title + content 를 합쳐서 system prompt 로 사용 (title 은 헤더로)
-          resolvedSystemPrompt = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
-        }
+      const spDoc = await loadSystemPromptDoc({ docId: systemPromptDocId, viewer: req.user, project, label: 'job systemPromptDoc' });
+      if (spDoc) {
+        // 문서의 title + content 를 합쳐서 system prompt 로 사용 (title 은 헤더로)
+        resolvedSystemPrompt = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
       }
       const worldviewContext = worldviewTexts.length > 0
         ? joinDocs(worldviewTexts)
@@ -610,11 +608,9 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         images: turnImages,
       });
       // 프로젝트 작업 시 자동으로 프로젝트 태그 주입 (이미지 작업과 통일된 필터 메커니즘, #397 후속)
-      let projectTagIds = [];
-      if (projectId) {
-        const projectDoc = await Project.findOne({ _id: projectId, userId: req.user._id }).lean();
-        if (projectDoc?.tagId) projectTagIds = [projectDoc.tagId];
-      }
+      // 프로젝트 태그 — 독자도 읽을 수 있는 프로젝트면 붙는다 (#923)
+      const destTagId = resolveProjectTag({ viewer: req.user, project });
+      const projectTagIds = destTagId ? [destTagId] : [];
       conversation = await ConversationJob.create({
         userId: req.user._id,
         workboardId: workboard._id,

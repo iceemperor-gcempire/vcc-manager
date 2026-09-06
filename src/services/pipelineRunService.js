@@ -4,7 +4,6 @@ const Pipeline = require('../models/Pipeline');
 const Workboard = require('../models/Workboard');
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
-const UploadedText = require('../models/UploadedText');
 const Project = require('../models/Project');
 const User = require('../models/User');
 const Tag = require('../models/Tag');
@@ -15,7 +14,9 @@ const { userHasWorkboardAccess } = require('../middleware/auth');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
-const { loadVisionImages } = require('../utils/visionImages');
+const {
+  loadContextDocs, loadSystemPromptDoc, loadVisionImagesForContainer, resolveProjectTag,
+} = require('./containerDocAccess');
 const queueService = require('./queueService');
 
 // 파이프라인 실행 background worker (#407).
@@ -118,7 +119,9 @@ const { composeSystemPrompt, joinDocs } = require('../utils/promptComposition');
 const { loadGuidesForWorkboard } = require('./promptGuideService');
 
 // 텍스트 단계 실행 — prompt-generate 로직 직접 호출 (HTTP 우회)
-async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, prevOutput) {
+// ctx: { runner, project, destProject } — 컨테이너 기준 문서 주입·결과 귀속 (#923)
+async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, prevOutput, ctx = {}) {
+  const viewer = ctx.runner || { _id: userId };
   const workboard = await Workboard.findById(step.workboardId).populate('serverId');
   if (!workboard) throw new Error('작업판이 삭제됨');
   const server = workboard.serverId;
@@ -131,20 +134,18 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   const temperature = temperatureValue != null ? Number(temperatureValue) : 0.7;
 
   // 사전 컨텍스트 / 시스템 프롬프트 문서 적용 (#401)
+  // 문서는 컨테이너(프로젝트) 기준으로 읽는다 (#923) — 공유 프로젝트의 독자가 실행해도
+  // 소유자의 문서가 주입된다. 예전 `{ userId }` 하드 필터는 독자에게 조용히 빠졌다.
   let resolvedSystem = systemPrompt;
-  let worldviewTexts = [];
-  if (pipelineStep.systemPromptDocId) {
-    const spDoc = await UploadedText.findOne({ userId, _id: pipelineStep.systemPromptDocId }).lean();
-    if (spDoc) {
-      resolvedSystem = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
-    }
+  const spDoc = await loadSystemPromptDoc({
+    docId: pipelineStep.systemPromptDocId, viewer, project: ctx.project, label: `step${step.workboardId} systemPromptDoc`,
+  });
+  if (spDoc) {
+    resolvedSystem = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
   }
-  if (Array.isArray(pipelineStep.contextDocIds) && pipelineStep.contextDocIds.length > 0) {
-    worldviewTexts = await UploadedText.find({
-      userId,
-      _id: { $in: pipelineStep.contextDocIds },
-    }).sort({ createdAt: 1 }).lean();
-  }
+  const worldviewTexts = await loadContextDocs({
+    docIds: pipelineStep.contextDocIds, viewer, project: ctx.project, label: `step${step.workboardId} contextDocs`,
+  });
   // 작업판에 연결된 프롬프트 가이드 (#766) — jobs.js 의 단발 경로와 동일하게 적용.
   const guides = await loadGuidesForWorkboard(workboard);
   const composedSystem = composeSystemPrompt({
@@ -162,7 +163,7 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   const collectedImageIds = collectImageIds(inputData, imageFieldNames);
   let stepImages = [];
   if (collectedImageIds.length > 0) {
-    const loaded = await loadVisionImages(collectedImageIds, userId);
+    const loaded = await loadVisionImagesForContainer({ imageIds: collectedImageIds, viewer, project: ctx.project });
     stepImages = loaded.map((im) => ({ base64: im.base64, mimeType: im.mimeType }));
   }
 
@@ -170,17 +171,15 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   if (composedSystem) messages.push({ role: 'system', content: composedSystem });
   messages.push({ role: 'user', content: inputData.userPrompt, ...(stepImages.length ? { images: stepImages } : {}) });
 
-  // 프로젝트 태그 자동 부여
-  let projectTagIds = [];
-  if (pipelineRun.projectId) {
-    const projectDoc = await Project.findOne({ _id: pipelineRun.projectId, userId }).lean();
-    if (projectDoc?.tagId) projectTagIds = [projectDoc.tagId];
-  }
+  // 결과 귀속 프로젝트 태그 (#923) — targetProjectId 가 있으면 그쪽, 없으면 파이프라인의 프로젝트.
+  const destProject = ctx.destProject || ctx.project || null;
+  const destTagId = resolveProjectTag({ viewer, project: destProject });
+  const projectTagIds = destTagId ? [destTagId] : [];
 
   const conversation = await ConversationJob.create({
     userId,
     workboardId: workboard._id,
-    projectId: pipelineRun.projectId,
+    projectId: destProject?._id || pipelineRun.projectId,
     tags: projectTagIds,
     serverType: server.serverType,
     model: resolvedModel,
@@ -225,17 +224,16 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
 }
 
 // 이미지 단계 실행 — ImageGenerationJob 생성 후 폴링
-async function runImageStep(userId, pipelineRun, step, inputData) {
+async function runImageStep(userId, pipelineRun, step, inputData, ctx = {}) {
+  const viewer = ctx.runner || { _id: userId };
   const workboard = await Workboard.findById(step.workboardId);
   if (!workboard) throw new Error('작업판이 삭제됨');
 
   // 프로젝트 태그 주입
-  let mergedTags = Array.isArray(inputData.tags) ? [...inputData.tags] : [];
-  if (pipelineRun.projectId) {
-    const projectDoc = await Project.findOne({ _id: pipelineRun.projectId, userId }).lean();
-    if (projectDoc?.tagId && !mergedTags.some((t) => String(t) === String(projectDoc.tagId))) {
-      mergedTags.push(projectDoc.tagId);
-    }
+  const mergedTags = Array.isArray(inputData.tags) ? [...inputData.tags] : [];
+  const destTagId = resolveProjectTag({ viewer, project: ctx.destProject || ctx.project || null });
+  if (destTagId && !mergedTags.some((t) => String(t) === String(destTagId))) {
+    mergedTags.push(destTagId);
   }
 
   // queueService 의 addImageGenerationJob 재사용
@@ -301,6 +299,10 @@ async function processPipelineRun(job) {
 
   // 실행자 — 단계마다 작업판 접근을 검사하는 데 쓴다 (#802)
   const runner = await User.findById(run.userId).lean();
+  // 컨테이너 기준 문서 주입 + 결과 귀속 (#923) — 단계마다 다시 읽지 않도록 한 번 로드
+  const project = run.projectId ? await Project.findById(run.projectId).lean() : null;
+  const destProject = run.targetProjectId ? await Project.findById(run.targetProjectId).lean() : project;
+  const ctx = { runner, project, destProject };
 
   for (let i = fromStep; i < run.steps.length; i++) {
     const pipelineStep = pipeline.steps[i];
@@ -337,10 +339,10 @@ async function processPipelineRun(job) {
 
       let stepResult;
       if (workboard.outputFormat === 'text') {
-        stepResult = await runTextStep(run.userId, run, runStep, pipelineStep, inputData, prevOutput);
+        stepResult = await runTextStep(run.userId, run, runStep, pipelineStep, inputData, prevOutput, ctx);
         runStep.conversationJobId = stepResult.conversationJobId;
       } else {
-        stepResult = await runImageStep(run.userId, run, runStep, inputData);
+        stepResult = await runImageStep(run.userId, run, runStep, inputData, ctx);
         runStep.imageGenerationJobId = stepResult.imageGenerationJobId;
       }
 

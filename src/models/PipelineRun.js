@@ -43,6 +43,13 @@ const pipelineRunSchema = new mongoose.Schema({
     ref: 'Pipeline',
     required: true,
   },
+  // 결과물을 담을 프로젝트 (#923). 비어 있으면 projectId(파이프라인의 프로젝트)와 같다.
+  // 공유 프로젝트의 파이프라인을 독자가 돌릴 때 결과를 자기 프로젝트로 보내는 용도 —
+  // 파이프라인 정의의 소속(projectId)과 결과의 귀속(targetProjectId)을 분리한다.
+  targetProjectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project',
+  },
   status: {
     type: String,
     enum: ['pending', 'running', 'completed', 'failed', 'cancelled'],
