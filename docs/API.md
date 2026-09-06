@@ -157,6 +157,15 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `GET` | `/projects/:id/jobs` | 프로젝트 작업 | Yes |
 | `GET` | `/projects/:id/prompt-data` | 프로젝트 프롬프트 데이터 | Yes |
 
+## 파이프라인 실행 (Pipeline Runs, v4.1.0+)
+
+| Method | Path | 설명 |
+|---|---|---|
+| POST | `/api/projects/:projectId/pipeline-runs` | 실행 시작. body: `pipelineId`, `initialPrompt`, `targetProjectId?` |
+
+- `targetProjectId` (선택): 결과물(생성 이미지·대화 기록)에 붙을 프로젝트. 생략하면 파이프라인의 프로젝트. 실행자가 읽을 수 있는 프로젝트여야 하며 아니면 400 (존재 여부는 노출하지 않음).
+- 공유 프로젝트(#802)의 파이프라인을 독자가 실행하면 단계의 시스템 프롬프트·컨텍스트 문서·사전 첨부 이미지는 **프로젝트 소유자 기준**으로 주입된다 (#923). 문서 자체의 열람 권한은 열리지 않는다 — 실행 시 주입 전용.
+
 ## 프롬프트 데이터 (PromptData, v1.2.4+)
 
 | Method | Endpoint | Description | Auth |

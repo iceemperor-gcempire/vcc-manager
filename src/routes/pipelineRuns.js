@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, userHasProjectAccess } = require('../middleware/auth');
 const { loadProjectForRead, loadProjectForManage } = require('../middleware/projectAccess');
 const Pipeline = require('../models/Pipeline');
 const PipelineRun = require('../models/PipelineRun');
@@ -82,7 +82,7 @@ router.post('/', requireAuth, async (req, res) => {
   try {
     const project = await loadProject(req, res);
     if (!project) return;
-    const { pipelineId, initialPrompt = '' } = req.body;
+    const { pipelineId, initialPrompt = '', targetProjectId } = req.body;
     if (!pipelineId) return res.status(400).json({ success: false, message: 'pipelineId 필수' });
     const pipeline = await Pipeline.findOne({ _id: pipelineId, projectId: project._id });
     if (!pipeline) return res.status(404).json({ success: false, message: '파이프라인을 찾을 수 없습니다' });
@@ -90,9 +90,20 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, message: '단계가 비어 있는 파이프라인입니다' });
     }
 
+    // 결과를 담을 프로젝트 (#923) — 파이프라인의 프로젝트와 다르면 실행자가 읽을 수 있는 곳이어야 한다.
+    // 존재하지 않는 것과 권한 없는 것을 같은 메시지로 (프로젝트 로더와 같은 이유).
+    let target = null;
+    if (targetProjectId && String(targetProjectId) !== String(project._id)) {
+      target = await Project.findById(targetProjectId);
+      if (!target || !userHasProjectAccess(req.user, target)) {
+        return res.status(400).json({ success: false, message: '결과를 담을 프로젝트를 찾을 수 없습니다' });
+      }
+    }
+
     const run = await PipelineRun.create({
       userId: req.user._id,
       projectId: project._id,
+      targetProjectId: target ? target._id : undefined,
       pipelineId: pipeline._id,
       status: 'pending',
       initialPrompt,
