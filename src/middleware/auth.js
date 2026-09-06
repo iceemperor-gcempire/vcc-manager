@@ -265,6 +265,7 @@ function userHasProjectAccess(user, project) {
   if (!user || !project) return false;
   if (user.isAdmin) return true;
   if (String(project.userId) === String(user._id)) return true;
+  if (project.isPublic) return true;   // 모든 사용자에게 공개 (#924)
   const allowed = (project.allowedGroupIds || []).map(String);
   if (allowed.length === 0) return false;   // 개인 전용
   const mine = (user.groupIds || []).map(String);
@@ -278,6 +279,7 @@ function userHasProjectAccess(user, project) {
 function userCanManageProject(user, project) {
   if (!user || !project) return false;
   if (user.isAdmin) return true;
+  if (project.scope === 'server') return false;   // 공용 프로젝트는 admin 만 (#924)
   return String(project.userId) === String(user._id);
 }
 
@@ -289,7 +291,21 @@ function buildProjectAccessFilter(user) {
   if (!user) return { _id: null };
   if (user.isAdmin) return {};
   const mine = (user.groupIds || []).map(String);
-  const or = [{ userId: user._id }];
+  const or = [{ userId: user._id }, { isPublic: true }];
+  if (mine.length > 0) or.push({ allowedGroupIds: { $in: mine } });
+  return { $or: or };
+}
+
+/**
+ * 프로젝트 **목록** 화면용 필터 (#924). 내 것 + 내 그룹에 열린 것 + 공개된 것.
+ * buildProjectAccessFilter 와 달리 admin 도 이 규칙을 따른다 — admin 이 목록에서
+ * 모든 사용자의 개인 프로젝트를 보게 되면 화면이 남의 작업 공간으로 채워진다.
+ * (개별 접근은 여전히 admin 전권 — id 로 열면 userHasProjectAccess 가 통과시킨다.)
+ */
+function buildProjectListFilter(user) {
+  if (!user) return { _id: null };
+  const mine = (user.groupIds || []).map(String);
+  const or = [{ userId: user._id }, { isPublic: true }];
   if (mine.length > 0) or.push({ allowedGroupIds: { $in: mine } });
   return { $or: or };
 }
@@ -301,11 +317,12 @@ function buildProjectAccessFilter(user) {
 function buildProjectManageFilter(user) {
   if (!user) return { _id: null };
   if (user.isAdmin) return {};
-  return { userId: user._id };
+  return { userId: user._id, scope: { $ne: 'server' } };   // 공용은 admin 만 (#924)
 }
 
 module.exports = {
   buildProjectManageFilter,
+  buildProjectListFilter,
   userHasProjectAccess,
   userCanManageProject,
   buildProjectAccessFilter,

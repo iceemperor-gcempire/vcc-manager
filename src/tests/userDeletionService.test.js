@@ -7,6 +7,9 @@ jest.mock('../services/mediaFileCleanup', () => ({
   MEDIA_FILE_MODEL_NAMES: [],
 }));
 
+// #924 가드가 공용 프로젝트 소유 여부를 조회한다 — 이 테스트는 소유하지 않은 경우
+jest.mock('../models/Project', () => ({ find: jest.fn(() => ({ select: () => ({ lean: async () => [] }) })) }));
+
 const svc = require('../services/userDeletionService');
 const User = require('../models/User');
 const mediaFileCleanup = require('../services/mediaFileCleanup');
