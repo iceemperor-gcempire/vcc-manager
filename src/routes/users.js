@@ -167,7 +167,7 @@ router.delete('/account', requireAuth, async (req, res) => {
 
     res.json({ message: 'Account deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 });
 

@@ -1,6 +1,6 @@
 const express = require('express');
 const { requireAuth, requireAdmin, userHasWorkboardAccess,
-  buildProjectAccessFilter, buildProjectManageFilter } = require('../middleware/auth');
+  buildProjectAccessFilter, buildProjectManageFilter, buildProjectListFilter } = require('../middleware/auth');
 const { reverseSignedUrl } = require('../utils/signedUrl');
 const Project = require('../models/Project');
 const Tag = require('../models/Tag');
@@ -63,22 +63,25 @@ router.get('/by-tag/:tagId', requireAuth, async (req, res) => {
 router.get('/', requireAuth, async (req, res) => {
   try {
     const { search } = req.query;
-    const filter = { userId: req.user._id };
-
-    if (search) {
-      filter.$or = [
-        { name: { $regex: escapeRegex(search), $options: 'i' } },
-        { description: { $regex: escapeRegex(search), $options: 'i' } }
-      ];
-    }
+    // 내 것 + 공유받은 것 + 공개된 것 (#924). 검색 조건은 접근 조건과 AND 로 묶는다 —
+    // $or 를 덮어쓰면 접근 필터가 사라진다.
+    const access = buildProjectListFilter(req.user);
+    const filter = search
+      ? { $and: [access, { $or: [
+          { name: { $regex: escapeRegex(search), $options: 'i' } },
+          { description: { $regex: escapeRegex(search), $options: 'i' } },
+        ] }] }
+      : access;
 
     const projects = await Project.find(filter)
       .populate('tagId', 'name color')
       .sort({ createdAt: -1 });
 
-    // 각 프로젝트의 콘텐츠 카운트 조회
+    // 각 프로젝트의 콘텐츠 카운트 조회 (보는 사람의 콘텐츠만 — 결과물은 개인 소유)
+    // access: 'owner' | 'public' | 'shared' — 화면이 구역을 나누고 편집 메뉴를 가리는 데 쓴다 (#924)
     const projectsWithCounts = await Promise.all(projects.map(async (project) => ({
       ...project.toObject(),
+      access: String(project.userId) === String(req.user._id) ? 'owner' : (project.isPublic ? 'public' : 'shared'),
       counts: await buildProjectCounts(req.user._id, project.tagId._id),
     })));
 
@@ -102,10 +105,15 @@ router.get('/', requireAuth, async (req, res) => {
 // POST / - 프로젝트 생성 (전용 태그 자동 생성)
 router.post('/', requireAuth, validateBody(projectCreateSchema), async (req, res) => {
   try {
-    const { name, description, tagName } = req.body;
+    const { name, description, tagName, scope, isPublic } = req.body;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: '프로젝트 이름은 필수입니다' });
+    }
+    // 공용(서버 범위)·전체 공개는 admin 만 (#924)
+    const wantsServer = scope === 'server' || isPublic === true;
+    if (wantsServer && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, message: '공용 프로젝트는 관리자만 만들 수 있습니다' });
     }
 
     if (!tagName || !tagName.trim()) {
@@ -136,7 +144,9 @@ router.post('/', requireAuth, validateBody(projectCreateSchema), async (req, res
       name: name.trim(),
       description: description?.trim() || '',
       tagId: tag._id,
-      userId: req.user._id
+      userId: req.user._id,
+      scope: scope === 'server' ? 'server' : 'personal',
+      isPublic: wantsServer ? isPublic !== false : false,
     });
     await project.save();
     await project.populate('tagId', 'name color');
@@ -185,7 +195,7 @@ router.get('/:id', requireAuth, async (req, res) => {
 // PUT /:id - 프로젝트 수정
 router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, res) => {
   try {
-    const { name, description, coverImage, allowedGroupIds } = req.body;
+    const { name, description, coverImage, allowedGroupIds, scope, isPublic } = req.body;
 
     const project = await Project.findOne({
       _id: req.params.id,
@@ -195,6 +205,14 @@ router.put('/:id', requireAuth, validateBody(projectUpdateSchema), async (req, r
     if (!project) {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
+
+    // 범위·공개 여부는 admin 만 바꾼다 (#924). 일반 사용자가 보내면 무시하지 않고 거부 —
+    // 조용히 떨어뜨리면 "켰는데 안 켜진다" 가 된다.
+    if ((scope !== undefined || isPublic !== undefined) && !req.user.isAdmin) {
+      return res.status(403).json({ success: false, message: '공용 설정은 관리자만 바꿀 수 있습니다' });
+    }
+    if (scope === 'server' || scope === 'personal') project.scope = scope;
+    if (typeof isPublic === 'boolean') project.isPublic = isPublic;
 
     if (name) project.name = name.trim();
     if (description !== undefined) project.description = description.trim();
