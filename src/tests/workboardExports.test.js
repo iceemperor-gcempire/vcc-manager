@@ -88,6 +88,12 @@ describe('workboards/ 배포 산출물', () => {
       const conditioning = Object.keys(FAMILY_BY_NODE).filter((n) => classTypes.has(n));
       if (conditioning.length === 0) return; // 계열 규칙이 정의되지 않은 워크플로
 
+      // T2VA 전용 증류 체크포인트(FastH3 등)는 fl2v/ref2v 계열 토큰이 없다 (#928).
+      // t8star 4step 셋업 노드가 task_family 't2va_only' 로 박혀 있으면 계열 검사 대상이 아니다.
+      const t2vOnly = Object.values(workflow).some((n) =>
+        n.class_type === 'MiniMaxH3FastH34StepSetupT8Advanced' && n.inputs?.task_family === 't2va_only');
+      if (t2vOnly) return;
+
       expect(conditioning).toHaveLength(1);
       const family = FAMILY_BY_NODE[conditioning[0]];
       const baseModel = fields.find((f) => f.name === 'base_model');
