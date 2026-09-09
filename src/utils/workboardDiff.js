@@ -15,6 +15,7 @@ const PLACEHOLDER_RE = /\{\{##([A-Za-z0-9_]+)##\}\}/g;
 
 const norm = (v) => (v === undefined || v === null ? '' : v);
 const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
+const formatStringOf = (f) => (f && f.formatString != null && f.formatString !== '') ? f.formatString : `{{##${f && f.name}##}}`;
 const plain = (o) => (o && typeof o.toObject === 'function' ? o.toObject() : o);
 
 function parseWorkflow(data) {
@@ -114,9 +115,13 @@ function diffWorkboard(existingDoc, incoming) {
     if (!same(of.defaultValue, nf.defaultValue)) change('field.default', nf.name, `${norm(of.defaultValue)} → ${norm(nf.defaultValue)}`);
     if (!same(of.label, nf.label)) change('field.label', nf.name, `${norm(of.label)} → ${norm(nf.label)}`);
     if (!same(of.description, nf.description)) change('field.description', nf.name);
-    for (const k of ['audioOfVideoField', 'anchorSizeField', 'anchorFitField', 'formatString', 'placeholder']) {
+    for (const k of ['audioOfVideoField', 'anchorSizeField', 'anchorFitField', 'placeholder']) {
       if (!same(of[k], nf[k])) change('field.meta', `${nf.name}.${k}`);
     }
+    // formatString 은 서버가 저장 시 `{{##name##}}` 을 기본으로 채운다 (Workboard 스키마 default).
+    // 손으로 만든 export 에 이 키가 없으면 그 기본값과 같은 것으로 본다 — 안 그러면 dry-run 이
+    // 영원히 would-update 로 남아 신호가 무뎌진다 (#939).
+    if (!same(formatStringOf(of), formatStringOf(nf))) change('field.meta', `${nf.name}.formatString`);
   }
   // 순서 변경 (필드 집합은 같은데 순서만 다름)
   const oldOrder = oldFields.filter((f) => newByName.has(f.name)).map((f) => f.name).join('|');
