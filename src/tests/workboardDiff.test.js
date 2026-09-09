@@ -105,6 +105,20 @@ describe('diffWorkboard (#886)', () => {
     expect(w.map((x) => x.target)).toEqual(['shift_video']);
   });
 
+  test('formatString 이 export 에 없으면 서버 기본값과 같은 것으로 본다 (#939)', () => {
+    // 서버 저장본은 스키마 default 로 `{{##name##}}` 이 채워지고, 손으로 만든 export 는 키가 없다
+    const server = base();
+    server.additionalInputFields[1].formatString = '{{##steps##}}';
+    const exported = base();   // formatString 키 없음
+    const r = diffWorkboard(server, exported);
+    expect(r.identical).toBe(true);
+    // 명시적으로 다른 formatString 은 여전히 field.meta 변경
+    const custom = base();
+    custom.additionalInputFields[1].formatString = '{{##steps##}}x';
+    const r2 = diffWorkboard(server, custom);
+    expect(r2.changes.map((c) => c.kind + ':' + c.target)).toContain('field.meta:steps.formatString');
+  });
+
   test('mongoose doc (toObject) 도 받는다', () => {
     const doc = { toObject: () => base() };
     expect(diffWorkboard(doc, base()).identical).toBe(true);
