@@ -26,6 +26,7 @@ const UploadedText = require('../models/UploadedText');
 const PipelineRun = require('../models/PipelineRun');
 const ApiKey = require('../models/ApiKey');
 const { deleteMediaFilesFor } = require('./mediaFileCleanup');
+const Project = require('../models/Project');
 
 // userId 로 소유자를 참조하는 개인 콘텐츠/작업 모델 — User 삭제 시 함께 제거.
 const USER_CONTENT_MODELS = [
@@ -52,6 +53,15 @@ const USER_CONTENT_MODELS = [
  * 이미지·영상·오디오가 디스크에 그대로 남았다 — 용량 누적이자 탈퇴 처리의 불완전함이었다.
  */
 async function deleteUserAndContent(userId) {
+  // 공용(서버 범위) 프로젝트 소유자는 지울 수 없다 (#924) — 파이프라인·문서가 그 계정 소유라
+  // 같이 사라진다. 소유권 이전 뒤에 다시 시도해야 한다. 어떤 프로젝트 때문인지 이름을 남긴다.
+  const serverProjects = await Project.find({ userId, scope: 'server' }).select('name').lean();
+  if (serverProjects.length > 0) {
+    const err = new Error(`공용 프로젝트 소유자라 삭제할 수 없습니다 — 먼저 소유권을 이전하세요: ${serverProjects.map((p) => p.name).join(', ')}`);
+    err.status = 409;
+    err.code = 'SERVER_PROJECT_OWNER';
+    throw err;
+  }
   await deleteMediaFilesFor({ userId });
   await Promise.all(USER_CONTENT_MODELS.map((Model) => Model.deleteMany({ userId })));
   await User.findByIdAndDelete(userId);

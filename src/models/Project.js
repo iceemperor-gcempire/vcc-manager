@@ -46,11 +46,27 @@ const projectSchema = new mongoose.Schema({
   allowedGroupIds: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Group'
-  }]
+  }],
+  // 프로젝트의 범위 (#924, Epic #922). 'server' 는 서버 전체가 쓰는 공용 프로젝트 —
+  // 검증된 파이프라인·문서를 담아 두는 자리다. 생성·편집·삭제는 admin 만 하고,
+  // 소유자(userId)는 만든 admin 이지만 그 계정을 지우려면 먼저 소유권을 옮겨야 한다
+  // (userDeletionService 가 막는다). 개인 프로젝트와 구조는 같다 — 확산 범위와 권한만 다르다.
+  scope: {
+    type: String,
+    enum: ['personal', 'server'],
+    default: 'personal'
+  },
+  // 모든 승인된 사용자에게 읽기 + 실행을 연다 (#924). allowedGroupIds 와 같은 축의 "전체" 옵션 —
+  // 새 그룹이 생겨도 자동으로 포함된다. admin 만 켤 수 있다.
+  isPublic: {
+    type: Boolean,
+    default: false
+  }
 }, {
   timestamps: true
 });
 
 projectSchema.index({ userId: 1, createdAt: -1 });
+projectSchema.index({ scope: 1, isPublic: 1 });
 
 module.exports = mongoose.model('Project', projectSchema);

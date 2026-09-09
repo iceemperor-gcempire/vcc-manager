@@ -12,15 +12,18 @@ const GeneratedImage = require('../models/GeneratedImage');
 const MAX_DIM = 1536;   // 장변 최대 픽셀
 const MAX_IMAGES = 4;   // 첨부 최대 장수
 
+// userId 는 단일 id 또는 id 배열 — 배열이면 그 소유자들의 이미지를 모두 허용 (#923:
+// 공유 프로젝트 소유자의 사전 첨부 이미지를 독자가 실행할 때 주입하기 위함).
 async function loadVisionImages(imageIds, userId) {
   if (!Array.isArray(imageIds) || imageIds.length === 0) return [];
   const ids = imageIds.filter(Boolean).slice(0, MAX_IMAGES);
   if (ids.length === 0) return [];
+  const ownerFilter = Array.isArray(userId) ? { $in: userId } : userId;
 
   // 업로드 이미지 + 생성 이미지 둘 다 조회 — 파이프라인 앞 단계 산출물(GeneratedImage)도 vision 입력으로 (#684).
   const [uploaded, generated] = await Promise.all([
-    UploadedImage.find({ _id: { $in: ids }, userId }),
-    GeneratedImage.find({ _id: { $in: ids }, userId }),
+    UploadedImage.find({ _id: { $in: ids }, userId: ownerFilter }),
+    GeneratedImage.find({ _id: { $in: ids }, userId: ownerFilter }),
   ]);
   const byId = new Map([...uploaded, ...generated].map((d) => [String(d._id), d]));
 

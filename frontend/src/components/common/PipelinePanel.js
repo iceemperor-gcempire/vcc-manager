@@ -1621,6 +1621,12 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
 
   const [initialPrompt, setInitialPrompt] = useState('');
   const [runId, setRunId] = useState(null);
+  // 결과를 담을 프로젝트 (#923) — 공유 프로젝트의 파이프라인을 내 프로젝트로 돌릴 때.
+  // '' = 이 프로젝트(기본). 목록은 내가 읽을 수 있는 프로젝트 전부.
+  const [targetProjectId, setTargetProjectId] = useState('');
+  const { data: allProjectsData } = useQuery({ queryKey: ['projects'], queryFn: () => projectAPI.getAll({ limit: 200 }), staleTime: 60_000 });
+  const targetCandidates = (allProjectsData?.data?.data?.projects || allProjectsData?.data?.projects || [])
+    .filter((p) => String(p._id) !== String(projectId));
 
   // 활성 run 의 상태 polling
   const { data: runData } = useQuery({ queryKey: ['pipelineRun', projectId, runId], queryFn: () => pipelineRunAPI.get(projectId, runId),
@@ -1657,7 +1663,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
       toast.error('첫 단계의 입력 프롬프트를 입력해 주세요.');
       return;
     }
-    startMutation.mutate({ pipelineId, initialPrompt });
+    startMutation.mutate({ pipelineId, initialPrompt, ...(targetProjectId ? { targetProjectId } : {}) });
   };
 
   if (isLoading || !pipeline) {
@@ -1728,6 +1734,24 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
           fullWidth
           disabled={isActive || !!runId}
         />
+
+        {!runId && targetCandidates.length > 0 && (
+          <TextField
+            select
+            label="결과를 담을 프로젝트"
+            value={targetProjectId}
+            onChange={(e) => setTargetProjectId(e.target.value)}
+            fullWidth
+            size="small"
+            helperText="생성물과 대화 기록에 붙는 프로젝트. 기본은 이 프로젝트입니다"
+            SelectProps={{ native: true }}
+          >
+            <option value="">이 프로젝트</option>
+            {targetCandidates.map((p) => (
+              <option key={p._id} value={p._id}>{p.name}</option>
+            ))}
+          </TextField>
+        )}
 
         <Box display="flex" gap={1}>
           {!runId && (

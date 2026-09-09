@@ -15,6 +15,9 @@ import {
   Alert,
   Menu,
   MenuItem,
+  Chip,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import {
   Add,
@@ -68,7 +71,17 @@ function StatRow({ project, mono }) {
   );
 }
 
+// 범위 표시 (#924): 공용(공개) / 공유받음 / 내가 공유 중
+function ScopeChip({ project }) {
+  if (project.access === 'public' || (project.scope === 'server' && project.isPublic)) return <Chip label="공용" size="small" color="primary" variant="outlined" sx={{ height: 18, fontSize: 10 }} />;
+  if (project.access === 'shared') return <Chip label="공유받음" size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }} />;
+  if (project.access === 'owner' && ((project.allowedGroupIds || []).length > 0 || project.isPublic)) return <Chip label="공유 중" size="small" variant="outlined" sx={{ height: 18, fontSize: 10 }} />;
+  return null;
+}
+
 function ProjectCreateDialog({ open, onClose, onOpenImport }) {
+  const { isAdmin } = useAuth();
+  const [serverScope, setServerScope] = useState(false);   // 공용 프로젝트로 만들기 (#924, admin)
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [tagName, setTagName] = useState('');
@@ -78,7 +91,7 @@ function ProjectCreateDialog({ open, onClose, onOpenImport }) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       toast.success('프로젝트가 생성되었습니다');
-      setName(''); setDescription(''); setTagName('');
+      setName(''); setDescription(''); setTagName(''); setServerScope(false);
       onClose();
     },
     onError: (error) => toast.error(error.response?.data?.message || '생성 실패'), });
@@ -86,7 +99,8 @@ function ProjectCreateDialog({ open, onClose, onOpenImport }) {
   const handleSubmit = () => {
     if (!name.trim()) return toast.error('프로젝트 이름을 입력해주세요');
     if (!tagName.trim()) return toast.error('태그명을 입력해주세요');
-    createMutation.mutate({ name: name.trim(), description: description.trim(), tagName: tagName.trim() });
+    createMutation.mutate({ name: name.trim(), description: description.trim(), tagName: tagName.trim(),
+      ...(serverScope ? { scope: 'server', isPublic: true } : {}) });
   };
 
   return (
@@ -99,6 +113,15 @@ function ProjectCreateDialog({ open, onClose, onOpenImport }) {
           multiline rows={2} inputProps={{ maxLength: 500 }} sx={{ mb: 2 }} />
         <TextField fullWidth label="전용 태그명" value={tagName} onChange={(e) => setTagName(e.target.value)}
           required helperText="프로젝트에 자동 생성될 태그 이름입니다. 기존 태그와 중복되면 안 됩니다." inputProps={{ maxLength: 50 }} />
+        {isAdmin && (
+          <Box sx={{ mt: 2 }}>
+            <FormControlLabel control={<Switch checked={serverScope} onChange={(e) => setServerScope(e.target.checked)} />}
+              label="공용 프로젝트로 만들기" />
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 0.5 }}>
+              서버의 모든 사용자에게 열립니다 — 검증된 파이프라인·문서를 모아 두는 자리. 편집·삭제는 관리자만 합니다.
+            </Typography>
+          </Box>
+        )}
       </DialogContent>
       <DialogActions>
         {onOpenImport && (
@@ -146,6 +169,7 @@ function ProjectGridCard({ project, isFav, onOpen, onToggleFav, onMenu }) {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.5 }}>
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
           <TagPill tag={project.tagId} />
+          <ScopeChip project={project} />
         </Box>
         {/* 설명 없으면 자리만 비움 — 카드 높이 정렬용 minHeight 는 유지 (#730) */}
         <Typography sx={{ fontSize: 12, color: 'text.secondary', lineHeight: 1.5, textWrap: 'pretty', minHeight: 36,
@@ -177,6 +201,7 @@ function ProjectListRow({ project, isFav, onOpen, onToggleFav, onMenu, first }) 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
           <Typography sx={{ fontWeight: 600, fontSize: 14 }} noWrap>{project.name}</Typography>
           <TagPill tag={project.tagId} />
+          <ScopeChip project={project} />
           {isFav && <Star sx={{ fontSize: 13, color: 'warning.main' }} />}
         </Box>
         {project.description && (
@@ -248,6 +273,19 @@ function ProjectList() {
     });
   }, [projects, favoriteIds, filter, search]);
 
+  // 구역 (#924): 공용 → 내 프로젝트 → 공유받은. 한 구역뿐이면 제목 없이 예전처럼 보인다.
+  const sections = useMemo(() => {
+    const by = { public: [], owner: [], shared: [] };
+    for (const p of visible) (by[p.access] || by.owner).push(p);
+    return [
+      { key: 'public', title: '공용 프로젝트', items: by.public },
+      { key: 'owner', title: '내 프로젝트', items: by.owner },
+      { key: 'shared', title: '공유받은 프로젝트', items: by.shared },
+    ].filter((sec) => sec.items.length > 0);
+  }, [visible]);
+  const showHeaders = sections.length > 1;
+  const canManage = (p) => !!p && (isAdmin || (p.access === 'owner' && p.scope !== 'server'));
+
   const openMenu = (e, project) => { setMenuAnchor(e.currentTarget); setMenuProject(project); };
   const closeMenu = () => { setMenuAnchor(null); setMenuProject(null); };
 
@@ -298,17 +336,31 @@ function ProjectList() {
         />
       ) : view === 'list' ? (
         <Paper variant="outlined">
-          {visible.map((p, i) => (
-            <ProjectListRow key={p._id} project={p} isFav={favoriteIds.includes(p._id)} first={i === 0}
-              onOpen={() => navigate(`/projects/${p._id}`)} onToggleFav={() => favoriteMutation.mutate(p._id)} onMenu={openMenu} />
+          {sections.map((sec) => (
+            <React.Fragment key={sec.key}>
+              {showHeaders && (
+                <Typography sx={{ px: 3.5, pt: 2, pb: 1, fontSize: 11, fontWeight: 600, color: 'text.tertiary', letterSpacing: '0.04em' }}>{sec.title}</Typography>
+              )}
+              {sec.items.map((p, i) => (
+                <ProjectListRow key={p._id} project={p} isFav={favoriteIds.includes(p._id)} first={i === 0 && !showHeaders}
+                  onOpen={() => navigate(`/projects/${p._id}`)} onToggleFav={() => favoriteMutation.mutate(p._id)} onMenu={openMenu} />
+              ))}
+            </React.Fragment>
           ))}
           {visible.length === 0 && <Box sx={{ p: 4, textAlign: 'center' }}><Typography variant="body2" color="text.secondary">조건에 맞는 프로젝트가 없습니다.</Typography></Box>}
         </Paper>
       ) : (
         <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(280px, 1fr))' }, gap: 3.5 }}>
-          {visible.map((p) => (
-            <ProjectGridCard key={p._id} project={p} isFav={favoriteIds.includes(p._id)}
-              onOpen={() => navigate(`/projects/${p._id}`)} onToggleFav={() => favoriteMutation.mutate(p._id)} onMenu={openMenu} />
+          {sections.map((sec) => (
+            <React.Fragment key={sec.key}>
+              {showHeaders && (
+                <Typography sx={{ gridColumn: '1 / -1', mt: sec.key === sections[0].key ? 0 : 2, fontSize: 11, fontWeight: 600, color: 'text.tertiary', letterSpacing: '0.04em' }}>{sec.title}</Typography>
+              )}
+              {sec.items.map((p) => (
+                <ProjectGridCard key={p._id} project={p} isFav={favoriteIds.includes(p._id)}
+                  onOpen={() => navigate(`/projects/${p._id}`)} onToggleFav={() => favoriteMutation.mutate(p._id)} onMenu={openMenu} />
+              ))}
+            </React.Fragment>
           ))}
           {/* 새 프로젝트 만들기 affordance */}
           <Box onClick={() => setCreateOpen(true)} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -326,8 +378,12 @@ function ProjectList() {
           {favoriteIds.includes(menuProject?._id) ? <Star sx={{ mr: 1 }} fontSize="small" /> : <StarBorder sx={{ mr: 1 }} fontSize="small" />}
           {favoriteIds.includes(menuProject?._id) ? '즐겨찾기 해제' : '즐겨찾기'}
         </MenuItem>
-        <MenuItem onClick={() => { setEditProject(menuProject); closeMenu(); }}><Edit sx={{ mr: 1 }} fontSize="small" />편집</MenuItem>
-        <MenuItem onClick={() => { setDeleteProject(menuProject); closeMenu(); }} sx={{ color: 'error.main' }}><Delete sx={{ mr: 1 }} fontSize="small" />삭제</MenuItem>
+        {canManage(menuProject) && (
+          <MenuItem onClick={() => { setEditProject(menuProject); closeMenu(); }}><Edit sx={{ mr: 1 }} fontSize="small" />편집</MenuItem>
+        )}
+        {canManage(menuProject) && (
+          <MenuItem onClick={() => { setDeleteProject(menuProject); closeMenu(); }} sx={{ color: 'error.main' }}><Delete sx={{ mr: 1 }} fontSize="small" />삭제</MenuItem>
+        )}
       </Menu>
 
       <ProjectImportDialog

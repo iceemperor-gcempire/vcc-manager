@@ -11,7 +11,9 @@ import {
   Chip,
   Tabs,
   Tab,
-  Autocomplete
+  Autocomplete,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
 import { Image as ImageIcon, Close, ArrowBack } from '@mui/icons-material';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -26,6 +28,8 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
   const [coverImage, setCoverImage] = useState(null);
   const [coverImageRemoved, setCoverImageRemoved] = useState(false);
   const [allowedGroupIds, setAllowedGroupIds] = useState([]);   // #802 — 공유 그룹
+  const [scope, setScope] = useState('personal');             // #924 — 공용(서버 범위)
+  const [isPublic, setIsPublic] = useState(false);            // #924 — 모든 사용자 공개
   // 이미지 브라우저 모드
   const [browseMode, setBrowseMode] = useState(false);
   const [browseTab, setBrowseTab] = useState(0);
@@ -50,6 +54,8 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
       setCoverImage(project.coverImage || null);
       setCoverImageRemoved(false);
       setAllowedGroupIds((project.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)));
+      setScope(project.scope || 'personal');
+      setIsPublic(!!project.isPublic);
     }
   }, [project]);
 
@@ -84,6 +90,7 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
       name: name.trim(),
       description: description.trim(),
       allowedGroupIds,
+      ...(user?.isAdmin ? { scope, isPublic } : {}),   // 범위·공개는 admin 만 (#924)
     };
 
     if (coverImageRemoved) {
@@ -199,6 +206,12 @@ function ProjectEditDialog({ open, onClose, project, onSuccess }) {
         {/* 공유 그룹 (#802) — 비워두면 나만 볼 수 있다 */}
         {user?.isAdmin && (
           <>
+            <FormControlLabel sx={{ display: 'flex', mb: 0 }}
+              control={<Switch checked={scope === 'server'} onChange={(e) => { const on = e.target.checked; setScope(on ? 'server' : 'personal'); if (on) setIsPublic(true); }} />}
+              label="공용 프로젝트 (서버 범위)" />
+            <FormControlLabel sx={{ display: 'flex', mb: 1 }}
+              control={<Switch checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />}
+              label="모든 사용자에게 공개 (그룹 지정 대신 전체)" />
             <Autocomplete
               multiple
               size="small"

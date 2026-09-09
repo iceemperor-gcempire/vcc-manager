@@ -49,18 +49,20 @@ describe('프로젝트 접근 (#802)', () => {
 
 describe('프로젝트 조회 필터 (#802)', () => {
   test('접근 필터는 내 것 + 내 그룹에 열린 것', () => {
+    // #924: 공개된 프로젝트(isPublic)도 접근 대상
     expect(buildProjectAccessFilter(member)).toEqual({
-      $or: [{ userId: 'u2' }, { allowedGroupIds: { $in: ['g1'] } }],
+      $or: [{ userId: 'u2' }, { isPublic: true }, { allowedGroupIds: { $in: ['g1'] } }],
     });
   });
 
   test('그룹이 없으면 내 것만', () => {
     const solo = { _id: 'u4', isAdmin: false, groupIds: [] };
-    expect(buildProjectAccessFilter(solo)).toEqual({ $or: [{ userId: 'u4' }] });
+    expect(buildProjectAccessFilter(solo)).toEqual({ $or: [{ userId: 'u4' }, { isPublic: true }] });
   });
 
   test('관리 필터는 공유 그룹을 포함하지 않는다 — 소유자만', () => {
-    expect(buildProjectManageFilter(member)).toEqual({ userId: 'u2' });
+    // #924: 공용(server) 프로젝트는 소유자여도 일반 사용자는 관리 불가
+    expect(buildProjectManageFilter(member)).toEqual({ userId: 'u2', scope: { $ne: 'server' } });
     expect(buildProjectManageFilter(admin)).toEqual({});
   });
 

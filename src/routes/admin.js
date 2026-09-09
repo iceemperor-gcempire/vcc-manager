@@ -135,7 +135,7 @@ router.delete('/users/:id', requireAdmin, async (req, res) => {
 
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(error.status || 500).json({ message: error.message });
   }
 });
 

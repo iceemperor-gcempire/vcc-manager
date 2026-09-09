@@ -394,7 +394,7 @@ VCC_BASE_URL=… VCC_API_KEY=… node scripts/sync-workboards.js --apply --yes w
   필드 없는 placeholder)는 기존 작업의 계속하기·재시도를 깨뜨릴 수 있어 서버가 `acknowledge` 없이는
   거부한다. dry-run 출력의 `⚠` 줄을 읽고 결정할 것
 - 같은 이름의 판이 없으면 새로 만든다 (서버 자동 매칭 실패 시 `--server-id`). 판 삭제·비활성화는 하지 않는다
-- 서버 `/health` 의 `version` 과 export 의 `appVersion` 이 major.minor 에서 다르면 스크립트가 멈춘다
+- 서버 `/health` 의 `version` 과 export 의 `appVersion` 이 major 가 다르면 건너뛰고, minor 차이는 경고만 남기고 진행한다 (#934 — 서버 import 와 같은 기준)
 - 갱신 후 새 모델·LoRA 파일이 필요한 판은 `workboards/README.md` 각주대로 ComfyUI 에 파일을 두어야 한다
 
 

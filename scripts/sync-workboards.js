@@ -56,7 +56,8 @@ async function main() {
     process.exit(1);
   }
 
-  // 버전 가드 — 서버와 export 의 major.minor 가 다르면 멈춘다 (필드 스키마가 다를 수 있다)
+  // 버전 가드 (#934) — 서버 import 와 같은 기준: major 가 다르면 멈추고, minor 차이는 경고만 하고 진행한다.
+  // (작업판 필드 스키마는 minor 릴리스에서 바뀌지 않는 것이 규칙이고, 바뀌면 major 를 올린다)
   const health = await api(opt.baseUrl, opt.apiKey, 'GET', '/health');
   const serverVersion = health.json && health.json.version;
   if (!serverVersion) {
@@ -72,10 +73,11 @@ async function main() {
     let data;
     try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch (e) { rows.push({ file: name, result: 'error', note: `JSON 파싱 실패: ${e.message}` }); failed++; continue; }
     const av = data.appVersion || {};
-    if (av.major !== sMaj || av.minor !== sMin) {
-      rows.push({ file: name, board: data.workboard && data.workboard.name, result: 'skipped', note: `appVersion ${av.major}.${av.minor} ≠ 서버 ${sMaj}.${sMin}` });
+    if (av.major !== sMaj) {
+      rows.push({ file: name, board: data.workboard && data.workboard.name, result: 'skipped', note: `appVersion ${av.major}.${av.minor} ≠ 서버 ${sMaj}.${sMin} (major 불일치)` });
       failed++; continue;
     }
+    const minorNote = av.minor !== sMin ? ` · ⚠ appVersion ${av.major}.${av.minor} vs 서버 ${sMaj}.${sMin} (minor 차이 — 진행)` : '';
 
     const body = { data, mode: 'update', dryRun: !opt.apply, acknowledge: opt.yes };
     if (opt.serverId) body.serverId = opt.serverId;
@@ -85,14 +87,14 @@ async function main() {
     const summary = diff ? `+${diff.summary.fieldsAdded}/-${diff.summary.fieldsRemoved}/~${diff.summary.fieldsChanged} 필드 · +${diff.summary.nodesAdded}/-${diff.summary.nodesRemoved}/~${diff.summary.nodesChanged} 노드 · 경고 ${diff.summary.warnings}` : '';
 
     if (status === 200 && json.dryRun) {
-      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: summary || json.message, diff });
+      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: (summary || json.message || '') + minorNote, diff });
       if (diff && diff.warnings.length) needAck++;
     } else if (status === 200 && json.needsServer) {
       rows.push({ file: name, board, result: 'skipped', note: `서버 미매칭 (${(json.servers || []).map((s) => `${s.name}:${s._id}`).join(', ') || '활성 서버 없음'}) — --server-id 필요` }); failed++;
     } else if (status === 200 || status === 201) {
-      rows.push({ file: name, board, result: json.action === 'create' ? 'created' : (json.updated ? `updated v${json.workboard.version}${json.acknowledged ? ' (승인)' : ''}` : 'unchanged'), note: summary || json.message, diff });
+      rows.push({ file: name, board, result: json.action === 'create' ? 'created' : (json.updated ? `updated v${json.workboard.version}${json.acknowledged ? ' (승인)' : ''}` : 'unchanged'), note: (summary || json.message || '') + minorNote, diff });
     } else if (status === 409) {
-      rows.push({ file: name, board, result: 'needs-ack', note: summary, diff }); needAck++;
+      rows.push({ file: name, board, result: 'needs-ack', note: (summary || '') + minorNote, diff }); needAck++;
     } else {
       rows.push({ file: name, board, result: 'error', note: `${status} ${(json && json.message) || ''}` }); failed++;
     }

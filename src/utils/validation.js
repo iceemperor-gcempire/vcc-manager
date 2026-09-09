@@ -203,6 +203,9 @@ const projectCreateSchema = Joi.object({
       'string.empty': '태그명은 필수입니다',
     }),
   description: Joi.string().allow('', null),
+  // 공용(서버 범위) 프로젝트 (#924) — admin 만. 라우트에서 권한을 본다.
+  scope: Joi.string().valid('personal', 'server'),
+  isPublic: Joi.boolean(),
 }).unknown(true);
 
 const projectUpdateSchema = Joi.object({
@@ -211,6 +214,8 @@ const projectUpdateSchema = Joi.object({
   coverImage: Joi.object().unknown(true).allow(null),
   // 프로젝트를 열어줄 그룹 (#802). 빈 배열이면 개인 전용.
   allowedGroupIds: Joi.array().items(Joi.string()).allow(null),
+  scope: Joi.string().valid('personal', 'server'),
+  isPublic: Joi.boolean(),
 }).unknown(true);
 
 const tagCreateSchema = Joi.object({

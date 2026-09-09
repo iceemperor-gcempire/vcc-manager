@@ -39,6 +39,7 @@
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA + Sol-Attn 팩 선택) |
+| `comfyui/minimax-h3-t2v-fasth3.json` | MiniMax H3 - T2V (FastH3 · 실험) | 영상+오디오 · 텍스트 전용, 4스텝 희소 어텐션 | **비순정 ComfyUI 전제**⁷ — VSA 실험 변환본 + comfy-kitchen 0.2.32 + PR #15958 패치 + t8star 팩 |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
 | `comfyui/video-upscale-pixel.json` | 영상 업스케일 (픽셀) | 영상 (원본 오디오 유지) · **2x/4x 픽셀 업스케일** | 업스케일 모델² + VHS 노드팩 · ffmpeg¹ |
@@ -83,6 +84,8 @@ AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되
 (`models/loras/optimizer/LTX-2/`) 로 영상을 2배 해상도로 **다시 그린다** — 픽셀 판(완전 충실)과 달리 선 정리·디테일 재생성.
 동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
 5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
+
+⁷ **FastH3 T2V 판(실험)**은 ComfyUI 코어가 아직 정식 지원하지 않는 경로다. 8198 에 선행 적용된 상태(PR #15958 패치 +12/-5, `comfy-kitchen==0.2.32`, `comfyui-minimax-h3-audio-T8` 팩, `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors` 22.9GB)를 전제한다 — 설치·롤백은 union-wiki `comfyui-gpu-windows`. T2VA 전용(첫·끝 프레임·참조 불가). 실측 5초 768p 약 22초(웜). 공식 FastVideo Synthetic 변환본이 나오면 base_model 만 교체.
 
 ---
 
