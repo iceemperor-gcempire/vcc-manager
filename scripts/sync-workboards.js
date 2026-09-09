@@ -87,14 +87,14 @@ async function main() {
     const summary = diff ? `+${diff.summary.fieldsAdded}/-${diff.summary.fieldsRemoved}/~${diff.summary.fieldsChanged} 필드 · +${diff.summary.nodesAdded}/-${diff.summary.nodesRemoved}/~${diff.summary.nodesChanged} 노드 · 경고 ${diff.summary.warnings}` : '';
 
     if (status === 200 && json.dryRun) {
-      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: summary || json.message, diff });
+      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: (summary || json.message || '') + minorNote, diff });
       if (diff && diff.warnings.length) needAck++;
     } else if (status === 200 && json.needsServer) {
       rows.push({ file: name, board, result: 'skipped', note: `서버 미매칭 (${(json.servers || []).map((s) => `${s.name}:${s._id}`).join(', ') || '활성 서버 없음'}) — --server-id 필요` }); failed++;
     } else if (status === 200 || status === 201) {
       rows.push({ file: name, board, result: json.action === 'create' ? 'created' : (json.updated ? `updated v${json.workboard.version}${json.acknowledged ? ' (승인)' : ''}` : 'unchanged'), note: (summary || json.message || '') + minorNote, diff });
     } else if (status === 409) {
-      rows.push({ file: name, board, result: 'needs-ack', note: summary, diff }); needAck++;
+      rows.push({ file: name, board, result: 'needs-ack', note: (summary || '') + minorNote, diff }); needAck++;
     } else {
       rows.push({ file: name, board, result: 'error', note: `${status} ${(json && json.message) || ''}` }); failed++;
     }
