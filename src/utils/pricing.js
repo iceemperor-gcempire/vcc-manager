@@ -3,8 +3,8 @@
 // 단가는 \$/1M tokens 단위. 갱신 시 PRICING_VERSION 도 함께 올려야 과거 저장된
 // 추정치가 \"어느 시점의 단가로 계산됐는지\" 추적 가능.
 
-// 가격표는 2026-05 기준. 출처: https://developers.openai.com/api/docs/pricing
-const PRICING_VERSION = '2026-05';
+// 가격표는 2026-09 기준 (GPT-Image-2.5 추가). 출처: https://developers.openai.com/api/docs/pricing
+const PRICING_VERSION = '2026-09';
 
 // 단위: USD per 1,000,000 tokens
 const OPENAI_IMAGE_PRICING = {
@@ -32,7 +32,24 @@ const OPENAI_IMAGE_PRICING = {
     input_image_cached: 2,
     output: 30,
   },
+  // GPT-Image-2.5 (2026-09-08). flare·sunburst 단가 동일 — 차이는 지연/정밀도이지 가격이 아니다.
+  'gpt-image-2.5-flare': {
+    input_text: 5,
+    input_image: 8,
+    input_image_cached: 2,
+    output: 30,
+  },
+  'gpt-image-2.5-sunburst': {
+    input_text: 5,
+    input_image: 8,
+    input_image_cached: 2,
+    output: 30,
+  },
 };
+
+// 스냅샷 id(`-2026-09-08` 접미)를 별칭으로 되돌린다 (#943).
+// 단가표는 별칭 기준이라 스냅샷을 그대로 조회하면 null 이 나와 비용이 조용히 0 이 된다.
+const stripSnapshot = (model) => String(model || '').replace(/-\d{4}-\d{2}-\d{2}$/, '');
 
 const PER_TOKEN = 1 / 1_000_000;
 
@@ -46,7 +63,7 @@ const PER_TOKEN = 1 / 1_000_000;
  */
 function computeOpenAIImageCost(model, usage) {
   if (!usage || typeof usage !== 'object') return null;
-  const rates = OPENAI_IMAGE_PRICING[model];
+  const rates = OPENAI_IMAGE_PRICING[model] || OPENAI_IMAGE_PRICING[stripSnapshot(model)];
   if (!rates) return null;
 
   const inputText = Number(usage.input_tokens_details?.text_tokens) || 0;

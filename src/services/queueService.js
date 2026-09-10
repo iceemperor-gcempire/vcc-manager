@@ -237,8 +237,11 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
       n: extractOptionValue(
         inputData.additionalParams?.n || inputData.n
       ) || 1,
+      // 필드명은 snake_case(output_format)가 작업판 관례이고 camelCase 는 구 호출부 — 둘 다 받는다 (#943)
       outputFormat: extractOptionValue(
-        inputData.additionalParams?.outputFormat || inputData.outputFormat
+        inputData.additionalParams?.output_format
+        || inputData.additionalParams?.outputFormat
+        || inputData.outputFormat
       ) || 'png',
       background: extractOptionValue(inputData.additionalParams?.background),
       outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),

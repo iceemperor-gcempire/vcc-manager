@@ -308,3 +308,16 @@ models/
 - [COMFYUI_WORKFLOW_AUTHORING.md](../docs/COMFYUI_WORKFLOW_AUTHORING.md) — 워크플로를 직접 만들 때
 - [AGENT_SKILL_INTEGRATION.md](../docs/AGENT_SKILL_INTEGRATION.md) — 모델 제작사 프롬프트 스킬을 어떻게 붙일지
 - [COMFYUI_WORKFLOW.md](../docs/COMFYUI_WORKFLOW.md) — VCC 내부 처리 로직
+
+## SaaS 작업판 (`openai/`)
+
+ComfyUI 워크플로가 없는 provider 직결 작업판. `workflowData` 가 비어 있고 모델·크기·품질은 필드로만 정해진다.
+
+| 파일 | 작업판 | 출력 | 필요한 것 |
+|---|---|---|---|
+| `openai/gpt-image.json` | GPT Image | 이미지 | OpenAI 서버(`serverType: OpenAI`) + API 키 |
+
+**GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 `full`(작업판 화이트리스트 없음, 서버 모델 목록이 그대로 보인다).
+크기는 권장 3종 + 2K/4K, 품질은 `low~max`. 커스텀 크기 규칙은 각 변 16의 배수 · 비율 1:3~3:1 · 한 변 ≤3840 ·
+총 픽셀 655,360~8,294,400 이며 **2560x1440 초과는 OpenAI 문서상 experimental** 이다.
+4K PNG 는 파일이 8MB 를 넘으므로 `output_format` 을 webp/jpeg 로 두는 편이 낫다 (실측 4K PNG 8.61MB vs 2K webp 2.58MB).
