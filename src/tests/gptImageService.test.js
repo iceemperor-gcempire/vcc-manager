@@ -28,12 +28,44 @@ describe('gptImageService.generateImage', () => {
     const [url, body] = axios.post.mock.calls[0];
     expect(url).toBe('https://api.openai.com/v1/images/generations');
     expect(body).toEqual({
-      model: 'gpt-image-1.5',
+      model: 'gpt-image-2.5-flare',
       prompt: 'a cat',
       n: 1,
       size: '1024x1024',
       quality: 'medium',
       output_format: 'png',
+    });
+  });
+
+  // GPT-Image-2.5 규격 (#943) — 커스텀 크기·신규 품질 티어
+  describe('2.5 규격 검증 (#943)', () => {
+    const { validateSize } = gptImageService;
+
+    test('권장 크기와 auto 는 통과', () => {
+      expect(validateSize('auto')).toEqual({ size: 'auto', experimental: false });
+      expect(validateSize('1536x1024')).toEqual({ size: '1536x1024', experimental: false });
+      expect(validateSize(undefined)).toEqual({ size: 'auto', experimental: false });
+    });
+
+    test('4K 는 통과하되 experimental 로 표시 (2560x1440 초과)', () => {
+      expect(validateSize('3840x2160')).toEqual({ size: '3840x2160', experimental: true });
+      expect(validateSize('2560x1440')).toEqual({ size: '2560x1440', experimental: false });
+    });
+
+    test('16 배수 위반 / 변 상한 / 픽셀 예산 / 비율 은 이유와 함께 거부', () => {
+      expect(() => validateSize('1000x1000')).toThrow(/16의 배수/);
+      expect(() => validateSize('4096x1024')).toThrow(/3840px/);
+      expect(() => validateSize('512x512')).toThrow(/총 픽셀/);
+      expect(() => validateSize('3840x1024')).toThrow(/비율/);
+      expect(() => validateSize('big')).toThrow(/형식/);
+    });
+
+    test('xhigh · max 는 허용, 없는 품질은 거부', async () => {
+      axios.post.mockResolvedValue(okResponse([{ b64_json: 'aGk=' }]));
+      await gptImageService.generateImage(null, 'key', 'p', { model: 'gpt-image-2.5-sunburst', quality: 'max', size: '2048x2048' });
+      const body = axios.post.mock.calls[0][1];
+      expect(body).toMatchObject({ model: 'gpt-image-2.5-sunburst', quality: 'max', size: '2048x2048' });
+      await expect(gptImageService.generateImage(null, 'key', 'p', { quality: 'ultra' })).rejects.toThrow(/지원하지 않는 품질/);
     });
   });
 
