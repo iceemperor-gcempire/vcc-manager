@@ -16,6 +16,10 @@ const PLACEHOLDER_RE = /\{\{##([A-Za-z0-9_]+)##\}\}/g;
 const norm = (v) => (v === undefined || v === null ? '' : v);
 const same = (a, b) => JSON.stringify(norm(a)) === JSON.stringify(norm(b));
 const formatStringOf = (f) => (f && f.formatString != null && f.formatString !== '') ? f.formatString : `{{##${f && f.name}##}}`;
+// 서버 스키마가 trim: true 로 저장하는 최상위 문자열은 비교도 같은 정규화를 거친다 (#939 와 같은 원칙).
+// 원문끼리 비교하면 export 에 붙은 앞뒤 공백 때문에 적용해도 영원히 would-update 로 남는다.
+// 필드 하위(label·description·placeholder)는 스키마가 trim 하지 않으므로 여기 쓰지 않는다 — 진짜 차이를 숨긴다.
+const trimmedOf = (v) => (typeof v === 'string' ? v.trim() : norm(v));
 const plain = (o) => (o && typeof o.toObject === 'function' ? o.toObject() : o);
 
 function parseWorkflow(data) {
@@ -51,7 +55,7 @@ function diffWorkboard(existingDoc, incoming) {
   const warn = (code, target, message) => warnings.push({ code, target, message });
 
   // ---- 스칼라 ----
-  if (!same(existing.description, incoming.description)) change('description', 'description');
+  if (!same(trimmedOf(existing.description), trimmedOf(incoming.description))) change('description', 'description');
   if (!same(existing.outputFormat || 'image', incoming.outputFormat || 'image')) {
     change('outputFormat', 'outputFormat', `${existing.outputFormat || 'image'} → ${incoming.outputFormat || 'image'}`);
     warn('OUTPUT_FORMAT_CHANGED', 'outputFormat',

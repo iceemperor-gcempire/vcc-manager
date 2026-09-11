@@ -119,6 +119,22 @@ describe('diffWorkboard (#886)', () => {
     expect(r2.changes.map((c) => c.kind + ':' + c.target)).toContain('field.meta:steps.formatString');
   });
 
+  test('description 앞뒤 공백은 서버 trim 과 같게 보고 무시한다', () => {
+    // 서버는 Workboard.description 을 trim: true 로 저장한다 — export 의 공백이 영원한 would-update 를 만들면 안 된다
+    const server = base(); server.description = 'GPT-Image-2.5 지원';
+    const exported = base(); exported.description = ' GPT-Image-2.5 지원 ';
+    expect(diffWorkboard(server, exported).identical).toBe(true);
+    // 공백 외 실제 차이는 여전히 잡는다
+    const changed = base(); changed.description = ' GPT-Image-3 지원';
+    expect(diffWorkboard(server, changed).changes.map((c) => c.kind)).toContain('description');
+  });
+
+  test('필드 label 공백은 정규화하지 않는다 — 스키마가 trim 하지 않는 진짜 저장 차이', () => {
+    const withSpace = base(); withSpace.additionalInputFields[1].label = ' 스텝';
+    const r = diffWorkboard(base(), withSpace);
+    expect(r.changes.map((c) => c.kind + ':' + c.target)).toContain('field.label:steps');
+  });
+
   test('mongoose doc (toObject) 도 받는다', () => {
     const doc = { toObject: () => base() };
     expect(diffWorkboard(doc, base()).identical).toBe(true);
