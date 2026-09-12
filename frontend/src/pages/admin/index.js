@@ -11,4 +11,5 @@ export { default as ModelManagementPage } from './ModelManagementPage';
 export { default as MetadataManagementPage } from './MetadataManagementPage';
 export { default as GroupManagementPage } from './GroupManagementPage';
 export { default as PromptGuidePage } from './PromptGuidePage';
+export { default as SequenceManagementPage } from './SequenceManagementPage';
 export { default as IntegrityPage } from './IntegrityPage';

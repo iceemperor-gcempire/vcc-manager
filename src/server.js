@@ -29,6 +29,9 @@ const filesRoutes = require('./routes/files');
 const groupRoutes = require('./routes/groups');
 const promptGuideRoutes = require('./routes/promptGuides');
 const dashboardRoutes = require('./routes/dashboard');
+const sequenceRoutes = require('./routes/sequences');
+const sequenceDocRoutes = require('./routes/sequenceDocs');
+const sequenceRunRoutes = require('./routes/sequenceRuns');
 const errorHandler = require('./middleware/errorHandler');
 const { verifyJWT, verifyApiKey } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
@@ -163,6 +166,9 @@ app.use('/api/apikeys', apiKeyRoutes);
 app.use('/api/groups', groupRoutes);
 app.use('/api/prompt-guides', promptGuideRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/sequences', sequenceRoutes);
+app.use('/api/sequence-docs', sequenceDocRoutes);
+app.use('/api/sequence-runs', sequenceRunRoutes);
 
 // Health check endpoint
 // version: sync-workboards CLI (#886) 가 export 의 appVersion 과 대조하는 데 쓴다

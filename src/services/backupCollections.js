@@ -33,6 +33,8 @@ const Tag = require('../models/Tag');
 const Server = require('../models/Server');
 const Project = require('../models/Project');
 const Workboard = require('../models/Workboard');
+const SequenceDoc = require('../models/SequenceDoc');
+const Sequence = require('../models/Sequence');
 const UploadedText = require('../models/UploadedText');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
@@ -46,6 +48,7 @@ const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const GeneratedText = require('../models/GeneratedText');
 const PipelineRun = require('../models/PipelineRun');
+const SequenceRun = require('../models/SequenceRun');
 const ApiKey = require('../models/ApiKey');
 const SystemSettings = require('../models/SystemSettings');
 // 백업 비대상 캐시 컬렉션 (재생성 가능) — 완전 교체 복원 시 비워 새 DB 와의 불일치 방지 (#650)
@@ -64,6 +67,9 @@ const BACKUP_COLLECTIONS = [
   // 워크스페이스 / 작업판 / 문서
   { name: 'Project', model: Project },
   { name: 'Workboard', model: Workboard },
+  // 작업 절차 (#952) — 단계가 Workboard 와 SequenceDoc 을 참조한다
+  { name: 'SequenceDoc', model: SequenceDoc },
+  { name: 'Sequence', model: Sequence },
   { name: 'UploadedText', model: UploadedText },
   { name: 'UploadedImage', model: UploadedImage },
   { name: 'UploadedVideo', model: UploadedVideo },
@@ -78,6 +84,7 @@ const BACKUP_COLLECTIONS = [
   { name: 'GeneratedAudio', model: GeneratedAudio },
   { name: 'GeneratedText', model: GeneratedText },
   { name: 'PipelineRun', model: PipelineRun },
+  { name: 'SequenceRun', model: SequenceRun },
   // 인증 / 시스템 설정
   { name: 'ApiKey', model: ApiKey },
   { name: 'SystemSettings', model: SystemSettings, encryptFields: ['external.civitaiApiKey', 'lora.civitaiApiKey'] },

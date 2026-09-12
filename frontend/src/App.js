@@ -43,8 +43,10 @@ import {
   IntegrityPage,
   MetadataManagementPage,
   GroupManagementPage,
-  PromptGuidePage
+  PromptGuidePage,
+  SequenceManagementPage
 } from './pages/admin';
+import Sequences from './pages/Sequences';
 import AuthCallback from './pages/AuthCallback';
 
 export const queryClient = new QueryClient({
@@ -165,6 +167,7 @@ function MainLayout() {
             <Route path="/content" element={<MyImages />} />
             <Route path="/images" element={<Navigate to="/content" replace />} />
             <Route path="/jobs" element={<JobHistory />} />
+            <Route path="/sequences" element={<Sequences />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />
@@ -242,6 +245,14 @@ function MainLayout() {
               element={
                 <AdminRoute>
                   <PromptGuidePage />
+                </AdminRoute>
+              }
+            />
+            <Route
+              path="/admin/sequences"
+              element={
+                <AdminRoute>
+                  <SequenceManagementPage />
                 </AdminRoute>
               }
             />
