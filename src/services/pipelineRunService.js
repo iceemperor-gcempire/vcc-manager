@@ -20,6 +20,7 @@ const {
   createProjectDocSource, createSequenceDocSource, resolveProjectTag,
 } = require('./containerDocAccess');
 const { findDefinitionMismatch } = require('../utils/runSteps');
+const { MEDIA_FIELD_TYPES } = require('../utils/sequenceSteps');
 const queueService = require('./queueService');
 
 // 파이프라인·작업 절차 실행 background worker (#407, #952).
@@ -81,9 +82,25 @@ async function retrySequenceRun(runId, fromStep) {
   await pipelineRunQueue.add('runSequence', { runId: runId.toString(), fromStep });
 }
 
-// 단계 입력 빌드 — 사전 입력 + 자동 주입 + 초기 프롬프트
+// 단계 사전 입력에 키가 없는 필드는 작업판 기본값으로 채운다.
+// 생성 화면은 기본값을 채워 보내는데 실행기는 사전 입력만 봐서, 모델을 따로 고르지 않은 LLM 단계가
+// "작업판에 모델이 선택되지 않음" 으로 실패했다 (#952 alpha E2E 에서 발견).
+// 키가 있는 값은 덮지 않는다 — 빈 문자열은 사전 입력에서 고른 "선택 없음" 이다.
+// 미디어 필드는 값이 업로드를 가리키므로 채우지 않는다.
+function applyStepFieldDefaults(workboard, stepInputs) {
+  const values = { ...(stepInputs || {}) };
+  for (const field of workboard?.additionalInputFields || []) {
+    if (!field?.name || MEDIA_FIELD_TYPES.has(field.type)) continue;
+    if (values[field.name] !== undefined) continue;
+    if (field.defaultValue === undefined || field.defaultValue === null) continue;
+    values[field.name] = field.defaultValue;
+  }
+  return values;
+}
+
+// 단계 입력 빌드 — 작업판 기본값 + 사전 입력 + 자동 주입 + 초기 프롬프트
 function buildStepInput(workboard, prevOutput, stepInputs, stepIdx, initialPrompt) {
-  const inputData = { ...(stepInputs || {}) };
+  const inputData = applyStepFieldDefaults(workboard, stepInputs);
   if (inputData.userPrompt == null) inputData.userPrompt = '';
 
   if (stepIdx === 0) {
@@ -495,6 +512,7 @@ module.exports = {
   clearPipelineRunQueue,
   // 테스트용 내부 헬퍼
   collectImageIds,
+  applyStepFieldDefaults,
   processPipelineRun,
   processSequenceRun,
 };
