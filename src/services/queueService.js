@@ -1298,7 +1298,8 @@ const updateJobProgress = async (jobId, progress) => {
   }
 };
 
-const addImageGenerationJob = async (userId, workboardId, inputData) => {
+// marker — 작업이 속한 상위 실행 표시 ({ sequenceRunId }, #952). 일반 히스토리 제외에 쓰인다.
+const addImageGenerationJob = async (userId, workboardId, inputData, marker = {}) => {
   try {
     const Workboard = require('../models/Workboard');
     const workboard = await Workboard.findById(workboardId).populate('serverId');
@@ -1311,7 +1312,8 @@ const addImageGenerationJob = async (userId, workboardId, inputData) => {
       userId,
       workboardId,
       inputData,
-      workflowData: workboard.workflowData
+      workflowData: workboard.workflowData,
+      ...(marker.sequenceRunId ? { sequenceRunId: marker.sequenceRunId } : {})
     });
     
     await job.save();

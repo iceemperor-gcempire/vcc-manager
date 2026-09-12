@@ -83,6 +83,37 @@ function buildWorkboardAccessFilter(user) {
   return { allowedGroupIds: { $in: groupIds } };
 }
 
+// #952: 작업 절차 접근 — 작업판과 같은 축 (allowedGroupIds ∩ user.groupIds, 비어 있으면 admin 전용).
+// 비활성 작업 절차는 admin 만 본다.
+// ⚠️ 작업 절차 접근이 단계 작업판 접근을 열지 않는다 — 작업판은 userHasWorkboardAccess 가 따로 판정한다 (#802).
+
+/**
+ * @param {Object} user — req.user
+ * @param {Object} sequence — Sequence document (allowedGroupIds 미populate)
+ * @returns {boolean}
+ */
+function userHasSequenceAccess(user, sequence) {
+  if (!user || !sequence) return false;
+  if (user.isAdmin) return true;
+  if (sequence.isActive === false) return false;
+  const allowed = (sequence.allowedGroupIds || []).map(String);
+  const mine = (user.groupIds || []).map(String);
+  return mine.some((g) => allowed.includes(g));
+}
+
+/**
+ * 사용자가 볼 수 있는 작업 절차의 Mongoose 조건. admin 은 빈 객체(비활성 포함 전부).
+ * @param {Object} user — req.user
+ * @returns {Object} mongo filter
+ */
+function buildSequenceAccessFilter(user) {
+  if (!user) return { _id: null };
+  if (user.isAdmin) return {};
+  const groupIds = user.groupIds || [];
+  if (groupIds.length === 0) return { _id: null };
+  return { isActive: true, allowedGroupIds: { $in: groupIds } };
+}
+
 /**
  * Express 미들웨어 — req.params.id 로 식별된 작업판에 대해 사용자 권한 검사.
  * 통과 시 req.workboard 에 작업판을 attach.
@@ -337,5 +368,7 @@ module.exports = {
   signupRateLimit,
   requireWorkboardAccess,
   userHasWorkboardAccess,
-  buildWorkboardAccessFilter
+  buildWorkboardAccessFilter,
+  userHasSequenceAccess,
+  buildSequenceAccessFilter
 };

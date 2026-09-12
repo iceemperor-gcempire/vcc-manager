@@ -11,6 +11,12 @@ const imageGenerationJobSchema = new mongoose.Schema({
     ref: 'Workboard',
     required: true
   },
+  // 작업 절차 실행의 단계로 만들어진 작업 (#952). 일반 작업 히스토리 목록에서 빠지고
+  // 작업 절차 실행 기록 안에서 보인다 (utils/historyFilters).
+  sequenceRunId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SequenceRun'
+  },
   status: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'],

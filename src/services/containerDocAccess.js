@@ -1,4 +1,5 @@
 const UploadedText = require('../models/UploadedText');
+const SequenceDoc = require('../models/SequenceDoc');
 const { userHasProjectAccess } = require('../middleware/auth');
 const { loadVisionImages } = require('../utils/visionImages');
 
@@ -14,6 +15,10 @@ const { loadVisionImages } = require('../utils/visionImages');
 //
 // 파이프라인 실행(pipelineRunService)과 단발 잡(routes/jobs.js)이 **반드시 이 모듈을 함께**
 // 쓴다. 두 경로가 각자 판정하면 #794/#802 처럼 한쪽만 고쳐지는 사고가 난다.
+//
+// 작업 절차 모드 (#952): 작업 절차 단계의 문서는 소유자 없는 SequenceDoc 이다. 컨테이너는
+// 작업 절차이고, 그 접근 판정은 실행 시작 전에 끝나므로 소유자 필터가 없다. 단계 실행 루프는
+// createProjectDocSource / createSequenceDocSource 가 돌려주는 로더 묶음만 보고 어디서 읽는지는 모른다.
 //
 // 0건일 때도 로그를 남긴다 — "정상인데 없었다" 와 "잘못 걸러냈다" 를 구분하기 위해
 // 빠진 id 마다 사유(not_found / owner_not_allowed)를 함께 적는다.
@@ -102,10 +107,62 @@ function resolveProjectTag({ viewer, project }) {
   return project.tagId || null;
 }
 
+/**
+ * 작업 절차 컨텍스트 문서 다중 로드 (#952). 순서는 프로젝트 문서와 같은 createdAt 순.
+ * 빠진 id 는 전부 not_found — 참조 중인 문서는 삭제가 막히므로, 여기 걸리면 정합성 문제다.
+ */
+async function loadSequenceContextDocs({ docIds, label = 'sequenceContextDocs' }) {
+  const ids = (Array.isArray(docIds) ? docIds : []).filter(Boolean).map(String);
+  if (ids.length === 0) return [];
+  const docs = await SequenceDoc.find({ _id: { $in: ids } }).sort({ createdAt: 1 }).lean();
+  const foundIds = new Set(docs.map((d) => String(d._id)));
+  const skipped = ids.filter((id) => !foundIds.has(id)).map((id) => ({ id, reason: 'not_found' }));
+  logResult(label, ids.length, docs.length, skipped);
+  return docs;
+}
+
+/**
+ * 작업 절차 시스템 프롬프트 문서 단일 로드 (#952).
+ * @returns {Promise<Object|null>}
+ */
+async function loadSequenceSystemPromptDoc({ docId, label = 'sequenceSystemPromptDoc' }) {
+  if (!docId) return null;
+  const doc = await SequenceDoc.findOne({ _id: docId }).lean();
+  logResult(label, 1, doc ? 1 : 0, doc ? [] : [{ id: String(docId), reason: 'not_found' }]);
+  return doc;
+}
+
+/**
+ * 파이프라인 단계용 로더 묶음 — 프로젝트(컨테이너) 기준 UploadedText.
+ */
+function createProjectDocSource({ viewer, project }) {
+  return {
+    loadSystemPrompt: ({ docId, label }) => loadSystemPromptDoc({ docId, viewer, project, label }),
+    loadContext: ({ docIds, label }) => loadContextDocs({ docIds, viewer, project, label }),
+    loadVisionImages: ({ imageIds }) => loadVisionImagesForContainer({ imageIds, viewer, project }),
+  };
+}
+
+/**
+ * 작업 절차 단계용 로더 묶음 (#952) — 문서는 SequenceDoc, 비전 이미지는 실행자 본인 것만.
+ * 앞 단계 산출물은 실행자 소유이고, 운영자 파일은 사전 입력에 저장되지 않는다 (utils/sequenceSteps).
+ */
+function createSequenceDocSource({ viewer }) {
+  return {
+    loadSystemPrompt: ({ docId, label }) => loadSequenceSystemPromptDoc({ docId, label }),
+    loadContext: ({ docIds, label }) => loadSequenceContextDocs({ docIds, label }),
+    loadVisionImages: ({ imageIds }) => loadVisionImagesForContainer({ imageIds, viewer, project: null }),
+  };
+}
+
 module.exports = {
   allowedOwnerIds,
   loadContextDocs,
   loadSystemPromptDoc,
   loadVisionImagesForContainer,
   resolveProjectTag,
+  loadSequenceContextDocs,
+  loadSequenceSystemPromptDoc,
+  createProjectDocSource,
+  createSequenceDocSource,
 };

@@ -1,6 +1,8 @@
 const Queue = require('bull');
 const PipelineRun = require('../models/PipelineRun');
 const Pipeline = require('../models/Pipeline');
+const SequenceRun = require('../models/SequenceRun');
+const Sequence = require('../models/Sequence');
 const Workboard = require('../models/Workboard');
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -10,17 +12,19 @@ const Tag = require('../models/Tag');
 const openAIChatService = require('./openAIChatService');
 const geminiService = require('./geminiService');
 const { getFieldValueByRole } = require('../utils/customFieldHelpers');
-const { userHasWorkboardAccess } = require('../middleware/auth');
+const { userHasWorkboardAccess, userHasSequenceAccess } = require('../middleware/auth');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const {
-  loadContextDocs, loadSystemPromptDoc, loadVisionImagesForContainer, resolveProjectTag,
+  createProjectDocSource, createSequenceDocSource, resolveProjectTag,
 } = require('./containerDocAccess');
+const { findDefinitionMismatch } = require('../utils/runSteps');
 const queueService = require('./queueService');
 
-// 파이프라인 실행 background worker (#407).
+// 파이프라인·작업 절차 실행 background worker (#407, #952).
 // Bull queue 사용 — 사용자가 페이지 떠나도 계속 진행. 부분 retry 지원.
+// 두 실행 종류는 정의·실행 기록 모델만 다르고, 단계를 도는 루프(executeRunSteps)는 하나다.
 
 let pipelineRunQueue;
 
@@ -45,11 +49,13 @@ async function initPipelineRunQueue() {
     },
   });
   pipelineRunQueue.process('runPipeline', 2, processPipelineRun);
+  // 작업 절차 실행 (#952) — 같은 큐를 쓴다. Bull 은 이름별 처리기의 동시 실행 수를 합산한다.
+  pipelineRunQueue.process('runSequence', 2, processSequenceRun);
   pipelineRunQueue.on('failed', (job, err) => {
-    console.error(`[PipelineRun] job ${job.id} failed:`, err.message);
+    console.error(`[PipelineRun] job ${job.id} (${job.name}) failed:`, err.message);
   });
   pipelineRunQueue.on('completed', (job) => {
-    console.log(`[PipelineRun] job ${job.id} completed`);
+    console.log(`[PipelineRun] job ${job.id} (${job.name}) completed`);
   });
   console.log('[PipelineRun] queue initialized');
   return pipelineRunQueue;
@@ -63,6 +69,16 @@ async function startPipelineRun(runId) {
 async function retryPipelineRun(runId, fromStep) {
   await initPipelineRunQueue();
   await pipelineRunQueue.add('runPipeline', { runId: runId.toString(), fromStep });
+}
+
+async function startSequenceRun(runId) {
+  await initPipelineRunQueue();
+  await pipelineRunQueue.add('runSequence', { runId: runId.toString(), fromStep: 0 });
+}
+
+async function retrySequenceRun(runId, fromStep) {
+  await initPipelineRunQueue();
+  await pipelineRunQueue.add('runSequence', { runId: runId.toString(), fromStep });
 }
 
 // 단계 입력 빌드 — 사전 입력 + 자동 주입 + 초기 프롬프트
@@ -119,9 +135,10 @@ const { composeSystemPrompt, joinDocs } = require('../utils/promptComposition');
 const { loadGuidesForWorkboard } = require('./promptGuideService');
 
 // 텍스트 단계 실행 — prompt-generate 로직 직접 호출 (HTTP 우회)
-// ctx: { runner, project, destProject } — 컨테이너 기준 문서 주입·결과 귀속 (#923)
-async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, prevOutput, ctx = {}) {
+// ctx: { runner, project, destProject, docs, jobMarker } — 문서 주입·결과 귀속 (#923, #952)
+async function runTextStep(userId, run, step, definitionStep, inputData, prevOutput, ctx = {}) {
   const viewer = ctx.runner || { _id: userId };
+  const docs = ctx.docs || createProjectDocSource({ viewer, project: ctx.project });
   const workboard = await Workboard.findById(step.workboardId).populate('serverId');
   if (!workboard) throw new Error('작업판이 삭제됨');
   const server = workboard.serverId;
@@ -134,17 +151,17 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   const temperature = temperatureValue != null ? Number(temperatureValue) : 0.7;
 
   // 사전 컨텍스트 / 시스템 프롬프트 문서 적용 (#401)
-  // 문서는 컨테이너(프로젝트) 기준으로 읽는다 (#923) — 공유 프로젝트의 독자가 실행해도
-  // 소유자의 문서가 주입된다. 예전 `{ userId }` 하드 필터는 독자에게 조용히 빠졌다.
+  // 어디서 읽을지는 실행 종류가 정한다 — 파이프라인은 컨테이너(프로젝트) 기준 (#923: 공유 프로젝트의
+  // 독자가 실행해도 소유자의 문서가 주입된다), 작업 절차는 소유자 없는 작업 절차 문서 (#952).
   let resolvedSystem = systemPrompt;
-  const spDoc = await loadSystemPromptDoc({
-    docId: pipelineStep.systemPromptDocId, viewer, project: ctx.project, label: `step${step.workboardId} systemPromptDoc`,
+  const spDoc = await docs.loadSystemPrompt({
+    docId: definitionStep.systemPromptDocId, label: `step${step.workboardId} systemPromptDoc`,
   });
   if (spDoc) {
     resolvedSystem = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
   }
-  const worldviewTexts = await loadContextDocs({
-    docIds: pipelineStep.contextDocIds, viewer, project: ctx.project, label: `step${step.workboardId} contextDocs`,
+  const worldviewTexts = await docs.loadContext({
+    docIds: definitionStep.contextDocIds, label: `step${step.workboardId} contextDocs`,
   });
   // 작업판에 연결된 프롬프트 가이드 (#766) — jobs.js 의 단발 경로와 동일하게 적용.
   const guides = await loadGuidesForWorkboard(workboard);
@@ -163,7 +180,7 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   const collectedImageIds = collectImageIds(inputData, imageFieldNames);
   let stepImages = [];
   if (collectedImageIds.length > 0) {
-    const loaded = await loadVisionImagesForContainer({ imageIds: collectedImageIds, viewer, project: ctx.project });
+    const loaded = await docs.loadVisionImages({ imageIds: collectedImageIds });
     stepImages = loaded.map((im) => ({ base64: im.base64, mimeType: im.mimeType }));
   }
 
@@ -179,8 +196,9 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
   const conversation = await ConversationJob.create({
     userId,
     workboardId: workboard._id,
-    projectId: destProject?._id || pipelineRun.projectId,
+    projectId: destProject?._id || run.projectId,
     tags: projectTagIds,
+    ...(ctx.jobMarker || {}),
     serverType: server.serverType,
     model: resolvedModel,
     workboardSystemPrompt: resolvedSystem || undefined,
@@ -224,7 +242,7 @@ async function runTextStep(userId, pipelineRun, step, pipelineStep, inputData, p
 }
 
 // 이미지 단계 실행 — ImageGenerationJob 생성 후 폴링
-async function runImageStep(userId, pipelineRun, step, inputData, ctx = {}) {
+async function runImageStep(userId, run, step, inputData, ctx = {}) {
   const viewer = ctx.runner || { _id: userId };
   const workboard = await Workboard.findById(step.workboardId);
   if (!workboard) throw new Error('작업판이 삭제됨');
@@ -248,7 +266,7 @@ async function runImageStep(userId, pipelineRun, step, inputData, ctx = {}) {
     seed: inputData.seed,
     randomSeed: inputData.randomSeed,
     tags: mergedTags,
-  });
+  }, ctx.jobMarker || {});
 
   // 폴링 — 완료까지 대기 (최대 10분)
   const start = Date.now();
@@ -271,18 +289,39 @@ async function runImageStep(userId, pipelineRun, step, inputData, ctx = {}) {
   throw new Error('이미지 생성 시간 초과 (10분)');
 }
 
-// 메인 worker 함수
-async function processPipelineRun(job) {
-  const { runId, fromStep = 0 } = job.data;
-  const run = await PipelineRun.findById(runId);
-  if (!run) throw new Error(`PipelineRun ${runId} not found`);
+// 실행을 멈추고 기록을 닫는다 — 남은 대기 단계는 건너뜀으로.
+async function failRun(run, message, { failStepIndex = -1 } = {}) {
+  const now = new Date();
+  const failStep = failStepIndex >= 0 ? run.steps[failStepIndex] : null;
+  if (failStep) {
+    failStep.status = 'failed';
+    failStep.error = { message };
+    failStep.completedAt = now;
+  }
+  for (const s of run.steps) {
+    if (s.status === 'pending') s.status = 'skipped';
+  }
+  run.status = 'failed';
+  run.error = { message };
+  run.completedAt = now;
+  run.markModified('steps');
+  await run.save();
+}
 
-  const pipeline = await Pipeline.findById(run.pipelineId);
-  if (!pipeline) {
-    run.status = 'failed';
-    run.error = { message: '파이프라인이 삭제됨' };
-    run.completedAt = new Date();
-    await run.save();
+// 정의(파이프라인·작업 절차)와 실행 기록을 받아 단계를 순서대로 실행한다.
+// 두 실행 종류가 이 루프 하나를 쓴다 — 작업판 접근 재검사·입력 조립·결과 기록을 한쪽만
+// 고치는 사고(#794/#802)를 막기 위해서다. 실행 종류별 차이는 ctx 로만 들어온다:
+//   ctx.runner     실행자 (lean User)
+//   ctx.docs       단계 문서·비전 이미지 로더 (containerDocAccess.create*DocSource)
+//   ctx.jobMarker  단계 작업에 남길 소속 표시 (작업 절차만 — { sequenceRunId })
+//   ctx.kindLabel  오류 메시지용 이름, ctx.logLabel 로그 접두
+async function executeRunSteps({ run, definition, fromStep = 0, ctx }) {
+  // 실행 기록을 만든 뒤 정의가 바뀌었으면 옛 작업판에 새 입력·문서가 섞인다 — 멈춘다.
+  const mismatch = findDefinitionMismatch(definition.steps, run.steps);
+  if (mismatch) {
+    console.warn(`[${ctx.logLabel}] definition mismatch at step ${mismatch.stepIndex} (${mismatch.reason})`);
+    const failStepIndex = run.steps.findIndex((s, i) => i >= fromStep && s.status !== 'completed');
+    await failRun(run, `${ctx.kindLabel} 단계 구성이 실행을 만든 뒤 바뀌었습니다 — 새로 실행하세요`, { failStepIndex });
     return;
   }
 
@@ -297,24 +336,10 @@ async function processPipelineRun(job) {
     if (prevRunStep?.output) prevOutput = prevRunStep.output;
   }
 
-  // 실행자 — 단계마다 작업판 접근을 검사하는 데 쓴다 (#802)
-  const runner = await User.findById(run.userId).lean();
-  // 컨테이너 기준 문서 주입 + 결과 귀속 (#923) — 단계마다 다시 읽지 않도록 한 번 로드
-  const project = run.projectId ? await Project.findById(run.projectId).lean() : null;
-  const destProject = run.targetProjectId ? await Project.findById(run.targetProjectId).lean() : project;
-  const ctx = { runner, project, destProject };
-
+  const { runner } = ctx;
   for (let i = fromStep; i < run.steps.length; i++) {
-    const pipelineStep = pipeline.steps[i];
+    const definitionStep = definition.steps[i];
     const runStep = run.steps[i];
-    if (!pipelineStep) {
-      runStep.status = 'failed';
-      runStep.error = { message: '파이프라인 단계 불일치' };
-      run.status = 'failed';
-      run.completedAt = new Date();
-      await run.save();
-      return;
-    }
 
     runStep.status = 'running';
     runStep.startedAt = new Date();
@@ -326,20 +351,20 @@ async function processPipelineRun(job) {
       if (!workboard) throw new Error('작업판이 삭제됨');
 
       // 실행 시점 접근 검사 (#802) — **최종 방어선**.
-      // 파이프라인 저장 시에도 검사하지만(pipelines.js validateSteps), 저장 이후에
-      // 실행자가 그룹에서 빠지거나 작업판의 allowedGroupIds 가 바뀔 수 있다.
-      // 실행 직전에 다시 보지 않으면 그 창으로 권한 없는 실행이 통과한다.
+      // 정의 저장·실행 요청 시에도 검사하지만, 그 이후에 실행자가 그룹에서 빠지거나
+      // 작업판의 allowedGroupIds 가 바뀔 수 있다. 실행 직전에 다시 보지 않으면
+      // 그 창으로 권한 없는 실행이 통과한다. 작업 절차 권한은 작업판 권한을 열지 않는다.
       if (!runner) throw new Error('실행자를 찾을 수 없음');
       if (!userHasWorkboardAccess(runner, workboard)) {
         throw new Error(`작업판 접근 권한이 없습니다: ${workboard.name}`);
       }
 
-      const autoInject = i === 0 ? false : (pipelineStep.autoInject !== false);
-      const inputData = buildStepInput(workboard, autoInject ? prevOutput : null, pipelineStep.inputs, i, run.initialPrompt);
+      const autoInject = i === 0 ? false : (definitionStep.autoInject !== false);
+      const inputData = buildStepInput(workboard, autoInject ? prevOutput : null, definitionStep.inputs, i, run.initialPrompt);
 
       let stepResult;
       if (workboard.outputFormat === 'text') {
-        stepResult = await runTextStep(run.userId, run, runStep, pipelineStep, inputData, prevOutput, ctx);
+        stepResult = await runTextStep(run.userId, run, runStep, definitionStep, inputData, prevOutput, ctx);
         runStep.conversationJobId = stepResult.conversationJobId;
       } else {
         stepResult = await runImageStep(run.userId, run, runStep, inputData, ctx);
@@ -353,7 +378,7 @@ async function processPipelineRun(job) {
       run.markModified('steps');
       await run.save();
     } catch (err) {
-      console.error(`[PipelineRun ${runId}] step ${i} failed:`, err.message);
+      console.error(`[${ctx.logLabel}] step ${i} failed:`, err.message);
       runStep.status = 'failed';
       runStep.completedAt = new Date();
       runStep.error = { message: err.message };
@@ -373,6 +398,71 @@ async function processPipelineRun(job) {
   run.status = 'completed';
   run.completedAt = new Date();
   await run.save();
+}
+
+// 파이프라인 실행 worker
+async function processPipelineRun(job) {
+  const { runId, fromStep = 0 } = job.data;
+  const run = await PipelineRun.findById(runId);
+  if (!run) throw new Error(`PipelineRun ${runId} not found`);
+
+  const pipeline = await Pipeline.findById(run.pipelineId);
+  if (!pipeline) {
+    await failRun(run, '파이프라인이 삭제됨');
+    return;
+  }
+
+  // 실행자 — 단계마다 작업판 접근을 검사하는 데 쓴다 (#802)
+  const runner = await User.findById(run.userId).lean();
+  // 컨테이너 기준 문서 주입 + 결과 귀속 (#923) — 단계마다 다시 읽지 않도록 한 번 로드
+  const project = run.projectId ? await Project.findById(run.projectId).lean() : null;
+  const destProject = run.targetProjectId ? await Project.findById(run.targetProjectId).lean() : project;
+  const ctx = {
+    runner,
+    project,
+    destProject,
+    docs: createProjectDocSource({ viewer: runner || { _id: run.userId }, project }),
+    kindLabel: '파이프라인',
+    logLabel: `PipelineRun ${runId}`,
+  };
+  await executeRunSteps({ run, definition: pipeline, fromStep, ctx });
+}
+
+// 작업 절차 실행 worker (#952)
+async function processSequenceRun(job) {
+  const { runId, fromStep = 0 } = job.data;
+  const run = await SequenceRun.findById(runId);
+  if (!run) throw new Error(`SequenceRun ${runId} not found`);
+
+  const sequence = await Sequence.findById(run.sequenceId);
+  if (!sequence) {
+    await failRun(run, '작업 절차가 삭제됨');
+    return;
+  }
+
+  const runner = await User.findById(run.userId).lean();
+  if (!runner) {
+    await failRun(run, '실행자를 찾을 수 없음');
+    return;
+  }
+  // 요청 시점 검사만으로는 대기 중·재시도 사이에 그룹에서 빠지거나 작업 절차가 비활성화된 경우가
+  // 통과한다. 작업판 접근은 여기가 아니라 단계마다 따로 본다.
+  if (!userHasSequenceAccess(runner, sequence)) {
+    await failRun(run, '작업 절차 접근 권한이 없습니다');
+    return;
+  }
+
+  const destProject = run.targetProjectId ? await Project.findById(run.targetProjectId).lean() : null;
+  const ctx = {
+    runner,
+    project: null,
+    destProject,
+    docs: createSequenceDocSource({ viewer: runner }),
+    jobMarker: { sequenceRunId: run._id },
+    kindLabel: '작업 절차',
+    logLabel: `SequenceRun ${runId}`,
+  };
+  await executeRunSteps({ run, definition: sequence, fromStep, ctx });
 }
 
 // 종료 시 큐 정리 — active 잡 완료를 기다리지 않음 (#523)
@@ -399,8 +489,12 @@ module.exports = {
   initPipelineRunQueue,
   startPipelineRun,
   retryPipelineRun,
+  startSequenceRun,
+  retrySequenceRun,
   closePipelineRunQueue,
   clearPipelineRunQueue,
   // 테스트용 내부 헬퍼
   collectImageIds,
+  processPipelineRun,
+  processSequenceRun,
 };

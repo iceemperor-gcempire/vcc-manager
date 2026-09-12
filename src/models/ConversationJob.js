@@ -49,6 +49,12 @@ const conversationJobSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Tag',
   }],
+  // 작업 절차 실행의 단계로 만들어진 대화 (#952). 일반 대화 히스토리 목록에서 빠지고
+  // 작업 절차 실행 기록 안에서 보인다 (utils/historyFilters).
+  sequenceRunId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SequenceRun',
+  },
   // 합성 전 원본을 분리 저장해 display / audit 용도로 사용 (#396).
   // 실제 LLM 호출엔 둘을 합쳐 system 메시지 1개로 전송하지만, 보존은 분리.
   workboardSystemPrompt: String,
