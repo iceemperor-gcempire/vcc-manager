@@ -57,7 +57,8 @@ import { useConfirm } from './ConfirmDialog';
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
 // 미 populate (e.g. 진행 중인 step) 시 fallback 으로 "이미지 N개 생성됨" 텍스트만.
-function StepImageThumbnails({ runStep }) {
+// 작업 절차 실행 기록(#952)도 같은 단계 결과 모양이라 함께 쓴다.
+export function StepImageThumbnails({ runStep, viewerTitle = '파이프라인 결과' }) {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerIdx, setViewerIdx] = useState(0);
   const images = runStep?.imageGenerationJobId?.resultImages || [];
@@ -96,7 +97,7 @@ function StepImageThumbnails({ runStep }) {
         onClose={() => setViewerOpen(false)}
         images={images}
         selectedIndex={viewerIdx}
-        title="파이프라인 결과"
+        title={viewerTitle}
       />
     </>
   );
@@ -1179,7 +1180,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
 // runtime 에 덮어쓰일 수 있다는 안내 alert 포함.
 // projectId 가 주어지면 "프롬프트 데이터 불러오기" 버튼 노출 (#431) — 작업판 PromptData
 // 연계. customField 에 prompt / negativePrompt / seed 중 하나라도 있을 때만 활성화.
-function StepInputsForm({ workboard, values, onChange, projectId }) {
+export function StepInputsForm({ workboard, values, onChange, projectId }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   if (!workboard) return null;
   const fields = (workboard.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode');

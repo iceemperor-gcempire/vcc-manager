@@ -337,6 +337,34 @@ export const pipelineRunAPI = {
   delete: (projectId, runId) => api.delete(`/projects/${projectId}/pipeline-runs/${runId}`),
 };
 
+// 작업 절차 (#952) — 운영자가 작업판을 정형화한 공유 자산. 목록·실행은 그룹, 변경은 admin.
+// list/get 에 { view: 'manage' } 를 주면 편집기용 전체 정의 (admin 전용)
+export const sequenceAPI = {
+  list: (params) => api.get('/sequences', { params }),
+  get: (id, params) => api.get(`/sequences/${id}`, { params }),
+  create: (data) => api.post('/sequences', data),
+  update: (id, data) => api.patch(`/sequences/${id}`, data),
+  delete: (id) => api.delete(`/sequences/${id}`),
+};
+
+// 작업 절차 문서 (#952) — 소유자 없는 문서, 전부 admin 전용. list 응답에는 본문이 없다.
+export const sequenceDocAPI = {
+  list: () => api.get('/sequence-docs'),
+  get: (id) => api.get(`/sequence-docs/${id}`),
+  create: (data) => api.post('/sequence-docs', data),
+  update: (id, data) => api.put(`/sequence-docs/${id}`, data),
+  delete: (id) => api.delete(`/sequence-docs/${id}`),
+};
+
+// 작업 절차 실행 기록 (#952) — 본인 것만
+export const sequenceRunAPI = {
+  list: (params) => api.get('/sequence-runs', { params }),
+  get: (runId) => api.get(`/sequence-runs/${runId}`),
+  start: (data) => api.post('/sequence-runs', data),
+  retry: (runId, data) => api.post(`/sequence-runs/${runId}/retry`, data),
+  delete: (runId) => api.delete(`/sequence-runs/${runId}`),
+};
+
 // 대시보드 위젯 전용 집계 (#453)
 export const dashboardAPI = {
   getActivePipelineRuns: () => api.get('/dashboard/active-pipeline-runs'),
