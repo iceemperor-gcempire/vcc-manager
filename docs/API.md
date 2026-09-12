@@ -173,6 +173,31 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 - `GET /api/projects` 는 내 것 + 내 그룹에 공유된 것 + 공개된 것을 돌려주며 각 항목에 `access`: `owner` | `shared` | `public` 이 붙는다. 검색은 접근 조건과 AND.
 - 공용 프로젝트 소유자(admin) 계정 삭제는 409 (`SERVER_PROJECT_OWNER`) — 먼저 소유권을 이전해야 한다.
 
+## 작업 절차 (Sequences, v4.3.0+)
+
+운영자가 작업판을 정해진 순서로 묶어 그룹에 제공하는 공유 자산 (#952). 소유자가 없고(`createdBy` 는 감사 기록), 참조로 실행되므로 정의·문서를 고치면 다음 실행부터 모두에게 반영된다.
+
+| Method | Path | 설명 | 권한 |
+|---|---|---|---|
+| GET | `/api/sequences` | 볼 수 있는 활성 작업 절차. 단계별 `blocked`(`missing`·`inactive`·`no_access`)와 `runnable` 포함. 접근 그룹·사전 입력·문서 id 는 싣지 않음 | 로그인 |
+| GET | `/api/sequences?view=manage` | 전체(비활성 포함) + 편집용 정의 + `coverage`(작업 절차 그룹에 작업판이 열려 있지 않은 단계) | admin |
+| GET | `/api/sequences/:id` | 상세 (`?view=manage` 는 admin). 접근이 없으면 없는 것과 같은 404 | 로그인 |
+| POST | `/api/sequences` | 생성. body: `name`, `description?`, `steps[]`, `allowedGroupIds[]`, `isActive?` → `data.warnings` | admin |
+| PATCH | `/api/sequences/:id` | 보낸 필드만 수정 → `data.warnings` | admin |
+| DELETE | `/api/sequences/:id` | 삭제. 사용자 실행 기록은 남음 | admin |
+| GET · POST | `/api/sequence-docs` | 작업 절차 문서 목록(본문 제외, `contentLength`·`usedBy`) · 생성(`title`, `content`, `description?`) | admin |
+| GET · PUT · DELETE | `/api/sequence-docs/:id` | 조회 · 수정 · 삭제. 쓰는 작업 절차가 있으면 삭제 400 (`data.linkedSequences`) | admin |
+| GET | `/api/sequence-runs` | 내 실행 기록. query: `sequenceId?`, `status?`, `page`, `limit`(≤100) | 로그인 |
+| GET | `/api/sequence-runs/:runId` | 내 실행 상세(단계 결과 populate). `data.sequence` 는 지금도 실행할 수 있을 때만 채워짐 | 로그인 |
+| POST | `/api/sequence-runs` | 실행 시작. body: `sequenceId`, `initialPrompt`, `targetProjectId?` | 로그인 |
+| POST | `/api/sequence-runs/:runId/retry` | 멈춘 지점부터 다시. body: `fromStep?` | 로그인 |
+| DELETE | `/api/sequence-runs/:runId` | 기록 삭제. 단계 작업 레코드도 함께 지우고 생성 이미지·영상은 남긴다. 진행 중이면 400 | 로그인 |
+
+- 단계(`steps[]`): `workboardId`, `autoInject`, `inputs`(작업판 필드 name → 값), `contextDocIds[]`·`systemPromptDocId`(작업 절차 문서), `note`, `_id`(편집 시 돌려보내면 유지). 이미지·영상·오디오·파일 필드의 사전 입력은 저장하지 않고 `warnings` 로 알린다 — 운영자 업로드는 개인 자산이라 실행자에게 넘길 수 없다. 없는 그룹 id 도 저장하지 않는다.
+- **작업판 접근은 따로 판정한다.** 작업 절차에 접근할 수 있어도 단계 작업판에 접근할 수 없으면 실행 시작이 400 (어느 단계인지 메시지 + `data.blockedSteps`). 실행 중에도 단계마다 다시 검사한다.
+- 실행을 만든 뒤 단계 구성(작업판·단계 수)이 바뀌면 대기 중이던 실행과 재시도는 멈춘다 — 새로 실행해야 한다.
+- 단계 작업(`ImageGenerationJob`·`ConversationJob`)에는 `sequenceRunId` 가 붙고 **일반 작업 히스토리 목록**(`/jobs/my`, `/conversations/my`, `/projects/:id/jobs`, `/projects/:id/conversations`)에서 **제외**된다. 결과는 실행 기록에서 본다.
+
 ## 프롬프트 데이터 (PromptData, v1.2.4+)
 
 | Method | Endpoint | Description | Auth |
