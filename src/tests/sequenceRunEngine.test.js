@@ -87,7 +87,7 @@ function workboardDoc(id, overrides = {}) {
 function mockWorkboards(byId) {
   Workboard.findById.mockImplementation((id) => {
     const wb = byId[String(id)] || null;
-    return { populate: async () => wb, then: (resolve, reject) => Promise.resolve(wb).then(resolve, reject) };
+    return { populate: async () => wb, lean: async () => wb, then: (resolve, reject) => Promise.resolve(wb).then(resolve, reject) };
   });
 }
 
@@ -256,6 +256,38 @@ describe('processSequenceRun', () => {
 
     expect(run.status).toBe('completed');
     expect(findUnusableAttachments).not.toHaveBeenCalled();
+  });
+
+  test('실행자가 넣은 노출 입력은 그 단계에만, 잠긴 값은 작성자 값으로 (#953)', async () => {
+    jest.useFakeTimers();
+    mockWorkboards({
+      [WB_TEXT]: workboardDoc(WB_TEXT),
+      [WB_IMAGE]: workboardDoc(WB_IMAGE, {
+        additionalInputFields: [
+          { name: 'quality', type: 'select', defaultValue: 'medium', options: [{ key: '낮음', value: 'low' }, { key: '보통', value: 'medium' }] },
+          { name: 'steps', type: 'number', defaultValue: 8 },
+        ],
+      }),
+    });
+    const run = fakeRun({ initialPrompt: '', runInputs: { st1: { prompt: '실행자 입력' }, st2: { quality: 'low', steps: 99 } } });
+    SequenceRun.findById.mockResolvedValue(run);
+    Sequence.findById.mockResolvedValue(definition({
+      steps: [
+        { _id: 'st1', workboardId: WB_TEXT, inputs: {} },
+        { _id: 'st2', workboardId: WB_IMAGE, inputs: { steps: 12 } },
+      ],
+    }));
+
+    const done = processSequenceRun({ data: { runId: 'run1' } });
+    await jest.advanceTimersByTimeAsync(3000);
+    await done;
+
+    expect(run.status).toBe('completed');
+    expect(ConversationJob.create.mock.calls[0][0].messages.at(-1).content).toBe('실행자 입력');
+    const input = queueService.addImageGenerationJob.mock.calls[0][2];
+    expect(input.prompt).toBe('생성된 프롬프트'); // 앞 단계 출력
+    expect(input.additionalParams.quality).toBe('low'); // 노출 — 실행자 값
+    expect(input.additionalParams.steps).toBe(12); // 잠금 — 실행자가 보낸 99 는 무시
   });
 
   test('작업 절차가 삭제됐으면 실패로 닫는다', async () => {

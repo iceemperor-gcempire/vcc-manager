@@ -26,6 +26,13 @@ const sequenceStepSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: {},
   },
+  // 입력 출처 (#953) — 작성자가 고른 필드만: { [필드 name]: { mode: 'exposed' | 'locked' | 'previous' } }.
+  // 지정이 없는 필드는 타입 기반 기본 분류를 따른다 (utils/sequenceInputs). 값을 객체로 두는 이유는
+  // 향후 다른 출처({ mode: 'step', stepId })를 같은 자리에 넣기 위해서다.
+  inputSources: {
+    type: mongoose.Schema.Types.Mixed,
+    default: {},
+  },
   // 작업 절차 문서 (SequenceDoc) — LLM(텍스트) 단계에만 주입된다
   contextDocIds: [{
     type: mongoose.Schema.Types.ObjectId,

@@ -22,6 +22,7 @@ const {
 const { findDefinitionMismatch } = require('../utils/runSteps');
 const { MEDIA_FIELD_TYPES } = require('../utils/sequenceSteps');
 const { findUnusableAttachments, describeUnusableAttachments } = require('./attachmentOwnership');
+const { buildSequenceStepInput } = require('../utils/sequenceInputs');
 const queueService = require('./queueService');
 
 // 파이프라인·작업 절차 실행 background worker (#407, #952).
@@ -367,6 +368,10 @@ async function executeRunSteps({ run, definition, fromStep = 0, ctx }) {
   }
 
   const { runner } = ctx;
+  // 작업 절차의 기본 입력 출처는 앞 단계 작업판의 출력 형식에 따라 달라진다 (#953) — 재시도면 앞 단계를 읽어 둔다
+  let previousWorkboard = ctx.resolveStepInput && fromStep > 0
+    ? await Workboard.findById(run.steps[fromStep - 1].workboardId).lean()
+    : null;
   for (let i = fromStep; i < run.steps.length; i++) {
     const definitionStep = definition.steps[i];
     const runStep = run.steps[i];
@@ -389,8 +394,13 @@ async function executeRunSteps({ run, definition, fromStep = 0, ctx }) {
         throw new Error(`작업판 접근 권한이 없습니다: ${workboard.name}`);
       }
 
-      const autoInject = i === 0 ? false : (definitionStep.autoInject !== false);
-      const inputData = buildStepInput(workboard, autoInject ? prevOutput : null, definitionStep.inputs, i, run.initialPrompt);
+      let inputData;
+      if (ctx.resolveStepInput) {
+        inputData = ctx.resolveStepInput({ workboard, definitionStep, stepIndex: i, previousWorkboard, prevOutput });
+      } else {
+        const autoInject = i === 0 ? false : (definitionStep.autoInject !== false);
+        inputData = buildStepInput(workboard, autoInject ? prevOutput : null, definitionStep.inputs, i, run.initialPrompt);
+      }
 
       let stepResult;
       if (workboard.outputFormat === 'text') {
@@ -405,6 +415,7 @@ async function executeRunSteps({ run, definition, fromStep = 0, ctx }) {
       runStep.status = 'completed';
       runStep.completedAt = new Date();
       prevOutput = stepResult.output;
+      previousWorkboard = workboard;
       run.markModified('steps');
       await run.save();
     } catch (err) {
@@ -489,6 +500,15 @@ async function processSequenceRun(job) {
     destProject,
     docs: createSequenceDocSource({ viewer: runner }),
     jobMarker: { sequenceRunId: run._id },
+    // 단계 입력은 필드별 출처(노출·잠금·앞 단계)로 정한다 (#953)
+    resolveStepInput: ({ workboard, definitionStep, stepIndex, previousWorkboard, prevOutput }) => {
+      const stepRunInputs = run.runInputs?.[String(definitionStep._id)];
+      const { values, skippedPrevious } = buildSequenceStepInput({
+        workboard, step: definitionStep, stepIndex, previousWorkboard, prevOutput, stepRunInputs, initialPrompt: run.initialPrompt,
+      });
+      console.log(`[SequenceRun ${runId}] step ${stepIndex} inputs: values=${Object.keys(values).length} provided=${Object.keys(stepRunInputs || {}).length} skippedPrevious=${JSON.stringify(skippedPrevious)}`);
+      return values;
+    },
     kindLabel: '작업 절차',
     logLabel: `SequenceRun ${runId}`,
   };

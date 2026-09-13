@@ -28,6 +28,10 @@ jest.mock('../models/ImageGenerationJob', () => ({ find: jest.fn() }));
 jest.mock('../models/ConversationJob', () => ({ deleteMany: jest.fn() }));
 jest.mock('../services/pipelineRunService', () => ({ startSequenceRun: jest.fn(), retrySequenceRun: jest.fn() }));
 jest.mock('../services/jobDeletionService', () => ({ deleteJobRecord: jest.fn() }));
+jest.mock('../services/attachmentOwnership', () => ({
+  findUnusableAttachments: jest.fn(async () => []),
+  describeUnusableAttachments: jest.fn((list) => `쓸 수 없는 첨부가 있습니다: ${list.map((u) => u.label).join(', ')}`),
+}));
 
 const Sequence = require('../models/Sequence');
 const SequenceDoc = require('../models/SequenceDoc');
@@ -219,9 +223,63 @@ describe('POST /api/sequence-runs — 실행 시작', () => {
     Workboard.find.mockReturnValue(chain(WORKBOARDS.map((w) => ({ ...w, allowedGroupIds: [G1] }))));
     Sequence.findById.mockReturnValue(chain(sequenceDoc()));
     Project.findById.mockResolvedValue({ _id: 'p9', userId: 'someone', allowedGroupIds: [] });
-    const res = await request(app).post('/api/sequence-runs').send({ sequenceId: SEQ, targetProjectId: '9'.repeat(24) });
+    const res = await request(app).post('/api/sequence-runs').send({ sequenceId: SEQ, initialPrompt: 'x', targetProjectId: '9'.repeat(24) });
     expect(res.status).toBe(400);
+    expect(res.body.message).toBe('결과를 담을 프로젝트를 찾을 수 없습니다');
     expect(SequenceRun.create).not.toHaveBeenCalled();
+  });
+
+  describe('실행 입력 (#953)', () => {
+    const openWorkboards = () => Workboard.find.mockReturnValue(chain(WORKBOARDS.map((w) => ({ ...w, allowedGroupIds: [G1] }))));
+    const IMG = 'a'.repeat(24);
+
+    test('앞 단계에서 받는 입력을 보내면 400 — 어느 단계·필드인지', async () => {
+      mockCurrentUser = member;
+      openWorkboards();
+      Sequence.findById.mockReturnValue(chain(sequenceDoc()));
+      const res = await request(app).post('/api/sequence-runs').send({
+        sequenceId: SEQ, inputs: { s1: { prompt: '고양이' }, s2: { prompt: '덮어쓰기' } },
+      });
+      expect(res.status).toBe(400);
+      expect(res.body.data.errors).toEqual(['2단계 프롬프트: 실행할 때 바꿀 수 없는 입력입니다']);
+      expect(SequenceRun.create).not.toHaveBeenCalled();
+    });
+
+    test('노출 입력을 정규화해 저장하고, 첫 단계 프롬프트를 목록 표시용으로 쓴다', async () => {
+      mockCurrentUser = member;
+      openWorkboards();
+      Sequence.findById.mockReturnValue(chain(sequenceDoc()));
+      SequenceRun.create.mockImplementation(async (doc) => ({ _id: RUN, ...doc }));
+      const { findUnusableAttachments } = require('../services/attachmentOwnership');
+
+      const res = await request(app).post('/api/sequence-runs').send({
+        sequenceId: SEQ, inputs: { s1: { prompt: '고양이' }, s2: { ref: [{ imageId: IMG, image: { url: 'x' } }] } },
+      });
+
+      expect(res.status).toBe(201);
+      expect(SequenceRun.create.mock.calls[0][0]).toMatchObject({
+        initialPrompt: '고양이',
+        runInputs: { s1: { prompt: '고양이' }, s2: { ref: [{ imageId: IMG }] } },
+        steps: [{ stepId: 's1' }, { stepId: 's2' }],
+      });
+      expect(findUnusableAttachments).toHaveBeenCalledWith(expect.objectContaining({ ownerIds: ['u1'] }));
+    });
+
+    test('실행자 것이 아닌 첨부는 400 (#959)', async () => {
+      mockCurrentUser = member;
+      openWorkboards();
+      Sequence.findById.mockReturnValue(chain(sequenceDoc()));
+      const { findUnusableAttachments } = require('../services/attachmentOwnership');
+      findUnusableAttachments.mockResolvedValueOnce([]).mockResolvedValueOnce([{ label: 'ref' }]);
+
+      const res = await request(app).post('/api/sequence-runs').send({
+        sequenceId: SEQ, inputs: { s1: { prompt: '고양이' }, s2: { ref: [IMG] } },
+      });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toContain('2단계 쓸 수 없는 첨부가 있습니다: ref');
+      expect(SequenceRun.create).not.toHaveBeenCalled();
+    });
   });
 });
 
