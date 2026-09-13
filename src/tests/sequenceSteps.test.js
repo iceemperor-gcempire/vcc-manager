@@ -98,6 +98,39 @@ describe('normalizeSequenceSteps', () => {
   });
 });
 
+describe('normalizeSequenceSteps — 입력 출처 (#953)', () => {
+  test('작업판에 있는 필드·올바른 출처만 저장, 나머지는 경고', () => {
+    const out = normalizeSequenceSteps([
+      { workboardId: WB_TEXT, inputSources: { prompt: { mode: 'exposed' }, temperature: 'locked', nope: { mode: 'exposed' } } },
+      {
+        workboardId: WB_IMAGE,
+        inputSources: { prompt: { mode: 'previous' }, steps: { mode: 'exposed' }, voice: { mode: 'bogus' } },
+      },
+    ], refs());
+    expect(out.ok).toBe(true);
+    expect(out.steps[0].inputSources).toEqual({ prompt: { mode: 'exposed' } });
+    expect(out.steps[1].inputSources).toEqual({ prompt: { mode: 'previous' }, steps: { mode: 'exposed' } });
+    expect(out.warnings).toEqual([
+      '1단계(프롬프트 LLM): 작업판에 없는 입력 temperature 의 출처는 저장하지 않습니다',
+      '1단계(프롬프트 LLM): 작업판에 없는 입력 nope 의 출처는 저장하지 않습니다',
+      '2단계(이미지): voice 의 출처 값이 올바르지 않아 저장하지 않습니다',
+    ]);
+  });
+
+  test('첫 단계의 앞 단계 출처는 버리고, 형식이 안 맞는 앞 단계 출처는 저장하되 경고', () => {
+    const out = normalizeSequenceSteps([
+      { workboardId: WB_IMAGE, inputSources: { prompt: { mode: 'previous' } } },
+      { workboardId: WB_IMAGE, inputSources: { ref_image: { mode: 'previous' }, prompt: { mode: 'previous' } } },
+    ], refs());
+    expect(out.steps[0].inputSources).toEqual({});
+    expect(out.steps[1].inputSources).toEqual({ ref_image: { mode: 'previous' }, prompt: { mode: 'previous' } });
+    expect(out.warnings).toEqual([
+      '1단계(이미지): 첫 단계는 앞 단계 결과를 받을 수 없습니다 — 프롬프트',
+      '2단계(이미지): 프롬프트 은 앞 단계 결과와 형식이 맞지 않아 실행 때 비어 있게 됩니다',
+    ]);
+  });
+});
+
 describe('computeGroupCoverage — 작업 절차 그룹에 작업판이 안 열린 단계', () => {
   const byId = new Map([[WB_TEXT._id, WB_TEXT], [WB_IMAGE._id, { ...WB_IMAGE }]]);
 

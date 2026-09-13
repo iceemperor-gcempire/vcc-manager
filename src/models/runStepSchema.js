@@ -10,6 +10,9 @@ function buildRunStepSchema() {
       ref: 'Workboard',
       required: true,
     },
+    // 정의 단계의 _id (작업 절차만, #953) — 실행 입력이 단계 id 로 저장되므로, 같은 작업판이라도
+    // 단계를 지우고 다시 넣으면 다른 단계로 보고 멈춘다. 파이프라인 단계는 _id 가 없어 비어 있다.
+    stepId: { type: mongoose.Schema.Types.ObjectId },
     status: {
       type: String,
       enum: ['pending', 'running', 'completed', 'failed', 'skipped'],

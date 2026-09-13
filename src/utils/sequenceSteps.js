@@ -1,9 +1,12 @@
 const { idOf } = require('./runSteps');
+const {
+  INPUT_MODES, stepFields, outputTypeOf, acceptsOutput,
+} = require('./sequenceInputs');
 
 // 작업 절차 단계의 정규화·점검 (#952). 라우트가 DB 에서 읽은 작업판·문서를 넘기면 순수하게 판정한다.
 
 // 작업 절차 사전 입력에 저장하지 않는 필드 타입. 값이 운영자 개인 소유 업로드를 가리키므로
-// 실행자에게 넘기면 남의 개인 자산을 쓰게 된다. 실행자 입력은 입력 노출 단계(#953)에서 연다.
+// 실행자에게 넘기면 남의 개인 자산을 쓰게 된다. 실행자 입력은 노출 출처(#953)로 받는다.
 const MEDIA_FIELD_TYPES = new Set(['image', 'video', 'audio', 'file']);
 
 const OBJECT_ID_RE = /^[a-f0-9]{24}$/i;
@@ -58,10 +61,42 @@ function normalizeSequenceSteps(rawSteps, { workboardsById, existingDocIds }) {
       warnings.push(`${label}(${wb.name}): 미디어 필드 사전 입력은 저장하지 않습니다 — ${dropped.join(', ')}`);
     }
 
+    // 입력 출처 (#953) — 작업판에 있는 필드·올바른 출처만 저장한다
+    const previousWorkboard = i > 0 ? workboardsById.get(idOf(rawSteps[i - 1]?.workboardId)) : null;
+    const fieldsByName = new Map(stepFields(wb).map((f) => [f.name, f]));
+    const rawSources = s.inputSources && typeof s.inputSources === 'object' && !Array.isArray(s.inputSources)
+      ? s.inputSources : {};
+    const inputSources = {};
+    for (const [name, source] of Object.entries(rawSources)) {
+      const mode = source && typeof source === 'object' ? source.mode : source;
+      const field = fieldsByName.get(name);
+      if (!field) {
+        warnings.push(`${label}(${wb.name}): 작업판에 없는 입력 ${name} 의 출처는 저장하지 않습니다`);
+        continue;
+      }
+      if (!INPUT_MODES.includes(mode)) {
+        warnings.push(`${label}(${wb.name}): ${field.label} 의 출처 값이 올바르지 않아 저장하지 않습니다`);
+        continue;
+      }
+      if (mode === 'previous' && i === 0) {
+        warnings.push(`${label}(${wb.name}): 첫 단계는 앞 단계 결과를 받을 수 없습니다 — ${field.label}`);
+        continue;
+      }
+      if (mode === 'exposed' && field.type === 'file') {
+        warnings.push(`${label}(${wb.name}): 파일 입력은 실행 화면에 노출할 수 없습니다 — ${field.label}`);
+        continue;
+      }
+      if (mode === 'previous' && !acceptsOutput(field, outputTypeOf(previousWorkboard))) {
+        warnings.push(`${label}(${wb.name}): ${field.label} 은 앞 단계 결과와 형식이 맞지 않아 실행 때 비어 있게 됩니다`);
+      }
+      inputSources[name] = { mode };
+    }
+
     const step = {
       workboardId,
       autoInject: s.autoInject !== false,
       inputs,
+      inputSources,
       contextDocIds,
       systemPromptDocId: systemPromptDocId || undefined,
       note: typeof s.note === 'string' ? s.note.trim().slice(0, 500) : '',

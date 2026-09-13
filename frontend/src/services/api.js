@@ -345,6 +345,8 @@ export const sequenceAPI = {
   create: (data) => api.post('/sequences', data),
   update: (id, data) => api.patch(`/sequences/${id}`, data),
   delete: (id) => api.delete(`/sequences/${id}`),
+  // 편집 중인 단계 구성의 입력 출처(노출·잠금·앞 단계) — 분류는 서버가 계산한다 (#953)
+  previewInputs: (steps) => api.post('/sequences/preview-inputs', { steps }),
 };
 
 // 작업 절차 문서 (#952) — 소유자 없는 문서, 전부 admin 전용. list 응답에는 본문이 없다.
