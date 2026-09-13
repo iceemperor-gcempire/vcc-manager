@@ -42,7 +42,6 @@
 | `comfyui/minimax-h3-t2v-fasth3.json` | MiniMax H3 - T2V (FastH3 · 실험) | 영상+오디오 · 텍스트 전용, 4스텝 희소 어텐션 | **비순정 ComfyUI 전제**⁷ — VSA 실험 변환본 + comfy-kitchen 0.2.32 + PR #15958 패치 + t8star 팩 |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
-| `comfyui/video-upscale-pixel.json` | 영상 업스케일 (픽셀) | 영상 (원본 오디오 유지) · **2x/4x 픽셀 업스케일** | 업스케일 모델² + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
@@ -76,12 +75,14 @@ R2V 판은 4step v0.1 고정이며
 AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되어 이전과 동일 경로). 별도 판으로
 업스케일하면 480p 손실 인코딩을 한 번 더 통과해 압축 노이즈까지 키우게 되는데, 워크플로 안에서
 처리하면 프레임이 디스크를 거치지 않아 그 손실이 없다 (동일 시드 실측: 하늘 평탄부 노이즈 −27%,
-디테일 유지). 시간 +약 40초 / 파일 약 3배 (5초 기준). `영상 업스케일 (픽셀)` 판은 **이미 만들어진
-영상**을 나중에 키울 때 쓴다 (AnimeSharp 2x · RealESRGAN 4x · Remacri 4x). 두 경우 모두
-업스케일 모델은 `models/upscale_models/` 에 있어야 한다. H.264 기본 CRF 는 14 (준무손실).
+디테일 유지). 시간 +약 40초 / 파일 약 3배 (5초 기준). 업스케일 모델은 `models/upscale_models/` 에
+있어야 한다. H.264 기본 CRF 는 14 (준무손실). 이 옵션도 **프레임을 한 장씩** 키우고, 키운 프레임 전체를
+시스템 램에 한꺼번에 올린다 (램 ≈ 프레임 수 × 가로 × 세로 × 배율² × 12바이트). 이미 만들어진 영상을
+같은 방식으로 키우던 `영상 업스케일 (픽셀)` 판은 영상 처리 과정 없이 프레임만 보고 키우는 한계가 분명해
+제거했다 (#964) — 이미 만든 영상은 IC-LoRA 판⁶으로 키운다.
 
 ⁶ **LTX IC-LoRA 업스케일 판**은 Lightricks 공식 `ltx-2.5-22b-ic-lora-pixel-spatial-upscaler-x2-1.0.safetensors`
-(`models/loras/optimizer/LTX-2/`) 로 영상을 2배 해상도로 **다시 그린다** — 픽셀 판(완전 충실)과 달리 선 정리·디테일 재생성.
+(`models/loras/optimizer/LTX-2/`) 로 영상을 2배 해상도로 **다시 그린다** — 프레임 단위 픽셀 업스케일과 달리 영상 모델이 선을 정리하고 디테일을 재생성한다.
 동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
 5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
 
