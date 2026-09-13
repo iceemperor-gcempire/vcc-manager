@@ -140,6 +140,8 @@ function createProjectDocSource({ viewer, project }) {
     loadSystemPrompt: ({ docId, label }) => loadSystemPromptDoc({ docId, viewer, project, label }),
     loadContext: ({ docIds, label }) => loadContextDocs({ docIds, viewer, project, label }),
     loadVisionImages: ({ imageIds }) => loadVisionImagesForContainer({ imageIds, viewer, project }),
+    // 이미지 단계 첨부를 쓸 수 있는 소유자 (#959) — 문서·비전 이미지와 같은 컨테이너 규칙
+    attachmentOwnerIds: () => allowedOwnerIds({ viewer, project }),
   };
 }
 
@@ -152,6 +154,7 @@ function createSequenceDocSource({ viewer }) {
     loadSystemPrompt: ({ docId, label }) => loadSequenceSystemPromptDoc({ docId, label }),
     loadContext: ({ docIds, label }) => loadSequenceContextDocs({ docIds, label }),
     loadVisionImages: ({ imageIds }) => loadVisionImagesForContainer({ imageIds, viewer, project: null }),
+    attachmentOwnerIds: () => allowedOwnerIds({ viewer, project: null }),
   };
 }
 
