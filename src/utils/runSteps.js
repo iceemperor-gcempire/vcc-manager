@@ -20,6 +20,11 @@ function findDefinitionMismatch(definitionSteps, runSteps) {
     if (idOf(def[i].workboardId) !== idOf(run[i].workboardId)) {
       return { stepIndex: i, reason: 'workboard' };
     }
+    // 작업 절차는 단계 _id 도 비교한다 — 실행 입력이 단계 id 로 저장되기 때문이다 (#953).
+    // 파이프라인 단계는 _id 가 없어 이 비교를 건너뛴다.
+    if (run[i].stepId && def[i]._id && idOf(def[i]._id) !== idOf(run[i].stepId)) {
+      return { stepIndex: i, reason: 'step' };
+    }
   }
   if (def.length !== run.length) return { stepIndex: common, reason: 'count' };
   return null;

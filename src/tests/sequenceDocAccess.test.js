@@ -71,6 +71,7 @@ describe('로더 묶음', () => {
     await source.loadContext({ docIds: ['c1'] });
     await source.loadVisionImages({ imageIds: ['img1'] });
     expect(loadVisionImages).toHaveBeenCalledWith(['img1'], ['runner1']);
+    expect(source.attachmentOwnerIds()).toEqual(['runner1']); // #959 — 작업 절차 첨부는 실행자 것만
     expect(UploadedText.find).not.toHaveBeenCalled();
     expect(UploadedText.findOne).not.toHaveBeenCalled();
   });
@@ -83,6 +84,7 @@ describe('로더 묶음', () => {
     expect(UploadedText.findOne).toHaveBeenCalledWith({ _id: 'sp', userId: { $in: ['runner1', 'owner1'] } });
     await source.loadVisionImages({ imageIds: ['img1'] });
     expect(loadVisionImages).toHaveBeenCalledWith(['img1'], ['runner1', 'owner1']);
+    expect(source.attachmentOwnerIds()).toEqual(['runner1', 'owner1']); // #959 — 파이프라인은 #923 컨테이너 규칙
     expect(SequenceDoc.findOne).not.toHaveBeenCalled();
   });
 });

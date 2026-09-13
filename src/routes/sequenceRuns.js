@@ -10,7 +10,9 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const ConversationJob = require('../models/ConversationJob');
 const { startSequenceRun, retrySequenceRun } = require('../services/pipelineRunService');
 const { deleteJobRecord } = require('../services/jobDeletionService');
+const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 const { checkRunnable, describeBlockedSteps } = require('../utils/sequenceSteps');
+const { validateRunInputs, firstPromptOf, stepFields } = require('../utils/sequenceInputs');
 
 const router = express.Router();
 
@@ -36,6 +38,7 @@ router.get('/', requireAuth, async (req, res) => {
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
         .limit(limit)
+        .select('-runInputs')
         .populate('steps.workboardId', 'name outputFormat')
         .populate('targetProjectId', 'name')
         .lean(),
@@ -55,7 +58,7 @@ router.get('/:runId', requireAuth, async (req, res) => {
   try {
     if (!isId(req.params.runId)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const run = await SequenceRun.findOne({ _id: req.params.runId, userId: req.user._id })
-      .populate('steps.workboardId', 'name description outputFormat')
+      .populate('steps.workboardId', 'name description outputFormat additionalInputFields')
       // 단계 결과 표시 + 계속하기 (작업판·입력값이 필요하다)
       .populate({
         path: 'steps.imageGenerationJobId',
@@ -71,12 +74,22 @@ router.get('/:runId', requireAuth, async (req, res) => {
       .lean();
     if (!run) return res.status(404).json({ success: false, message: NOT_FOUND });
 
+    // 실행 입력의 표시 이름 — 단계 작업판의 필드 정의에서 (#953). 필드 정의 자체는 응답에서 뺀다.
+    const inputLabels = {};
+    for (const step of run.steps || []) {
+      const wb = step.workboardId && typeof step.workboardId === 'object' ? step.workboardId : null;
+      if (step.stepId && wb) {
+        inputLabels[String(step.stepId)] = Object.fromEntries(stepFields(wb).map((f) => [f.name, { label: f.label, type: f.type }]));
+      }
+      if (wb) delete wb.additionalInputFields;
+    }
+
     // 지금도 이 작업 절차를 실행할 수 있는지 — "다시 실행" 노출용. 정의가 사라졌거나 권한이 빠졌을 수 있다.
     const sequence = await Sequence.findById(run.sequenceId).select('name isActive allowedGroupIds').lean();
     const available = !!sequence && userHasSequenceAccess(req.user, sequence);
     res.json({
       success: true,
-      data: { run, sequence: available ? { _id: sequence._id, name: sequence.name } : null },
+      data: { run, inputLabels, sequence: available ? { _id: sequence._id, name: sequence.name } : null },
     });
   } catch (error) {
     console.error('작업 절차 실행 조회 오류:', error);
@@ -86,7 +99,7 @@ router.get('/:runId', requireAuth, async (req, res) => {
 
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { sequenceId, initialPrompt = '', targetProjectId } = req.body || {};
+    const { sequenceId, initialPrompt = '', inputs, targetProjectId } = req.body || {};
     if (!isId(sequenceId)) return res.status(400).json({ success: false, message: 'sequenceId 필수' });
 
     const sequence = await Sequence.findById(sequenceId).lean();
@@ -99,13 +112,39 @@ router.post('/', requireAuth, async (req, res) => {
 
     // 작업판 접근은 작업 절차 권한과 따로 판정한다 (#802). 실행 중에도 단계마다 다시 본다.
     const workboards = await Workboard.find({ _id: { $in: sequence.steps.map((s) => s.workboardId) } })
-      .select('name isActive allowedGroupIds')
+      .select('name isActive allowedGroupIds outputFormat additionalInputFields')
       .lean();
-    const { runnable, blockedSteps } = checkRunnable(
-      req.user, sequence, new Map(workboards.map((w) => [String(w._id), w])), userHasWorkboardAccess,
-    );
+    const workboardsById = new Map(workboards.map((w) => [String(w._id), w]));
+    const { runnable, blockedSteps } = checkRunnable(req.user, sequence, workboardsById, userHasWorkboardAccess);
     if (!runnable) {
       return res.status(400).json({ success: false, message: describeBlockedSteps(blockedSteps), data: { blockedSteps } });
+    }
+
+    // 실행 입력 (#953) — 노출된 필드만, 필수·형식 검사. initialPrompt 는 첫 단계 프롬프트의 호환 별칭
+    const legacyPrompt = typeof initialPrompt === 'string' ? initialPrompt : '';
+    const checked = validateRunInputs({ steps: sequence.steps, workboardsById, inputs, initialPrompt: legacyPrompt });
+    if (!checked.ok) {
+      return res.status(400).json({ success: false, message: checked.errors.join(' · '), data: { errors: checked.errors } });
+    }
+
+    // 실행자가 넣은 첨부는 본인 것만 (#959) — 실행 중에도 단계마다 다시 본다
+    if (!req.user.isAdmin) {
+      for (const [i, step] of sequence.steps.entries()) {
+        const stepInputs = checked.inputs[String(step._id)];
+        if (!stepInputs) continue;
+        const unusable = await findUnusableAttachments({
+          workboard: workboardsById.get(String(step.workboardId)),
+          inputData: { additionalParams: stepInputs },
+          ownerIds: [req.user._id],
+          label: `sequence-run step${i}`,
+        });
+        if (unusable.length > 0) {
+          return res.status(400).json({
+            success: false,
+            message: `${i + 1}단계 ${describeUnusableAttachments(unusable)} — 내가 올리거나 만든 미디어만 첨부할 수 있습니다`,
+          });
+        }
+      }
     }
 
     // 결과를 담을 프로젝트 — 실행자가 읽을 수 있는 곳이어야 한다 (#923 과 같은 규칙).
@@ -124,9 +163,10 @@ router.post('/', requireAuth, async (req, res) => {
       sequenceName: sequence.name,
       targetProjectId: target ? target._id : undefined,
       status: 'pending',
-      initialPrompt: typeof initialPrompt === 'string' ? initialPrompt : '',
+      initialPrompt: firstPromptOf({ steps: sequence.steps, runInputs: checked.inputs, initialPrompt: legacyPrompt }),
+      runInputs: checked.inputs,
       triggerCount: 1,
-      steps: sequence.steps.map((s) => ({ workboardId: s.workboardId, status: 'pending' })),
+      steps: sequence.steps.map((s) => ({ workboardId: s.workboardId, stepId: s._id, status: 'pending' })),
     });
 
     try {
@@ -147,7 +187,8 @@ router.post('/', requireAuth, async (req, res) => {
   }
 });
 
-// 실패한 단계부터 다시 — 정의는 참조라 지금의 작업 절차로 돈다. 단계 구성이 바뀌었으면 실행기가 멈춘다.
+// 멈춘 단계부터 다시 — 정의는 참조라 지금의 작업 절차로 돈다. 단계 구성이 바뀌었으면 실행기가 멈춘다.
+// 실행 입력은 처음에 넣은 값 그대로 쓰고, 그사이 노출이 풀린 필드의 값은 실행기가 무시한다.
 router.post('/:runId/retry', requireAuth, async (req, res) => {
   try {
     if (!isId(req.params.runId)) return res.status(404).json({ success: false, message: NOT_FOUND });

@@ -37,8 +37,10 @@ const sequenceRunSchema = new mongoose.Schema({
   },
   startedAt: Date,
   completedAt: Date,
-  // 첫 단계 사용자 프롬프트
+  // 첫 단계 프롬프트 — 목록 표시용. 실제 입력은 runInputs 에 있다
   initialPrompt: { type: String, default: '' },
+  // 실행자가 넣은 노출 입력 (#953) — { [단계 _id]: { [필드 name]: 값 } }. 재시도는 같은 입력으로 돈다.
+  runInputs: { type: mongoose.Schema.Types.Mixed, default: {} },
   // 시작 / retry 횟수
   triggerCount: { type: Number, default: 0 },
   steps: [buildRunStepSchema()],

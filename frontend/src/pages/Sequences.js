@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
@@ -44,16 +44,20 @@ import ToneChip from '../components/common/ToneChip';
 import { useConfirm } from '../components/common/ConfirmDialog';
 import WorkboardSelectDialog from '../components/common/WorkboardSelectDialog';
 import { StepImageThumbnails } from '../components/common/PipelinePanel';
+import { FieldBody } from '../components/common/CustomFieldControl';
+import { CustomImageField, CustomVideoField, CustomAudioField } from './ImageGeneration';
 import { useContinueJob } from '../hooks/useContinueJob';
 import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
 import {
   runStatusMeta, runProgress, retryStartIndex, isRunInProgress, blockedSummary,
+  initialRunValues, applyRunPrefill, missingRequiredInputs, buildRunInputs, describeRunInput,
 } from '../utils/sequenceRuns';
 
 // 작업 절차 (#952) — 운영자가 정해 둔 순서대로 작업판을 이어서 실행한다.
 // 실행 기록과 결과물은 실행자 개인 자산이다. 단계 결과는 일반 작업 히스토리에 뜨지 않으므로
 // (같은 결과가 두 곳에 뜨지 않도록) 여기 실행 기록에서 보고, 계속하기·대화 이어가기도 여기서 한다.
+// 실행 화면은 서버가 계산한 단계별 노출 입력만 그린다 — 입력 필드는 작업판 실행 화면과 같은 컴포넌트 (#953).
 
 const DELETE_CONFIRM = {
   title: '이 실행 기록을 삭제하시겠습니까?',
@@ -61,6 +65,8 @@ const DELETE_CONFIRM = {
   danger: true,
   confirmLabel: '삭제',
 };
+
+const isBlank = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '') || (Array.isArray(v) && v.length === 0);
 
 function formatDuration(start, end) {
   const ms = new Date(end).getTime() - new Date(start).getTime();
@@ -85,6 +91,19 @@ function useDeleteRun(onDeleted) {
   });
 }
 
+function StepNumber({ index, tone = 'primary.main' }) {
+  return (
+    <Box
+      sx={{
+        width: 22, height: 22, borderRadius: '50%', flexShrink: 0, bgcolor: tone, color: 'primary.contrastText',
+        display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO,
+      }}
+    >
+      {index + 1}
+    </Box>
+  );
+}
+
 // ── 목록 ──────────────────────────────────────────────────────────
 
 function StepPath({ steps }) {
@@ -99,15 +118,7 @@ function StepPath({ steps }) {
               border: 1, borderColor: s.blocked ? 'warning.main' : 'divider', borderRadius: 1.5, bgcolor: 'action.hover',
             }}
           >
-            <Box
-              sx={{
-                width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                bgcolor: s.blocked ? 'warning.main' : 'primary.main', color: 'primary.contrastText',
-                display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO,
-              }}
-            >
-              {i + 1}
-            </Box>
+            <StepNumber index={i} tone={s.blocked ? 'warning.main' : 'primary.main'} />
             <Typography variant="caption" noWrap sx={{ fontWeight: 600 }}>
               {s.workboard?.name || '(삭제된 작업판)'}
             </Typography>
@@ -168,6 +179,96 @@ function SequenceCatalog({ onRun }) {
 
 // ── 실행 ──────────────────────────────────────────────────────────
 
+function RunFieldInput({ field, workboard, value, onChange, showMissing }) {
+  const missing = showMissing && field.required && isBlank(value);
+  const wb = workboard || {};
+  let control;
+  if (field.type === 'image') {
+    control = (
+      <CustomImageField
+        field={field}
+        value={value || []}
+        onChange={onChange}
+        maxImages={field.maxItems || 1}
+        isComfyUI={wb.serverType === 'ComfyUI'}
+      />
+    );
+  } else if (field.type === 'video') {
+    control = <CustomVideoField field={field} value={value || []} onChange={onChange} maxVideos={field.maxItems || 1} />;
+  } else if (field.type === 'audio') {
+    control = <CustomAudioField field={field} value={value || []} onChange={onChange} maxAudios={field.maxItems || 1} />;
+  } else {
+    return (
+      <FieldBody
+        field={field}
+        value={value}
+        onChange={onChange}
+        error={missing ? { message: `${field.label}을(를) 입력해주세요` } : undefined}
+        serverId={wb.serverId}
+        workboardId={wb._id}
+        allowedModelTypes={wb.allowedModelTypes}
+      />
+    );
+  }
+  return (
+    <Box>
+      {control}
+      {missing && (
+        <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>
+          {field.label}을(를) 첨부해주세요
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+function StepInputCard({ step, index, values, onChange, showMissing }) {
+  const fields = step.fields || [];
+  const exposed = fields.filter((f) => f.mode === 'exposed');
+  const inherited = fields.filter((f) => f.mode === 'previous');
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25, borderBottom: 1, borderColor: 'divider' }}>
+        <StepNumber index={index} />
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography variant="subtitle2" noWrap>{step.workboard?.name || '(삭제된 작업판)'}</Typography>
+          {step.note && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', whiteSpace: 'pre-wrap' }}>
+              {step.note}
+            </Typography>
+          )}
+        </Box>
+        {step.lockedCount > 0 && (
+          <Tooltip title="작업 절차를 만든 사람이 정해 둔 설정입니다">
+            <Box component="span"><ToneChip tone="neutral" label={`고정 설정 ${step.lockedCount}개`} /></Box>
+          </Tooltip>
+        )}
+      </Box>
+      <Stack spacing={2.5} sx={{ p: 2 }}>
+        {inherited.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Typography variant="caption" color="text.secondary">앞 단계 결과를 받습니다</Typography>
+            {inherited.map((f) => <ToneChip key={f.name} tone="info" label={f.label} />)}
+          </Box>
+        )}
+        {exposed.length === 0 && inherited.length === 0 && (
+          <Typography variant="caption" color="text.secondary">이 단계는 입력할 것이 없습니다.</Typography>
+        )}
+        {exposed.map((f) => (
+          <RunFieldInput
+            key={f.name}
+            field={f}
+            workboard={step.workboard}
+            value={values?.[f.name]}
+            onChange={(v) => onChange(f.name, v)}
+            showMissing={showMissing}
+          />
+        ))}
+      </Stack>
+    </Paper>
+  );
+}
+
 function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
   const queryClient = useQueryClient();
   const { data, isLoading, isError } = useQuery({
@@ -182,13 +283,21 @@ function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
   });
   const projects = projectsData?.data?.data?.projects || projectsData?.data?.projects || [];
 
-  const [prompt, setPrompt] = useState(prefill || '');
+  const [values, setValues] = useState(null);
   const [targetProjectId, setTargetProjectId] = useState('');
+  const [showMissing, setShowMissing] = useState(false);
+
+  // 서버가 준 기본값으로 한 번만 채운다 — 다시 불러와도 입력 중인 값을 덮지 않게
+  useEffect(() => {
+    if (!sequence || values !== null) return;
+    const initial = initialRunValues(sequence.steps);
+    setValues(prefill ? applyRunPrefill(initial, sequence.steps, prefill) : initial);
+  }, [sequence, values, prefill]);
 
   const startMutation = useMutation({
     mutationFn: () => sequenceRunAPI.start({
       sequenceId,
-      initialPrompt: prompt,
+      inputs: buildRunInputs(sequence.steps, values),
       ...(targetProjectId ? { targetProjectId } : {}),
     }),
     onSuccess: (res) => {
@@ -196,10 +305,12 @@ function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
       toast.success('실행을 시작했습니다.');
       onStarted(res.data?.data?.run?._id);
     },
-    onError: (err) => toast.error(err.response?.data?.message || '시작하지 못했습니다'),
+    onError: (err) => toast.error(err.response?.data?.message || '시작하지 못했습니다', { duration: 6000 }),
   });
 
-  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+  if (isLoading || (sequence && values === null)) {
+    return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>;
+  }
   if (isError || !sequence) {
     return (
       <Alert severity="error" action={<Button onClick={onClose}>목록으로</Button>}>
@@ -209,6 +320,20 @@ function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
   }
 
   const steps = sequence.steps || [];
+  const missing = missingRequiredInputs(steps, values);
+  const setStepValue = (stepId, name, value) => setValues((prev) => ({
+    ...prev,
+    [stepId]: { ...(prev[stepId] || {}), [name]: value },
+  }));
+  const handleStart = () => {
+    if (missing.length > 0) {
+      setShowMissing(true);
+      toast.error('입력하지 않은 항목이 있습니다');
+      return;
+    }
+    startMutation.mutate();
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 3, mb: 3, flexWrap: 'wrap' }}>
@@ -221,32 +346,26 @@ function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
         <Button startIcon={<ArrowBackIcon />} onClick={onClose}>목록</Button>
       </Box>
 
-      <Stack spacing={2.5} sx={{ maxWidth: 820 }}>
+      <Stack spacing={2.5} sx={{ maxWidth: 880 }}>
         <StepPath steps={steps} />
-        {steps.some((s) => s.note) && (
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1}>
-              {steps.map((s, i) => (s.note ? (
-                <Typography key={s._id || i} variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                  <Box component="span" sx={{ fontFamily: MONO, color: 'text.secondary', mr: 1 }}>{i + 1}</Box>
-                  {s.note}
-                </Typography>
-              ) : null))}
-            </Stack>
-          </Paper>
-        )}
         {!sequence.runnable && (
           <Alert severity="warning">지금은 실행할 수 없습니다 — {blockedSummary(sequence)}. 운영자에게 문의하세요.</Alert>
         )}
-        <TextField
-          label="첫 단계 입력"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          multiline
-          minRows={3}
-          fullWidth
-          autoFocus
-        />
+        {steps.map((step, i) => (
+          <StepInputCard
+            key={step._id || i}
+            step={step}
+            index={i}
+            values={values[step._id]}
+            onChange={(name, value) => setStepValue(step._id, name, value)}
+            showMissing={showMissing}
+          />
+        ))}
+        {showMissing && missing.length > 0 && (
+          <Alert severity="warning">
+            입력하지 않은 항목이 있습니다 — {missing.map((m) => `${m.stepIndex + 1}단계 ${m.label}`).join(', ')}
+          </Alert>
+        )}
         {projects.length > 0 && (
           <TextField
             select
@@ -271,8 +390,8 @@ function SequenceRunner({ sequenceId, prefill, onClose, onStarted }) {
             variant="contained"
             size="large"
             startIcon={startMutation.isPending ? <CircularProgress size={18} color="inherit" /> : <PlayArrowIcon />}
-            onClick={() => startMutation.mutate()}
-            disabled={!sequence.runnable || !prompt.trim() || startMutation.isPending}
+            onClick={handleStart}
+            disabled={!sequence.runnable || startMutation.isPending}
           >
             실행
           </Button>
@@ -387,6 +506,47 @@ function RunList({ onSelect }) {
   );
 }
 
+// 실행 입력 — 실행자가 넣은 값. 옛 실행 기록(입력 노출 전)은 첫 단계 프롬프트만 있다
+function RunInputsSummary({ run, labels }) {
+  const rows = [];
+  (run.steps || []).forEach((step, stepIndex) => {
+    const stepId = step.stepId ? String(step.stepId) : null;
+    const provided = stepId ? run.runInputs?.[stepId] : null;
+    if (!provided) return;
+    Object.entries(provided).forEach(([name, value]) => {
+      const meta = labels?.[stepId]?.[name] || { label: name };
+      rows.push({ key: `${stepId}-${name}`, stepIndex, label: meta.label, text: describeRunInput(value, meta.type) });
+    });
+  });
+
+  if (rows.length === 0) {
+    if (!run.initialPrompt) return null;
+    return (
+      <Paper variant="outlined" sx={{ p: 1.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>첫 단계 입력</Typography>
+        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{run.initialPrompt}</Typography>
+      </Paper>
+    );
+  }
+  return (
+    <Paper variant="outlined" sx={{ p: 1.5 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>실행 입력</Typography>
+      <Stack spacing={1}>
+        {rows.map((r) => (
+          <Box key={r.key} sx={{ display: 'flex', gap: 1.5, alignItems: 'baseline', flexWrap: 'wrap' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0, minWidth: 120 }}>
+              {r.stepIndex + 1}단계 · {r.label}
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: 0, flex: 1 }}>
+              {r.text}
+            </Typography>
+          </Box>
+        ))}
+      </Stack>
+    </Paper>
+  );
+}
+
 function RunStepList({ run, onContinue, onCross, onTextContinue }) {
   const steps = run.steps || [];
   return (
@@ -486,6 +646,7 @@ function RunDetail({ runId, onBack, onRerun }) {
     refetchInterval: (query) => (isRunInProgress(query.state.data?.data?.data?.run) ? 2000 : false),
   });
   const run = data?.data?.data?.run;
+  const inputLabels = data?.data?.data?.inputLabels || {};
   const available = data?.data?.data?.sequence;
 
   const retryMutation = useMutation({
@@ -538,7 +699,10 @@ function RunDetail({ runId, onBack, onRerun }) {
           </Button>
         )}
         {available && !inProgress && (
-          <Button startIcon={<ReplayIcon />} onClick={() => onRerun(run.sequenceId, run.initialPrompt)}>
+          <Button
+            startIcon={<ReplayIcon />}
+            onClick={() => onRerun(run.sequenceId, { runInputs: run.runInputs, initialPrompt: run.initialPrompt })}
+          >
             같은 입력으로 새로 실행
           </Button>
         )}
@@ -572,12 +736,7 @@ function RunDetail({ runId, onBack, onRerun }) {
             <LinearProgress variant="determinate" value={progress.pct} sx={{ flex: 1, height: 6, borderRadius: 1 }} />
           </Box>
         )}
-        {run.initialPrompt && (
-          <Paper variant="outlined" sx={{ p: 1.5 }}>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>첫 단계 입력</Typography>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{run.initialPrompt}</Typography>
-          </Paper>
-        )}
+        <RunInputsSummary run={run} labels={inputLabels} />
         <RunStepList
           run={run}
           onContinue={continueSameWorkboard}
@@ -603,7 +762,7 @@ function RunDetail({ runId, onBack, onRerun }) {
 
 export default function Sequences() {
   const [params, setParams] = useSearchParams();
-  const [prefill, setPrefill] = useState('');
+  const [prefill, setPrefill] = useState(null);
   const startId = params.get('start');
   const runId = params.get('run');
   const tab = params.get('tab') === 'runs' ? 'runs' : 'catalog';
@@ -621,8 +780,8 @@ export default function Sequences() {
           key={startId}
           sequenceId={startId}
           prefill={prefill}
-          onClose={() => { setPrefill(''); go({}); }}
-          onStarted={(id) => { setPrefill(''); go({ tab: 'runs', run: id }); }}
+          onClose={() => { setPrefill(null); go({}); }}
+          onStarted={(id) => { setPrefill(null); go({ tab: 'runs', run: id }); }}
         />
       ) : (
         <>
@@ -636,7 +795,7 @@ export default function Sequences() {
               key={runId}
               runId={runId}
               onBack={() => go({ tab: 'runs' })}
-              onRerun={(sequenceId, prompt) => { setPrefill(prompt || ''); go({ start: sequenceId }); }}
+              onRerun={(sequenceId, previous) => { setPrefill(previous); go({ start: sequenceId }); }}
             />
           ) : (
             <RunList onSelect={(id) => go({ tab: 'runs', run: id })} />

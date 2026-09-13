@@ -33,6 +33,7 @@ jest.mock('../services/containerDocAccess', () => {
     loadSystemPrompt: jest.fn(async ({ docId }) => (docId ? { title: `${kind} 지침`, content: `${kind} 본문` } : null)),
     loadContext: jest.fn(async () => []),
     loadVisionImages: jest.fn(async () => []),
+    attachmentOwnerIds: jest.fn(() => (kind === 'sequence' ? ['u1'] : ['u1', 'owner1'])),
   });
   return {
     createSequenceDocSource: jest.fn(() => makeSource('sequence')),
@@ -40,6 +41,10 @@ jest.mock('../services/containerDocAccess', () => {
     resolveProjectTag: jest.fn(() => null),
   };
 });
+jest.mock('../services/attachmentOwnership', () => ({
+  findUnusableAttachments: jest.fn(async () => []),
+  describeUnusableAttachments: jest.fn((list) => `쓸 수 없는 첨부가 있습니다: ${list.map((u) => u.label).join(', ')}`),
+}));
 jest.mock('../middleware/auth', () => {
   const actual = jest.requireActual('../middleware/auth');
   return {
@@ -82,7 +87,7 @@ function workboardDoc(id, overrides = {}) {
 function mockWorkboards(byId) {
   Workboard.findById.mockImplementation((id) => {
     const wb = byId[String(id)] || null;
-    return { populate: async () => wb, then: (resolve, reject) => Promise.resolve(wb).then(resolve, reject) };
+    return { populate: async () => wb, lean: async () => wb, then: (resolve, reject) => Promise.resolve(wb).then(resolve, reject) };
   });
 }
 
@@ -221,6 +226,68 @@ describe('processSequenceRun', () => {
     await processSequenceRun({ data: { runId: 'run1', fromStep: 1 } });
 
     expect(run.steps.map((s) => s.status)).toEqual(['completed', 'failed']);
+  });
+
+  test('실행자 것이 아닌 첨부가 들어간 이미지 단계는 작업을 만들지 않고 실패 (#959)', async () => {
+    const { findUnusableAttachments } = require('../services/attachmentOwnership');
+    findUnusableAttachments.mockResolvedValueOnce([{ label: '시작 이미지' }]);
+    const run = fakeRun();
+    SequenceRun.findById.mockResolvedValue(run);
+    Sequence.findById.mockResolvedValue(definition());
+
+    await processSequenceRun({ data: { runId: 'run1' } });
+
+    expect(findUnusableAttachments.mock.calls[0][0].ownerIds).toEqual(['u1']);
+    expect(run.steps[1]).toMatchObject({ status: 'failed', error: { message: '쓸 수 없는 첨부가 있습니다: 시작 이미지' } });
+    expect(queueService.addImageGenerationJob).not.toHaveBeenCalled();
+  });
+
+  test('admin 실행자는 첨부 검증을 건너뛴다', async () => {
+    jest.useFakeTimers();
+    const { findUnusableAttachments } = require('../services/attachmentOwnership');
+    User.findById.mockReturnValue(lean({ _id: 'u1', isAdmin: true, groupIds: [] }));
+    const run = fakeRun();
+    SequenceRun.findById.mockResolvedValue(run);
+    Sequence.findById.mockResolvedValue(definition());
+
+    const done = processSequenceRun({ data: { runId: 'run1' } });
+    await jest.advanceTimersByTimeAsync(3000);
+    await done;
+
+    expect(run.status).toBe('completed');
+    expect(findUnusableAttachments).not.toHaveBeenCalled();
+  });
+
+  test('실행자가 넣은 노출 입력은 그 단계에만, 잠긴 값은 작성자 값으로 (#953)', async () => {
+    jest.useFakeTimers();
+    mockWorkboards({
+      [WB_TEXT]: workboardDoc(WB_TEXT),
+      [WB_IMAGE]: workboardDoc(WB_IMAGE, {
+        additionalInputFields: [
+          { name: 'quality', type: 'select', defaultValue: 'medium', options: [{ key: '낮음', value: 'low' }, { key: '보통', value: 'medium' }] },
+          { name: 'steps', type: 'number', defaultValue: 8 },
+        ],
+      }),
+    });
+    const run = fakeRun({ initialPrompt: '', runInputs: { st1: { prompt: '실행자 입력' }, st2: { quality: 'low', steps: 99 } } });
+    SequenceRun.findById.mockResolvedValue(run);
+    Sequence.findById.mockResolvedValue(definition({
+      steps: [
+        { _id: 'st1', workboardId: WB_TEXT, inputs: {} },
+        { _id: 'st2', workboardId: WB_IMAGE, inputs: { steps: 12 } },
+      ],
+    }));
+
+    const done = processSequenceRun({ data: { runId: 'run1' } });
+    await jest.advanceTimersByTimeAsync(3000);
+    await done;
+
+    expect(run.status).toBe('completed');
+    expect(ConversationJob.create.mock.calls[0][0].messages.at(-1).content).toBe('실행자 입력');
+    const input = queueService.addImageGenerationJob.mock.calls[0][2];
+    expect(input.prompt).toBe('생성된 프롬프트'); // 앞 단계 출력
+    expect(input.additionalParams.quality).toBe('low'); // 노출 — 실행자 값
+    expect(input.additionalParams.steps).toBe(12); // 잠금 — 실행자가 보낸 99 는 무시
   });
 
   test('작업 절차가 삭제됐으면 실패로 닫는다', async () => {
