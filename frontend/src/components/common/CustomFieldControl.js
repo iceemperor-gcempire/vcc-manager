@@ -36,8 +36,8 @@ function requiredMessage(field) {
   return `${field.label}을(를) ${verb}해주세요`;
 }
 
-// 실제 입력 UI — 폼 유무와 무관한 표현 계층
-function FieldBody({ field, value, onChange, error, size, disabled, serverId, workboardId, allowedModelTypes }) {
+// 실제 입력 UI — 폼 유무와 무관한 표현 계층. react-hook-form 없이 값/onChange 로 그리는 곳(작업 절차 실행, #953)도 쓴다
+export function FieldBody({ field, value, onChange, error, size, disabled, serverId, workboardId, allowedModelTypes }) {
   switch (field.type) {
     case 'number':
       return (

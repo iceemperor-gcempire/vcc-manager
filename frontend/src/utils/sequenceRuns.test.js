@@ -2,6 +2,7 @@ import { describe, test, expect } from 'vitest';
 import {
   runStatusMeta, runProgress, retryStartIndex, blockedSummary, stepGroupGaps,
   toEditorState, buildSequencePayload, newEditorStep, moveItem, isRunInProgress,
+  setFieldMode, initialRunValues, applyRunPrefill, missingRequiredInputs, buildRunInputs, describeRunInput,
 } from './sequenceRuns';
 
 describe('실행 상태 표시', () => {
@@ -62,18 +63,24 @@ describe('편집기 상태 ↔ 저장 본문', () => {
     isActive: false,
     allowedGroupIds: [{ _id: 'g1', name: 'A' }],
     steps: [
-      { _id: 's1', workboardId: 'w1', workboard: { _id: 'w1', name: 'LLM' }, inputs: { tone: '차분' }, contextDocIds: ['d1'], systemPromptDocId: 'd2', note: '메모' },
+      {
+        _id: 's1', workboardId: 'w1', workboard: { _id: 'w1', name: 'LLM' }, inputs: { tone: '차분' },
+        inputSources: { tone: { mode: 'exposed' } }, contextDocIds: ['d1'], systemPromptDocId: 'd2', note: '메모',
+      },
     ],
   };
 
-  test('단계 _id 를 돌려보내고 표시용 필드는 뺀다', () => {
+  test('단계 _id·입력 출처를 돌려보내고 표시용 필드는 뺀다', () => {
     const payload = buildSequencePayload(toEditorState(managed));
     expect(payload).toEqual({
       name: '절차',
       description: '설명',
       isActive: false,
       allowedGroupIds: ['g1'],
-      steps: [{ _id: 's1', workboardId: 'w1', autoInject: true, inputs: { tone: '차분' }, contextDocIds: ['d1'], systemPromptDocId: 'd2', note: '메모' }],
+      steps: [{
+        _id: 's1', workboardId: 'w1', autoInject: true, inputs: { tone: '차분' }, inputSources: { tone: { mode: 'exposed' } },
+        contextDocIds: ['d1'], systemPromptDocId: 'd2', note: '메모',
+      }],
     });
   });
 
@@ -81,11 +88,82 @@ describe('편집기 상태 ↔ 저장 본문', () => {
     const form = { ...toEditorState(null), name: '  새 절차 ', steps: [newEditorStep({ _id: 'w9', name: '이미지' })] };
     const payload = buildSequencePayload(form);
     expect(payload.name).toBe('새 절차');
-    expect(payload.steps[0]).toEqual({ workboardId: 'w9', autoInject: true, inputs: {}, contextDocIds: [], systemPromptDocId: undefined, note: '' });
+    expect(payload.steps[0]).toEqual({
+      workboardId: 'w9', autoInject: true, inputs: {}, inputSources: {}, contextDocIds: [], systemPromptDocId: undefined, note: '',
+    });
   });
 
   test('새 단계마다 다른 clientKey', () => {
     expect(newEditorStep({ _id: 'w' }).clientKey).not.toBe(newEditorStep({ _id: 'w' }).clientKey);
+  });
+});
+
+describe('setFieldMode — 기본 출처와 같으면 저장하지 않는다', () => {
+  const field = { name: 'quality', defaultMode: 'exposed' };
+
+  test('기본과 다르면 저장, 되돌리면 지운다', () => {
+    const locked = setFieldMode({ inputSources: {} }, field, 'locked');
+    expect(locked.inputSources).toEqual({ quality: { mode: 'locked' } });
+    expect(setFieldMode(locked, field, 'exposed').inputSources).toEqual({});
+  });
+});
+
+describe('실행 화면 입력', () => {
+  const steps = [
+    {
+      _id: 's1',
+      fields: [
+        { name: 'prompt', label: '프롬프트', type: 'string', required: true, mode: 'exposed', defaultValue: undefined },
+        { name: 'quality', label: '품질', type: 'select', mode: 'exposed', defaultValue: 'medium' },
+      ],
+    },
+    {
+      _id: 's2',
+      fields: [
+        { name: 'prompt', label: '프롬프트', type: 'string', required: true, mode: 'previous' },
+        { name: 'start_image', label: '시작 이미지', type: 'image', required: true, mode: 'exposed', defaultValue: [] },
+      ],
+    },
+  ];
+
+  test('초기값은 노출 필드만, 기본값이 없으면 빈 값', () => {
+    expect(initialRunValues(steps)).toEqual({
+      s1: { prompt: '', quality: 'medium' },
+      s2: { start_image: [] },
+    });
+  });
+
+  test('필수 노출 필드 중 빈 것', () => {
+    expect(missingRequiredInputs(steps, initialRunValues(steps))).toEqual([
+      { stepIndex: 0, label: '프롬프트' },
+      { stepIndex: 1, label: '시작 이미지' },
+    ]);
+  });
+
+  test('요청 본문 — 첨부는 id 만, 앞 단계 필드는 싣지 않는다', () => {
+    const values = { s1: { prompt: '고양이', quality: 'low' }, s2: { start_image: [{ imageId: 'i1', image: { url: 'x' } }], prompt: '무시' } };
+    expect(buildRunInputs(steps, values)).toEqual({
+      s1: { prompt: '고양이', quality: 'low' },
+      s2: { start_image: [{ imageId: 'i1' }] },
+    });
+  });
+
+  test('같은 입력으로 새로 실행 — 노출 필드의 이전 값, 첨부는 다시 고르게, 옛 기록은 첫 프롬프트만', () => {
+    const prefilled = applyRunPrefill(initialRunValues(steps), steps, {
+      runInputs: { s1: { quality: 'low', prompt: '이전' }, s2: { start_image: [{ imageId: 'i1' }] } },
+    });
+    expect(prefilled).toEqual({ s1: { prompt: '이전', quality: 'low' }, s2: { start_image: [] } });
+
+    const legacy = applyRunPrefill(initialRunValues(steps), steps, { initialPrompt: '옛 입력' });
+    expect(legacy.s1.prompt).toBe('옛 입력');
+  });
+
+  test('실행 기록 표시 한 줄', () => {
+    expect(describeRunInput([{ imageId: 'a' }, { imageId: 'b' }], 'image')).toBe('이미지 2개');
+    expect(describeRunInput([], 'video')).toBe('첨부 없음');
+    expect(describeRunInput(true, 'boolean')).toBe('켜짐');
+    expect(describeRunInput('', 'string')).toBe('(비어 있음)');
+    expect(describeRunInput('가'.repeat(250), 'string')).toHaveLength(201);
   });
 });
 

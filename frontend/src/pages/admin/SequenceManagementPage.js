@@ -22,6 +22,8 @@ import {
   DialogActions,
   Divider,
   InputAdornment,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,26 +37,30 @@ import {
   ExpandMore,
   ExpandLess,
 } from '@mui/icons-material';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { sequenceAPI, sequenceDocAPI, workboardAPI, groupAPI } from '../../services/api';
 import PageHeader from '../../components/common/PageHeader';
 import ToneChip from '../../components/common/ToneChip';
 import { useConfirm } from '../../components/common/ConfirmDialog';
-import { StepInputsForm } from '../../components/common/PipelinePanel';
+import { FieldBody } from '../../components/common/CustomFieldControl';
 import { MONO } from '../../theme';
 import { relativeTime } from '../../utils/relativeTime';
 import { formatGuideSize } from '../../utils/guideSize';
 import {
   buildSequencePayload, toEditorState, newEditorStep, moveItem, stepGroupGaps,
+  setFieldMode, INPUT_MODE_LABEL, FIELD_KIND_LABEL,
 } from '../../utils/sequenceRuns';
 
 // 작업 절차 관리 (#952, Epic #951).
 // 작업 절차는 소유자가 없는 운영자 자산이다 — 접근은 그룹, 실행은 참조라 고치면 다음 실행부터
 // 모든 사용자에게 반영된다. 단계 작업판 접근은 작업 절차와 따로 판정되므로(#802), 작업 절차를 연
 // 그룹에 작업판이 열려 있지 않으면 그 그룹 사용자는 실행이 막힌다 — 목록과 편집기에서 미리 보여준다.
+// 단계 입력의 출처(노출·잠금·앞 단계, #953)는 서버가 계산한 기본값 위에 필요한 것만 바꾼다.
 
 const OUTPUT_LABEL = { text: '텍스트', image: '이미지', video: '영상', audio: '오디오' };
+const ATTACHMENT_TYPES = ['image', 'video', 'audio'];
+const idOf = (v) => (v && typeof v === 'object' ? v._id : v);
 
 function groupLabel(groups, id) {
   const g = groups.find((x) => x._id === id);
@@ -240,21 +246,82 @@ function WorkboardPickerDialog({ open, onClose, onPick }) {
   );
 }
 
-function SequenceStepCard({ step, index, total, docs, groups, allowedGroupIds, onChange, onMove, onRemove }) {
+// 필드 한 줄 — 출처 선택 + (앞 단계가 아니면) 값. 잠금은 고정값, 노출은 실행 화면 기본값이다.
+function FieldModeRow({ fieldMode, step, stepIndex, onModeChange, onValueChange }) {
+  const isAttachment = ATTACHMENT_TYPES.includes(fieldMode.type);
+  const wb = step.workboard || {};
+  const stored = step.inputs?.[fieldMode.name];
+  const value = stored ?? fieldMode.defaultValue ?? (fieldMode.type === 'boolean' ? false : '');
+  const overridden = fieldMode.mode !== fieldMode.defaultMode;
+
+  return (
+    <Box sx={{ py: 1.5, borderTop: 1, borderColor: 'divider' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', rowGap: 1 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>{fieldMode.label}</Typography>
+        <ToneChip tone="neutral" label={FIELD_KIND_LABEL[fieldMode.kind] || fieldMode.kind} />
+        {overridden && (
+          <Tooltip title={`기본은 ${INPUT_MODE_LABEL[fieldMode.defaultMode]}입니다`}>
+            <Box component="span"><ToneChip tone="accent" label="직접 지정" /></Box>
+          </Tooltip>
+        )}
+        <Box sx={{ flex: 1 }} />
+        <ToggleButtonGroup
+          size="small"
+          exclusive
+          value={fieldMode.mode}
+          onChange={(_, mode) => mode && onModeChange(mode)}
+          aria-label={`${fieldMode.label} 입력 출처`}
+        >
+          <ToggleButton value="exposed">노출</ToggleButton>
+          <ToggleButton value="locked">잠금</ToggleButton>
+          <ToggleButton value="previous" disabled={stepIndex === 0}>앞 단계</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
+      {fieldMode.mode === 'previous' && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          앞 단계 결과가 들어갑니다.
+        </Typography>
+      )}
+      {fieldMode.mode !== 'previous' && isAttachment && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+          {fieldMode.mode === 'exposed' ? '실행하는 사람이 첨부합니다.' : '첨부 없이 실행합니다 — 파일은 작업 절차에 미리 넣어 둘 수 없습니다.'}
+        </Typography>
+      )}
+      {fieldMode.mode !== 'previous' && !isAttachment && (
+        <Box sx={{ mt: 1.5 }}>
+          <FieldBody
+            field={{ ...fieldMode, required: false }}
+            value={value}
+            onChange={onValueChange}
+            size="small"
+            serverId={idOf(wb.serverId)}
+            workboardId={wb._id}
+            allowedModelTypes={wb.allowedModelTypes}
+          />
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+            {fieldMode.mode === 'exposed'
+              ? '실행 화면의 기본값 — 실행하는 사람이 바꿀 수 있습니다'
+              : '고정값 — 실행하는 사람에게는 보이지 않습니다'}
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
+function SequenceStepCard({
+  step, index, total, docs, groups, allowedGroupIds, fieldModes,
+  onChange, onModeChange, onValueChange, onMove, onRemove,
+}) {
   const [inputsOpen, setInputsOpen] = useState(false);
   const listed = step.workboard;
-  // 목록·검색 응답에는 입력 필드 정의가 빠져 있을 수 있다 — 사전 입력을 열 때만 전체를 가져온다
-  const needsFull = inputsOpen && listed?._id && !Array.isArray(listed.additionalInputFields);
-  const { data: fullData } = useQuery({
-    queryKey: ['sequenceStepWorkboard', listed?._id],
-    queryFn: () => workboardAPI.getById(listed._id),
-    enabled: !!needsFull,
-    staleTime: 60_000,
-  });
-  const workboard = needsFull ? (fullData?.data?.workboard || null) : listed;
   const isText = listed?.outputFormat === 'text';
-  const presetCount = Object.values(step.inputs || {}).filter((v) => v !== '' && v != null).length;
   const gaps = stepGroupGaps(listed, allowedGroupIds);
+  const counts = fieldModes.reduce((acc, f) => ({ ...acc, [f.mode]: (acc[f.mode] || 0) + 1 }), {});
+  const summary = ['exposed', 'locked', 'previous']
+    .filter((m) => counts[m])
+    .map((m) => `${INPUT_MODE_LABEL[m]} ${counts[m]}`)
+    .join(' · ');
 
   return (
     <Paper variant="outlined" sx={{ borderRadius: 2 }}>
@@ -335,21 +402,28 @@ function SequenceStepCard({ step, index, total, docs, groups, allowedGroupIds, o
         )}
         <Box>
           <Button size="small" onClick={() => setInputsOpen((v) => !v)} endIcon={inputsOpen ? <ExpandLess /> : <ExpandMore />}>
-            사전 입력{presetCount > 0 ? ` (${presetCount})` : ''}
+            입력 설정{summary ? ` (${summary})` : ''}
           </Button>
           {inputsOpen && (
-            <Box sx={{ mt: 1.5 }}>
-              {workboard ? (
-                <StepInputsForm workboard={workboard} values={step.inputs || {}} onChange={(inputs) => onChange({ inputs })} />
-              ) : (
-                <CircularProgress size={20} />
-              )}
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                {index === 0
-                  ? '첫 단계의 프롬프트는 실행할 때 사용자가 입력한 값으로 바뀝니다.'
-                  : '앞 단계 결과 넘기기가 켜져 있으면 프롬프트·이미지 입력은 실행 때 앞 단계 결과로 바뀝니다.'}
-                {' '}이미지 같은 파일 입력은 저장되지 않습니다.
+            <Box sx={{ mt: 1 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                노출은 실행하는 사람이 입력하고, 잠금은 여기서 정한 값으로 고정되며, 앞 단계는 직전 단계 결과를 받습니다.
+                기본값은 필드 종류로 정해지고, 바꾼 것만 저장됩니다.
               </Typography>
+              {fieldModes.length === 0 ? (
+                <CircularProgress size={20} sx={{ mt: 1 }} />
+              ) : (
+                fieldModes.map((fm) => (
+                  <FieldModeRow
+                    key={fm.name}
+                    fieldMode={fm}
+                    step={step}
+                    stepIndex={index}
+                    onModeChange={(mode) => onModeChange(fm, mode)}
+                    onValueChange={(value) => onValueChange(fm.name, value)}
+                  />
+                ))
+              )}
             </Box>
           )}
         </Box>
@@ -361,6 +435,10 @@ function SequenceStepCard({ step, index, total, docs, groups, allowedGroupIds, o
 function SequenceEditor({ sequenceId, onClose }) {
   const isNew = !sequenceId;
   const queryClient = useQueryClient();
+  const [form, setForm] = useState(() => toEditorState(null));
+  const [loadedId, setLoadedId] = useState(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   const { data: detailData, isLoading, isError } = useQuery({
     queryKey: ['sequence', 'manage', sequenceId],
     queryFn: () => sequenceAPI.get(sequenceId, { view: 'manage' }),
@@ -371,9 +449,18 @@ function SequenceEditor({ sequenceId, onClose }) {
   const groups = groupsData?.data?.data?.groups || [];
   const docs = docsData?.data?.data?.docs || [];
 
-  const [form, setForm] = useState(() => toEditorState(null));
-  const [loadedId, setLoadedId] = useState(null);
-  const [pickerOpen, setPickerOpen] = useState(false);
+  // 입력 출처 기본값은 단계 순서·자동 주입·지정한 출처에 따라 달라진다 — 서버가 계산한다. 값 입력으로는 다시 묻지 않는다.
+  const previewSteps = form.steps.map((s) => ({
+    workboardId: s.workboardId, autoInject: s.autoInject !== false, inputSources: s.inputSources || {},
+  }));
+  const { data: previewData } = useQuery({
+    queryKey: ['sequencePreviewInputs', JSON.stringify(previewSteps)],
+    queryFn: () => sequenceAPI.previewInputs(previewSteps),
+    enabled: form.steps.length > 0,
+    placeholderData: keepPreviousData,
+  });
+  const previewByIndex = previewData?.data?.data?.steps || [];
+
   const loaded = detailData?.data?.data?.sequence;
   // 한 번만 채운다 — 창 포커스 재조회가 편집 중인 값을 덮지 않게
   useEffect(() => {
@@ -384,7 +471,7 @@ function SequenceEditor({ sequenceId, onClose }) {
   }, [loaded, loadedId]);
 
   const set = (key, value) => setForm((f) => ({ ...f, [key]: value }));
-  const updateStep = (idx, patch) => setForm((f) => ({ ...f, steps: f.steps.map((s, i) => (i === idx ? { ...s, ...patch } : s)) }));
+  const mapStep = (idx, fn) => setForm((f) => ({ ...f, steps: f.steps.map((s, i) => (i === idx ? fn(s) : s)) }));
 
   const saveMutation = useMutation({
     mutationFn: (payload) => (isNew ? sequenceAPI.create(payload) : sequenceAPI.update(sequenceId, payload)),
@@ -422,7 +509,7 @@ function SequenceEditor({ sequenceId, onClose }) {
             {isNew ? '새 작업 절차' : '작업 절차 편집'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            작업판을 위에서 아래로 실행합니다. 앞 단계 결과는 다음 단계의 프롬프트·이미지 입력으로 넘어갑니다.
+            작업판을 위에서 아래로 실행합니다. 단계마다 어떤 입력을 실행하는 사람에게 열지 정할 수 있습니다.
             저장하면 다음 실행부터 모든 사용자에게 반영됩니다.
           </Typography>
         </Box>
@@ -461,7 +548,10 @@ function SequenceEditor({ sequenceId, onClose }) {
                   docs={docs}
                   groups={groups}
                   allowedGroupIds={form.allowedGroupIds}
-                  onChange={(patch) => updateStep(idx, patch)}
+                  fieldModes={previewByIndex[idx]?.fieldModes || []}
+                  onChange={(patch) => mapStep(idx, (s) => ({ ...s, ...patch }))}
+                  onModeChange={(fieldMode, mode) => mapStep(idx, (s) => setFieldMode(s, fieldMode, mode))}
+                  onValueChange={(name, value) => mapStep(idx, (s) => ({ ...s, inputs: { ...(s.inputs || {}), [name]: value } }))}
                   onMove={(delta) => setForm((f) => ({ ...f, steps: moveItem(f.steps, idx, idx + delta) }))}
                   onRemove={() => setForm((f) => ({ ...f, steps: f.steps.filter((_, i) => i !== idx) }))}
                 />

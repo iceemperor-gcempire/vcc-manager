@@ -181,8 +181,8 @@ function PromptDataSelectDialog({ open, onClose, onSelect }) {
   );
 }
 
-// 사용자 정의 이미지 입력 필드 컴포넌트
-function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false, omitConditioned = false }) {
+// 사용자 정의 이미지 입력 필드 컴포넌트 — 작업 절차 실행 화면(#953)도 같은 컴포넌트를 쓴다
+export function CustomImageField({ field, value, onChange, maxImages = 1, isComfyUI = false, omitConditioned = false }) {
   const alert = useAlert();
   const [selectedImages, setSelectedImages] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -402,7 +402,7 @@ function VideoAudioToggleField({ field, control, name, setValue }) {
 }
 
 // 참조 비디오 필드 (#753) — CustomImageField 와 대칭. MiniMax H3 등 비디오 참조 워크플로우용.
-function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
+export function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
   const alert = useAlert();
   const [selectedVideos, setSelectedVideos] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -561,7 +561,7 @@ function CustomVideoField({ field, value, onChange, maxVideos = 1 }) {
 
 // 참조 오디오 필드 (#772) — CustomVideoField 와 대칭.
 // 오디오는 썸네일이 없어 카드 대신 파일명 + 인라인 플레이어로 보여준다.
-function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
+export function CustomAudioField({ field, value, onChange, maxAudios = 1 }) {
   const alert = useAlert();
   const [selectedAudios, setSelectedAudios] = useState(value || []);
   const [dialogOpen, setDialogOpen] = useState(false);
