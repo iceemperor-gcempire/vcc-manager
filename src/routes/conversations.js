@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ConversationJob = require('../models/ConversationJob');
+const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 
 const router = express.Router();
 
@@ -14,7 +15,7 @@ router.get('/my', requireAuth, async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
     const skip = (page - 1) * limit;
 
-    const filter = { userId: req.user._id };
+    const filter = excludeSequenceStepJobs({ userId: req.user._id });
     const [items, total] = await Promise.all([
       ConversationJob.find(filter)
         .sort({ createdAt: -1 })

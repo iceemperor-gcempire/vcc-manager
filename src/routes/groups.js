@@ -3,6 +3,7 @@ const router = express.Router();
 const Group = require('../models/Group');
 const User = require('../models/User');
 const Workboard = require('../models/Workboard');
+const Sequence = require('../models/Sequence');
 const { requireAdmin, verifyJWT } = require('../middleware/auth');
 
 // 사용자 본인의 소속 그룹 조회 (일반 사용자도 호출 가능 — 자기 그룹만)
@@ -147,6 +148,11 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       { allowedGroupIds: group._id },
       { $pull: { allowedGroupIds: group._id } }
     );
+    // 작업 절차 접근 목록도 같은 이유로 정리 (#952). 빈 배열이 되면 admin 전용.
+    const seqResult = await Sequence.updateMany(
+      { allowedGroupIds: group._id },
+      { $pull: { allowedGroupIds: group._id } }
+    );
 
     await Group.findByIdAndDelete(group._id);
 
@@ -158,7 +164,8 @@ router.delete('/:id', requireAdmin, async (req, res) => {
       message: '그룹이 삭제되었습니다.',
       data: {
         workboardsUpdated: wbResult.modifiedCount || 0,
-        workboardsAdminOnly: adminOnlyCount
+        workboardsAdminOnly: adminOnlyCount,
+        sequencesUpdated: seqResult.modifiedCount || 0
       }
     });
   } catch (error) {

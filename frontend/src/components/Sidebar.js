@@ -30,6 +30,7 @@ import {
   FolderSpecial,
   Group,
   MenuBook,
+  FormatListNumbered,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,6 +42,7 @@ const DRAWER_WIDTH = 236;
 const workItems = [
   { text: '대시보드', path: '/dashboard', icon: <Dashboard /> },
   { text: '작업판', path: '/workboards', icon: <ViewModule /> },
+  { text: '작업 절차', path: '/sequences', icon: <FormatListNumbered /> },
   { text: '프로젝트', path: '/projects', icon: <FolderSpecial /> },
   { text: '내 콘텐츠', path: '/content', icon: <Image /> },
   { text: '작업 히스토리', path: '/jobs', icon: <History /> },
@@ -55,6 +57,7 @@ const adminMenuItems = [
   { text: '관리자 대시보드', path: '/admin/dashboard', icon: <AdminPanelSettings /> },
   { text: '사용자 관리', path: '/admin/users', icon: <People /> },
   { text: '작업판 관리', path: '/admin/workboards', icon: <Apps /> },
+  { text: '작업 절차 관리', path: '/admin/sequences', icon: <FormatListNumbered /> },
   { text: '서버 관리', path: '/admin/servers', icon: <Storage /> },
   { text: '모델 관리', path: '/admin/models', icon: <AutoFixHigh /> },
   { text: '그룹 관리', path: '/admin/groups', icon: <Group /> },

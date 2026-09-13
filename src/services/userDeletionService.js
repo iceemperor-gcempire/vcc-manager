@@ -7,8 +7,8 @@
  *
  * 정책:
  * - User 삭제 시 개인 소유 콘텐츠(userId 기준)는 무조건 전체 삭제 (preferences 미반영).
- * - 구조 리소스(Project/Workboard/Pipeline/Tag/Server/Group — createdBy)는 소유권 이전
- *   정책이 별개라 여기 포함하지 않음.
+ * - 구조 리소스(Project/Workboard/Pipeline/Sequence/SequenceDoc/Tag/Server/Group — createdBy)는
+ *   소유권 이전 정책이 별개라 여기 포함하지 않음. 작업 절차는 소유자가 없어 이전도 필요 없다 (#952).
  * - 새 "개인 콘텐츠" 모델 추가 시 USER_CONTENT_MODELS 에 반드시 추가
  *   (userDeletionService.test.js 의 modelName 대조 테스트가 누락을 잡아준다).
  */
@@ -24,6 +24,7 @@ const UploadedAudio = require('../models/UploadedAudio');
 const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedText = require('../models/UploadedText');
 const PipelineRun = require('../models/PipelineRun');
+const SequenceRun = require('../models/SequenceRun');
 const ApiKey = require('../models/ApiKey');
 const { deleteMediaFilesFor } = require('./mediaFileCleanup');
 const Project = require('../models/Project');
@@ -41,6 +42,7 @@ const USER_CONTENT_MODELS = [
   UploadedAudio,
   UploadedText,
   PipelineRun,
+  SequenceRun,
   ApiKey,
 ];
 

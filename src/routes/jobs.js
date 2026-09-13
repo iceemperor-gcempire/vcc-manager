@@ -26,6 +26,7 @@ const { findSilentVideoViolation } = require('../services/videoAudioGuard');
 const { findOrientationViolation } = require('../services/imageOrientationGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
+const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -205,7 +206,7 @@ router.get('/my', requireAuth, async (req, res) => {
     const { page = 1, limit = 10, status = '', search = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    const filter = { userId: req.user._id };
+    const filter = excludeSequenceStepJobs({ userId: req.user._id });
     if (status) filter.status = status;
     
     // 프롬프트 검색 — 메모도 함께 (#879). 메모는 "이게 뭐였는지" 를 적는 칸이라 검색어가 거기 있을 때가 많다.

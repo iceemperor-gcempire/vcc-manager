@@ -58,6 +58,14 @@ test.describe('Authenticated user', () => {
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/content');
   });
+
+  test('작업 절차 페이지 접근 — 목록·실행 기록 탭 (#952)', async ({ page }) => {
+    await page.goto('/sequences');
+    await page.waitForLoadState('networkidle');
+    await expect(page.getByRole('tab', { name: '작업 절차' })).toBeVisible();
+    await page.getByRole('tab', { name: '실행 기록' }).click();
+    await expect(page).toHaveURL(/tab=runs/);
+  });
 });
 
 test.describe('Signup flow', () => {

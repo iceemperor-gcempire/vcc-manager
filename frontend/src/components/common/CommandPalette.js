@@ -107,6 +107,12 @@ export default function CommandPalette({ open, onClose }) {
       {
         group: '명령',
         icon: <PipelineIcon fontSize="small" />,
+        name: '작업 절차',
+        action: () => navigate('/sequences'),
+      },
+      {
+        group: '명령',
+        icon: <PipelineIcon fontSize="small" />,
         name: '대시보드',
         action: () => navigate('/dashboard'),
       },

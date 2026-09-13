@@ -82,13 +82,13 @@ describe('conversations 라우트 등록 순서 (#687)', () => {
     expect(ConversationJob.findById).toHaveBeenCalledWith('c1');
   });
 
-  test('GET /my 는 본인 필터로 목록을 반환한다', async () => {
+  test('GET /my 는 본인 필터로 목록을 반환한다 — 작업 절차 단계 대화는 제외 (#952)', async () => {
     ConversationJob.find.mockReturnValue(chainable([]));
     ConversationJob.countDocuments.mockResolvedValue(0);
 
     const res = await request(app).get('/api/conversations/my');
 
     expect(res.status).toBe(200);
-    expect(ConversationJob.find).toHaveBeenCalledWith({ userId: 'user-1' });
+    expect(ConversationJob.find).toHaveBeenCalledWith({ userId: 'user-1', sequenceRunId: null });
   });
 });

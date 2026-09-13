@@ -28,6 +28,7 @@ describe('#660 userDeletionService', () => {
       'GeneratedVideo',
       'ImageGenerationJob',
       'PipelineRun',
+      'SequenceRun',
       'UploadedAudio',
       'UploadedImage',
       'UploadedText',
