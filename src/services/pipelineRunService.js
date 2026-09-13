@@ -21,6 +21,7 @@ const {
 } = require('./containerDocAccess');
 const { findDefinitionMismatch } = require('../utils/runSteps');
 const { MEDIA_FIELD_TYPES } = require('../utils/sequenceSteps');
+const { findUnusableAttachments, describeUnusableAttachments } = require('./attachmentOwnership');
 const queueService = require('./queueService');
 
 // 파이프라인·작업 절차 실행 background worker (#407, #952).
@@ -271,8 +272,7 @@ async function runImageStep(userId, run, step, inputData, ctx = {}) {
     mergedTags.push(destTagId);
   }
 
-  // queueService 의 addImageGenerationJob 재사용
-  const job = await queueService.addImageGenerationJob(userId, workboard._id, {
+  const jobInput = {
     prompt: (inputData.prompt || inputData.userPrompt || '').toString(),
     negativePrompt: inputData.negativePrompt,
     referenceImages: inputData.referenceImages || [],
@@ -283,7 +283,20 @@ async function runImageStep(userId, run, step, inputData, ctx = {}) {
     seed: inputData.seed,
     randomSeed: inputData.randomSeed,
     tags: mergedTags,
-  }, ctx.jobMarker || {});
+  };
+
+  // 첨부 참조 검증 (#959) — 실행 경로는 /jobs/generate 를 거치지 않으므로 같은 규칙을 여기서 적용한다.
+  // 허용 소유자는 실행 종류가 정한다: 파이프라인은 실행자 + 프로젝트 소유자(#923), 작업 절차는 실행자.
+  if (!viewer.isAdmin) {
+    const docs = ctx.docs || createProjectDocSource({ viewer, project: ctx.project });
+    const unusable = await findUnusableAttachments({
+      workboard, inputData: jobInput, ownerIds: docs.attachmentOwnerIds(), label: `step${step.workboardId}`,
+    });
+    if (unusable.length > 0) throw new Error(describeUnusableAttachments(unusable));
+  }
+
+  // queueService 의 addImageGenerationJob 재사용
+  const job = await queueService.addImageGenerationJob(userId, workboard._id, jobInput, ctx.jobMarker || {});
 
   // 폴링 — 완료까지 대기 (최대 10분)
   const start = Date.now();

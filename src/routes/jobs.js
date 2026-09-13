@@ -27,6 +27,7 @@ const { findOrientationViolation } = require('../services/imageOrientationGuard'
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
+const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
 // system prompt = LLM 의 역할 / 작업 방침 (작업판 admin 정의)
@@ -102,6 +103,18 @@ router.post('/generate', requireAuth, async (req, res) => {
       }
     }
 
+    // 첨부 참조 검증 (#959) — 첨부 메타데이터를 읽는 아래 사전 검사들보다 먼저 한다
+    if (!req.user.isAdmin) {
+      const unusable = await findUnusableAttachments({
+        workboard: wb, inputData: { ...req.body, additionalParams: ap0 }, ownerIds: [req.user._id], label: 'generate',
+      });
+      if (unusable.length > 0) {
+        return res.status(400).json({
+          message: `${describeUnusableAttachments(unusable)} — 내가 올리거나 만든 미디어만 첨부할 수 있습니다`,
+        });
+      }
+    }
+
     // 무음 영상 + "소리도 참조" 차단 (#859) — 통과시키면 ComfyUI 에서 원인불명 실패가 된다
     const silentViolation = await findSilentVideoViolation(wb, { ...req.body, additionalParams: ap0 });
     if (silentViolation) {
@@ -142,16 +155,6 @@ router.post('/generate', requireAuth, async (req, res) => {
       });
     }
 
-    if (referenceImages && referenceImages.length > 0) {
-      for (const refImg of referenceImages) {
-        const image = await UploadedImage.findById(refImg.imageId);
-        if (!image || image.userId.toString() !== req.user._id.toString()) {
-          return res.status(400).json({
-            message: 'Invalid reference image'
-          });
-        }
-      }
-    }
     
     const inputData = {
       prompt: prompt.trim(),
@@ -358,6 +361,13 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
     // 무음 영상 + "소리도 참조" 조합의 재시도는 반드시 같은 이유로 죽는다 — 여기서 사유를 알린다 (#859)
     const retryWb = await Workboard.findById(job.workboardId).lean();
     if (retryWb) {
+      // 첨부 참조는 작업 주인 기준 (#959) — 저장된 입력이 재시도로 검증을 비켜가지 않게
+      const unusable = await findUnusableAttachments({
+        workboard: retryWb, inputData: job.inputData || {}, ownerIds: [job.userId], label: 'retry',
+      });
+      if (unusable.length > 0) {
+        return res.status(400).json({ message: describeUnusableAttachments(unusable) });
+      }
       const silentViolation = await findSilentVideoViolation(retryWb, job.inputData || {});
       if (silentViolation) {
         return res.status(400).json({ message: silentViolation });
