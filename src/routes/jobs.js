@@ -6,6 +6,7 @@ const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } =
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
+const { reverseUploadUrls } = require('../utils/signedUrl');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const ConversationJob = require('../models/ConversationJob');
 const UploadedImage = require('../models/UploadedImage');
@@ -173,7 +174,8 @@ router.post('/generate', requireAuth, async (req, res) => {
     
     console.log('📦 Prepared inputData for job creation:', JSON.stringify(inputData, null, 2));
     
-    const job = await addImageGenerationJob(req.user._id, workboardId, inputData);
+    // 첨부 주소는 서명을 떼고 /uploads 경로로 저장한다 (#966) — 응답에서 다시 서명하므로 만료가 남지 않는다.
+    const job = await addImageGenerationJob(req.user._id, workboardId, reverseUploadUrls(inputData));
     
     console.log('✅ Job created successfully:', {
       jobId: job._id,
