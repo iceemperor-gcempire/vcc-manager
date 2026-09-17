@@ -71,12 +71,24 @@ function verifySignature(filePath, expires, signature) {
  * @param {any} obj
  * @returns {any} transformed copy
  */
+// 백업 ZIP 은 같은 /api/files 아래지만 서명 키가 다르다 (createBackupSignature) — 재서명·되돌리기 대상에서 뺀다.
+const BACKUP_URL_PREFIX = '/api/files/backup/';
+
+function isRefreshableFileUrl(value) {
+  return value.startsWith('/api/files/') && !value.startsWith(BACKUP_URL_PREFIX);
+}
+
 function transformUploadUrls(obj) {
   if (obj === null || obj === undefined) return obj;
 
   if (typeof obj === 'string') {
     if (obj.startsWith('/uploads/')) {
       return generateSignedUrl(obj);
+    }
+    // DB 에 서명째 저장된 주소는 이미 만료돼 있을 수 있다 (#966 — 첨부가 inputData 에 서명 포함으로 저장됨).
+    // 응답 시점 기준으로 다시 서명해야 계속하기의 미리보기가 깨지지 않는다.
+    if (isRefreshableFileUrl(obj)) {
+      return generateSignedUrl(reverseSignedUrl(obj));
     }
     return obj;
   }
@@ -93,6 +105,35 @@ function transformUploadUrls(obj) {
     const result = {};
     for (const [key, value] of Object.entries(obj)) {
       result[key] = transformUploadUrls(value);
+    }
+    return result;
+  }
+
+  return obj;
+}
+
+/**
+ * 저장 직전에 서명 주소를 /uploads/... 경로로 되돌린다 (#966).
+ * 만료되는 서명이 DB·백업에 남지 않게 한다 — 응답에서는 transformUploadUrls 가 다시 서명한다.
+ */
+function reverseUploadUrls(obj) {
+  if (obj === null || obj === undefined) return obj;
+
+  if (typeof obj === 'string') {
+    return isRefreshableFileUrl(obj) ? reverseSignedUrl(obj) : obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(reverseUploadUrls);
+  }
+
+  if (typeof obj === 'object') {
+    if (obj.constructor && obj.constructor !== Object) {
+      return obj;
+    }
+    const result = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = reverseUploadUrls(value);
     }
     return result;
   }
@@ -159,6 +200,7 @@ module.exports = {
   verifySignature,
   transformUploadUrls,
   reverseSignedUrl,
+  reverseUploadUrls,
   generateBackupSignedUrl,
   verifyBackupSignature,
 };

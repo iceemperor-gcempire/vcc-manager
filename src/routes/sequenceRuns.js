@@ -13,6 +13,7 @@ const { deleteJobRecord } = require('../services/jobDeletionService');
 const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 const { checkRunnable, describeBlockedSteps } = require('../utils/sequenceSteps');
 const { validateRunInputs, firstPromptOf, stepFields } = require('../utils/sequenceInputs');
+const { reverseUploadUrls } = require('../utils/signedUrl');
 
 const router = express.Router();
 
@@ -164,7 +165,7 @@ router.post('/', requireAuth, async (req, res) => {
       targetProjectId: target ? target._id : undefined,
       status: 'pending',
       initialPrompt: firstPromptOf({ steps: sequence.steps, runInputs: checked.inputs, initialPrompt: legacyPrompt }),
-      runInputs: checked.inputs,
+      runInputs: reverseUploadUrls(checked.inputs), // 첨부 주소는 서명을 떼고 저장 (#966)
       triggerCount: 1,
       steps: sequence.steps.map((s) => ({ workboardId: s.workboardId, stepId: s._id, status: 'pending' })),
     });
