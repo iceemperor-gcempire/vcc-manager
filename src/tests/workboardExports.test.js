@@ -88,10 +88,18 @@ describe('workboards/ 배포 산출물', () => {
       const conditioning = Object.keys(FAMILY_BY_NODE).filter((n) => classTypes.has(n));
       if (conditioning.length === 0) return; // 계열 규칙이 정의되지 않은 워크플로
 
-      // T2VA 전용 증류 체크포인트(FastH3 등)는 fl2v/ref2v 계열 토큰이 없다 (#928).
-      // t8star 4step 셋업 노드가 task_family 't2va_only' 로 박혀 있으면 계열 검사 대상이 아니다.
+      // T2VA 전용 증류 체크포인트(FastH3 등)는 fl2v/ref2v 계열 토큰이 없다 (#928, #976).
+      // v1 은 t8star 4step 셋업 노드의 task_family 't2va_only' 로 드러난다.
+      // V2 는 코어 노드만 쓰므로 그 표식이 없다 — 조건화 노드에 첫·끝 프레임 입력이 아예 없고
+      // 베이스 모델이 FastH3 증류본인 것으로 판별한다 (조건부 입력을 쓰면 계열 검사가 다시 걸린다).
+      const baseModelName = String(
+        fields.find((f) => f.name === 'base_model')?.defaultValue || ''
+      ).toLowerCase();
       const t2vOnly = Object.values(workflow).some((n) =>
-        n.class_type === 'MiniMaxH3FastH34StepSetupT8Advanced' && n.inputs?.task_family === 't2va_only');
+        (n.class_type === 'MiniMaxH3FastH34StepSetupT8Advanced' && n.inputs?.task_family === 't2va_only')
+        || (n.class_type === 'MiniMaxH3ImageToVideo'
+            && n.inputs?.first_frame === undefined && n.inputs?.last_frame === undefined
+            && /fasth3|fastvideo/.test(baseModelName)));
       if (t2vOnly) return;
 
       expect(conditioning).toHaveLength(1);
