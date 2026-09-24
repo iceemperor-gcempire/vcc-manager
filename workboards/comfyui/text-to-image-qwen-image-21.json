@@ -1,0 +1,205 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 4
+  },
+  "exportedAt": "2026-09-23T15:21:57.164761Z",
+  "workboard": {
+    "name": "Text to Image - Qwen-Image 2.1",
+    "description": "Qwen-Image 2.1 로 이미지를 만드는 판입니다. 긍정·부정 프롬프트를 한 인코더가 함께 처리하며 CFG 는 1 로 고정입니다 (공식 템플릿 기준 25스텝). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "defaultValue": "qwen_image_2.1_int8_convrot.safetensors",
+        "description": "Qwen-Image 2.1 계열 모델. 파인튜닝판을 골라도 같은 설정으로 동작합니다.",
+        "formatString": "{{##base_model##}}",
+        "options": []
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "크기",
+        "type": "select",
+        "required": true,
+        "defaultValue": "1024x1024",
+        "description": "Qwen-Image 2.1 기본 1MP. 1.5MP 는 시간이 약 1.5배.",
+        "formatString": "{{##image_size##}}",
+        "options": [
+          {
+            "key": "1024x1024 (1:1)",
+            "value": "1024x1024"
+          },
+          {
+            "key": "1152x896 (가로 9:7)",
+            "value": "1152x896"
+          },
+          {
+            "key": "1216x832 (가로 3:2)",
+            "value": "1216x832"
+          },
+          {
+            "key": "1344x768 (가로 16:9)",
+            "value": "1344x768"
+          },
+          {
+            "key": "1536x1024 (가로 3:2 · 1.5MP)",
+            "value": "1536x1024"
+          },
+          {
+            "key": "896x1152 (세로 7:9)",
+            "value": "896x1152"
+          },
+          {
+            "key": "832x1216 (세로 2:3)",
+            "value": "832x1216"
+          },
+          {
+            "key": "768x1344 (세로 9:16)",
+            "value": "768x1344"
+          },
+          {
+            "key": "1024x1536 (세로 2:3 · 1.5MP)",
+            "value": "1024x1536"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "steps",
+        "label": "스텝",
+        "type": "select",
+        "required": false,
+        "defaultValue": "25",
+        "description": "공식 템플릿 기준 25. 디테일이 아쉬우면 30.",
+        "formatString": "{{##steps##}}",
+        "options": [
+          {
+            "key": "25 (공식 기본)",
+            "value": "25"
+          },
+          {
+            "key": "20 (빠름)",
+            "value": "20"
+          },
+          {
+            "key": "30 (더 정교)",
+            "value": "30"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "sampler",
+        "label": "샘플러",
+        "type": "select",
+        "required": false,
+        "defaultValue": "euler",
+        "description": "공식 템플릿은 euler + simple 스케줄러입니다.",
+        "formatString": "{{##sampler##}}",
+        "options": [
+          {
+            "key": "euler (공식 기본)",
+            "value": "euler"
+          },
+          {
+            "key": "res_multistep",
+            "value": "res_multistep"
+          }
+        ]
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": false,
+        "defaultValue": "0",
+        "description": "고르면 생성 직후 업스케일한 결과만 저장합니다.",
+        "formatString": "{{##upscale_model##}}",
+        "options": [
+          {
+            "key": "없음 (원본 크기 저장)",
+            "value": "0"
+          },
+          {
+            "key": "AnimeSharp V4 2x (선명, 애니 전용)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast 2x (빠름)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          },
+          {
+            "key": "Remacri 4x",
+            "value": "4x_foolhardy_Remacri.pth"
+          },
+          {
+            "key": "RealESRGAN Anime 4x",
+            "value": "RealESRGAN_x4plus_anime_6B.pth"
+          }
+        ]
+      }
+    ],
+    "allowedModelTypes": [
+      "ZImageTurbo",
+      "ZImageBase"
+    ],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "version": 1,
+    "workflowData": "{\"1\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 모델\"}},\"2\":{\"inputs\":{\"clip_name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"type\":\"qwen_image\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"Qwen3-VL 텍스트 인코더\"}},\"3\":{\"inputs\":{\"vae_name\":\"qwen_image_2.1_vae_bf16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 VAE\"}},\"4\":{\"inputs\":{\"clip\":[\"2\",0],\"prompt\":\"{{##prompt##}}\",\"negative_prompt\":\"{{##negative_prompt##}}\",\"resolution\":1024},\"class_type\":\"TextEncodeQwenImage21\",\"_meta\":{\"title\":\"프롬프트 인코딩 (긍정·부정)\"}},\"5\":{\"inputs\":{\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"batch_size\":1},\"class_type\":\"EmptyLatentImage\",\"_meta\":{\"title\":\"빈 latent\"}},\"6\":{\"inputs\":{\"seed\":\"{{##seed##}}\",\"steps\":\"{{##steps##}}\",\"cfg\":1,\"sampler_name\":\"{{##sampler##}}\",\"scheduler\":\"simple\",\"denoise\":1,\"model\":[\"1\",0],\"positive\":[\"4\",0],\"negative\":[\"4\",1],\"latent_image\":[\"5\",0]},\"class_type\":\"KSampler\",\"_meta\":{\"title\":\"샘플링\"}},\"7\":{\"inputs\":{\"samples\":[\"6\",0],\"vae\":[\"3\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"디코드\"}},\"8\":{\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"class_type\":\"UpscaleModelLoader\",\"_meta\":{\"title\":\"업스케일 모델\"}},\"9\":{\"inputs\":{\"upscale_model\":[\"8\",0],\"image\":[\"7\",0]},\"class_type\":\"ImageUpscaleWithModel\",\"_meta\":{\"title\":\"업스케일 (선택)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}},\"10\":{\"inputs\":{\"filename_prefix\":\"{{##user_id##}}\\\\image\\\\qwen_image_21\",\"images\":[\"9\",0]},\"class_type\":\"SaveImage\",\"_meta\":{\"title\":\"이미지 저장\"}}}"
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}
