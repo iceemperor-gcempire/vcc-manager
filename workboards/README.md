@@ -64,8 +64,8 @@ https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 ⁴ **(Turbo) 판**은 lightx2v 증류 LoRA 로 20스텝을 4~8스텝으로 줄인다 (실측 3~5배).
 LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
-`optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스는 non-pruned int8 권장**
-(`minimax_h3_*_int8_convrot.safetensors` — pruned 조합은 미검증). FL2V 판은 **768p 학습 LoRA 2종**만 노출한다 (기본 1344x768 · 시프트 6/3):
+`optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스 기본값은 non-pruned int8**
+(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판은 **768p 학습 LoRA 2종**만 노출한다 (기본 1344x768 · 시프트 6/3):
 8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
 R2V 판은 4step v0.1 고정이며
@@ -85,6 +85,25 @@ AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되
 (`models/loras/optimizer/LTX-2/`) 로 영상을 2배 해상도로 **다시 그린다** — 프레임 단위 픽셀 업스케일과 달리 영상 모델이 선을 정리하고 디테일을 재생성한다.
 동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
 5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
+
+⁸ **NVFP4 베이스 (선택)** — 커뮤니티 변환본 `minimax_h3_fl2va_pruned_nvfp4_all.safetensors`
+(11.67GiB, `MATLOWAI/minimax-h3-nvfp4`, Comfy-Org pruned bf16 에서 변환). 파일에 `comfy_quant`
+메타데이터가 있어 **스톡 ComfyUI 에서 커스텀 노드 없이** 로드되고, 작업판의 베이스 모델 목록에
+그대로 뜬다 (모델 노출 정책이 `full`). **기본값은 바꾸지 않았다** — 고르는 사람이 판단한다.
+
+실측 (RTX Pro 6000 1장, 웜, 같은 시드, 반복 측정 · 2026-09-29):
+
+| 경로 | int8 (non-pruned, 31.7GiB) | NVFP4 (pruned, 11.67GiB) |
+|---|---|---|
+| 1344x768 · 5초 · 20스텝 | 203.3초 | **180.4초 (−11%)** |
+| 1344x768 · 5초 · 터보 8step | 100.6초 | **90.2초 (−10%)** |
+| 832x448 · 3초 · 20스텝 | 25.2초 | 25.1초 (차이 없음) |
+
+작은 크기에서는 이득이 없다 — 토큰이 많아 행렬 연산이 지배할 때만 FP4 이득이 나온다.
+**터보 LoRA 와 함께 써도 동작한다** (5회 전부 성공, 격자·깨짐 없음). 다만 같은 시드 두 개에서
+NVFP4 쪽이 피사체를 더 멀리 잡는 경향이 보였다 (n=2 — 단정할 수 없다). 그리고 이 비교에는
+**가지치기와 FP4 두 변수가 섞여 있다**; 가르려면 `minimax_h3_fl2va_pruned_int8_convrot`(19.53GiB)
+대조군이 필요하다.
 
 ⁷ **FastH3 T2V 판(실험)**은 ComfyUI 코어가 아직 정식 지원하지 않는 경로다. 8198 에 선행 적용된 상태(PR #15958 패치 +12/-5, `comfy-kitchen==0.2.32`, `comfyui-minimax-h3-audio-T8` 팩, `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors` 22.9GB)를 전제한다 — 설치·롤백은 union-wiki `comfyui-gpu-windows`. T2VA 전용(첫·끝 프레임·참조 불가). 실측 5초 768p 약 22초(웜). 공식 FastVideo Synthetic 변환본이 나오면 base_model 만 교체.
 
