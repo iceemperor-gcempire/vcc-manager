@@ -105,6 +105,10 @@ NVFP4 쪽이 피사체를 더 멀리 잡는 경향이 보였다 (n=2 — 단정�
 **가지치기와 FP4 두 변수가 섞여 있다**; 가르려면 `minimax_h3_fl2va_pruned_int8_convrot`(19.53GiB)
 대조군이 필요하다.
 
+**전 규격이 아니다** — 이 변환본은 fl2va 헤드뿐이라 R2V 판 2개(`ref2va`)는 쓸 수 없다. 저작자의
+30초 빌더로 자체 변환하면 전 규격·non-pruned 계보가 가능하고, peak VRAM 도 82.5 → 59.3GiB(−28%)로
+줄어든다. 절차·미검증 항목·재개 조건은 **이슈 #988 (보류 — 프로덕션 서비스 중)**.
+
 ⁷ **FastH3 T2V 판(실험)**은 ComfyUI 코어가 아직 정식 지원하지 않는 경로다. 8198 에 선행 적용된 상태(PR #15958 패치 +12/-5, `comfy-kitchen==0.2.32`, `comfyui-minimax-h3-audio-T8` 팩, `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors` 22.9GB)를 전제한다 — 설치·롤백은 union-wiki `comfyui-gpu-windows`. T2VA 전용(첫·끝 프레임·참조 불가). 실측 5초 768p 약 22초(웜). 공식 FastVideo Synthetic 변환본이 나오면 base_model 만 교체.
 
 ---
