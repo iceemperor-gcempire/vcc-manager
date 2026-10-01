@@ -124,6 +124,8 @@ services:
       MCP_TRANSPORT: http
       MCP_PORT: 3100
       VCC_API_URL: http://backend:3000
+      # 미설정 시 영상·오디오는 메타데이터만, 이미지는 base64 인라인으로 돌아간다 (prod 와 동일 처리)
+      VCC_BASE_URL_FOR_MCP: ${VCC_BASE_URL_FOR_MCP:-}
     ports:
       - "${MCP_PORT:-4136}:3100"
     depends_on:
