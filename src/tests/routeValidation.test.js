@@ -11,6 +11,8 @@ const express = require('express');
 const request = require('supertest');
 
 jest.mock('../middleware/auth', () => ({
+  // #994: 파괴적 라우트의 API 키 차단 가드 — 순수 함수라 실제 구현을 쓴다 (목 사용자는 JWT 세션)
+  requireNonApiKeyAuth: jest.requireActual('../middleware/auth').requireNonApiKeyAuth,
   requireAuth: (req, res, next) => {
     req.user = { _id: 'user-1', isAdmin: false };
     next();

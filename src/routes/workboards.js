@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess } = require('../middleware/auth');
+const { requireAuth, requireAdmin, buildWorkboardAccessFilter, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
 const { getOmitConditionedFieldNames, getSupportedBuiltinInputs } = require('../utils/workflowDirectives');
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
@@ -693,7 +693,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
   }
 });
 
-router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req, res) => {
+router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(workboardUpdateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -841,7 +841,7 @@ router.patch('/:id/activate', requireAdmin, async (req, res) => {
 });
 
 // 작업판 삭제 (완전 삭제)
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const workboard = await Workboard.findById(req.params.id);
     if (!workboard) {

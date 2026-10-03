@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireNonApiKeyAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const Workboard = require('../models/Workboard');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
@@ -52,7 +52,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 });
 
 // 사용자 승인
-router.post('/users/:id/approve', requireAdmin, async (req, res) => {
+router.post('/users/:id/approve', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -85,7 +85,7 @@ router.post('/users/:id/approve', requireAdmin, async (req, res) => {
 });
 
 // 사용자 승인 거절
-router.post('/users/:id/reject', requireAdmin, async (req, res) => {
+router.post('/users/:id/reject', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -117,7 +117,7 @@ router.post('/users/:id/reject', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/users/:id', requireAdmin, async (req, res) => {
+router.delete('/users/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -274,7 +274,7 @@ router.get('/settings/lora', requireAdmin, async (req, res) => {
 });
 
 // LoRA 설정 업데이트
-router.put('/settings/lora', requireAdmin, async (req, res) => {
+router.put('/settings/lora', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const { nsfwFilter, nsfwModelFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
 
@@ -331,7 +331,7 @@ router.get('/integrity', requireAdmin, async (req, res) => {
 
 // 소유자 orphan 정제 — body.apply === true 일 때만 실제 삭제 (기본 dry-run).
 // 구조 리소스/끊긴 jobId 는 대상 아님 (리포트 전용 정책 — services/integrityService 참고)
-router.post('/integrity/cleanup-owner-orphans', requireAdmin, async (req, res) => {
+router.post('/integrity/cleanup-owner-orphans', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const apply = req.body?.apply === true;
     const result = await integrityService.cleanupOwnerOrphans({ apply });
@@ -345,7 +345,7 @@ router.post('/integrity/cleanup-owner-orphans', requireAdmin, async (req, res) =
 // 고아 파일 회수 — body.apply === true 일 때만 실제 삭제 (기본 dry-run).
 // 삭제 경로 수정(#806)은 앞으로를 막을 뿐이라, 이미 쌓인 파일은 여기서만 회수된다.
 // 생성 중인 파일을 지우지 않도록 minAgeMs(기본 1시간)보다 젊은 파일은 제외한다.
-router.post('/integrity/cleanup-orphan-files', requireAdmin, async (req, res) => {
+router.post('/integrity/cleanup-orphan-files', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const apply = req.body?.apply === true;
     const result = await integrityService.cleanupOrphanFiles({ apply });

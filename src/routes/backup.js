@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireNonApiKeyAuth } = require('../middleware/auth');
 const backupService = require('../services/backupService');
 const restoreService = require('../services/restoreService');
 const {
@@ -76,7 +76,7 @@ router.get('/lock-status', requireAdmin, (req, res) => {
  * POST /api/admin/backup
  * 백업 생성 시작
  */
-router.post('/', requireAdmin, async (req, res) => {
+router.post('/', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     // 이미 백업 진행 중인지 확인
     if (isBackupInProgress()) {
@@ -190,7 +190,7 @@ router.get('/status/:id', requireAdmin, async (req, res) => {
  * 백업 다운로드용 signed URL 발급. 발급 시점에 admin 인증 / 파일 존재 확인.
  * 큰 백업의 브라우저 메모리 버퍼링 회피 — 클라이언트는 발급된 URL 로 직접 navigate (#241).
  */
-router.post('/:id/signed-url', requireAdmin, async (req, res) => {
+router.post('/:id/signed-url', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const { fileName } = await backupService.getBackupFilePath(req.params.id);
     const url = generateBackupSignedUrl(req.params.id);
@@ -207,7 +207,7 @@ router.post('/:id/signed-url', requireAdmin, async (req, res) => {
  * 백업 파일 다운로드 (deprecated — signed URL 경로 사용 권장. #241).
  * 큰 백업에서 브라우저 메모리 폭증 문제로 신규 호출자는 사용 금지.
  */
-router.get('/download/:id', requireAdmin, async (req, res) => {
+router.get('/download/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const { filePath, fileName } = await backupService.getBackupFilePath(req.params.id);
 
@@ -258,7 +258,7 @@ router.get('/list', requireAdmin, async (req, res) => {
  * DELETE /api/admin/backup/:id
  * 백업 삭제
  */
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     await backupService.deleteBackup(req.params.id);
 
@@ -290,7 +290,7 @@ router.get('/restore/server-files', requireAdmin, async (req, res) => {
  * POST /api/admin/backup/restore/server-validate
  * 서버에 있는 백업 파일을 파일명으로 검증 (업로드 우회 #634). body: { fileName }
  */
-router.post('/restore/server-validate', requireAdmin, async (req, res) => {
+router.post('/restore/server-validate', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const { fileName } = req.body;
     const resolved = backupService.resolveServerBackupPath(fileName);
@@ -315,7 +315,7 @@ router.post('/restore/server-validate', requireAdmin, async (req, res) => {
  * POST /api/admin/restore/validate
  * 백업 파일 검증 (업로드 방식)
  */
-router.post('/restore/validate', requireAdmin, upload.single('backup'), async (req, res) => {
+router.post('/restore/validate', requireAdmin, requireNonApiKeyAuth, upload.single('backup'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -351,7 +351,7 @@ router.post('/restore/validate', requireAdmin, upload.single('backup'), async (r
  * POST /api/admin/restore
  * 복구 실행
  */
-router.post('/restore', requireAdmin, async (req, res) => {
+router.post('/restore', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     // 백업 진행 중 복원 금지 — blockDuringBackup allowlist 와 무관하게 핸들러에서도 가드 (#529)
     if (isBackupInProgress()) {
