@@ -157,7 +157,7 @@
 ## 10. API 키 · MCP
 
 ### 10.1 키 발급·폐기 (웹 UI)
-- [ ] 프로필 > 보안 설정에서 키 발급 — 전체 값은 발급 직후 한 번만 보임
+- [ ] 프로필 > 보안 설정에서 키 발급 — 용도(MCP 용 / API 용) 선택, 기본은 MCP 용. 전체 값은 발급 직후 한 번만 보임
 - [ ] 키 목록에 접두사·이름·생성일·마지막 사용 표시, 폐기 후 그 키로 요청하면 401
 
 ### 10.2 API 키로 할 수 없는 작업 (#994)
@@ -176,8 +176,11 @@
 
 ### 10.5 MCP (`docs/MCP_SERVER.md` 대로 연결)
 - [ ] 연결 후 `/mcp` 표시만 믿지 말고 `list_workboards` 실제 호출
-- [ ] `VCC_BASE_URL_FOR_MCP` 설정 시 `download_result` 가 이미지·영상 모두 `signedUrl` (미설정 시 기동 경고는 #993 반영 후 항목 추가)
-- [ ] **키를 폐기·교체하면 재연결 전까지 MCP 도구가 401** — 재연결 후 정상 (MCP 서버가 세션을 연 키를 붙잡음)
+- [ ] `VCC_BASE_URL_FOR_MCP` 설정 시 `download_result` 가 이미지·영상 모두 `signedUrl`
+- [ ] 미설정으로 mcp-server 를 띄우면 기동 로그에 `VCC_BASE_URL_FOR_MCP 가 설정되지 않았습니다` 경고
+- [ ] 문서(`docs/MCP_SERVER.md` 3-4)대로 **MCP 키 + headersHelper + `claude mcp add-json`** 으로 등록 → `list_workboards` 실호출
+- [ ] MCP 키로 MCP 밖 요청(예: `GET /api/admin/stats`) → `403 이 키는 MCP 용이라…`
+- [ ] **세션 도중 키를 폐기하면** 그 호출은 도구 오류, **다음 요청은 401 로 세션이 닫힘** → 새 키로 Reconnect 후 정상
 
 ---
 

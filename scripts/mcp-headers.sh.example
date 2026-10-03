@@ -1,0 +1,26 @@
+#!/bin/sh
+# VCC Manager MCP 인증 헤더 헬퍼 — Claude Code 의 headersHelper 에 지정한다 (docs/MCP_SERVER.md 3-4).
+#
+# 키를 MCP 클라이언트 설정 파일에 적지 않기 위한 것이다. Claude Code 가 연결할 때 이 스크립트를 실행하고,
+# stdout 으로 나온 JSON 을 HTTP 헤더로 쓴다.
+#
+# 쓰는 법
+#   1) 이 파일을 원하는 곳에 복사하고 실행 권한을 준다:  cp scripts/mcp-headers.sh.example ~/bin/vcc-mcp-headers.sh && chmod +x ~/bin/vcc-mcp-headers.sh
+#   2) 키를 권한 600 파일에 둔다:                        printf 'VCC_MCP_KEY="vccm_..."\n' > ~/.config/vcc-mcp.env && chmod 600 ~/.config/vcc-mcp.env
+#      — 프로필 > 보안 설정에서 용도 "MCP 용" 으로 발급한 키
+#   3) 등록:  claude mcp add-json vcc-manager '{"type":"http","url":"https://your-server/mcp","headersHelper":"/절대경로/vcc-mcp-headers.sh"}'
+#   4) 확인:  /mcp 에서 연결 상태 → list_workboards 를 실제로 한 번 호출
+#
+# 계약: 헤더 JSON 객체 하나만 stdout 으로 낸다. 실패하면 0 이 아닌 코드로 끝낸다 (그러면 연결이 인증 오류로 끊긴다).
+
+KEY_FILE="${VCC_MCP_KEY_FILE:-$HOME/.config/vcc-mcp.env}"
+
+# shellcheck disable=SC1090
+[ -r "$KEY_FILE" ] && . "$KEY_FILE"
+
+if [ -z "$VCC_MCP_KEY" ]; then
+  echo "VCC_MCP_KEY 가 없다 — $KEY_FILE 에 VCC_MCP_KEY=\"vccm_...\" 를 넣을 것" >&2
+  exit 1
+fi
+
+printf '{"Authorization": "Bearer %s"}\n' "$VCC_MCP_KEY"

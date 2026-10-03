@@ -9,7 +9,8 @@
     "start:http": "MCP_TRANSPORT=http node index.js",
     "test:integration": "node test/integration.mjs",
     "inspect": "npx @modelcontextprotocol/inspector node index.js",
-    "inspect:http": "MCP_TRANSPORT=http node index.js & sleep 2 && npx @modelcontextprotocol/inspector --url http://localhost:${MCP_PORT:-3100}/mcp"
+    "inspect:http": "MCP_TRANSPORT=http node index.js & sleep 2 && npx @modelcontextprotocol/inspector --url http://localhost:${MCP_PORT:-3100}/mcp",
+    "test": "node --test 'test/unit/*.test.mjs'"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

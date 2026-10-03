@@ -12,7 +12,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
     "test:frontend": "pnpm --dir frontend test",
-    "test:all": "pnpm test && pnpm run test:frontend"
+    "test:all": "pnpm test && pnpm run test:frontend && pnpm run test:mcp",
+    "test:mcp": "pnpm --dir mcp-server test"
   },
   "dependencies": {
     "archiver": "^7.0.1",

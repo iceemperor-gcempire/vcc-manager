@@ -27,7 +27,8 @@ VCC Manager MCP Server를 사용하면 AI 에이전트(Claude Desktop, Claude Co
 ## 1. 사전 준비
 
 - **VCC Manager 서버가 실행 중**이어야 합니다
-- MCP Server에서 사용할 **VCC Manager API Key** (프로필 > 보안 설정에서 발급)
+- MCP 에 쓸 **VCC Manager API Key — 용도는 "MCP 용"** (프로필 > 보안 설정에서 발급, [6장](#6-api-key-발급))
+- HTTP 모드에서 이미지·영상을 받으려면 **`VCC_BASE_URL_FOR_MCP`** 설정 ([3-1](#3-1-docker-compose로-실행))
 - HTTP 모드: **Docker** 환경 (docker-compose에 포함)
 - stdio 모드: **Node.js 18 이상** (내장 `fetch` API 필요)
 
@@ -64,6 +65,22 @@ MCP Server는 **VCC Manager API Key**를 사용하여 백엔드와 통신합니�
 - 환경 변수 `VCC_API_KEY`에 설정된 키를 사용
 - 단일 사용자 환경에 적합
 
+### 키 용도 — MCP 에는 MCP 키
+
+API 키는 발급할 때 용도를 고른다.
+
+| | MCP 용 (`vccm_…`) | API 용 · 범용 (`vcc_…`) |
+|---|---|---|
+| 할 수 있는 것 | MCP 도구가 쓰는 요청만 — 작업판 조회, 생성, 작업 조회, 결과 받기, 이미지 업로드, 프로젝트·파이프라인 조회와 실행 | 계정의 API 전반 (스크립트·자동화용) |
+| 키가 새면 | MCP 로 할 수 있는 만큼만 열린다 | 그 계정의 API 가 열린다 |
+
+**MCP 클라이언트에는 MCP 키를 쓴다.** MCP 키로 그 밖의 요청을 하면 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다.
+어느 용도든 계정 삭제·백업 복원처럼 되돌릴 수 없는 작업은 API 키로 할 수 없다 (로그인한 웹 화면에서만).
+
+키 용도는 **할 수 있는 작업**을 막고, **볼 수 있는 데이터**는 막지 않는다 — 관리자 계정의 MCP 키는 관리자가 보는 콘텐츠를 그대로 본다.
+데이터까지 나누고 싶으면 **MCP 전용 계정**을 따로 만들어 그 계정에서 키를 발급한다. 이때 작업판에 그룹 제한이 걸려 있으면
+그 계정을 해당 그룹에 넣어야 MCP 에서 작업판이 보인다.
+
 ---
 
 ## 3. HTTP 모드 (Docker 배포)
@@ -87,6 +104,20 @@ docker-compose up --build -d mcp-server
 
 > **참고**: HTTP 모드에서는 서버 측 API Key 설정이 필요 없습니다. 각 클라이언트가 자신의 VCC API Key를 Bearer 토큰으로 전송합니다.
 
+#### 이미지·영상을 받으려면 `VCC_BASE_URL_FOR_MCP` 를 설정한다
+
+MCP 는 도구 결과로 파일을 직접 실어 보낼 길이 없어서, 결과물은 **서명된 링크**로 돌려준다. 그 링크의 앞부분이 `VCC_BASE_URL_FOR_MCP` 다.
+**MCP 클라이언트가 실제로 열 수 있는 VCC 주소**로 `.env` 에 적는다.
+
+```bash
+# .env
+VCC_BASE_URL_FOR_MCP=https://vcc.example.com     # 원격에서 붙는 클라이언트가 있으면 그쪽에서 닿는 주소
+# VCC_BASE_URL_FOR_MCP=http://localhost:3136     # 클라이언트가 같은 머신에만 있으면
+```
+
+설정하지 않으면 `download_result` 가 **영상·오디오는 메타데이터만(파일 없음)**, 이미지는 base64 로 돌려준다 —
+이미지는 대화에 그대로 실려 커지고, 영상은 받을 방법이 없다. 이 경우 MCP 서버가 기동할 때 로그에 경고를 남긴다.
+
 ### 3-2. 헬스체크 확인
 
 ```bash
@@ -94,33 +125,59 @@ curl http://localhost:4136/health
 # {"status":"ok","transport":"streamable-http","activeSessions":0}
 ```
 
-### 3-3. 클라이언트 설정
+### 3-3. 연결 주소 — http 로 충분한 경우와 https 가 필요한 경우
+
+API 키는 `Authorization: Bearer …` **헤더**로 간다. 평문 http 면 오가는 길목에서 읽힐 수 있다 (헤더를 어떻게 만들든 같다).
+서명된 결과 링크도 만료 전까지는 그 파일의 열쇠라 같은 성질이다. 다만 개인이 집 안에서 쓰는데 인증서까지 세울 필요는 없다:
+
+| 구성 | http | 권장 |
+|---|---|---|
+| **같은 머신** (클라이언트와 서버가 한 대) | 문제없음 — 트래픽이 머신 밖으로 안 나간다 | `http://localhost:4136/mcp` |
+| **집·사내 LAN, 신뢰하는 기기만** | 써도 된다. 위험은 같은 네트워크의 다른 기기·공유기 | http 로 쓰되 **MCP 키**로 피해 범위를 줄이고, 의심되면 키를 교체 |
+| **LAN 밖** (인터넷 노출, 포트포워딩, 공용 Wi-Fi, 다른 곳에서 접속) | **안 된다** | https |
+
+LAN 밖에서 쓸 때 고를 수 있는 길 (부담이 적은 순):
+
+- **Tailscale 같은 메시 VPN** — 인증서 없이 기기 사이 트래픽이 암호화된다. 주소가 `http://` 여도 네트워크 층에서 암호화된다
+- **Cloudflare Tunnel 등 터널** — 도메인이 있으면 TLS 를 대신 처리해 준다
+- **리버스 프록시 + 인증서** (Caddy, nginx) — 공개 도메인이 있어야 자동 발급이 편하다. LAN 전용 자체 서명 인증서는 클라이언트가 거부하는 경우가 많다
+
+> 아래 예시의 `http://your-server:4136/mcp` 는 **같은 머신·신뢰된 LAN 용**이다. LAN 밖이면 `https://` 주소로 바꾼다.
+
+### 3-4. 클라이언트 설정
 
 #### Claude Code
 
-CLI로 추가하거나 `.mcp.json` 파일을 직접 편집합니다:
+**키를 설정 파일에 적지 않는 방법(권장)** — `headersHelper` 에 헤더를 만들어 주는 스크립트를 지정한다. Claude Code 가 연결할 때 그 스크립트를 실행해
+출력된 JSON 을 헤더로 쓴다. 키는 스크립트가 읽는 곳(예: 권한 600 파일)에만 있다.
+
+1. 헬퍼 스크립트를 둔다 — 저장소의 [`scripts/mcp-headers.sh.example`](../scripts/mcp-headers.sh.example) 을 복사해 쓴다
+
+   ```sh
+   #!/bin/sh
+   # stdout 으로 헤더 JSON 하나만 낸다. 실패하면 0 이 아닌 코드로 끝낸다.
+   . "$HOME/.config/vcc-mcp.env"          # 여기에 VCC_MCP_KEY="vccm_..." (chmod 600)
+   [ -n "$VCC_MCP_KEY" ] || { echo "VCC_MCP_KEY 없음" >&2; exit 1; }
+   printf '{"Authorization": "Bearer %s"}\n' "$VCC_MCP_KEY"
+   ```
+
+2. `claude mcp add-json` 으로 등록한다 (`claude mcp add` 에는 헬퍼 옵션이 없고, `add-json` 은 JSON 을 그대로 받는다)
+
+   ```bash
+   claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
+   ```
+
+3. **실제 호출로 확인한다** — `/mcp` 에서 연결 상태를 보고, `list_workboards` 를 한 번 부른다. "연결됨" 표시만으로는 부족하다
+   (헬퍼가 실행되지 않는 클라이언트 버그 보고가 있다 — anthropics/claude-code #41690, #48514. 특히 플러그인으로 설치한 경우)
+
+**헤더를 직접 적는 방법** — 간단하지만 **키가 설정 파일에 평문으로 남는다.** 쓴다면 반드시 MCP 키로.
 
 ```bash
-# CLI로 추가 (VCC API Key를 Bearer 토큰으로 설정)
 claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
-  --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
+  --header "Authorization: Bearer vccm_xxxxxxxxxxxxxxxx"
 ```
 
-또는 프로젝트 루트의 `.mcp.json` 파일에 직접 추가합니다:
-
-```json
-{
-  "mcpServers": {
-    "vcc-manager": {
-      "type": "http",
-      "url": "http://your-server:4136/mcp",
-      "headers": {
-        "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
-      }
-    }
-  }
-}
-```
+> ⚠️ 프로젝트 루트의 **`.mcp.json` 은 보통 Git 에 커밋된다.** 여기에 `headers` 로 키를 적으면 저장소에 키가 올라간다 — `.mcp.json` 에는 `headersHelper` 만 쓴다.
 
 > **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL과 API Key만 설정하면 됩니다.
 
@@ -176,7 +233,8 @@ HTTPS URL이라면 `--allow-http` 생략 가능:
 }
 ```
 
-> **참고**: `--allow-http`는 트래픽이 암호화되지 않으므로, 신뢰할 수 있는 내부 네트워크에서만 사용하세요.
+> **참고**: `--allow-http`는 트래픽이 암호화되지 않으므로, 신뢰할 수 있는 내부 네트워크에서만 사용하세요 ([3-3](#3-3-연결-주소--http-로-충분한-경우와-https-가-필요한-경우)).
+> mcp-remote 방식은 헬퍼가 없어 **키가 설정 파일에 평문으로 남는다** — MCP 키를 쓰고, 그 파일을 공유·백업할 때 주의한다.
 > `--transport http-only`는 SSE 대신 Streamable HTTP로 연결합니다. 생략 시 SSE 폴백을 시도하여 400 에러가 발생할 수 있습니다.
 
 **클라이언트별 프로토콜 요구사항:**
@@ -187,12 +245,18 @@ HTTPS URL이라면 `--allow-http` 생략 가능:
 | Claude Desktop Connectors UI | X | O (필수) |
 | mcp-remote 브릿지 | `--allow-http` 필요 | O (기본) |
 
-### 3-4. HTTP 모드에서의 `download_result` 동작
+### 3-5. HTTP 모드에서의 `download_result` 동작
 
-HTTP 모드에서 `download_result` 도구는 MCP 서버가 인증된 API를 통해 파일을 가져온 뒤, 미디어 타입에 따라 다르게 반환합니다:
+`VCC_BASE_URL_FOR_MCP` 설정 여부로 갈린다 ([3-1](#3-1-docker-compose로-실행)):
 
-- **이미지**: MCP `image` 콘텐츠 타입으로 base64 인코딩된 이미지 데이터를 직접 반환. 클라이언트에서 즉시 확인 가능.
-- **비디오**: 파일 크기가 크므로 메타데이터(파일명, 크기)만 반환. VCC Manager 웹 UI에서 확인.
+| | 이미지 | 영상·오디오 |
+|---|---|---|
+| **설정함 (정상)** | 서명된 링크 (`responseType: signedUrl`) | 서명된 링크 |
+| 설정 안 함 (저하) | base64 를 대화에 그대로 실음 (`base64`) | **메타데이터만 — 파일 없음** (`metadata`) |
+
+설정하지 않은 상태는 정상 동작이 아니라 **저하**다. 서명된 링크는 만료 시각이 있고, 받는 쪽이 그 주소에 닿아야 한다.
+
+> 받은 링크를 스크립트로 내려받을 때 403 이 나면, 앞단 프록시·CDN 이 특정 User-Agent(예: Python 기본값)를 막는지 먼저 본다 — 같은 주소를 curl 이나 브라우저로 열어 비교한다.
 
 > **참고**: mcp-remote 브릿지 사용 시 응답 크기가 제한될 수 있습니다. Claude Code의 `"type": "http"` 직접 연결을 권장합니다.
 
@@ -270,15 +334,15 @@ Claude Code에서 MCP 서버를 등록하는 방법과 적용 범위(스코프)�
 #### CLI 명령어
 
 ```bash
-# HTTP 모드 (원격 서버) — VCC API Key를 Bearer 토큰으로 전달
+# HTTP 모드 — 헬퍼로 키를 설정 파일 밖에 둔다 (권장, 3-4 참고)
+claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
+
+# HTTP 모드 — 헤더를 직접 적는다 (키가 설정 파일에 평문으로 남는다. MCP 키로)
 claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
-  --header "Authorization: Bearer vcc_xxxxxxxxxxxxxxxx"
+  --header "Authorization: Bearer vccm_xxxxxxxxxxxxxxxx"
 
 # stdio 모드 (로컬 실행)
 claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
-
-# JSON으로 등록
-claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headers":{"Authorization":"Bearer vcc_xxxxxxxxxxxxxxxx"}}'
 ```
 
 #### 설정 파일 직접 편집
@@ -291,13 +355,13 @@ claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/m
     "vcc-manager": {
       "type": "http",
       "url": "http://your-server:4136/mcp",
-      "headers": {
-        "Authorization": "Bearer vcc_xxxxxxxxxxxxxxxx"
-      }
+      "headersHelper": "/절대경로/mcp-headers.sh"
     }
   }
 }
 ```
+
+> `.mcp.json` 은 Git 에 커밋되는 파일이다 — 키를 `headers` 로 적지 않는다.
 
 ### 5-2. 등록 스코프
 
@@ -340,6 +404,14 @@ claude mcp remove vcc-manager
 
 Claude Code 대화 중 `/mcp` 입력으로 서버 상태를 확인하거나 인증을 처리할 수도 있습니다.
 
+#### 키를 교체·폐기했을 때
+
+MCP 서버는 세션을 열 때 받은 키를 그 세션 동안 쓴다. 키가 폐기되면 **다음 요청에서 세션을 닫고 401 을 돌려준다** — 옛 키로 조용히 계속 실패하지 않는다.
+
+1. 새 키를 헬퍼가 읽는 곳에 넣는다 (헤더를 직접 적었다면 설정을 고친다)
+2. `/mcp` 에서 vcc-manager 를 **Reconnect** 한다
+3. `list_workboards` 로 실제 호출을 확인한다
+
 ### 5-4. 클라이언트별 프로토콜 비교
 
 | 클라이언트 | HTTP 직접 연결 | HTTPS | 비고 |
@@ -358,10 +430,10 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
 1. VCC Manager 웹에 로그인합니다
 2. **프로필 페이지 > 보안 설정 > API Key 관리** 섹션으로 이동합니다
-3. **생성** 버튼을 클릭하고 키 이름을 입력합니다 (예: `MCP Server`)
+3. **생성** 버튼을 클릭하고 키 이름을 입력한 뒤, **"어디에 쓸 키인가요?" 에서 `MCP 용`** 을 고릅니다 (예: 이름 `Claude Code`)
 4. 생성된 API Key를 복사합니다 (**이 키는 다시 확인할 수 없으므로 반드시 저장**)
 5. 복사한 키를 MCP 클라이언트 설정에 사용합니다:
-   - **HTTP 모드**: `Authorization: Bearer vcc_xxx...` 헤더로 설정
+   - **HTTP 모드**: `Authorization: Bearer vccm_xxx...` 헤더 — 가능하면 헬퍼로 ([3-4](#3-4-클라이언트-설정))
    - **stdio 모드**: `VCC_API_KEY` 환경 변수에 설정
 
 ### API Key 사용의 장점
@@ -378,7 +450,8 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 
 - API Key는 생성 시 1회만 표시됩니다. 분실 시 새 키를 발급해야 합니다.
 - 사용자당 최대 10개의 활성 키를 발급할 수 있습니다.
-- 키를 파기하면 해당 키를 사용하는 MCP 서버는 즉시 인증에 실패합니다.
+- 키를 파기하면 해당 키를 사용하는 MCP 세션은 다음 요청에서 401 로 닫힙니다. 새 키로 Reconnect 합니다 ([5-3](#5-3-관리-명령어)).
+- **관리자 계정의 범용 키를 MCP 에 쓰지 않는다.** MCP 에는 MCP 키, 데이터까지 나누려면 MCP 전용 계정 ([2장](#키-용도--mcp-에는-mcp-키)).
 
 ---
 
@@ -399,6 +472,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | `MCP_TRANSPORT` | No | Transport 모드 (`stdio` / `http`) | `stdio` |
 | `MCP_PORT` | No | HTTP 서버 포트 | `4136` |
 | `VCC_API_URL` | No | VCC Manager API 서버 URL | `http://localhost:3000` |
+| `VCC_BASE_URL_FOR_MCP` | **미디어 사용 시 사실상 필수** | 결과물 서명 링크의 기준 주소 — MCP 클라이언트가 닿는 VCC 주소. 없으면 영상·오디오는 메타데이터만 ([3-1](#3-1-docker-compose로-실행)) | - |
 
 > **참고**: HTTP 모드에서는 서버 측 API Key 설정이 필요 없습니다. 각 클라이언트가 자신의 VCC API Key를 Bearer 토큰으로 전송하며, MCP 서버는 이를 백엔드로 전달합니다.
 
@@ -415,7 +489,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 2. 모든 백엔드 요청에 `X-API-Key` 헤더로 전달
 
 **공통:**
-- API Key가 파기되거나 계정이 비활성화되면 즉시 인증에 실패합니다
+- API Key가 파기되거나 계정이 비활성화되면 인증에 실패합니다. HTTP 모드에서는 세션을 열 때 키를 확인하고(거부되면 401), 세션 도중 폐기되면 다음 요청에서 세션을 닫고 401 을 돌려줍니다
 - 별도의 로그인/토큰 갱신 과정이 없어 구성이 간단합니다
 
 ---
@@ -504,12 +578,12 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 생성된 이미지/비디오를 다운로드합니다. 동작은 transport 모드에 따라 다릅니다:
 
 - **stdio 모드**: 로컬 디스크에 파일을 직접 다운로드
-- **HTTP 모드**: 다운로드 URL을 반환 (브라우저에서 열기)
+- **HTTP 모드**: 서명된 링크를 반환 — `VCC_BASE_URL_FOR_MCP` 가 설정돼 있을 때. 없으면 이미지는 base64, 영상·오디오는 메타데이터만 ([3-5](#3-5-http-모드에서의-download_result-동작))
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
 | `mediaId` | string | **Yes** | 미디어 ID (get_job_status 결과에서 확인) |
-| `mediaType` | string | **Yes** | `image` 또는 `video` |
+| `mediaType` | string | **Yes** | `image`, `video`, `audio` |
 | `downloadDir` | string | No | 저장 디렉토리 — stdio 모드 전용 (기본: VCC_DOWNLOAD_DIR) |
 
 ---
@@ -611,9 +685,28 @@ Inspector에서 확인할 항목:
 
 ### "Invalid or revoked API key" (401) 오류
 
-- API Key가 올바르게 입력되었는지 확인하세요 (`vcc_`로 시작하는 전체 키)
+- API Key가 올바르게 입력되었는지 확인하세요 (`vccm_` 또는 `vcc_` 로 시작하는 전체 키)
 - 해당 키가 웹 UI에서 파기되지 않았는지 확인하세요
 - 키를 발급한 계정이 활성화(active) 및 승인(approved) 상태인지 확인하세요
+
+### "VCC API Key 가 거부됐습니다" (401) — HTTP 모드
+
+- 키가 폐기·교체됐거나 잘못된 키다. 세션을 열 때, 또는 세션 도중 키가 폐기된 뒤 다음 요청에서 난다
+- 새 키를 넣고 `/mcp` 에서 **Reconnect** ([5-3](#5-3-관리-명령어))
+
+### "이 키는 MCP 용이라 이 작업에 쓸 수 없습니다" (403)
+
+- MCP 키로 MCP 도구가 쓰지 않는 요청을 한 경우다. MCP 클라이언트에서 났다면 버그이니 알려 달라
+- 스크립트에서 그 작업이 필요하면 **API 용 키**를 따로 발급한다
+
+### 영상·오디오가 메타데이터만 오고 파일을 받을 수 없음
+
+- `VCC_BASE_URL_FOR_MCP` 가 설정되지 않은 상태다 — MCP 서버 기동 로그에 경고가 있다 ([3-1](#3-1-docker-compose로-실행))
+- 설정한 뒤 `docker-compose up -d mcp-server` 로 다시 띄운다
+
+### MCP 를 붙였는데 작업판이 안 보이거나 일부만 보임
+
+- 키를 발급한 계정이 그 작업판의 접근 그룹에 들어 있는지 확인한다 (MCP 전용 계정을 따로 만들었다면 특히)
 
 ### 연결 실패 (ECONNREFUSED)
 
