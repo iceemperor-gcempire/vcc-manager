@@ -11,6 +11,11 @@ const ACTION_HEADING = /^###\s+기존 사용자가 할 일/m;
 // 오래 안 들어온 사용자에게 보여줄 최대 섹션 수
 const MAX_SECTIONS = 5;
 
+// 공지 기능이 생기기 직전 버전 (#1007). 기록이 없는 계정(기능 전부터 있던 계정)은 여기까지 본 것으로 친다 —
+// 그래야 기능 도입 이후 섹션을 전부 받는다. "현재 버전만" 보여주면 버전을 건너뛴 배포(4.5.0 → 4.6.1)에서
+// 건너뛴 버전의 "기존 사용자가 할 일" 을 놓친다. 새 계정은 가입 시 현재 버전으로 채워지므로 해당 없다.
+const NOTICE_BASELINE_VERSION = '4.5.0';
+
 function parseVersion(v) {
   const m = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(String(v || '').trim());
   return m ? m.slice(1).map(Number) : null;
@@ -58,17 +63,18 @@ function hasActionItems(markdown) {
 /**
  * 보여줄 섹션을 고른다.
  * - lastSeen 이 current 이상이면 아무것도 안 보여준다
- * - lastSeen 이 없으면(기능 도입 전부터 있던 계정) 현재 버전 섹션만
- * - 아니면 lastSeen < v <= current 를 최신순으로, 최대 MAX_SECTIONS 개 — 넘치면 truncated
+ * - lastSeen 이 없으면(기능 도입 전부터 있던 계정) NOTICE_BASELINE_VERSION 까지 본 것으로 친다
+ * - lastSeen < v <= current 를 최신순으로, 최대 MAX_SECTIONS 개 — 넘치면 truncated
  *
  * @param {{ current: string, lastSeen?: string, sections: {version: string, markdown: string}[], max?: number }} args
  */
 function pickNoticeSections({ current, lastSeen, sections, max = MAX_SECTIONS }) {
-  if (lastSeen && compareVersions(lastSeen, current) >= 0) return { show: false, sections: [], truncated: false };
+  const seen = lastSeen || NOTICE_BASELINE_VERSION;
+  if (compareVersions(seen, current) >= 0) return { show: false, sections: [], truncated: false };
 
   const inRange = sections
     .filter((s) => compareVersions(s.version, current) <= 0)
-    .filter((s) => (lastSeen ? compareVersions(s.version, lastSeen) > 0 : s.version === current))
+    .filter((s) => compareVersions(s.version, seen) > 0)
     .sort((a, b) => compareVersions(b.version, a.version));
 
   const picked = inRange.slice(0, max).map((s) => ({ ...s, hasActionItems: hasActionItems(s.markdown) }));
@@ -77,6 +83,7 @@ function pickNoticeSections({ current, lastSeen, sections, max = MAX_SECTIONS })
 
 module.exports = {
   MAX_SECTIONS,
+  NOTICE_BASELINE_VERSION,
   parseVersion,
   compareVersions,
   extractSections,

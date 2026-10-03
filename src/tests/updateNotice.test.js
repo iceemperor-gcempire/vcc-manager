@@ -82,10 +82,17 @@ describe('pickNoticeSections', () => {
     expect(pickNoticeSections({ current: '4.6.0', lastSeen: '4.7.0', sections }).show).toBe(false);
   });
 
-  test('기록이 없는 기존 계정은 현재 버전 섹션만', () => {
+  test('기록이 없는 기존 계정은 공지 기능 도입(4.5.0 다음) 이후 섹션을 받는다', () => {
     const r = pickNoticeSections({ current: '4.6.0', lastSeen: undefined, sections });
-    expect(r.sections.map((s) => s.version)).toEqual(['4.6.0']);
+    expect(r.sections.map((s) => s.version)).toEqual(['4.6.0', '4.5.1']);
     expect(r.sections[0].hasActionItems).toBe(true);
+  });
+
+  test('버전을 건너뛴 배포(4.5.0 → 4.6.1)에서도 건너뛴 버전의 할 일을 놓치지 않는다 (#1007)', () => {
+    const withPatch = [{ version: '4.6.1', markdown: '## v4.6.1\n- 문서' }, ...sections];
+    const r = pickNoticeSections({ current: '4.6.1', lastSeen: undefined, sections: withPatch });
+    expect(r.sections.map((s) => s.version)).toEqual(['4.6.1', '4.6.0', '4.5.1']);
+    expect(r.sections.some((s) => s.hasActionItems)).toBe(true);
   });
 
   test('건너뛴 버전은 이어서 최신순으로', () => {
@@ -106,8 +113,13 @@ describe('pickNoticeSections', () => {
     expect(r.truncated).toBe(true);
   });
 
-  test('현재 버전 섹션이 없으면 (로그 없는 패치) 기록 없는 계정에도 안 띄운다', () => {
-    expect(pickNoticeSections({ current: '4.6.1', lastSeen: undefined, sections }).show).toBe(false);
+  test('기준선 이전 섹션은 기록 없는 계정에도 안 보인다', () => {
+    const r = pickNoticeSections({ current: '4.6.0', lastSeen: undefined, sections });
+    expect(r.sections.map((s) => s.version)).not.toContain('4.5.0');
+  });
+
+  test('보여줄 섹션이 하나도 없으면 안 띄운다', () => {
+    expect(pickNoticeSections({ current: '4.5.0', lastSeen: undefined, sections }).show).toBe(false);
   });
 });
 
