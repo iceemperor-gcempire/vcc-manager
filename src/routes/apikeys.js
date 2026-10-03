@@ -1,6 +1,7 @@
 const express = require('express');
 const { requireAuth, requireNonApiKeyAuth } = require('../middleware/auth');
 const ApiKey = require('../models/ApiKey');
+const { API_KEY_SCOPES, DEFAULT_API_KEY_SCOPE } = require('../constants/apiKeyScopes');
 const router = express.Router();
 
 const MAX_ACTIVE_KEYS = 10;
@@ -13,7 +14,7 @@ router.use(requireNonApiKeyAuth);
 router.get('/', async (req, res) => {
   try {
     const apiKeys = await ApiKey.find({ userId: req.user._id })
-      .select('name prefix lastUsedAt isRevoked revokedAt createdAt')
+      .select('name prefix scope lastUsedAt isRevoked revokedAt createdAt')
       .sort({ createdAt: -1 });
 
     res.json({ success: true, data: apiKeys });
@@ -26,9 +27,13 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name } = req.body;
+    const scope = req.body.scope || DEFAULT_API_KEY_SCOPE;
 
     if (!name || !name.trim()) {
       return res.status(400).json({ success: false, message: 'API key name is required' });
+    }
+    if (!API_KEY_SCOPES.includes(scope)) {
+      return res.status(400).json({ success: false, message: `scope must be one of: ${API_KEY_SCOPES.join(', ')}` });
     }
 
     // Check active key count
@@ -44,13 +49,14 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const { fullKey, prefix, keyHash } = ApiKey.generateKey();
+    const { fullKey, prefix, keyHash } = ApiKey.generateKey(scope);
 
     const apiKey = await ApiKey.create({
       userId: req.user._id,
       name: name.trim(),
       prefix,
-      keyHash
+      keyHash,
+      scope
     });
 
     res.status(201).json({
@@ -59,6 +65,7 @@ router.post('/', async (req, res) => {
         id: apiKey._id,
         name: apiKey.name,
         prefix: apiKey.prefix,
+        scope: apiKey.scope,
         key: fullKey,
         createdAt: apiKey.createdAt
       },

@@ -37,8 +37,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
 | `GET` | `/apikeys` | 내 API Key 목록 | Yes |
-| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개) | Yes |
+| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개). body `{ name, scope }` — `scope` 는 `api`(범용, 기본) 또는 `mcp`(MCP 전용) | Yes |
 | `DELETE` | `/apikeys/:id` | API Key 폐기 | Yes |
+
+**키 용도** (#995) — MCP 키(`vccm_` 로 시작)는 MCP 도구가 쓰는 요청만 허용된다: 작업판 조회, 생성(`POST /jobs/generate`), 작업 조회(`/jobs/my`, `/jobs/:id`), 결과 조회(`/images/generated|videos|audios/:id`), 이미지 업로드, 프로젝트·파이프라인 조회와 실행. 그 밖의 요청은 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다. 범용 키(`vcc_`)는 기존과 같다. 어느 쪽이든 되돌릴 수 없는 작업은 키로 할 수 없다(위 인증 절).
 
 ## 서버 (Servers, v1.2.4+)
 

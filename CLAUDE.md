@@ -346,6 +346,7 @@ pnpm run test:e2e:headed
 - 백엔드 인증은 JWT 전용. 세션 미들웨어 (`express-session`, `passport.session`) 는 v1.4.10 에서 제거
 - 외부 프로그램은 백엔드 REST 에 **`X-API-Key` 헤더로만** API 키를 보낸다 (사용자 프로필 > 보안 설정에서 발급, 사용자당 최대 10개). `Authorization: Bearer` 는 JWT 용이라 API 키를 넣으면 401 이다. `Bearer <api_key>` 는 **MCP 서버**가 클라이언트에게서 키를 받는 규약이다
 - API 키로는 되돌릴 수 없는 작업을 못 한다 (`requireNonApiKeyAuth`, #994) — 계정 삭제, 백업 생성·반출·복원, 사용자 관리, 서버 구성, 공유 구성물 수정·삭제. 새 파괴적 라우트를 만들면 같은 가드를 붙이고 `src/tests/apiKeyDestructiveGuard.test.js` 목록에 넣는다
+- API 키에는 용도가 있다 (#995): `api`(범용, `vcc_`) / `mcp`(MCP 전용, `vccm_`). MCP 키는 `src/constants/apiKeyScopes.js` 의 허용 목록만 통과 (`enforceApiKeyScope`, 전역 인증 직후). **MCP 도구가 새 백엔드 경로를 쓰면 허용 목록에도 넣는다** — `apiKeyScope.test.js` 가 도구 소스와 목록을 양방향으로 대조해 어긋나면 실패한다. 화면 문구는 `frontend/src/utils/apiKeyScope.js`(용도 값은 같은 테스트가 대조)
 - OAuth 콜백은 토큰을 URL fragment (`#token=`) 로 전달. 서버 로그 / Referer 노출 차단 목적
 
 ### 7. Signed URL 정책
