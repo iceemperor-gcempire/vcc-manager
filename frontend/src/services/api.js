@@ -295,6 +295,9 @@ export const promptDataAPI = {
 
 export const updatelogAPI = {
   get: (majorVersion) => api.get(`/updatelog/${majorVersion}`),
+  // 버전 업데이트 공지 (#999)
+  notice: () => api.get('/updatelog/notice'),
+  markNoticeSeen: () => api.post('/updatelog/notice/seen'),
 };
 
 export const projectAPI = {

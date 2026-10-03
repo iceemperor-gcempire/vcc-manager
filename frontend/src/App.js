@@ -13,6 +13,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
+import UpdateNoticeDialog from './components/common/UpdateNoticeDialog';
 import CommandPalette from './components/common/CommandPalette';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
 import Login from './pages/Login';
@@ -144,6 +145,8 @@ function MainLayout() {
     <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <Sidebar mobileOpen={mobileOpen} onMobileToggle={handleMobileToggle} />
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      {/* 새 버전 배포 후 처음 접속 시 업데이트 내역을 한 번 (#999) */}
+      <UpdateNoticeDialog />
       <Box sx={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
         <Header onMobileToggle={handleMobileToggle} onOpenPalette={() => setPaletteOpen(true)} />
         <Box component="main" sx={{

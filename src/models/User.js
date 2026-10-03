@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { version: APP_VERSION } = require('../../package.json');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
@@ -84,6 +85,11 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: false
     },
+    // 업데이트 공지를 어느 버전까지 봤는지 (#999). 기본값을 두지 않는다 — 기존 계정은 비어 있어야
+    // 첫 공지를 받는다. 새 계정은 아래 pre('validate') 가 현재 버전으로 채운다
+    lastSeenVersion: {
+      type: String
+    },
     // NSFW 모델 (베이스 모델 / LoRA) 숨김 (#346)
     nsfwModelFilter: {
       type: Boolean,
@@ -128,6 +134,15 @@ const userSchema = new mongoose.Schema({
 });
 
 // Pre-save middleware to hash password
+// 새로 가입한 계정은 지난 공지를 받을 이유가 없다 — 현재 버전까지 본 것으로 시작 (#999).
+// 가입 경로(로컬·OAuth)가 여럿이라 생성 지점마다 넣지 않고 여기서 한 번에.
+userSchema.pre('validate', function(next) {
+  if (this.isNew && this.preferences && !this.preferences.lastSeenVersion) {
+    this.preferences.lastSeenVersion = APP_VERSION;
+  }
+  next();
+});
+
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password') || !this.password) return next();
   
