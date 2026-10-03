@@ -33,7 +33,7 @@ const sequenceRoutes = require('./routes/sequences');
 const sequenceDocRoutes = require('./routes/sequenceDocs');
 const sequenceRunRoutes = require('./routes/sequenceRuns');
 const errorHandler = require('./middleware/errorHandler');
-const { verifyJWT, verifyApiKey } = require('./middleware/auth');
+const { verifyJWT, verifyApiKey, enforceApiKeyScope } = require('./middleware/auth');
 const { blockDuringBackup } = require('./middleware/backupLock');
 const { transformUploadUrls } = require('./utils/signedUrl');
 const { initializeQueues, closeQueues, getQueueStats } = require('./services/queueService');
@@ -118,6 +118,9 @@ app.use('/api', (req, res, next) => {
     return res.status(401).json({ message: 'Authentication required' });
   }
 });
+
+// MCP 키는 MCP 도구가 쓰는 요청만 (#995) — 인증 뒤, 라우트 앞
+app.use('/api', enforceApiKeyScope);
 
 // 백업 진행 중 데이터 변경 차단 미들웨어
 app.use('/api', blockDuringBackup);

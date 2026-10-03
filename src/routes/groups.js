@@ -4,7 +4,7 @@ const Group = require('../models/Group');
 const User = require('../models/User');
 const Workboard = require('../models/Workboard');
 const Sequence = require('../models/Sequence');
-const { requireAdmin, verifyJWT } = require('../middleware/auth');
+const { requireAdmin, verifyJWT, requireNonApiKeyAuth } = require('../middleware/auth');
 
 // 사용자 본인의 소속 그룹 조회 (일반 사용자도 호출 가능 — 자기 그룹만)
 router.get('/me', verifyJWT, async (req, res) => {
@@ -92,7 +92,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // 그룹 수정 (admin)
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
     if (!group) {
@@ -121,7 +121,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // 그룹 삭제 (admin) — 기본 그룹은 차단
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
     if (!group) {

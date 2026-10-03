@@ -62,6 +62,24 @@ chmod +x scripts/deploy-prod.sh
 ./scripts/deploy-prod.sh
 ```
 
+**⚠️ 빌드가 실패하면 서비스가 내려간 채로 멈춘다.** 이 스크립트는 앱 컨테이너를 먼저 `stop` 한 뒤
+`--no-cache` 로 빌드한다. `set -e` 라 빌드 실패 시 그 자리에서 중단되고, 이미 내려간
+frontend·backend·mcp-server 는 다시 올라오지 않는다. "빌드가 실패해도 기존 컨테이너가 살아 있다"고
+생각하면 안 된다.
+
+복구는 남아 있는 이전 이미지로 다시 올리면 된다:
+
+```bash
+docker-compose -f docker-compose.prod.yml --env-file .env.production up -d
+```
+
+실제 사례 (2026-08-30, v4.0.7): `Dockerfile.backend` 의 `apk add --no-cache ffmpeg` 가 DNS 로 실패해
+앱 3종이 `Exited (0)` 로 남아 약 1분간 서비스가 중단됐다. 원인은 **OrbStack 내부 리졸버의 일시적
+NXDOMAIN** 이었고 호스트의 `dig` 는 정상이었다. 몇 분 뒤 같은 빌드가 수정 없이 통과했다 —
+**재시도 가능한 실패**다. 2026-09-25 알파에서도 같은 증상이 두 번 났다.
+
+운영 절차 전문(정지 → 배포 순서, 검증 항목, 복구)은 union-wiki `wiki/infra/vcc-manager-prod-deploy.md`.
+
 #### 2-3. 수동 배포
 ```bash
 # 1. 프로덕션 컨테이너 중지 (데이터베이스 제외)

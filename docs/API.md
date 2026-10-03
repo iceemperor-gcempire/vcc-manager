@@ -2,7 +2,9 @@
 
 VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은 `/api` (예: `http://localhost/api/auth/status`).
 
-인증은 JWT 쿠키 또는 `X-API-Key` / `Authorization: Bearer <api_key>` 헤더 지원. 자세한 인증 정책은 root [CLAUDE.md](../../CLAUDE.md) 참고.
+인증은 두 가지다 — 로그인 세션은 `Authorization: Bearer <JWT>`, API 키는 **`X-API-Key: <키>` 헤더로만** 보낸다. `Authorization: Bearer` 에 API 키를 넣으면 JWT 로 검증돼 401 이다 (`Bearer <api_key>` 는 MCP 서버에 붙을 때의 규약). 자세한 인증 정책은 root [CLAUDE.md](../CLAUDE.md) 참고.
+
+> **API 키로 할 수 없는 작업** (#994) — 되돌릴 수 없거나 서버 구성을 바꾸는 작업은 API 키로 요청하면 `403 이 작업은 API 키로 할 수 없습니다` 가 난다. 로그인 세션에서만 된다: 계정 삭제(`DELETE /users/account`), 백업 생성·서명 URL·다운로드·삭제·복원(`/admin/backup/*`), 사용자 승인·거절·삭제, LoRA 전역 설정, 무결성 정리, 서버 생성·수정·삭제·캐시·동기화 초기화, 그룹·작업판·작업 절차·작업 절차 문서·프롬프트 가이드의 수정·삭제.
 
 ## 인증 (Auth)
 
@@ -35,8 +37,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
 | `GET` | `/apikeys` | 내 API Key 목록 | Yes |
-| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개) | Yes |
+| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개). body `{ name, scope }` — `scope` 는 `api`(범용, 기본) 또는 `mcp`(MCP 전용) | Yes |
 | `DELETE` | `/apikeys/:id` | API Key 폐기 | Yes |
+
+**키 용도** (#995) — MCP 키(`vccm_` 로 시작)는 MCP 도구가 쓰는 요청만 허용된다: 작업판 조회, 생성(`POST /jobs/generate`), 작업 조회(`/jobs/my`, `/jobs/:id`), 결과 조회(`/images/generated|videos|audios/:id`), 이미지 업로드, 프로젝트·파이프라인 조회와 실행. 그 밖의 요청은 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다. 범용 키(`vcc_`)는 기존과 같다. 어느 쪽이든 되돌릴 수 없는 작업은 키로 할 수 없다(위 인증 절).
 
 ## 서버 (Servers, v1.2.4+)
 

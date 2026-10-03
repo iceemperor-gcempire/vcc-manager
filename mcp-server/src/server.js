@@ -9,7 +9,7 @@ import { registerPipelineTools } from './tools/pipelines.js';
 /**
  * Create and configure an McpServer instance with all tools registered.
  *
- * @param {{ transport?: 'stdio' | 'http', apiKey?: string }} options
+ * @param {{ transport?: 'stdio' | 'http', apiKey?: string, onAuthFailure?: () => void }} options
  * @returns {McpServer}
  */
 export function createServer(options = {}) {
@@ -18,7 +18,7 @@ export function createServer(options = {}) {
     throw new Error('apiKey is required to create MCP server');
   }
 
-  const api = createApiClient(apiKey);
+  const api = createApiClient(apiKey, { onAuthFailure: options.onAuthFailure });
 
   const server = new McpServer({
     name: 'vcc-manager',

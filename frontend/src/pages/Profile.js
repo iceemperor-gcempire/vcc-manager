@@ -26,7 +26,10 @@ import {
   IconButton,
   Chip,
   Tooltip,
-  InputAdornment
+  InputAdornment,
+  RadioGroup,
+  Radio,
+  FormControlLabel
 } from '@mui/material';
 import {
   Save,
@@ -44,6 +47,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
+import { API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf } from '../utils/apiKeyScope';
 import { useAuth } from '../contexts/AuthContext';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -303,6 +307,7 @@ function SecuritySettings() {
   const [showKeyDialogOpen, setShowKeyDialogOpen] = useState(false);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
   const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyScope, setNewKeyScope] = useState(DEFAULT_NEW_KEY_SCOPE);
   const [createdKey, setCreatedKey] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const { logout } = useAuth();
@@ -328,6 +333,7 @@ function SecuritySettings() {
         setCreateKeyDialogOpen(false);
         setShowKeyDialogOpen(true);
         setNewKeyName('');
+        setNewKeyScope(DEFAULT_NEW_KEY_SCOPE);
         queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
       } });
 
@@ -346,7 +352,7 @@ function SecuritySettings() {
 
   const handleCreateKey = () => {
     if (!newKeyName.trim()) return;
-    createKeyMutation.mutate({ name: newKeyName.trim() });
+    createKeyMutation.mutate({ name: newKeyName.trim(), scope: newKeyScope });
   };
 
   const handleCopyKey = () => {
@@ -435,6 +441,8 @@ function SecuritySettings() {
                         <Typography variant="body2" fontWeight="medium" noWrap>
                           {apiKey.name}
                         </Typography>
+                        {/* 용도 (#995) — 예전 키는 범용(API) */}
+                        <ToneChip tone={apiKeyScopeOf(apiKey) === 'mcp' ? 'info' : 'accent'} label={apiKeyScopeLabel(apiKey)} />
                         {/* MUI Chip color 직접 사용은 금지 규칙 (ToneChip 주석) + error.main 이 라이트에서 3.74:1 (#727) */}
                         {apiKey.isRevoked && <ToneChip tone="error" label="파기됨" />}
                       </Box>
@@ -489,7 +497,7 @@ function SecuritySettings() {
       {/* API Key 생성 다이얼로그 */}
       <Dialog
         open={createKeyDialogOpen}
-        onClose={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); }}
+        onClose={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); setNewKeyScope(DEFAULT_NEW_KEY_SCOPE); }}
         maxWidth="sm"
         fullWidth
       >
@@ -506,9 +514,28 @@ function SecuritySettings() {
             inputProps={{ maxLength: 100 }}
             helperText="이 키를 식별할 수 있는 이름을 입력하세요"
           />
+          <Typography variant="body2" fontWeight="medium" sx={{ mt: 3, mb: 1 }}>
+            어디에 쓸 키인가요?
+          </Typography>
+          <RadioGroup value={newKeyScope} onChange={(e) => setNewKeyScope(e.target.value)}>
+            {API_KEY_SCOPE_OPTIONS.map((opt) => (
+              <FormControlLabel
+                key={opt.value}
+                value={opt.value}
+                control={<Radio size="small" />}
+                sx={{ alignItems: 'flex-start', mb: 1 }}
+                label={(
+                  <Box sx={{ pt: 0.5 }}>
+                    <Typography variant="body2" fontWeight="medium">{opt.label}</Typography>
+                    <Typography variant="caption" color="text.secondary" component="div">{opt.description}</Typography>
+                  </Box>
+                )}
+              />
+            ))}
+          </RadioGroup>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); }}>
+          <Button onClick={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); setNewKeyScope(DEFAULT_NEW_KEY_SCOPE); }}>
             취소
           </Button>
           <Button
@@ -533,6 +560,11 @@ function SecuritySettings() {
           <Alert severity="warning" sx={{ mb: 2 }}>
             이 키는 다시 확인할 수 없습니다. 지금 안전한 곳에 복사해 두세요.
           </Alert>
+          {createdKey && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              용도: {API_KEY_SCOPE_OPTIONS.find((o) => o.value === apiKeyScopeOf(createdKey))?.label}
+            </Typography>
+          )}
           {createdKey && (
             <TextField
               fullWidth

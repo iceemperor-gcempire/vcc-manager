@@ -1,4 +1,5 @@
 const jwt = require('jsonwebtoken');
+const { isMcpKeyAllowed } = require('../constants/apiKeyScopes');
 const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
 const ApiKey = require('../models/ApiKey');
@@ -262,6 +263,7 @@ const verifyApiKey = async (req, res, next) => {
 
     req.user = user;
     req.authMethod = 'apikey';
+    req.apiKeyScope = apiKeyDoc.scope || 'api';
 
     // Fire-and-forget lastUsedAt update
     ApiKey.updateOne({ _id: apiKeyDoc._id }, { lastUsedAt: new Date() }).catch(() => {});
@@ -272,9 +274,26 @@ const verifyApiKey = async (req, res, next) => {
   }
 };
 
+/**
+ * MCP 키는 MCP 도구가 쓰는 요청만 통과시킨다 (#995). 전역 인증 뒤에 /api 전체에 건다.
+ * 범용 키·로그인 세션에는 아무 영향이 없다.
+ */
+const enforceApiKeyScope = (req, res, next) => {
+  if (req.authMethod !== 'apikey' || req.apiKeyScope !== 'mcp') return next();
+  if (isMcpKeyAllowed(req.method, req.path)) return next();
+  return res.status(403).json({
+    success: false,
+    message: '이 키는 MCP 용이라 이 작업에 쓸 수 없습니다. 필요하면 API 용 키를 발급하세요.',
+  });
+};
+
 const requireNonApiKeyAuth = (req, res, next) => {
   if (req.authMethod === 'apikey') {
-    return res.status(403).json({ message: 'API key management is not available via API key authentication' });
+    // 키 관리뿐 아니라 계정 삭제·복원 같은 파괴적 작업에도 쓰므로 문구를 일반화했다 (#994)
+    return res.status(403).json({
+      success: false,
+      message: '이 작업은 API 키로 할 수 없습니다. 로그인한 상태에서 진행해 주세요.',
+    });
   }
   return next();
 };
@@ -363,6 +382,7 @@ module.exports = {
   generateJWT,
   verifyJWT,
   verifyApiKey,
+  enforceApiKeyScope,
   requireNonApiKeyAuth,
   authRateLimit,
   signupRateLimit,

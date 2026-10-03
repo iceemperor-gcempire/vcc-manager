@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PromptGuide = require('../models/PromptGuide');
 const Workboard = require('../models/Workboard');
-const { requireAdmin, verifyJWT } = require('../middleware/auth');
+const { requireAdmin, verifyJWT, requireNonApiKeyAuth } = require('../middleware/auth');
 
 // 프롬프트 가이드 (#766) — 모델별 프롬프트 작성 가이드를 작업판에 연결한다.
 //
@@ -75,7 +75,7 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const guide = await PromptGuide.findById(req.params.id);
     if (!guide) {
@@ -102,7 +102,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 // 그룹 삭제가 Workboard.allowedGroupIds 를 방치해 유령 권한을 만든 사고(#740)의 재발 방지.
 // 여기서는 참조를 조용히 $pull 하지 않고 막는다 — 가이드가 빠지면 LLM 출력 품질이
 // 조용히 달라지므로, admin 이 어느 작업판이 영향받는지 보고 판단해야 한다.
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const guide = await PromptGuide.findById(req.params.id);
     if (!guide) {

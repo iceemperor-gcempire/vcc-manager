@@ -4,7 +4,7 @@ const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
 const Workboard = require('../models/Workboard');
-const { verifyJWT, requireAdmin, userHasWorkboardAccess } = require('../middleware/auth');
+const { verifyJWT, requireAdmin, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -77,7 +77,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
 });
 
 // 서버 생성 (관리자만)
-router.post('/', requireAdmin, validateBody(serverCreateSchema), async (req, res) => {
+router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -161,7 +161,7 @@ router.post('/', requireAdmin, validateBody(serverCreateSchema), async (req, res
 });
 
 // 서버 수정 (관리자만)
-router.put('/:id', requireAdmin, validateBody(serverUpdateSchema), async (req, res) => {
+router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(serverUpdateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -594,7 +594,7 @@ router.get('/:id/models/status', verifyJWT, async (req, res) => {
 
 // Model 캐시 완전 삭제 - 관리자만 (#341)
 // 일반 동기화는 existing.hash 를 재사용하지만, 캐시 자체를 비우면 다음 sync 가 hash 부터 재계산.
-router.delete('/:id/models/cache', requireAdmin, async (req, res) => {
+router.delete('/:id/models/cache', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const cache = await ServerModelCache.findOne({ serverId: req.params.id });
     if (!cache) {
@@ -691,7 +691,7 @@ router.get('/:id/loras/status', verifyJWT, async (req, res) => {
 });
 
 // LoRA 캐시 완전 삭제 - 관리자만 (#341)
-router.delete('/:id/loras/cache', requireAdmin, async (req, res) => {
+router.delete('/:id/loras/cache', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const cache = await ServerLoraCache.findOne({ serverId: req.params.id });
     if (!cache) {
@@ -716,7 +716,7 @@ router.delete('/:id/loras/cache', requireAdmin, async (req, res) => {
 });
 
 // LoRA 동기화 상태 강제 reset (#256) — stuck/failed 상태에서 다시 sync 가능하게 만들기
-router.post('/:id/loras/sync/reset', requireAdmin, async (req, res) => {
+router.post('/:id/loras/sync/reset', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
     if (!server) {
@@ -735,7 +735,7 @@ router.post('/:id/loras/sync/reset', requireAdmin, async (req, res) => {
 });
 
 // 모델 동기화 상태 강제 reset (#256)
-router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
+router.post('/:id/models/sync/reset', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
     if (!server) {
@@ -754,7 +754,7 @@ router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
 });
 
 // 서버 삭제 시 LoRA 캐시도 함께 삭제
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
