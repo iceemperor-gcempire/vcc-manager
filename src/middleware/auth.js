@@ -274,7 +274,11 @@ const verifyApiKey = async (req, res, next) => {
 
 const requireNonApiKeyAuth = (req, res, next) => {
   if (req.authMethod === 'apikey') {
-    return res.status(403).json({ message: 'API key management is not available via API key authentication' });
+    // 키 관리뿐 아니라 계정 삭제·복원 같은 파괴적 작업에도 쓰므로 문구를 일반화했다 (#994)
+    return res.status(403).json({
+      success: false,
+      message: '이 작업은 API 키로 할 수 없습니다. 로그인한 상태에서 진행해 주세요.',
+    });
   }
   return next();
 };
