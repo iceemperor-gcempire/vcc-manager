@@ -167,6 +167,10 @@ LAN 밖에서 쓸 때 고를 수 있는 길 (부담이 적은 순):
    claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
    ```
 
+   > **헬퍼는 신뢰한 폴더에서만 실행된다.** Claude Code 는 신뢰 확인을 수락하지 않은 폴더에서는 headersHelper 를 실행하지 않고
+   > 인증 헤더 없이 접속한다. 그 폴더에서 Claude Code 를 처음 열 때 나오는 신뢰 확인을 수락한다. 신뢰 전에는
+   > `Dynamic Client Registration rejected (HTTP 404)` 라는 엉뚱한 오류로 실패한다 ([문제 해결](#11-문제-해결))
+
 3. **실제 호출로 확인한다** — `/mcp` 에서 연결 상태를 보고, `list_workboards` 를 한 번 부른다. "연결됨" 표시만으로는 부족하다
    (헬퍼가 실행되지 않는 클라이언트 버그 보고가 있다 — anthropics/claude-code #41690, #48514. 특히 플러그인으로 설치한 경우)
 
@@ -688,6 +692,14 @@ Inspector에서 확인할 항목:
 - API Key가 올바르게 입력되었는지 확인하세요 (`vccm_` 또는 `vcc_` 로 시작하는 전체 키)
 - 해당 키가 웹 UI에서 파기되지 않았는지 확인하세요
 - 키를 발급한 계정이 활성화(active) 및 승인(approved) 상태인지 확인하세요
+
+### "Dynamic Client Registration rejected (HTTP 404)" / "Cannot POST /register"
+
+헬퍼(headersHelper)를 쓰는데 이 오류가 나면, **인증 헤더 없이 접속한 것**이다 — 서버가 401 을 주자 클라이언트가 OAuth 로 보고 등록을 시도했다. VCC MCP 는 OAuth 를 쓰지 않는다.
+
+- **그 폴더를 신뢰하지 않았다** — Claude Code 는 신뢰하지 않은 폴더에서 헬퍼를 실행하지 않는다. 그 폴더에서 Claude Code 를 열어 신뢰 확인을 수락한다
+- **헬퍼 경로·실행 권한** — `headersHelper` 는 절대 경로, `chmod +x`
+- **헬퍼 출력** — 직접 실행해 `{"Authorization": "Bearer vccm_…"}` 한 줄만 나오는지 본다. 다른 출력이 섞이면 실패한다
 
 ### "VCC API Key 가 거부됐습니다" (401) — HTTP 모드
 
