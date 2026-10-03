@@ -178,8 +178,8 @@
 - [ ] 연결 후 `/mcp` 표시만 믿지 말고 `list_workboards` 실제 호출
 - [ ] `VCC_BASE_URL_FOR_MCP` 설정 시 `download_result` 가 이미지·영상 모두 `signedUrl`
 - [ ] 미설정으로 mcp-server 를 띄우면 기동 로그에 `VCC_BASE_URL_FOR_MCP 가 설정되지 않았습니다` 경고
-- [ ] 문서(`docs/MCP_SERVER.md` 3-4)대로 **MCP 키 + headersHelper + `claude mcp add-json`** 으로 등록 → `list_workboards` 실호출
-- [ ] 같은 등록을 **신뢰하지 않은 새 폴더**에서 하면 헬퍼가 안 돌아 `Dynamic Client Registration rejected (HTTP 404)` — 문서의 문제 해결 안내와 맞는지
+- [ ] 문서(`docs/MCP_SERVER.md` 3-4) **기본 경로**대로 **MCP 키 + `claude mcp add --header`** 로 등록 → `list_workboards` 실호출
+- [ ] (고급) **헬퍼 + `claude mcp add-json`** 으로 등록 → 신뢰한 폴더에서 연결됨. 신뢰하지 않은 새 폴더에서는 `Dynamic Client Registration rejected (HTTP 404)` — 문서의 문제 해결 안내와 맞는지
 - [ ] MCP 키로 MCP 밖 요청(예: `GET /api/admin/stats`) → `403 이 키는 MCP 용이라…`
 - [ ] **세션 도중 키를 폐기하면** 그 호출은 도구 오류, **다음 요청은 401 로 세션이 닫힘** → 새 키로 Reconnect 후 정상
 
@@ -191,3 +191,4 @@
 |------|------|----------|
 | 1.0 | 2026-02-02 | 초기 작성 - Issue #29, #32~#38 기반 |
 | 1.1 | 2026-10-03 | 페이즈 구분 머리말, 10장 API 키·MCP 신설, 회귀에 MCP·작업판 동기화 추가 (#994, #997) |
+| 1.2 | 2026-10-03 | MCP 연결: 기본 경로(MCP 키 + 헤더) 주 항목, 헬퍼는 고급 (#1008) |
