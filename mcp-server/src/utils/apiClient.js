@@ -14,7 +14,7 @@ const API_URL = process.env.VCC_API_URL || 'http://localhost:3000';
  * @param {string} apiKey - VCC Manager API Key
  * @returns {(path: string, options?: object) => Promise<any>}
  */
-export function createApiClient(apiKey) {
+export function createApiClient(apiKey, { onAuthFailure } = {}) {
   if (!apiKey) {
     throw new Error('API key is required');
   }
@@ -43,6 +43,9 @@ export function createApiClient(apiKey) {
 
     const res = await fetch(url.toString(), fetchOptions);
 
+    // 키가 폐기·교체되면 백엔드가 401 을 준다. 세션이 그 키를 계속 붙잡지 않도록 알린다 (#993)
+    if (res.status === 401 && onAuthFailure) onAuthFailure();
+
     if (responseType === 'buffer') {
       if (!res.ok) {
         throw new Error(`API request failed (${res.status}): ${res.statusText}`);
@@ -68,4 +71,21 @@ export function createApiClient(apiKey) {
 
     return data;
   };
+}
+
+/**
+ * 세션을 열기 전에 키가 백엔드에서 통하는지 본다 (#993).
+ * MCP 키·범용 키 모두 허용되는 가벼운 조회로 확인한다.
+ *
+ * @returns {Promise<'ok' | 'invalid' | 'unknown'>} 'invalid' 는 백엔드가 401 을 준 경우뿐이다.
+ *   백엔드가 안 닿는 등 판단할 수 없으면 'unknown' — 연결을 막지 않는다.
+ */
+export async function checkApiKey(apiKey) {
+  try {
+    const res = await fetch(`${API_URL}/api/workboards?limit=1`, { headers: { 'X-API-Key': apiKey } });
+    if (res.status === 401) return 'invalid';
+    return res.ok ? 'ok' : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
