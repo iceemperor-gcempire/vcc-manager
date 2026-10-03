@@ -148,8 +148,27 @@ LAN 밖에서 쓸 때 고를 수 있는 길 (부담이 적은 순):
 
 #### Claude Code
 
-**키를 설정 파일에 적지 않는 방법(권장)** — `headersHelper` 에 헤더를 만들어 주는 스크립트를 지정한다. Claude Code 가 연결할 때 그 스크립트를 실행해
-출력된 JSON 을 헤더로 쓴다. 키는 스크립트가 읽는 곳(예: 권한 600 파일)에만 있다.
+**기본 — MCP 용 키를 헤더로** (한 줄)
+
+```bash
+claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
+  --header "Authorization: Bearer vccm_xxxxxxxxxxxxxxxx"
+```
+
+지킬 것은 셋이다.
+
+1. **반드시 MCP 용 키(`vccm_…`)를 쓴다.** 이 방식은 키가 Claude Code 설정 파일에 그대로 남는다. 그래도 괜찮은 이유는 MCP 키가
+   새도 작업판 조회·생성·결과 받기 정도만 열리기 때문이다 — 되돌릴 수 없는 작업은 어떤 키로도 안 되고, 관리 기능은 MCP 키로 못 쓴다.
+   범용 키(`vcc_…`)를 여기에 넣지 않는다
+2. **`.mcp.json` 에 넣지 않는다.** 프로젝트 루트의 `.mcp.json`(project 스코프)은 보통 Git 에 커밋된다. 기본값인 local 스코프나 user 스코프로 등록한다 ([5-2](#5-2-등록-스코프))
+3. **키를 바꾸면 다시 연결한다** — 설정을 고친 뒤 `/mcp` 에서 Reconnect ([5-3](#5-3-관리-명령어))
+
+등록한 뒤에는 `/mcp` 에서 연결 상태를 보고 `list_workboards` 를 한 번 불러 실제로 되는지 확인한다.
+
+**고급 — 키를 설정 파일에서도 빼고 싶다면 (headersHelper)**
+
+키를 설정 파일에 두는 것 자체를 피하고 싶을 때만 쓴다. Claude Code 가 연결할 때 지정한 스크립트를 실행해 그 출력을 헤더로 쓰므로,
+키는 스크립트가 읽는 곳(예: 권한 600 파일)에만 있다. 준비할 것이 많고 아래 조건이 붙는다.
 
 1. 헬퍼 스크립트를 둔다 — 저장소의 [`scripts/mcp-headers.sh.example`](../scripts/mcp-headers.sh.example) 을 복사해 쓴다
 
@@ -167,21 +186,11 @@ LAN 밖에서 쓸 때 고를 수 있는 길 (부담이 적은 순):
    claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
    ```
 
-   > **헬퍼는 신뢰한 폴더에서만 실행된다.** Claude Code 는 신뢰 확인을 수락하지 않은 폴더에서는 headersHelper 를 실행하지 않고
-   > 인증 헤더 없이 접속한다. 그 폴더에서 Claude Code 를 처음 열 때 나오는 신뢰 확인을 수락한다. 신뢰 전에는
-   > `Dynamic Client Registration rejected (HTTP 404)` 라는 엉뚱한 오류로 실패한다 ([문제 해결](#11-문제-해결))
-
-3. **실제 호출로 확인한다** — `/mcp` 에서 연결 상태를 보고, `list_workboards` 를 한 번 부른다. "연결됨" 표시만으로는 부족하다
-   (헬퍼가 실행되지 않는 클라이언트 버그 보고가 있다 — anthropics/claude-code #41690, #48514. 특히 플러그인으로 설치한 경우)
-
-**헤더를 직접 적는 방법** — 간단하지만 **키가 설정 파일에 평문으로 남는다.** 쓴다면 반드시 MCP 키로.
-
-```bash
-claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
-  --header "Authorization: Bearer vccm_xxxxxxxxxxxxxxxx"
-```
-
-> ⚠️ 프로젝트 루트의 **`.mcp.json` 은 보통 Git 에 커밋된다.** 여기에 `headers` 로 키를 적으면 저장소에 키가 올라간다 — `.mcp.json` 에는 `headersHelper` 만 쓴다.
+3. 조건과 함정
+   - **헬퍼는 신뢰한 폴더에서만 실행된다.** 신뢰 확인을 수락하지 않은 폴더에서는 헬퍼가 돌지 않아 인증 헤더 없이 접속하고,
+     `Dynamic Client Registration rejected (HTTP 404)` 라는 엉뚱한 오류로 실패한다 ([문제 해결](#11-문제-해결))
+   - 헬퍼가 실행되지 않는 클라이언트 버그 보고가 있다 (anthropics/claude-code #41690, #48514 — 특히 플러그인으로 설치한 경우). "연결됨" 표시만 믿지 말고 실제 호출로 확인한다
+   - `.mcp.json` 에 쓸 거라면 이 방식만 — 키가 저장소에 올라가지 않는다
 
 > **참고**: HTTP 모드에서는 절대 경로나 로컬 Node.js가 필요 없습니다. URL과 API Key만 설정하면 됩니다.
 
@@ -238,7 +247,7 @@ HTTPS URL이라면 `--allow-http` 생략 가능:
 ```
 
 > **참고**: `--allow-http`는 트래픽이 암호화되지 않으므로, 신뢰할 수 있는 내부 네트워크에서만 사용하세요 ([3-3](#3-3-연결-주소--http-로-충분한-경우와-https-가-필요한-경우)).
-> mcp-remote 방식은 헬퍼가 없어 **키가 설정 파일에 평문으로 남는다** — MCP 키를 쓰고, 그 파일을 공유·백업할 때 주의한다.
+> mcp-remote 방식도 키가 설정 파일에 남는다 — 3-4 의 기본 경로와 같이 **MCP 용 키**를 쓴다.
 > `--transport http-only`는 SSE 대신 Streamable HTTP로 연결합니다. 생략 시 SSE 폴백을 시도하여 400 에러가 발생할 수 있습니다.
 
 **클라이언트별 프로토콜 요구사항:**
@@ -338,12 +347,12 @@ Claude Code에서 MCP 서버를 등록하는 방법과 적용 범위(스코프)�
 #### CLI 명령어
 
 ```bash
-# HTTP 모드 — 헬퍼로 키를 설정 파일 밖에 둔다 (권장, 3-4 참고)
-claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
-
-# HTTP 모드 — 헤더를 직접 적는다 (키가 설정 파일에 평문으로 남는다. MCP 키로)
+# HTTP 모드 — 기본: MCP 용 키를 헤더로 (3-4)
 claude mcp add --transport http vcc-manager http://your-server:4136/mcp \
   --header "Authorization: Bearer vccm_xxxxxxxxxxxxxxxx"
+
+# HTTP 모드 — 고급: 키를 설정 파일 밖에 두는 헬퍼 (3-4 의 조건 참고)
+claude mcp add-json vcc-manager '{"type":"http","url":"http://your-server:4136/mcp","headersHelper":"/절대경로/mcp-headers.sh"}'
 
 # stdio 모드 (로컬 실행)
 claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-server/index.js
@@ -351,7 +360,7 @@ claude mcp add --transport stdio vcc-manager -- node /absolute/path/to/mcp-serve
 
 #### 설정 파일 직접 편집
 
-프로젝트 루트의 `.mcp.json` 파일을 생성/편집합니다:
+프로젝트 루트의 `.mcp.json` 파일을 생성/편집합니다. **이 파일은 Git 에 커밋되므로 키를 적지 말고 헬퍼만 지정한다** (팀이 같이 쓰는 경우):
 
 ```json
 {
@@ -437,7 +446,7 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 3. **생성** 버튼을 클릭하고 키 이름을 입력한 뒤, **"어디에 쓸 키인가요?" 에서 `MCP 용`** 을 고릅니다 (예: 이름 `Claude Code`)
 4. 생성된 API Key를 복사합니다 (**이 키는 다시 확인할 수 없으므로 반드시 저장**)
 5. 복사한 키를 MCP 클라이언트 설정에 사용합니다:
-   - **HTTP 모드**: `Authorization: Bearer vccm_xxx...` 헤더 — 가능하면 헬퍼로 ([3-4](#3-4-클라이언트-설정))
+   - **HTTP 모드**: `Authorization: Bearer vccm_xxx...` 헤더로 등록 ([3-4](#3-4-클라이언트-설정))
    - **stdio 모드**: `VCC_API_KEY` 환경 변수에 설정
 
 ### API Key 사용의 장점
