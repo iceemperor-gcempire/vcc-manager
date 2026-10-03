@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireNonApiKeyAuth } = require('../middleware/auth');
 const User = require('../models/User');
 const ApiKey = require('../models/ApiKey');
 const { deleteUserAndContent } = require('../services/userDeletionService');
@@ -160,7 +160,7 @@ router.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
-router.delete('/account', requireAuth, async (req, res) => {
+router.delete('/account', requireAuth, requireNonApiKeyAuth, async (req, res) => {
   try {
     // 개인 콘텐츠 cascade 삭제 — 단일 헬퍼로 통합 (영상/대화/텍스트 등 누락 방지, #660)
     await deleteUserAndContent(req.user._id);

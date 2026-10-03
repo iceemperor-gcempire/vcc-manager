@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAdmin } = require('../middleware/auth');
+const { requireAdmin, requireNonApiKeyAuth } = require('../middleware/auth');
 const SequenceDoc = require('../models/SequenceDoc');
 const Sequence = require('../models/Sequence');
 
@@ -98,7 +98,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // 수정 — 이 문서를 쓰는 모든 작업 절차에 다음 실행부터 반영된다
-router.put('/:id', requireAdmin, async (req, res) => {
+router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const doc = await SequenceDoc.findById(req.params.id);
@@ -125,7 +125,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // 삭제 — 쓰는 작업 절차가 있으면 막는다. 조용히 빼면 LLM 출력이 이유 없이 달라진다 (PromptGuide 와 같은 정책).
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const doc = await SequenceDoc.findById(req.params.id);

@@ -1,6 +1,6 @@
 const express = require('express');
 const {
-  requireAuth, requireAdmin, userHasWorkboardAccess, userHasSequenceAccess, buildSequenceAccessFilter,
+  requireAuth, requireAdmin, userHasWorkboardAccess, userHasSequenceAccess, buildSequenceAccessFilter, requireNonApiKeyAuth
 } = require('../middleware/auth');
 const Sequence = require('../models/Sequence');
 const SequenceDoc = require('../models/SequenceDoc');
@@ -313,7 +313,7 @@ router.patch('/:id', requireAdmin, async (req, res) => {
 });
 
 // 삭제 — 실행 기록(SequenceRun)은 실행자 자산이라 남긴다. 기록에는 실행 시점 이름이 남아 있다.
-router.delete('/:id', requireAdmin, async (req, res) => {
+router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const deleted = await Sequence.findByIdAndDelete(req.params.id);
