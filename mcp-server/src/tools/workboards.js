@@ -32,6 +32,8 @@ export function registerWorkboardTools(server, apiRequest) {
         serverType: wb.serverId?.serverType,
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
+        // 텍스트 작업판은 generate_text 로 실행한다 (#1015)
+        runWith: wb.outputFormat === 'text' ? 'generate_text' : 'generate',
         models: (wb.baseInputFields?.aiModel || []).map((m) => m.key).join(', '),
         sizes: (wb.baseInputFields?.imageSizes || []).map((s) => s.key).join(', '),
         usageCount: wb.usageCount,
@@ -67,6 +69,8 @@ export function registerWorkboardTools(server, apiRequest) {
         serverType: wb.serverId?.serverType,
         outputFormat: wb.outputFormat,
         server: wb.serverId?.name || 'Unknown',
+        // 텍스트 작업판은 generate_text 로 실행한다 (#1015)
+        runWith: wb.outputFormat === 'text' ? 'generate_text' : 'generate',
 
         // Base input fields guide (use these values in generate parameters)
         aiModel: {
@@ -97,6 +101,7 @@ export function registerWorkboardTools(server, apiRequest) {
           ...(f.type === 'select' ? {
             options: (f.options || []).map((o) => o.key),
           } : {}),
+          ...(f.type === 'image' ? { maxImages: f.imageConfig?.maxImages || 1 } : {}),
           ...(f.type === 'number' && f.validation ? {
             min: f.validation.min,
             max: f.validation.max,

@@ -68,7 +68,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `generate`
 
-이미지/비디오 생성. 사전에 `get_workboard`로 옵션 확인 필요. Select 필드(aiModel, imageSize 등)는 옵션 배열의 문자열을 그대로 전달하면 key-value 매핑은 자동 처리.
+이미지/비디오/오디오 생성 (텍스트 작업판은 [`generate_text`](#generate_text)). 사전에 `get_workboard`로 옵션 확인 필요. Select 필드(aiModel, imageSize 등)는 옵션 배열의 문자열을 그대로 전달하면 key-value 매핑은 자동 처리.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -90,6 +90,34 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `jobId` | 생성된 작업 ID |
 | `status` | 작업 상태 |
 | `message` | 결과 메시지 |
+
+---
+
+### `generate_text`
+
+텍스트 작업판(`outputFormat: "text"` — 채팅·프롬프트 작성기 같은 LLM 판) 실행. 결과 텍스트를 **바로** 돌려준다 (폴링 없음). 웹 화면과 같은 경로라 서버 종류(OpenAI / OpenAI Compatible / Gemini)와 무관하게 동작한다. 텍스트 판을 `generate` 에 넣으면 이 도구를 쓰라는 오류가 난다.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---------|------|------|------|
+| `workboardId` | string | **필수** | 텍스트 작업판 ID (`list_workboards(outputFormat: "text")`, 결과의 `runWith` 가 `generate_text`) |
+| `prompt` | string | **필수** | 사용자 메시지 |
+| `imageIds` | string[] | - | `upload_image` 로 받은 imageId 들. 작업판에 이미지 칸이 있어야 하고 그 칸의 최대 장수(`get_workboard` 의 `maxImages`)까지. 모델이 이미지 입력(vision)을 지원해야 한다 |
+| `model` | string | - | 작업판 기본 모델 대신 쓸 모델 ID |
+| `conversationId` | string | - | 이전 결과의 `conversationId` — 같은 대화로 이어간다 (모델은 대화를 시작한 모델 유지) |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 그 밖의 작업판 필드 (예: `system_prompt`, `temperature`) |
+
+작업판 필드의 기본값(모델 등)은 자동으로 채워진다 — 기본값이 있는 칸은 다시 적지 않아도 된다.
+
+**응답 필드:**
+
+| 필드 | 설명 |
+|------|------|
+| `result` | 생성된 텍스트 |
+| `conversationId` | 대화 ID — 이어서 물을 때 전달 |
+| `model` | 실제로 쓴 모델 |
+| `usage` | 토큰 사용량 |
+
+로컬 LLM 은 몇 분씩 걸릴 수 있다. 서버는 끝날 때까지 연결을 유지하지만, **MCP 클라이언트의 도구 호출 시간 제한**이 더 짧으면 클라이언트 쪽에서 끊길 수 있다.
 
 ---
 
@@ -249,7 +277,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `upload_image`
 
-base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를 `generate`/`continue_job`의 `additionalParams`에서 이미지 타입 필드 값으로 사용.
+base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를 `generate`/`continue_job`의 `additionalParams`에서 이미지 타입 필드 값으로, 또는 `generate_text` 의 `imageIds` 로 사용.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -272,6 +300,7 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 ```
 1. upload_image(data: "iVBOR...") → imageId: "abc123"
 2. generate(workboardId, prompt, aiModel, additionalParams: { "referenceImage": "abc123" })
+   또는 텍스트 작업판: generate_text(workboardId, prompt, imageIds: ["abc123"])
    → 이미지 타입 필드가 자동으로 { imageId: "abc123" } 형식으로 변환됨
 ```
 

@@ -90,6 +90,13 @@ router.post('/generate', requireAuth, async (req, res) => {
       return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
 
+    // 텍스트 작업판은 작업 큐에 처리기가 없다 — 작업을 만들어 비동기로 실패시키지 말고 바로 알린다 (#1015)
+    if (wb.outputFormat === 'text') {
+      return res.status(400).json({
+        message: '텍스트 작업판은 이 경로로 실행할 수 없습니다. POST /api/jobs/generate-prompt 를 쓰세요 (MCP 는 generate_text).',
+      });
+    }
+
     // required 이미지/비디오/오디오 필드 검증 (#758, #772) — 프론트 rules 를 우회하는 API/MCP 경로 커버.
     // (일반 필드의 required 는 프론트 CustomFieldControl 이 강제 — 여기서는 첨부형만 본다)
     const ap0 = additionalParams || {};

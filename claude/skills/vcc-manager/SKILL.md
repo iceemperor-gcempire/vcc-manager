@@ -16,7 +16,8 @@ VCC Manager MCP 서버의 도구를 사용하여 이미지/비디오 생성 작�
 |------|------|
 | `list_workboards` | 사용 가능한 작업판 목록 조회 |
 | `get_workboard` | 작업판 상세 정보 (모델, 크기, 파라미터) 조회 |
-| `generate` | 이미지/비디오 생성 요청 |
+| `generate` | 이미지/비디오/오디오 생성 요청 |
+| `generate_text` | 텍스트 작업판(채팅·프롬프트 작성기) 실행 — 결과 텍스트를 바로 반환, 이미지 첨부 가능 |
 | `continue_job` | 기존 작업 기반 재생성 (이어가기) |
 | `get_job_status` | 작업 상태 및 결과 확인 |
 | `list_jobs` | 내 작업 목록 조회 |
@@ -142,7 +143,10 @@ download_result(mediaId, mediaType) → 이미지/비디오 획득
 ```
 upload_image(data, filename?, mimeType?) → imageId 획득
 generate(..., additionalParams: { "참조이미지필드명": imageId }) → 생성
+generate_text(workboardId, prompt, imageIds: [imageId])          → 텍스트 작업판에 이미지를 보여 주고 답 받기
 ```
+
+텍스트 작업판(`get_workboard` 의 `runWith` 가 `generate_text`)은 `generate` 로 돌지 않는다. 결과의 `conversationId` 를 다시 넘기면 같은 대화로 이어간다.
 
 **upload_image 파라미터:**
 
