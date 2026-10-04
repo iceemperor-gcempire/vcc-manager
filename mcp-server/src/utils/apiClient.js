@@ -9,6 +9,39 @@
 const API_URL = process.env.VCC_API_URL || 'http://localhost:3000';
 
 /**
+ * SSE 본문 → [{ event, data }]. 주석 줄(`:`)은 버리고, data 가 JSON 이면 파싱한다.
+ * @param {string} text
+ */
+export function parseSseEvents(text) {
+  const events = [];
+  for (const block of String(text || '').split(/\r?\n\r?\n/)) {
+    let event = 'message';
+    const dataLines = [];
+    for (const line of block.split(/\r?\n/)) {
+      if (!line || line.startsWith(':')) continue;
+      if (line.startsWith('event:')) event = line.slice(6).trim();
+      else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
+    }
+    if (dataLines.length === 0) continue;
+    const raw = dataLines.join('\n');
+    let data = raw;
+    try { data = JSON.parse(raw); } catch { /* 문자열 그대로 */ }
+    events.push({ event, data });
+  }
+  return events;
+}
+
+/** generate-prompt 의 SSE 를 결과로 바꾼다 — done 이면 그 데이터, error 면 예외. */
+export function resultFromSse(text) {
+  const events = parseSseEvents(text);
+  const failed = events.find((e) => e.event === 'error');
+  if (failed) throw new Error(`생성 실패: ${failed.data?.message || failed.data}`);
+  const done = events.find((e) => e.event === 'done');
+  if (!done) throw new Error(`생성 결과를 받지 못했습니다 (받은 이벤트 ${events.length}개, 완료 없음)`);
+  return done.data;
+}
+
+/**
  * Create an API request function bound to a specific API key.
  *
  * @param {string} apiKey - VCC Manager API Key
@@ -57,6 +90,13 @@ export function createApiClient(apiKey, { onAuthFailure } = {}) {
     }
 
     const rawText = await res.text();
+
+    // 텍스트 작업판 생성(/jobs/generate-prompt)은 SSE 로 흘려보낸다 (#1015). 끝까지 읽고 결과만 돌려준다.
+    // 생성 전 검증 실패(400/403/404)는 SSE 가 아니라 JSON 이므로 아래 기존 경로로 간다.
+    if (res.ok && (res.headers.get('content-type') || '').includes('text/event-stream')) {
+      return resultFromSse(rawText);
+    }
+
     let data;
     try {
       data = JSON.parse(rawText);

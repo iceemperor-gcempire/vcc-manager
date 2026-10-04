@@ -140,3 +140,13 @@ describe('POST /api/jobs/:id/retry — 첨부 참조 (#959)', () => {
     expect(addImageGenerationJob).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('POST /api/jobs/generate — 텍스트 작업판 (#1015)', () => {
+  test('작업을 만들지 않고 바로 400, generate-prompt 를 안내한다', async () => {
+    Workboard.findById.mockImplementation(() => wbQuery({ ...wb, outputFormat: 'text' }));
+    const res = await generate({});
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('/api/jobs/generate-prompt');
+    expect(addImageGenerationJob).not.toHaveBeenCalled();
+  });
+});

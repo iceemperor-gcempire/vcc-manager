@@ -21,6 +21,7 @@ const MCP_KEY_ALLOWED_ROUTES = [
   ['GET', '/workboards'],
   ['GET', '/workboards/:id'],
   ['POST', '/jobs/generate'],
+  ['POST', '/jobs/generate-prompt'],   // generate_text — 텍스트 작업판 (#1015)
   ['GET', '/jobs/my'],
   ['GET', '/jobs/:id'],
   ['GET', '/images/generated/:id'],
