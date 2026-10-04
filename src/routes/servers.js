@@ -128,7 +128,7 @@ router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSc
 
     await server.save();
     
-    // 생성 후 헬스체크 수행
+    // 생성 후 헬스체크 수행 — 결과를 응답에 담아 화면이 실패를 알릴 수 있게 한다 (#1013)
     try {
       await server.checkHealth();
     } catch (error) {
@@ -139,7 +139,7 @@ router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSc
     
     res.status(201).json({
       success: true,
-      data: { server },
+      data: { server, healthCheck: server.healthCheck || null },
       message: '서버가 성공적으로 생성되었습니다.'
     });
   } catch (error) {
@@ -215,20 +215,23 @@ router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(serverUpdate
     Object.assign(server, updateFields);
     await server.save();
     
-    // 주요 설정이 변경되었으면 헬스체크 수행
+    // 주요 설정이 변경되었으면 헬스체크 수행. healthCheck 는 이번에 확인했을 때만 담는다 —
+    // 저장돼 있던 예전 결과를 이번 결과로 오인하지 않게 (#1013)
+    let healthCheck = null;
     if (serverUrl !== undefined || configuration !== undefined) {
       try {
         await server.checkHealth();
       } catch (error) {
         console.warn('서버 수정 후 헬스체크 실패:', error.message);
       }
+      healthCheck = server.healthCheck || null;
     }
     
     await server.populate('createdBy', 'email nickname');
     
     res.json({
       success: true,
-      data: { server },
+      data: { server, healthCheck },
       message: '서버가 성공적으로 수정되었습니다.'
     });
   } catch (error) {
