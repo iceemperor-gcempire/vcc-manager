@@ -38,7 +38,7 @@
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
-| `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA + Sol-Attn 팩 선택) |
+| `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-t2v-fasth3.json` | MiniMax H3 - T2V (FastH3 · 실험) | 영상+오디오 · 텍스트 전용, 4스텝 희소 어텐션 | **비순정 ComfyUI 전제**⁷ — VSA 실험 변환본 + comfy-kitchen 0.2.32 + PR #15958 패치 + t8star 팩 |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
@@ -164,28 +164,26 @@ FL2V 의 첫/끝 프레임도, R2V 의 참조 슬롯도 **첨부한 것만 모�
 이는 워크플로의 `_vcc.omitInputsUnless` 로 구현돼 있다. 자세한 내용은
 [COMFYUI_WORKFLOW_AUTHORING.md](../docs/COMFYUI_WORKFLOW_AUTHORING.md) §3 참고.
 
-### 가속 옵션 — Sol-Attn
+### 가속 — Sol-Attn (기본 켜짐)
 
-FL2V 작업판에는 **가속 — Sol-Attn** 체크박스가 있다. 어텐션 커널을 교체해 생성을 빠르게 한다.
-기본은 꺼짐이라, 모르고 지나가도 지금까지와 똑같이 동작한다.
+FL2V · R2V · 키프레임 작업판에는 **가속 — Sol-Attn** 체크박스가 있고 **기본으로 켜져 있다**.
+H3 전용 희소 어텐션으로 확산 단계의 어텐션 계산을 줄인다. ComfyUI **정식 노드**
+(`BlockSparseAttention`, 화면 이름 *Model Sparse Attention*, method `sol-attn`)라 커스텀 노드 설치가 필요 없다
+— ComfyUI 0.36 이상. 그보다 낮으면 업데이트하거나 체크를 끄면 된다(끄면 노드가 워크플로에서 빠진다, `_vcc.bypassUnless`).
 
-`ComfyUI-sol-attn` 커스텀 노드(`SolAttnPatch`)가 설치된 서버에서만 켤 수 있다. 없으면 체크하지 않으면 된다 —
-꺼두면 그 노드는 워크플로에서 아예 빠지므로(`_vcc.bypassUnless`) 순정 ComfyUI 에서도 정상 동작한다.
+실측 (RTX PRO 6000 Blackwell · `--use-sage-attention` · ComfyUI 0.38.0 · 20스텝 · 3회 중앙값 · ComfyUI 실행 시간 기준):
 
-실측 (RTX PRO 6000 Blackwell · SageAttention 기동 · 20스텝 · 웜 상태 · VCC 왕복 시간 기준):
+| 설정 | 864×480 · 73프레임 | 1344×768 · 124프레임 |
+|---|---|---|
+| 끔 | 26.7초 | 177.5초 |
+| **켬** | 25.3초 | **136.0초 (1.31×)** |
 
-| 설정 | 끔 | 켬 | |
-|---|---|---|---|
-| 864×480 · 73프레임 | 44.6초 | 42.6초 | 1.05× |
-| 1344×768 · 124프레임 | 292.7초 | 259.3초 | **1.13×** (33초 단축) |
+토큰 수가 클수록 이득이 커진다. 설정값은 tau 1.3, 전체 스텝의 20~90% 구간, 4096 토큰 미만은 그대로.
+근사 연산이라 같은 시드라도 결과가 **미세하게 달라진다** — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
+이전 결과를 시드로 그대로 재현하려면 체크를 끈다. 첫 실행은 커널 컴파일 때문에 느리다.
 
-토큰 수가 클수록 이득이 커진다. 커널 자체 벤치마크(SageAttention 대비 1.38~1.65×)보다 낮은 이유는
-전체 시간에 MLP·VAE·텍스트 인코딩이 함께 들어가기 때문이다.
-
-근사 연산이라 결과가 **미세하게 달라진다**. 같은 시드라도 픽셀 단위로 동일하지는 않다.
-첫 실행은 Triton 커널 컴파일 때문에 느리다 — 속도 비교는 두 번째 실행부터 봐야 한다.
-
-Ref2V 에도 쓸 수 있다 (모드와 무관한 모델 패치). R2V 작업판에는 아직 넣지 않았다.
+> 예전에는 커스텀 노드 `ComfyUI-sol-attn`(`SolAttnPatch`)을 썼다 (끔/켬 1344×768 기준 1.13~1.21×).
+> 정식 노드가 더 빠르고 결과도 가속 끈 쪽에 더 가까워 바꿨다. 상세 실측은 union-wiki `wiki/comfyui/h3-comfyui-038-attention-w6a8-bench`.
 
 ### 길이 · 해상도 제약
 
