@@ -4,9 +4,9 @@ const { reverseSignedUrl } = require('../utils/signedUrl');
 const PromptData = require('../models/PromptData');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { verifyJWT } = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 
-router.get('/', verifyJWT, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { page = 1, limit = 20, search } = req.query;
     const userId = req.user._id;
@@ -48,7 +48,7 @@ router.get('/', verifyJWT, async (req, res) => {
   }
 });
 
-router.get('/:id', verifyJWT, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const promptData = await PromptData.findOne({
       _id: req.params.id,
@@ -66,7 +66,7 @@ router.get('/:id', verifyJWT, async (req, res) => {
   }
 });
 
-router.post('/', verifyJWT, async (req, res) => {
+router.post('/', requireAuth, async (req, res) => {
   try {
     const { name, memo, representativeImage, prompt, negativePrompt, seed, tags } = req.body;
     
@@ -110,7 +110,7 @@ router.post('/', verifyJWT, async (req, res) => {
   }
 });
 
-router.put('/:id', verifyJWT, async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const { name, memo, representativeImage, prompt, negativePrompt, seed, tags } = req.body;
     
@@ -168,7 +168,7 @@ router.put('/:id', verifyJWT, async (req, res) => {
   }
 });
 
-router.delete('/:id', verifyJWT, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const promptData = await PromptData.findOneAndDelete({
       _id: req.params.id,
@@ -194,7 +194,7 @@ router.delete('/:id', verifyJWT, async (req, res) => {
   }
 });
 
-router.post('/:id/use', verifyJWT, async (req, res) => {
+router.post('/:id/use', requireAuth, async (req, res) => {
   try {
     const promptData = await PromptData.findOne({
       _id: req.params.id,
