@@ -19,6 +19,7 @@
 ## MCP Server
 - [MCP_SERVER.md](./MCP_SERVER.md) — MCP 서버 세팅 / 클라이언트 연결 가이드
 - [MCP_SERVER_API.md](./MCP_SERVER_API.md) — MCP 도구 호출 명세
+- [AGENT_WORKBOARD_SETUP.md](./AGENT_WORKBOARD_SETUP.md) — AI 에이전트가 서버·작업판을 등록하는 절차 (관리자 API 용 키)
 
 ## 배포 및 운영
 - [DEPLOYMENT.md](./DEPLOYMENT.md) — 환경별 배포 방법
