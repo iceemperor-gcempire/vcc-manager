@@ -293,8 +293,8 @@ select 의 name 을 적고, 맞춤 방식 select 가 있으면 `anchorFitField` 
 
 ```json
 "200": {
-  "class_type": "SolAttnPatch",
-  "inputs": { "model": ["6", 0], "tau": 1.3, "int8_qk": true },
+  "class_type": "BlockSparseAttention",
+  "inputs": { "model": ["6", 0], "selection": "sol-attn", "selection.tau": 1.3, "start_percent": 0.2 },
   "_vcc": {
     "bypassUnless": {
       "condition": "{{##use_sol_attn##}}",
@@ -311,7 +311,11 @@ select 의 name 을 적고, 맞춤 방식 select 가 있으면 `anchorFitField` 
   일부만 재연결하면 워크플로가 깨지므로, 안전한 실패는 "가속을 못 끔" 쪽이다
 
 조건은 `boolean` 타입 필드를 쓰면 자연스럽다. 기본값을 꺼짐으로 두면 옵션을 모르는 사용자는
-지금까지와 똑같이 동작한다.
+지금까지와 똑같이 동작한다. 결과가 달라지는 가속을 기본으로 켤 때는 필드 설명에 "끄면 이전과 같은 결과" 를 적어 둔다
+(H3 Sol-Attn 이 그렇다).
+
+정식 노드의 동적 선택 입력(`COMFY_DYNAMICCOMBO_V3`)은 API 포맷에서 **`"선택입력": "옵션키"` + `"선택입력.하위입력": 값`**
+으로 펼쳐 적는다 (위 `selection` / `selection.tau`).
 
 **select 필드 하나로 "켜짐 여부 + 파라미터" 를 같이 나르는 패턴** (#871, H3 판의 인코딩 전 업스케일):
 falsy 판정은 `""` · `"0"` · `"false"` 문자열도 포함하므로, "없음" 옵션의 값을 `"0"` 으로 두면
