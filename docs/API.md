@@ -4,7 +4,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 인증은 두 가지다 — 로그인 세션은 `Authorization: Bearer <JWT>`, API 키는 **`X-API-Key: <키>` 헤더로만** 보낸다. `Authorization: Bearer` 에 API 키를 넣으면 JWT 로 검증돼 401 이다 (`Bearer <api_key>` 는 MCP 서버에 붙을 때의 규약). 자세한 인증 정책은 root [CLAUDE.md](../CLAUDE.md) 참고.
 
-> **API 키로 할 수 없는 작업** (#994) — 되돌릴 수 없거나 서버 구성을 바꾸는 작업은 API 키로 요청하면 `403 이 작업은 API 키로 할 수 없습니다` 가 난다. 로그인 세션에서만 된다: 계정 삭제(`DELETE /users/account`), 백업 생성·서명 URL·다운로드·삭제·복원(`/admin/backup/*`), 사용자 승인·거절·삭제, LoRA 전역 설정, 무결성 정리, 서버 생성·수정·삭제·캐시·동기화 초기화, 그룹·작업판·작업 절차·작업 절차 문서·프롬프트 가이드의 수정·삭제.
+> **API 키로 할 수 없는 작업** (#994, #1017) — 되돌릴 수 없는 작업은 API 키로 요청하면 `403 이 작업은 API 키로 할 수 없습니다` 가 난다. 로그인 세션에서만 된다: 계정 삭제(`DELETE /users/account`), 백업 생성·서명 URL·다운로드·삭제·복원(`/admin/backup/*`), 사용자 삭제, 무결성 정리, 서버·그룹·작업판·작업 절차·작업 절차 문서·프롬프트 가이드의 **삭제**.
+> 서버 등록·수정, 모델·LoRA 캐시와 동기화 초기화, 작업판·그룹·문서·가이드 수정, LoRA 전역 설정, 사용자 승인·거절 같은 **구성 작업은 관리자 계정의 API 용 키로 된다** — AI 가 서버·작업판을 스스로 등록하도록 ([AGENT_WORKBOARD_SETUP.md](AGENT_WORKBOARD_SETUP.md)). MCP 키로는 안 된다.
 
 ## 인증 (Auth)
 

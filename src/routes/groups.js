@@ -92,7 +92,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // 그룹 수정 (admin)
-router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const group = await Group.findById(req.params.id);
     if (!group) {

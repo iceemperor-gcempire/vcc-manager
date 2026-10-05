@@ -13,6 +13,7 @@ const GUARDED = [
   // 계정 삭제: 일반 사용자 키로도 계정 + 콘텐츠가 cascade 로 지워진다
   ['users', 'delete', '/account'],
   // 백업·복원 (/api/admin/backup): 복원은 DB 완전 교체, 다운로드는 DB 전체 반출, 생성은 서비스 전면 차단을 건다
+  // (백업 생성을 키로 열지는 아직 정하지 않았다 — #1017 에서 현행 유지)
   ['backup', 'post', '/'],
   ['backup', 'post', '/:id/signed-url'],
   ['backup', 'get', '/download/:id'],
@@ -20,39 +21,29 @@ const GUARDED = [
   ['backup', 'post', '/restore/server-validate'],
   ['backup', 'post', '/restore/validate'],
   ['backup', 'post', '/restore'],
-  // 사용자 관리·정리 작업
-  ['admin', 'post', '/users/:id/approve'],
-  ['admin', 'post', '/users/:id/reject'],
+  // 사용자 삭제·정리 작업 — 되돌릴 수 없다
   ['admin', 'delete', '/users/:id'],
-  ['admin', 'put', '/settings/lora'],
   ['admin', 'post', '/integrity/cleanup-owner-orphans'],
   ['admin', 'post', '/integrity/cleanup-orphan-files'],
-  // 서버 구성: 생성도 포함 — 서버 주소를 바꾸면 프롬프트·입력이 그쪽으로 간다
-  ['servers', 'post', '/'],
-  ['servers', 'put', '/:id'],
+  // 공유 구성물의 삭제
   ['servers', 'delete', '/:id'],
-  ['servers', 'delete', '/:id/models/cache'],
-  ['servers', 'delete', '/:id/loras/cache'],
-  ['servers', 'post', '/:id/loras/sync/reset'],
-  ['servers', 'post', '/:id/models/sync/reset'],
-  // 공유 구성물의 수정·삭제
-  ['groups', 'put', '/:id'],
   ['groups', 'delete', '/:id'],
   ['sequences', 'delete', '/:id'],
-  ['sequenceDocs', 'put', '/:id'],
   ['sequenceDocs', 'delete', '/:id'],
-  ['promptGuides', 'put', '/:id'],
   ['promptGuides', 'delete', '/:id'],
-  ['workboards', 'put', '/:id'],
   ['workboards', 'delete', '/:id'],
 ];
 
-// 키로 계속 돼야 하는 작업 — MCP 도구와 작업판 동기화(scripts/sync-workboards.js)가 쓴다
+// 키로 계속 돼야 하는 작업 — MCP 도구, 작업판 동기화(scripts/sync-workboards.js),
+// 그리고 AI 가 서버·작업판을 스스로 등록하는 구성 작업(#1017, docs/AGENT_WORKBOARD_SETUP.md)
 const MUST_STAY_OPEN = [
   ['workboards', 'get', '/'],
   ['workboards', 'get', '/:id'],
+  ['workboards', 'post', '/'],
   ['workboards', 'post', '/import'],
+  ['workboards', 'put', '/:id'],
   ['jobs', 'post', '/generate'],
+  ['jobs', 'post', '/generate-prompt'],
   ['jobs', 'get', '/my'],
   ['jobs', 'get', '/:id'],
   ['images', 'post', '/upload'],
@@ -60,6 +51,20 @@ const MUST_STAY_OPEN = [
   ['images', 'get', '/videos/:id'],
   ['images', 'get', '/audios/:id'],
   ['projects', 'get', '/'],
+  // 구성 작업 (#1017) — 되돌릴 수 있고, 키로 막으면 AI 가 설치·설정을 못 한다
+  ['servers', 'post', '/'],
+  ['servers', 'put', '/:id'],
+  ['servers', 'post', '/:id/models/sync'],
+  ['servers', 'delete', '/:id/models/cache'],
+  ['servers', 'delete', '/:id/loras/cache'],
+  ['servers', 'post', '/:id/loras/sync/reset'],
+  ['servers', 'post', '/:id/models/sync/reset'],
+  ['groups', 'put', '/:id'],
+  ['sequenceDocs', 'put', '/:id'],
+  ['promptGuides', 'put', '/:id'],
+  ['admin', 'put', '/settings/lora'],
+  ['admin', 'post', '/users/:id/approve'],
+  ['admin', 'post', '/users/:id/reject'],
 ];
 
 function routeHandlers(file, method, path) {
