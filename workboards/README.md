@@ -124,7 +124,9 @@ ComfyUI 서버에 아래가 설치돼 있어야 한다.
 
 ```
 models/
-├── diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors
+├── diffusion_models/minimax/
+│   ├── minimax_h3_fl2va_int8_convrot.safetensors    ← FL2V · 키프레임 판 기본 (31.7 GiB)
+│   └── minimax_h3_ref2va_int8_convrot.safetensors   ← R2V 판 기본 (31.7 GiB)
 ├── text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors
 └── vae/minimax/
     ├── minimax_h3_video_vae_fp16.safetensors
@@ -134,7 +136,18 @@ models/
 받는 곳: [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3)
 
 텍스트 인코더와 VAE 는 H3 에 고정이라 워크플로에 하드코딩돼 있다. 사용자에게 노출되는 모델 선택은
-diffusion 모델 하나뿐이다.
+diffusion 모델 하나뿐이다 — 서버에 있는 모델이 모두 선택 목록에 뜬다.
+
+**GPU 메모리가 작다면 — w6a8.** 같은 저장소의 `minimax_h3_fl2va_pruned_w6a8` / `minimax_h3_ref2va_pruned_w6a8`
+(각 14.9 GiB, ComfyUI 0.38 · comfy-kitchen 0.2.36 이상)을 받아 모델 선택에서 고르면 된다. 실측(1344×768, sol-attn 켬):
+
+| 모델 | GPU 메모리 최고점 5초 / 10초 | 생성 시간 5초 |
+|---|---|---|
+| int8_convrot (기본) | 50.8 / 54.3 GiB | 136.0초 |
+| pruned w6a8 | 34.3 / 39.8 GiB | 135.6초 |
+
+속도는 같고 메모리가 약 16.5 GiB 준다(텍스트 인코더 포함 최고점). 가지치기·양자화 방식이 달라 같은 시드라도 결과가 기본 모델과 다르게 나온다.
+96 GiB GPU 에서는 메모리가 영상 길이를 막지 않으므로(5→10초에 4~5 GiB 증가) 기본 모델을 그대로 쓴다.
 
 ### 두 작업판의 차이
 
@@ -184,6 +197,12 @@ FL2V Turbo 80초 → 65초 (1.23×), R2V Turbo 91초 → 70초 (1.31×). 프레�
 토큰 수가 클수록 이득이 커진다. 설정값은 tau 1.3, 전체 스텝의 20~90% 구간, 4096 토큰 미만은 그대로.
 근사 연산이라 같은 시드라도 결과가 **미세하게 달라진다** — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
 이전 결과를 시드로 그대로 재현하려면 체크를 끈다. 첫 실행은 커널 컴파일 때문에 느리다.
+
+**SageAttention 이 없는 서버라면** ComfyUI 기동 인자 `--use-sage-attention` 없이도 같은 속도를 낼 수 있다 —
+ComfyUI 0.38 의 *Model Attention Backend* 노드에서 `comfy kitchen attention`(INT8, Nvidia·AMD)을 고르면 된다.
+실측(sol-attn 켬, 1344×768·5초): PyTorch 기본 157.3초 / SageAttention 136.1초 / INT8 135.9초.
+작업판에는 넣지 않았다 — Sage 로 기동한 서버에서는 이득이 없고 결과만 미세하게 바뀌기 때문이다. 필요하면 워크플로의
+UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 
 > 예전에는 커스텀 노드 `ComfyUI-sol-attn`(`SolAttnPatch`)을 썼다 (끔/켬 1344×768 기준 1.13~1.21×).
 > 정식 노드가 더 빠르고 결과도 가속 끈 쪽에 더 가까워 바꿨다. 상세 실측은 union-wiki `wiki/comfyui/h3-comfyui-038-attention-w6a8-bench`.
