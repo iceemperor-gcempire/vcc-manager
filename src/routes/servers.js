@@ -4,7 +4,7 @@ const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
 const Workboard = require('../models/Workboard');
-const { verifyJWT, requireAdmin, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -16,7 +16,7 @@ const { getFieldByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
-router.get('/', verifyJWT, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { serverType, includeInactive = false } = req.query;
 
@@ -320,7 +320,7 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 // - 기본 응답 shape (`checkpointModels: string[]`) 은 backward-compat 유지 — frontend ModelListModal 호환
 // - `?detailed=true` 파라미터: LoRA 와 동일 패턴의 rich 데이터 (search/pagination/baseModel 필터) 반환 — Phase E 의 ModelPickerGrid 가 사용
 // - SaaS provider (OpenAI / Gemini) 의 모델 목록도 detailed 모드에서 동일 응답 구조로 노출 (hash 무관, provider subdoc 사용)
-router.get('/:id/models', verifyJWT, async (req, res) => {
+router.get('/:id/models', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -456,7 +456,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
 });
 
 // LoRA 목록 조회 (검색 지원)
-router.get('/:id/loras', verifyJWT, async (req, res) => {
+router.get('/:id/loras', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -568,7 +568,7 @@ router.post('/:id/models/sync', requireAdmin, async (req, res) => {
 });
 
 // Model 동기화 상태 조회
-router.get('/:id/models/status', verifyJWT, async (req, res) => {
+router.get('/:id/models/status', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -666,7 +666,7 @@ router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
 });
 
 // LoRA 동기화 상태 조회
-router.get('/:id/loras/status', verifyJWT, async (req, res) => {
+router.get('/:id/loras/status', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 

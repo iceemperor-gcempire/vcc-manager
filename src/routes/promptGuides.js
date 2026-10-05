@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const PromptGuide = require('../models/PromptGuide');
 const Workboard = require('../models/Workboard');
-const { requireAdmin, verifyJWT, requireNonApiKeyAuth } = require('../middleware/auth');
+const { requireAdmin, requireAuth, requireNonApiKeyAuth } = require('../middleware/auth');
 
 // 프롬프트 가이드 (#766) — 모델별 프롬프트 작성 가이드를 작업판에 연결한다.
 //
@@ -11,7 +11,7 @@ const { requireAdmin, verifyJWT, requireNonApiKeyAuth } = require('../middleware
 //  제외하므로 41K 자가 통째로 실려 나가지 않는다.)
 
 // 목록 — 본문 제외 (길이만). ?includeInactive=true 면 비활성 포함 (admin UI 용)
-router.get('/', verifyJWT, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const filter = req.query.includeInactive === 'true' ? {} : { isActive: true };
     const guides = await PromptGuide.find(filter, { content: 0 })
@@ -39,7 +39,7 @@ router.get('/', verifyJWT, async (req, res) => {
 });
 
 // 단건 조회 (본문 포함)
-router.get('/:id', verifyJWT, async (req, res) => {
+router.get('/:id', requireAuth, async (req, res) => {
   try {
     const guide = await PromptGuide.findById(req.params.id)
       .populate('createdBy', 'nickname email')

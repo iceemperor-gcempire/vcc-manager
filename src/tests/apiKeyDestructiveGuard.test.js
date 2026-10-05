@@ -6,7 +6,7 @@
  *
  * 라우터의 미들웨어 체인을 직접 검사한다. 라우트를 새로 만들거나 가드를 빼먹으면 여기서 깨진다.
  */
-const { requireNonApiKeyAuth } = require('../middleware/auth');
+const { requireNonApiKeyAuth, verifyJWT } = require('../middleware/auth');
 
 // 키로 하면 안 되는 작업 — 파일, 메서드, 경로 (마운트 지점 기준 상대 경로)
 const GUARDED = [
@@ -65,6 +65,14 @@ const MUST_STAY_OPEN = [
   ['admin', 'put', '/settings/lora'],
   ['admin', 'post', '/users/:id/approve'],
   ['admin', 'post', '/users/:id/reject'],
+  // 구성에 필요한 조회 (#1020) — 모델 ID 를 읽어야 작업판 기본 모델을 정한다
+  ['servers', 'get', '/'],
+  ['servers', 'get', '/:id/models'],
+  ['servers', 'get', '/:id/models/status'],
+  ['servers', 'get', '/:id/loras'],
+  ['servers', 'get', '/:id/loras/status'],
+  ['promptGuides', 'get', '/'],
+  ['promptGuides', 'get', '/:id'],
 ];
 
 function routeHandlers(file, method, path) {
@@ -89,6 +97,25 @@ describe('API 키 파괴적 작업 차단 (#994)', () => {
     test('requireNonApiKeyAuth 가 없다', () => {
       expect(routeHandlers(file, method, path)).not.toContain(requireNonApiKeyAuth);
     });
+  });
+
+  // verifyJWT 는 Authorization: Bearer JWT 만 본다 — 라우트에 걸면 API 키 요청이 401 이 된다 (#1020).
+  // 사용자 확인은 전역 인증(src/server.js)이 이미 했으니 라우트에서는 requireAuth 를 쓴다.
+  // 전역 인증을 건너뛰는 /api/auth/* (auth.js) 만 예외.
+  test('/auth 밖의 라우트는 verifyJWT 를 걸지 않는다', () => {
+    const fs = require('fs');
+    const path = require('path');
+    const dir = path.join(__dirname, '../routes');
+    const offenders = [];
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.js') && x !== 'auth.js')) {
+      const router = require(`../routes/${f}`); // eslint-disable-line global-require, import/no-dynamic-require
+      for (const layer of router.stack || []) {
+        if (layer.route && layer.route.stack.some((s) => s.handle === verifyJWT)) {
+          offenders.push(`${f} ${Object.keys(layer.route.methods).join(',').toUpperCase()} ${layer.route.path}`);
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 
   describe('requireNonApiKeyAuth', () => {
