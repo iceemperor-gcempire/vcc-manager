@@ -44,6 +44,7 @@ import {
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { serverAPI, jobAPI } from '../../services/api';
+import { serverSaveFeedback, SERVER_SAVING_LABEL } from '../../utils/serverSaveFeedback';
 import {
   SERVER_TYPES,
   KNOWN_SERVER_URLS,
@@ -235,7 +236,7 @@ function ServerCard({
   );
 }
 
-function ServerDialog({ open, onClose, server, onSubmit }) {
+function ServerDialog({ open, onClose, server, onSubmit, saving = false }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -301,6 +302,8 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
   };
 
   const handleSubmit = () => {
+    // 저장은 연결 확인까지 최대 10초 걸린다 — 그동안 다시 눌러 같은 서버를 두 번 만들지 않게 (#1013)
+    if (saving) return;
     if (validateForm()) {
       onSubmit(formData);
     }
@@ -317,7 +320,7 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <Dialog open={open} onClose={saving ? undefined : onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         {server ? '서버 편집' : '새 서버 추가'}
       </DialogTitle>
@@ -437,9 +440,14 @@ function ServerDialog({ open, onClose, server, onSubmit }) {
         </Box>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>취소</Button>
-        <Button onClick={handleSubmit} variant="contained">
-          {server ? '수정' : '생성'}
+        <Button onClick={onClose} disabled={saving}>취소</Button>
+        <Button
+          onClick={handleSubmit}
+          variant="contained"
+          disabled={saving}
+          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : null}
+        >
+          {saving ? SERVER_SAVING_LABEL : (server ? '수정' : '생성')}
         </Button>
       </DialogActions>
     </Dialog>
@@ -523,8 +531,13 @@ function ServerManagement() {
         return serverAPI.createServer(serverData);
       }
     },
-      onSuccess: () => {
-        toast.success(selectedServer ? '서버가 수정되었습니다.' : '서버가 생성되었습니다.');
+      onSuccess: (response) => {
+        const { tone, message } = serverSaveFeedback({
+          isEdit: Boolean(selectedServer),
+          healthCheck: response?.data?.data?.healthCheck,
+        });
+        if (tone === 'warning') toast(message, { icon: '⚠️', duration: 8000 });
+        else toast.success(message);
         setDialogOpen(false);
         setSelectedServer(null);
         queryClient.invalidateQueries({ queryKey: ['servers'] });
@@ -712,6 +725,7 @@ function ServerManagement() {
         }}
         server={selectedServer}
         onSubmit={(data) => serverMutation.mutate(data)}
+        saving={serverMutation.isPending}
       />
 
       {/* 삭제 확인 다이얼로그 */}

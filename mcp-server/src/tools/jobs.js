@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { buildTextInputData } from '../utils/textInput.js';
 
 /**
  * Register job-related tools on the MCP server.
@@ -11,7 +12,7 @@ export function registerJobTools(server, apiRequest) {
   // ── generate ───────────────────────────────────────────────────────
   server.tool(
     'generate',
-    'Generate an image or video using a workboard. Call get_workboard first to see available options. Select fields (aiModel, imageSize, etc.) use the display name (key) — mapping is handled automatically.',
+    'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Select fields (aiModel, imageSize, etc.) use the display name (key) — mapping is handled automatically.',
     {
       workboardId: z.string().describe('Workboard ID (get from list_workboards)'),
       prompt: z.string().describe('Generation prompt text'),
@@ -30,6 +31,9 @@ export function registerJobTools(server, apiRequest) {
         // Fetch workboard to map select values to {key, value} format
         const wbData = await apiRequest(`/workboards/${params.workboardId}`);
         const wb = wbData.workboard;
+
+        // 텍스트 작업판은 작업 큐가 아니라 generate_text 로 돈다 (#1015) — 작업을 만들어 3초 뒤 실패시키지 않는다
+        if (wb.outputFormat === 'text') return textWorkboardError(wb);
 
         // Helper: match select option by key (display name) first, then by value (path)
         const matchOption = (options, input) => {
@@ -143,6 +147,53 @@ export function registerJobTools(server, apiRequest) {
     },
   );
 
+  // ── generate_text ──────────────────────────────────────────────────
+  // 텍스트 작업판 (#1015). 웹 화면과 같은 /jobs/generate-prompt 를 부르고 결과를 바로 돌려준다.
+  server.tool(
+    'generate_text',
+    'Run a text workboard (outputFormat "text" — chat / prompt writer LLM boards) and return the generated text directly. Attach images with imageIds (upload_image first) when the workboard has an image field. Pass conversationId from a previous result to continue the same conversation. Field defaults from the workboard are applied automatically. Local LLMs can take minutes.',
+    {
+      workboardId: z.string().describe('Text workboard ID (list_workboards with outputFormat "text")'),
+      prompt: z.string().describe('User message'),
+      imageIds: z.array(z.string()).optional().describe('Image IDs from upload_image (vision models; up to the workboard image field limit)'),
+      model: z.string().optional().describe('Model ID to use instead of the workboard default'),
+      conversationId: z.string().optional().describe('Continue this conversation (from a previous generate_text result)'),
+      additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
+        .describe('Other workboard fields (field name → value), e.g. system_prompt, temperature'),
+    },
+    async (params) => {
+      const wbData = await apiRequest(`/workboards/${params.workboardId}`);
+      const wb = wbData.workboard;
+      if (wb.outputFormat !== 'text') {
+        return errorResult(`"${wb.name}" 은 텍스트 작업판이 아닙니다 (outputFormat=${wb.outputFormat}). generate 를 쓰세요.`);
+      }
+
+      let inputData;
+      try {
+        inputData = buildTextInputData(wb, params);
+      } catch (error) {
+        return errorResult(error.message);
+      }
+
+      const data = await apiRequest('/jobs/generate-prompt', {
+        method: 'POST',
+        body: { workboardId: params.workboardId, inputData, conversationId: params.conversationId },
+      });
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            result: data.result,
+            conversationId: data.conversationId,
+            model: data.model,
+            usage: data.usage,
+          }, null, 2),
+        }],
+      };
+    },
+  );
+
   // ── continue_job ──────────────────────────────────────────────────
   server.tool(
     'continue_job',
@@ -174,6 +225,7 @@ export function registerJobTools(server, apiRequest) {
         // 2. Fetch target workboard
         const wbData = await apiRequest(`/workboards/${targetWorkboardId}`);
         const wb = wbData.workboard;
+        if (wb.outputFormat === 'text') return textWorkboardError(wb);
 
         // Helper: match a select option by key (display name) first, then by value
         const matchSelectValue = (options, inputValue) => {
@@ -442,4 +494,12 @@ export function registerJobTools(server, apiRequest) {
       };
     },
   );
+}
+
+function errorResult(message) {
+  return { content: [{ type: 'text', text: JSON.stringify({ error: message }, null, 2) }], isError: true };
+}
+
+function textWorkboardError(wb) {
+  return errorResult(`"${wb.name}" 은 텍스트 작업판입니다. generate 대신 generate_text 를 쓰세요.`);
 }

@@ -4,7 +4,7 @@ const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
 const Workboard = require('../models/Workboard');
-const { verifyJWT, requireAdmin, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin, userHasWorkboardAccess, requireNonApiKeyAuth } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -16,7 +16,7 @@ const { getFieldByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
-router.get('/', verifyJWT, async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const { serverType, includeInactive = false } = req.query;
 
@@ -77,7 +77,7 @@ router.get('/:id', requireAdmin, async (req, res) => {
 });
 
 // 서버 생성 (관리자만)
-router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSchema), async (req, res) => {
+router.post('/', requireAdmin, validateBody(serverCreateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -128,7 +128,7 @@ router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSc
 
     await server.save();
     
-    // 생성 후 헬스체크 수행
+    // 생성 후 헬스체크 수행 — 결과를 응답에 담아 화면이 실패를 알릴 수 있게 한다 (#1013)
     try {
       await server.checkHealth();
     } catch (error) {
@@ -139,7 +139,7 @@ router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSc
     
     res.status(201).json({
       success: true,
-      data: { server },
+      data: { server, healthCheck: server.healthCheck || null },
       message: '서버가 성공적으로 생성되었습니다.'
     });
   } catch (error) {
@@ -161,7 +161,7 @@ router.post('/', requireAdmin, requireNonApiKeyAuth, validateBody(serverCreateSc
 });
 
 // 서버 수정 (관리자만)
-router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(serverUpdateSchema), async (req, res) => {
+router.put('/:id', requireAdmin, validateBody(serverUpdateSchema), async (req, res) => {
   try {
     const {
       name,
@@ -215,20 +215,23 @@ router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(serverUpdate
     Object.assign(server, updateFields);
     await server.save();
     
-    // 주요 설정이 변경되었으면 헬스체크 수행
+    // 주요 설정이 변경되었으면 헬스체크 수행. healthCheck 는 이번에 확인했을 때만 담는다 —
+    // 저장돼 있던 예전 결과를 이번 결과로 오인하지 않게 (#1013)
+    let healthCheck = null;
     if (serverUrl !== undefined || configuration !== undefined) {
       try {
         await server.checkHealth();
       } catch (error) {
         console.warn('서버 수정 후 헬스체크 실패:', error.message);
       }
+      healthCheck = server.healthCheck || null;
     }
     
     await server.populate('createdBy', 'email nickname');
     
     res.json({
       success: true,
-      data: { server },
+      data: { server, healthCheck },
       message: '서버가 성공적으로 수정되었습니다.'
     });
   } catch (error) {
@@ -317,7 +320,7 @@ router.post('/health-check/all', requireAdmin, async (req, res) => {
 // - 기본 응답 shape (`checkpointModels: string[]`) 은 backward-compat 유지 — frontend ModelListModal 호환
 // - `?detailed=true` 파라미터: LoRA 와 동일 패턴의 rich 데이터 (search/pagination/baseModel 필터) 반환 — Phase E 의 ModelPickerGrid 가 사용
 // - SaaS provider (OpenAI / Gemini) 의 모델 목록도 detailed 모드에서 동일 응답 구조로 노출 (hash 무관, provider subdoc 사용)
-router.get('/:id/models', verifyJWT, async (req, res) => {
+router.get('/:id/models', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -453,7 +456,7 @@ router.get('/:id/models', verifyJWT, async (req, res) => {
 });
 
 // LoRA 목록 조회 (검색 지원)
-router.get('/:id/loras', verifyJWT, async (req, res) => {
+router.get('/:id/loras', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -565,7 +568,7 @@ router.post('/:id/models/sync', requireAdmin, async (req, res) => {
 });
 
 // Model 동기화 상태 조회
-router.get('/:id/models/status', verifyJWT, async (req, res) => {
+router.get('/:id/models/status', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -594,7 +597,7 @@ router.get('/:id/models/status', verifyJWT, async (req, res) => {
 
 // Model 캐시 완전 삭제 - 관리자만 (#341)
 // 일반 동기화는 existing.hash 를 재사용하지만, 캐시 자체를 비우면 다음 sync 가 hash 부터 재계산.
-router.delete('/:id/models/cache', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.delete('/:id/models/cache', requireAdmin, async (req, res) => {
   try {
     const cache = await ServerModelCache.findOne({ serverId: req.params.id });
     if (!cache) {
@@ -663,7 +666,7 @@ router.post('/:id/loras/sync', requireAdmin, async (req, res) => {
 });
 
 // LoRA 동기화 상태 조회
-router.get('/:id/loras/status', verifyJWT, async (req, res) => {
+router.get('/:id/loras/status', requireAuth, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 
@@ -691,7 +694,7 @@ router.get('/:id/loras/status', verifyJWT, async (req, res) => {
 });
 
 // LoRA 캐시 완전 삭제 - 관리자만 (#341)
-router.delete('/:id/loras/cache', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.delete('/:id/loras/cache', requireAdmin, async (req, res) => {
   try {
     const cache = await ServerLoraCache.findOne({ serverId: req.params.id });
     if (!cache) {
@@ -716,7 +719,7 @@ router.delete('/:id/loras/cache', requireAdmin, requireNonApiKeyAuth, async (req
 });
 
 // LoRA 동기화 상태 강제 reset (#256) — stuck/failed 상태에서 다시 sync 가능하게 만들기
-router.post('/:id/loras/sync/reset', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.post('/:id/loras/sync/reset', requireAdmin, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
     if (!server) {
@@ -735,7 +738,7 @@ router.post('/:id/loras/sync/reset', requireAdmin, requireNonApiKeyAuth, async (
 });
 
 // 모델 동기화 상태 강제 reset (#256)
-router.post('/:id/models/sync/reset', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
     if (!server) {

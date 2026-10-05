@@ -693,7 +693,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
   }
 });
 
-router.put('/:id', requireAdmin, requireNonApiKeyAuth, validateBody(workboardUpdateSchema), async (req, res) => {
+router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req, res) => {
   try {
     const {
       name,

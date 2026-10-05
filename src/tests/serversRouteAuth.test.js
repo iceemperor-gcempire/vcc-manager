@@ -13,7 +13,8 @@ let mockCurrentUser;
 jest.mock('../middleware/auth', () => ({
   // #994: 파괴적 라우트의 API 키 차단 가드 — 순수 함수라 실제 구현을 쓴다 (목 사용자는 JWT 세션)
   requireNonApiKeyAuth: jest.requireActual('../middleware/auth').requireNonApiKeyAuth,
-  verifyJWT: (req, res, next) => {
+  // 전역 인증이 채운 사용자를 확인하는 자리 (#1020 — verifyJWT 는 API 키를 거부해 교체)
+  requireAuth: (req, res, next) => {
     req.user = mockCurrentUser;
     next();
   },

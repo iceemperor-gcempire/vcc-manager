@@ -165,7 +165,7 @@ export function registerMediaTools(server, apiRequest, options = {}) {
   // ── upload_image ──────────────────────────────────────────────────
   server.tool(
     'upload_image',
-    'Upload a base64-encoded image to VCC Manager. Returns an imageId that can be used as an image-type field value in generate/continue_job additionalParams.',
+    'Upload a base64-encoded image to VCC Manager. Returns an imageId that can be used as an image-type field value in generate/continue_job additionalParams, or in generate_text imageIds.',
     {
       data: z.string().describe('Base64-encoded image data (without data URI prefix)'),
       filename: z.string().optional().describe('Filename (default: upload.png)'),

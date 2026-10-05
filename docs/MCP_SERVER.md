@@ -71,11 +71,11 @@ API 키는 발급할 때 용도를 고른다.
 
 | | MCP 용 (`vccm_…`) | API 용 · 범용 (`vcc_…`) |
 |---|---|---|
-| 할 수 있는 것 | MCP 도구가 쓰는 요청만 — 작업판 조회, 생성, 작업 조회, 결과 받기, 이미지 업로드, 프로젝트·파이프라인 조회와 실행 | 계정의 API 전반 (스크립트·자동화용) |
+| 할 수 있는 것 | MCP 도구가 쓰는 요청만 — 작업판 조회, 생성(텍스트 작업판 포함), 작업 조회, 결과 받기, 이미지 업로드, 프로젝트·파이프라인 조회와 실행 | 계정의 API 전반 (스크립트·자동화용) |
 | 키가 새면 | MCP 로 할 수 있는 만큼만 열린다 | 그 계정의 API 가 열린다 |
 
 **MCP 클라이언트에는 MCP 키를 쓴다.** MCP 키로 그 밖의 요청을 하면 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다.
-어느 용도든 계정 삭제·백업 복원처럼 되돌릴 수 없는 작업은 API 키로 할 수 없다 (로그인한 웹 화면에서만).
+어느 용도든 계정 삭제·백업 복원·삭제처럼 되돌릴 수 없는 작업은 API 키로 할 수 없다 (로그인한 웹 화면에서만). 서버 등록·작업판 수정 같은 구성 작업은 관리자 계정의 **API 용** 키로 된다 — [AGENT_WORKBOARD_SETUP.md](AGENT_WORKBOARD_SETUP.md).
 
 키 용도는 **할 수 있는 작업**을 막고, **볼 수 있는 데이터**는 막지 않는다 — 관리자 계정의 MCP 키는 관리자가 보는 콘텐츠를 그대로 본다.
 데이터까지 나누고 싶으면 **MCP 전용 계정**을 따로 만들어 그 계정에서 키를 발급한다. 이때 작업판에 그룹 제한이 걸려 있으면
@@ -529,9 +529,9 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 |---|---|---|---|
 | `workboardId` | string | **Yes** | 작업판 ID |
 
-### `generate` — 이미지/비디오 생성
+### `generate` — 이미지/비디오/오디오 생성
 
-이미지 또는 비디오 생성을 요청합니다. select 필드(aiModel, imageSize 등)는 `get_workboard`의 옵션 배열에서 문자열을 그대로 전달하면 key-value 매핑이 자동 처리됩니다.
+이미지·비디오·오디오 생성을 요청합니다. **텍스트 작업판은 `generate_text`** 를 씁니다. select 필드(aiModel, imageSize 등)는 `get_workboard`의 옵션 배열에서 문자열을 그대로 전달하면 key-value 매핑이 자동 처리됩니다.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
@@ -545,6 +545,21 @@ MCP Server는 VCC Manager API Key를 통해 백엔드와 통신합니다.
 | `seed` | number | No | 시드 값 |
 | `randomSeed` | boolean | No | 랜덤 시드 사용 (기본 true) |
 | `additionalParams` | object | No | 추가 파라미터 (필드명 → 값) |
+
+### `generate_text` — 텍스트 작업판 실행
+
+채팅·프롬프트 작성기 같은 텍스트 작업판(`outputFormat: text`)을 실행하고 결과 텍스트를 **바로** 돌려줍니다 (`get_job_status` 폴링 없음). OpenAI / OpenAI Compatible / Gemini 서버 모두 됩니다. 작업판 필드의 기본값(모델 등)은 자동으로 채워집니다.
+
+| 파라미터 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `workboardId` | string | **Yes** | 텍스트 작업판 ID |
+| `prompt` | string | **Yes** | 사용자 메시지 |
+| `imageIds` | string[] | No | `upload_image` 결과 imageId — 이미지 칸이 있는 작업판, 이미지 입력(vision) 지원 모델 |
+| `model` | string | No | 작업판 기본 모델 대신 쓸 모델 ID |
+| `conversationId` | string | No | 이전 결과의 대화 ID — 같은 대화로 이어감 |
+| `additionalParams` | object | No | 그 밖의 필드 (예: `system_prompt`, `temperature`) |
+
+응답: `result`(텍스트), `conversationId`, `model`, `usage`. 로컬 LLM 은 몇 분 걸릴 수 있으니, 끊기면 MCP 클라이언트의 도구 호출 시간 제한을 확인하세요.
 
 ### `continue_job` — 작업 이어가기
 
@@ -615,6 +630,15 @@ AI 에이전트에서의 일반적인 사용 흐름입니다:
 5. download_result(mediaId) → 결과 파일 다운로드 또는 URL 확인
 ```
 
+### 텍스트 작업판 워크플로우 (이미지 첨부)
+
+```
+1. list_workboards(outputFormat="text") → 텍스트 작업판 확인 (runWith: "generate_text")
+2. upload_image(data)                   → imageId (이미지를 보여 줄 때만)
+3. generate_text(workboardId, prompt, imageIds=[imageId]) → result, conversationId
+4. generate_text(workboardId, "이어서 질문", conversationId) → 같은 대화로 이어감
+```
+
 ### 작업 이어가기 워크플로우
 
 ```
@@ -673,7 +697,7 @@ npx @modelcontextprotocol/inspector --url http://localhost:4136/mcp \
 
 Inspector에서 확인할 항목:
 
-1. **Tools 탭**: 7개 도구가 모두 표시되는지 확인
+1. **Tools 탭**: `generate`·`generate_text` 를 포함한 도구들이 표시되는지 확인
 2. **list_workboards 실행**: 작업판 목록이 정상 반환되는지 확인
 3. **get_workboard 실행**: 필드 가이드가 올바르게 표시되는지 확인
 4. **generate 실행**: 작업 생성 후 jobId가 반환되는지 확인

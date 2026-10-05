@@ -52,7 +52,7 @@ router.get('/users', requireAdmin, async (req, res) => {
 });
 
 // 사용자 승인
-router.post('/users/:id/approve', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.post('/users/:id/approve', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -85,7 +85,7 @@ router.post('/users/:id/approve', requireAdmin, requireNonApiKeyAuth, async (req
 });
 
 // 사용자 승인 거절
-router.post('/users/:id/reject', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.post('/users/:id/reject', requireAdmin, async (req, res) => {
   try {
     const userId = req.params.id;
     
@@ -274,7 +274,7 @@ router.get('/settings/lora', requireAdmin, async (req, res) => {
 });
 
 // LoRA 설정 업데이트
-router.put('/settings/lora', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.put('/settings/lora', requireAdmin, async (req, res) => {
   try {
     const { nsfwFilter, nsfwModelFilter, nsfwLoraFilter, civitaiApiKey } = req.body;
 
