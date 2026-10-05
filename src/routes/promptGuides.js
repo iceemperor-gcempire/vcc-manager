@@ -75,7 +75,7 @@ router.post('/', requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const guide = await PromptGuide.findById(req.params.id);
     if (!guide) {

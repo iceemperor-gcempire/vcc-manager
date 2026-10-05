@@ -98,7 +98,7 @@ router.post('/', requireAdmin, async (req, res) => {
 });
 
 // 수정 — 이 문서를 쓰는 모든 작업 절차에 다음 실행부터 반영된다
-router.put('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.put('/:id', requireAdmin, async (req, res) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const doc = await SequenceDoc.findById(req.params.id);
