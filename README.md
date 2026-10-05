@@ -172,6 +172,7 @@ graph TB
 - **[ComfyUI 워크플로우](./docs/COMFYUI_WORKFLOW.md)** — 워크플로우 처리 로직
 - **[LLM 추가 파라미터](./docs/LLM_EXTRA_PARAMS.md)** — 작업판별 LLM 옵션 전달
 - **[MCP 서버 가이드](./docs/MCP_SERVER.md)** · **[MCP 도구 명세](./docs/MCP_SERVER_API.md)**
+- **[AI 에이전트의 서버·작업판 등록](./docs/AGENT_WORKBOARD_SETUP.md)** — AI 가 이 저장소를 읽고 서버 등록·모델 동기화·작업판 준비를 하는 절차
 
 ### 배포 & 운영
 - **[배포 가이드](./docs/DEPLOYMENT.md)** — 환경별 배포 방법
