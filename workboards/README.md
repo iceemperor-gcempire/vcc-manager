@@ -207,33 +207,6 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 > 예전에는 커스텀 노드 `ComfyUI-sol-attn`(`SolAttnPatch`)을 썼다 (끔/켬 1344×768 기준 1.13~1.21×).
 > 정식 노드가 더 빠르고 결과도 가속 끈 쪽에 더 가까워 바꿨다. 상세 실측은 union-wiki `wiki/comfyui/h3-comfyui-038-attention-w6a8-bench`.
 
-### 업스케일 — H3 업샘플러 (선택, 기본 꺼짐)
-
-FL2V · R2V · 키프레임 작업판의 **업스케일 — H3 업샘플러** 를 2배로 고르면, 생성이 끝난 영상을 **정확히 2배**로 키운다
-(832×448 → 1664×896, 1024×768 → 2048×1536, 1344×768 → 2688×1536). H3 latent 업스케일러로 키운 뒤 `h3upscale_v2_x2` LoRA 로
-원본을 가이드 삼아 한 번(denoise 0.1) 다시 그려 디테일을 살린다. 구도·움직임·소리는 원본 그대로.
-
-**왜 2배인가** — LoRA 는 출력 절반 크기의 원본을 가이드로 받아 학습됐다(`reference_downscale_factor: 2`). 출력이 정확히 2배일 때 가이드에
-원본이 그대로 들어간다. 노드는 면적(메가픽셀)만 받으므로, 정식 노드 `GetImageSize` + `ComfyMathExpression` 으로 디코드한 영상 크기 × 4 를
-메가픽셀로 계산해 넣는다. 같은 영상을 2MP(1.4~1.7배)로 키운 것보다 털 결이 더 살아난다.
-
-필요한 것 (영상 ComfyUI, 0.38 이상):
-- 커스텀 노드 [`ComfyUI-H3-Video-Upsampler`](https://github.com/dntpi/ComfyUI-H3-Video-Upsampler) (검증 커밋 `36cb612`, pip 의존성 없음)
-- LoRA `loras/optimizer/minimax/h3upscale_v2_x2.safetensors` — [🤗 sandpies/ComfyUI-H3-Video-Upsampler](https://huggingface.co/sandpies/ComfyUI-H3-Video-Upsampler/tree/main/lora)
-- latent 업스케일러 `latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors` — [🤗 LBH-123-AI](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)
-- 다시 그리기는 **ref2va 원본**(`minimax_h3_ref2va_int8_convrot`, 터보 LoRA·sol-attn 없이)으로 한다 — LoRA 가 그 모델로 학습됐다
-
-실측 (RTX PRO 6000 96 GiB, VCC 작업 시간 = 생성 + 업샘플):
-
-| 판 · 크기 | 끔 | 2배 켬 |
-|---|---|---|
-| FL2V Turbo 1024×768·5초 | 48초 | 180초 → 2048×1536 |
-| R2V Turbo 1344×768·5초 | 약 70초 | 237초 → 2688×1536 |
-
-**GPU 메모리 주의** — FL2V · 키프레임 판은 생성용 fl2va 와 다시 그리기용 ref2va 를 함께 올려, 업샘플 구간에서 96 GiB 중 약 90 GiB 까지 썼다.
-R2V 판은 같은 모델로 다시 그려 여유가 34 GiB 이상 남았다. 같은 GPU 를 다른 ComfyUI 와 나눠 쓰면 FL2V 판의 업샘플은 동시에 돌리지 않는 게 좋다.
-아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다. 노드가 없는 서버에서는 꺼 두면 된다 — 끄면 워크플로에서 빠진다.
-
 ### 길이 · 해상도 제약
 
 H3 는 프레임 수가 **17k+5 격자**만 유효하다. 작업판에서 select 로 고정해 뒀다.
