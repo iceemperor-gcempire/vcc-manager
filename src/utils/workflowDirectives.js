@@ -257,4 +257,14 @@ function getSupportedBuiltinInputs(workflowData, additionalInputFields = []) {
   };
 }
 
-module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, getSupportedBuiltinInputs };
+/**
+ * 프롬프트를 비워도 되는 작업판인가 (#1035).
+ * ComfyUI 워크플로(workflowData 문자열)가 `{{##prompt##}}` 를 쓰지 않을 때만 — 예: H3 업샘플러 영상 업스케일 판.
+ * OpenAI·Gemini 등 API 판은 workflowData 가 비어 있고 서비스가 prompt 를 직접 쓰므로 해당하지 않는다.
+ */
+function isPromptOptional(workboard) {
+  const wf = workboard && workboard.workflowData;
+  return typeof wf === 'string' && wf.trim() !== '' && !wf.includes('{{##prompt##}}');
+}
+
+module.exports = { applyOmitDirectives, isFalsy, getOmitConditionedFieldNames, getSupportedBuiltinInputs, isPromptOptional };

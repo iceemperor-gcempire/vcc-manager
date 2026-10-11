@@ -59,6 +59,7 @@ import VideoSelectDialog from '../components/common/VideoSelectDialog';
 import AudioSelectDialog from '../components/common/AudioSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
+import { isPromptHidden } from '../utils/promptVisibility';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
 import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
@@ -906,6 +907,9 @@ function ImageGeneration() {
   // 예전 작업판(필드 미제공)은 전부 표시 — 감추는 쪽이 안전한 기본값이 아니다.
   const supportedInputs = workboardData?.supportedInputs
     || { prompt: true, negativePrompt: true, seed: true, lora: isComfyUIWorkboard };
+  // 워크플로가 프롬프트를 쓰지 않는 ComfyUI 판은 프롬프트 칸을 숨기고 비워서 생성한다 (#1035)
+  const promptHidden = isPromptHidden({ serverType: workboardData?.serverId?.serverType, supportedInputs: workboardData?.supportedInputs });
+  const showPromptCard = !promptHidden || supportedInputs.lora || supportedInputs.negativePrompt || supportedInputs.seed;
 
   // 작업판 데이터가 로드되면 선택 필드들의 기본값 설정
   useEffect(() => {
@@ -1219,11 +1223,13 @@ function ImageGeneration() {
       <form key={workboardData?._id} onSubmit={handleSubmit(onSubmit)}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
+            {showPromptCard && (
             <Paper variant="outlined" sx={{ mb: 4 }}>
               {/* 카드 헤더 — 목업 06: 제목 + 우측 텍스트 액션 */}
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 4, py: 2.5, borderBottom: 1, borderColor: 'divider' }}>
-                <Typography variant="h6">프롬프트</Typography>
+                <Typography variant="h6">{promptHidden ? '생성 설정' : '프롬프트'}</Typography>
                 <Box sx={{ flex: 1 }} />
+                {!promptHidden && (<>
                 <Button startIcon={<OpenInFull />} onClick={() => setPromptEditorField('prompt')}>
                   크게 편집
                 </Button>
@@ -1233,8 +1239,10 @@ function ImageGeneration() {
                 <Button color="secondary" startIcon={<AutoAwesome />} onClick={() => setPromptGeneratorDialogOpen(true)}>
                   AI 프롬프트 생성
                 </Button>
+                </>)}
               </Box>
               <Box sx={{ p: 4, display: 'flex', flexDirection: 'column', gap: 3.5 }}>
+              {!promptHidden && (
               <Controller
                 name="prompt"
                 control={control}
@@ -1256,6 +1264,7 @@ function ImageGeneration() {
                   />
                 )}
               />
+              )}
 
               {/* LoRA — 프롬프트의 <lora:이름:가중치> 태그를 칩으로 표시 (목업 06, #552). 추가는 기존 prompt-insert 모달 */}
               {supportedInputs.lora && (
@@ -1361,6 +1370,7 @@ function ImageGeneration() {
               )}
               </Box>
             </Paper>
+            )}
 
             {/* 추가 설정 — customField 단일 경로 (F2 이후) */}
             {workboardData?.additionalInputFields?.length > 0 && (
