@@ -1,4 +1,5 @@
 const express = require('express');
+const { isPromptOptional } = require('../utils/workflowDirectives');
 const { requireAuth, userHasWorkboardAccess, userHasProjectAccess } = require('../middleware/auth');
 const { loadContextDocs, loadSystemPromptDoc, resolveProjectTag } = require('../services/containerDocAccess');
 const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
@@ -65,7 +66,7 @@ router.post('/generate', requireAuth, async (req, res) => {
     
     const {
       workboardId,
-      prompt,
+      prompt: rawPrompt,
       negativePrompt,
       referenceImages,
       referenceImageMethod,
@@ -77,7 +78,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       tags
     } = req.body;
 
-    if (!workboardId || !prompt) {
+    if (!workboardId) {
       return res.status(400).json({ message: 'Missing required fields: workboardId, prompt' });
     }
 
@@ -89,6 +90,12 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (!userHasWorkboardAccess(req.user, wb)) {
       return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
     }
+
+    // 프롬프트는 필수 — 워크플로가 프롬프트를 쓰지 않는 ComfyUI 판만 비워도 된다 (#1035)
+    if (!rawPrompt && !isPromptOptional(wb)) {
+      return res.status(400).json({ message: 'Missing required fields: workboardId, prompt' });
+    }
+    const prompt = rawPrompt || '';
 
     // 텍스트 작업판은 작업 큐에 처리기가 없다 — 작업을 만들어 비동기로 실패시키지 말고 바로 알린다 (#1015)
     if (wb.outputFormat === 'text') {

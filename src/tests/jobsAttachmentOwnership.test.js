@@ -150,3 +150,25 @@ describe('POST /api/jobs/generate — 텍스트 작업판 (#1015)', () => {
     expect(addImageGenerationJob).not.toHaveBeenCalled();
   });
 });
+
+describe('POST /api/jobs/generate — 프롬프트를 쓰지 않는 판 (#1035)', () => {
+  test('워크플로가 {{##prompt##}} 를 쓰지 않는 ComfyUI 판은 프롬프트 없이 생성된다', async () => {
+    Workboard.findById.mockImplementation(() => wbQuery({ ...wb, workflowData: JSON.stringify({ 1: { class_type: 'LoadVideo', inputs: {} } }) }));
+    const res = await request(app).post('/api/jobs/generate').send({ workboardId: 'wb-1' });
+    expect(res.status).toBe(201);
+    expect(addImageGenerationJob).toHaveBeenCalledTimes(1);
+  });
+
+  test('프롬프트를 쓰는 판은 여전히 프롬프트가 필수', async () => {
+    Workboard.findById.mockImplementation(() => wbQuery({ ...wb, workflowData: '{"1":{"inputs":{"text":"{{##prompt##}}"}}}' }));
+    const res = await request(app).post('/api/jobs/generate').send({ workboardId: 'wb-1' });
+    expect(res.status).toBe(400);
+    expect(addImageGenerationJob).not.toHaveBeenCalled();
+  });
+
+  test('워크플로가 없는 API 판(OpenAI·Gemini)도 프롬프트 필수', async () => {
+    Workboard.findById.mockImplementation(() => wbQuery({ ...wb, workflowData: '' }));
+    const res = await request(app).post('/api/jobs/generate').send({ workboardId: 'wb-1' });
+    expect(res.status).toBe(400);
+  });
+});
