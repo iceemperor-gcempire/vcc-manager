@@ -43,6 +43,7 @@
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
@@ -206,6 +207,37 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 
 > 예전에는 커스텀 노드 `ComfyUI-sol-attn`(`SolAttnPatch`)을 썼다 (끔/켬 1344×768 기준 1.13~1.21×).
 > 정식 노드가 더 빠르고 결과도 가속 끈 쪽에 더 가까워 바꿨다. 상세 실측은 union-wiki `wiki/comfyui/h3-comfyui-038-attention-w6a8-bench`.
+
+### H3 업샘플러 — 영상 업스케일 판과 R2V 판 선택지
+
+**영상 업스케일 (H3 업샘플러 x2)** 판은 이미 만든 영상을 받아 **정확히 2배**로 키운다 (832×448 → 1664×896, 1344×768 → 2688×1536).
+R2V 판(기본·터보)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
+
+처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 ref2va 모델이 `h3upscale_v2_x2` LoRA 로
+원본을 가이드 삼아 한 번(denoise 0.1) 다시 그린다 → 디코드. 가이드는 원본을 출력 절반 크기(= 원본 크기)로 출력 격자 2칸마다 겹쳐
+넣는 깨끗한 조건이라, 질감을 지어내지 않고 원본 디테일을 되살린다. 구도·움직임·소리는 원본 그대로.
+
+- **2배인 이유** — LoRA 가 출력 절반 크기 원본을 가이드로 학습됐다(`reference_downscale_factor: 2`). 노드는 면적(메가픽셀)만 받으므로
+  정식 노드 `GetImageSize` + `ComfyMathExpression` 으로 원본 크기 × 4 를 계산해 넣는다
+- **FL2V · 키프레임 판에는 없다** — 다시 그리기용 ref2va 를 생성용 fl2va 와 함께 올려야 해 업샘플 구간 GPU 메모리를 96 GiB 중 약 90 GiB 까지
+  썼다. 그 판의 결과는 영상 업스케일 판으로 따로 키운다. R2V 판은 같은 모델로 다시 그려 여유가 34 GiB 이상 남는다
+- **프롬프트 없음** — 업스케일 판은 LoRA 학습 문구를 고정으로 쓴다 (생성 화면에 프롬프트 칸이 나오지 않는다)
+
+필요한 것 (영상 ComfyUI, 0.38 이상):
+- 커스텀 노드 [`ComfyUI-H3-Video-Upsampler`](https://github.com/dntpi/ComfyUI-H3-Video-Upsampler) (검증 커밋 `36cb612`, pip 의존성 없음)
+- LoRA `loras/optimizer/minimax/h3upscale_v2_x2.safetensors` — [🤗 sandpies/ComfyUI-H3-Video-Upsampler](https://huggingface.co/sandpies/ComfyUI-H3-Video-Upsampler/tree/main/lora)
+- latent 업스케일러 `latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors` — [🤗 LBH-123-AI](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)
+- `diffusion_models/minimax/minimax_h3_ref2va_int8_convrot.safetensors` (R2V 판과 같은 것)
+
+실측 (RTX PRO 6000, VCC 작업 시간):
+
+| 경우 | 시간 |
+|---|---|
+| 업스케일 판 · 832×448·5초 → 1664×896 (모델 로드 포함) | 111초 |
+| R2V Turbo 1344×768·5초 · 끔 / 2배 (→ 2688×1536) | 약 70초 / 237초 |
+
+같은 영상을 2MP(1.4~1.7배)로 키운 것보다 2배가 털 결이 더 살아났다. 어두운 역광 장면은 효과가 작다.
+R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다.
 
 ### 길이 · 해상도 제약
 

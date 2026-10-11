@@ -27,9 +27,10 @@ const imageGenerationJobSchema = new mongoose.Schema({
     default: 0
   },
   inputData: {
+    // 프롬프트를 쓰는 판은 라우트(/jobs/generate)가 필수로 검사한다. 쓰지 않는 ComfyUI 판(H3 업샘플러 업스케일 등)은 빈 문자열 (#1035)
     prompt: {
       type: String,
-      required: true
+      default: ''
     },
     negativePrompt: String,
     aiModel: mongoose.Schema.Types.Mixed, // 키-값 객체 또는 문자열 지원
