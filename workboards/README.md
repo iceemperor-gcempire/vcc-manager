@@ -33,9 +33,11 @@
 
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
+| `comfyui/sketch-to-image-qwen-image-21.json` | Sketch to Image - Qwen-Image 2.1 | 이미지 ×1 · 스케치(스크리블) 또는 사진(Canny) 구도로 생성 · 한글 글씨 | Qwen-Image 2.1 판과 같은 모델 + 공식 컨트롤넷 `model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot` ([🤗 Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/tree/main/model_patches)) — ComfyUI 0.38 이상. 1024² 약 9초, Turbo 8스텝 약 4초. 제어 강도 0.8~1.0 |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
+| `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen_image_2.1_int8_convrot`) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델: **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
@@ -43,6 +45,7 @@
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
@@ -86,7 +89,7 @@ AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되
 동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
 5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
 
-⁸ **NVFP4 베이스 (선택)** — 커뮤니티 변환본 `minimax_h3_fl2va_pruned_nvfp4_all.safetensors`
+⁸ **NVFP4 베이스 (선택)** — 커뮤니티 변환본 `minimax/minimax_h3_fl2va_pruned_nvfp4_all.safetensors`
 (11.67GiB, `MATLOWAI/minimax-h3-nvfp4`, Comfy-Org pruned bf16 에서 변환). 파일에 `comfy_quant`
 메타데이터가 있어 **스톡 ComfyUI 에서 커스텀 노드 없이** 로드되고, 작업판의 베이스 모델 목록에
 그대로 뜬다 (모델 노출 정책이 `full`). **기본값은 바꾸지 않았다** — 고르는 사람이 판단한다.
@@ -138,7 +141,7 @@ models/
 텍스트 인코더와 VAE 는 H3 에 고정이라 워크플로에 하드코딩돼 있다. 사용자에게 노출되는 모델 선택은
 diffusion 모델 하나뿐이다 — 서버에 있는 모델이 모두 선택 목록에 뜬다.
 
-**GPU 메모리가 작다면 — w6a8.** 같은 저장소의 `minimax_h3_fl2va_pruned_w6a8` / `minimax_h3_ref2va_pruned_w6a8`
+**GPU 메모리가 작다면 — w6a8.** 같은 저장소의 `minimax_h3_fl2va_pruned_w6a8` / `minimax_h3_ref2va_pruned_w6a8` (`diffusion_models/minimax/` 에 둔다)
 (각 14.9 GiB, ComfyUI 0.38 · comfy-kitchen 0.2.36 이상)을 받아 모델 선택에서 고르면 된다. 실측(1344×768, sol-attn 켬):
 
 | 모델 | GPU 메모리 최고점 5초 / 10초 | 생성 시간 5초 |
@@ -206,6 +209,37 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 
 > 예전에는 커스텀 노드 `ComfyUI-sol-attn`(`SolAttnPatch`)을 썼다 (끔/켬 1344×768 기준 1.13~1.21×).
 > 정식 노드가 더 빠르고 결과도 가속 끈 쪽에 더 가까워 바꿨다. 상세 실측은 union-wiki `wiki/comfyui/h3-comfyui-038-attention-w6a8-bench`.
+
+### H3 업샘플러 — 영상 업스케일 판과 R2V 판 선택지
+
+**영상 업스케일 (H3 업샘플러 x2)** 판은 이미 만든 영상을 받아 **정확히 2배**로 키운다 (832×448 → 1664×896, 1344×768 → 2688×1536).
+R2V 판(기본·터보)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
+
+처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 ref2va 모델이 `h3upscale_v2_x2` LoRA 로
+원본을 가이드 삼아 한 번(denoise 0.1) 다시 그린다 → 디코드. 가이드는 원본을 출력 절반 크기(= 원본 크기)로 출력 격자 2칸마다 겹쳐
+넣는 깨끗한 조건이라, 질감을 지어내지 않고 원본 디테일을 되살린다. 구도·움직임·소리는 원본 그대로.
+
+- **2배인 이유** — LoRA 가 출력 절반 크기 원본을 가이드로 학습됐다(`reference_downscale_factor: 2`). 노드는 면적(메가픽셀)만 받으므로
+  정식 노드 `GetImageSize` + `ComfyMathExpression` 으로 원본 크기 × 4 를 계산해 넣는다
+- **FL2V · 키프레임 판에는 없다** — 다시 그리기용 ref2va 를 생성용 fl2va 와 함께 올려야 해 업샘플 구간 GPU 메모리를 96 GiB 중 약 90 GiB 까지
+  썼다. 그 판의 결과는 영상 업스케일 판으로 따로 키운다. R2V 판은 같은 모델로 다시 그려 여유가 34 GiB 이상 남는다
+- **프롬프트 없음** — 업스케일 판은 LoRA 학습 문구를 고정으로 쓴다 (생성 화면에 프롬프트 칸이 나오지 않는다)
+
+필요한 것 (영상 ComfyUI, 0.38 이상):
+- 커스텀 노드 [`ComfyUI-H3-Video-Upsampler`](https://github.com/dntpi/ComfyUI-H3-Video-Upsampler) (검증 커밋 `36cb612`, pip 의존성 없음)
+- LoRA `loras/optimizer/minimax/h3upscale_v2_x2.safetensors` — [🤗 sandpies/ComfyUI-H3-Video-Upsampler](https://huggingface.co/sandpies/ComfyUI-H3-Video-Upsampler/tree/main/lora)
+- latent 업스케일러 `latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors` — [🤗 LBH-123-AI](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)
+- `diffusion_models/minimax/minimax_h3_ref2va_int8_convrot.safetensors` (R2V 판과 같은 것)
+
+실측 (RTX PRO 6000, VCC 작업 시간):
+
+| 경우 | 시간 |
+|---|---|
+| 업스케일 판 · 832×448·5초 → 1664×896 (모델 로드 포함) | 111초 |
+| R2V Turbo 1344×768·5초 · 끔 / 2배 (→ 2688×1536) | 약 70초 / 237초 |
+
+같은 영상을 2MP(1.4~1.7배)로 키운 것보다 2배가 털 결이 더 살아났다. 어두운 역광 장면은 효과가 작다.
+R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다.
 
 ### 길이 · 해상도 제약
 

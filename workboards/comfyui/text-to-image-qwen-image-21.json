@@ -2,12 +2,12 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 4
+    "minor": 8
   },
-  "exportedAt": "2026-09-23T15:21:57.164761Z",
+  "exportedAt": "2026-10-12T13:58:55.000Z",
   "workboard": {
     "name": "Text to Image - Qwen-Image 2.1",
-    "description": "Qwen-Image 2.1 로 이미지를 만드는 판입니다. 긍정·부정 프롬프트를 한 인코더가 함께 처리하며 CFG 는 1 로 고정입니다 (공식 템플릿 기준 25스텝). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다.",
+    "description": "Qwen-Image 2.1 로 이미지를 만드는 판입니다. 긍정·부정 프롬프트를 한 인코더가 함께 처리하며 CFG 는 1 로 고정입니다 (공식 템플릿 기준 25스텝). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다. 모델 선택: 기본(int8) · Turbo(8스텝으로 약 1.5초, 스텝을 8 로) · Uncensored(공식 모델에 검열 해제 LoRA 를 합친 변형, 설정은 기본과 같음).",
     "workboardType": "image",
     "outputFormat": "image",
     "additionalInputFields": [
@@ -101,7 +101,7 @@
         "type": "select",
         "required": false,
         "defaultValue": "25",
-        "description": "공식 템플릿 기준 25. 디테일이 아쉬우면 30.",
+        "description": "공식 템플릿 기준 25. 디테일이 아쉬우면 30. Turbo 모델(qwen_image_2.1_turbo)을 고르면 8 로 두세요 — 기본 25스텝과 같은 품질을 약 3배 빠르게 냅니다.",
         "formatString": "{{##steps##}}",
         "options": [
           {
@@ -115,6 +115,10 @@
           {
             "key": "30 (더 정교)",
             "value": "30"
+          },
+          {
+            "key": "8 (Turbo 모델용)",
+            "value": "8"
           }
         ]
       },
