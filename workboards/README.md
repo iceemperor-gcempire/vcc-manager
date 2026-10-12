@@ -36,6 +36,7 @@
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 모델 + qwen3vl_4b TE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
+| `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen_image_2.1_int8_convrot`) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델: **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
