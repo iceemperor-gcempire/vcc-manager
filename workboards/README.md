@@ -89,7 +89,7 @@ AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되
 동일성은 참조 고정 설계로 유지 (실측 #908). LTX-2.5 모델 4종(README 의 LTX 절 참고)이 함께 필요하다.
 5초 480p→960p 약 66초, 10초 이상 대형 입력은 ~10분·램 소모 큼. 코어 노드만 사용.
 
-⁸ **NVFP4 베이스 (선택)** — 커뮤니티 변환본 `minimax_h3_fl2va_pruned_nvfp4_all.safetensors`
+⁸ **NVFP4 베이스 (선택)** — 커뮤니티 변환본 `minimax/minimax_h3_fl2va_pruned_nvfp4_all.safetensors`
 (11.67GiB, `MATLOWAI/minimax-h3-nvfp4`, Comfy-Org pruned bf16 에서 변환). 파일에 `comfy_quant`
 메타데이터가 있어 **스톡 ComfyUI 에서 커스텀 노드 없이** 로드되고, 작업판의 베이스 모델 목록에
 그대로 뜬다 (모델 노출 정책이 `full`). **기본값은 바꾸지 않았다** — 고르는 사람이 판단한다.
@@ -141,7 +141,7 @@ models/
 텍스트 인코더와 VAE 는 H3 에 고정이라 워크플로에 하드코딩돼 있다. 사용자에게 노출되는 모델 선택은
 diffusion 모델 하나뿐이다 — 서버에 있는 모델이 모두 선택 목록에 뜬다.
 
-**GPU 메모리가 작다면 — w6a8.** 같은 저장소의 `minimax_h3_fl2va_pruned_w6a8` / `minimax_h3_ref2va_pruned_w6a8`
+**GPU 메모리가 작다면 — w6a8.** 같은 저장소의 `minimax_h3_fl2va_pruned_w6a8` / `minimax_h3_ref2va_pruned_w6a8` (`diffusion_models/minimax/` 에 둔다)
 (각 14.9 GiB, ComfyUI 0.38 · comfy-kitchen 0.2.36 이상)을 받아 모델 선택에서 고르면 된다. 실측(1344×768, sol-attn 켬):
 
 | 모델 | GPU 메모리 최고점 5초 / 10초 | 생성 시간 5초 |
