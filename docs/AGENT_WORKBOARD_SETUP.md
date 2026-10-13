@@ -112,7 +112,7 @@ jq -n --slurpfile d workboards/comfyui/minimax-h3-fl2v-turbo.json '{data: $d[0],
 - `mode: "update"` — 같은 이름의 판이 있으면 **제자리 갱신**, 없으면 새로 만든다. `mode: "create"`(기본)는 항상 새로 만든다.
 - 위험 변경(필드 삭제 등)이 있으면 409 와 경고 목록이 온다. 내용을 확인하고 `acknowledge: true` 를 붙여 다시 보낸다.
 - 서버는 이름·종류가 같은 것으로 자동 매칭된다. 안 되면 응답에 서버 목록이 오니 `serverId` 를 지정해 다시 보낸다.
-- 여러 파일을 한 번에: `node scripts/sync-workboards.js --apply workboards/comfyui/*.json` (환경변수 `VCC_BASE_URL`, `VCC_API_KEY`. 기본은 미리보기만).
+- 여러 파일을 한 번에: `node scripts/sync-workboards.js --apply workboards/comfyui/*.json` — 저장소에서 지운(퇴역) 판이 서버에 남아 있으면 함께 비활성화한다 (환경변수 `VCC_BASE_URL`, `VCC_API_KEY`. 기본은 미리보기만).
 - 판마다 필요한 모델·커스텀 노드는 `workboards/README.md` 에 있다. 가져오기는 그것을 설치해 주지 않는다.
 
 ### 4-2. 새로 만들기 (텍스트 판 등)
