@@ -41,7 +41,7 @@
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
-| `comfyui/minimax-h3-t2v-fasth3.json` | MiniMax H3 - T2V (FastH3 · 실험) | 영상+오디오 · 텍스트 전용, 4스텝 희소 어텐션 | **비순정 ComfyUI 전제**⁷ — VSA 실험 변환본 + comfy-kitchen 0.2.32 + PR #15958 패치 + t8star 팩 |
+| `comfyui/minimax-h3-t2v-fasth3-v2.json` | MiniMax H3 - T2V (FastH3 V2) | 영상+오디오 · 텍스트 전용, 8스텝 (FastVideo 공식 DMD) | `minimax/fastvideo_fasth3_8step_v2_pruned_int8_convrot` ([🤗 FastVideo/FastVideo-FastH3-Comfy](https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy)) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹. ComfyUI 0.36 이상(정식 VSA 노드). NVFP4 변환본도 선택 가능 (5% 빠름·메모리 6.8 GiB 적음) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
@@ -111,8 +111,6 @@ NVFP4 쪽이 피사체를 더 멀리 잡는 경향이 보였다 (n=2 — 단정�
 **전 규격이 아니다** — 이 변환본은 fl2va 헤드뿐이라 R2V 판 2개(`ref2va`)는 쓸 수 없다. 저작자의
 30초 빌더로 자체 변환하면 전 규격·non-pruned 계보가 가능하고, peak VRAM 도 82.5 → 59.3GiB(−28%)로
 줄어든다. 절차·미검증 항목·재개 조건은 **이슈 #988 (보류 — 프로덕션 서비스 중)**.
-
-⁷ **FastH3 T2V 판(실험)**은 ComfyUI 코어가 아직 정식 지원하지 않는 경로다. 8198 에 선행 적용된 상태(PR #15958 패치 +12/-5, `comfy-kitchen==0.2.32`, `comfyui-minimax-h3-audio-T8` 팩, `minimax_h3_fastvideo_vsa_datafree_1300step_4step_int8_convrot.safetensors` 22.9GB)를 전제한다 — 설치·롤백은 union-wiki `comfyui-gpu-windows`. T2VA 전용(첫·끝 프레임·참조 불가). 실측 5초 768p 약 22초(웜). 공식 FastVideo Synthetic 변환본이 나오면 base_model 만 교체.
 
 ---
 
