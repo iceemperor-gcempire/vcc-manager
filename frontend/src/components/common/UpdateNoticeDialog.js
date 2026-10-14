@@ -57,7 +57,9 @@ function UpdateNoticeDialog() {
         {sections.map((section, i) => (
           <Box key={section.version}>
             {i > 0 && <Divider sx={{ my: 4 }} />}
-            <Box sx={{ '& h2': { fontSize: '18px', mt: 0, mb: 2 }, '& h3': { fontSize: '15px', mt: 4, mb: 1 }, '& li': { mb: 1 } }}>
+            <Box sx={{ '& h2': { fontSize: '18px', mt: 0, mb: 2 }, '& h3': { fontSize: '15px', mt: 4, mb: 1 }, '& li': { mb: 1 },
+              // 긴 파일 이름(공백 없는 code)이 모바일에서 본문을 옆으로 밀지 않게 (#1054)
+              '& code': { overflowWrap: 'anywhere' } }}>
               <ReactMarkdown>{section.markdown}</ReactMarkdown>
             </Box>
           </Box>
