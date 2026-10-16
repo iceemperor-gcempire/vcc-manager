@@ -1,5 +1,5 @@
-// API 키 용도 (#995) — 화면 문구를 한 곳에 둔다.
-// 백엔드 정의는 src/constants/apiKeyScopes.js. 용도 값('api' | 'mcp')이 바뀌면 둘 다 고친다.
+// API 키 용도 (#995, #1059) — 화면 문구를 한 곳에 둔다.
+// 백엔드 정의는 src/constants/apiKeyScopes.js. 용도 값('api' | 'mcp' | 'full')이 바뀌면 둘 다 고친다.
 
 // 새 키의 기본 용도 — 범위가 좁은 쪽을 기본으로 둔다. 새면 MCP 로 할 수 있는 만큼만 열린다.
 export const DEFAULT_NEW_KEY_SCOPE = 'mcp';
@@ -13,15 +13,29 @@ export const API_KEY_SCOPE_OPTIONS = [
   {
     value: 'api',
     label: 'API 용 (범용)',
-    description: '스크립트나 자동화에서 계정의 API 를 폭넓게 씁니다. 계정 삭제·백업 복원처럼 되돌릴 수 없는 작업은 어떤 키로도 할 수 없어요.',
+    description: '스크립트나 자동화에서 계정의 API 를 폭넓게 씁니다. 삭제·백업처럼 되돌릴 수 없는 작업은 이 키로 할 수 없어요.',
+  },
+  {
+    value: 'full',
+    label: '전체 제어',
+    description: 'AI 에게 이 계정의 운영을 통째로 맡길 때 씁니다. 작업판·서버 삭제, 백업 실행, 계정 삭제처럼 되돌릴 수 없는 작업도 이 키로 할 수 있어요. 키 관리와 백업 복원·내려받기는 이 키로도 안 되고 로그인해야 해요.',
   },
 ];
 
 // 용도 필드가 없던 예전 키는 범용이다
 export function apiKeyScopeOf(apiKey) {
-  return apiKey?.scope === 'mcp' ? 'mcp' : 'api';
+  return apiKey?.scope === 'mcp' || apiKey?.scope === 'full' ? apiKey.scope : 'api';
 }
 
+const SCOPE_LABEL = { mcp: 'MCP', api: 'API', full: '전체 제어' };
+
 export function apiKeyScopeLabel(apiKey) {
-  return apiKeyScopeOf(apiKey) === 'mcp' ? 'MCP' : 'API';
+  return SCOPE_LABEL[apiKeyScopeOf(apiKey)];
+}
+
+// 목록 칩 색 — 전체 제어는 눈에 띄게
+const SCOPE_TONE = { mcp: 'info', api: 'accent', full: 'warning' };
+
+export function apiKeyScopeTone(apiKey) {
+  return SCOPE_TONE[apiKeyScopeOf(apiKey)];
 }
