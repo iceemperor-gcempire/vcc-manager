@@ -87,7 +87,7 @@ BACKUP_HOST_PATH=/mnt/backup-disk/vcc-backups
 관리자 > **백업 / 복구** > **백업 생성** → 진행 상태 확인 → 완료 후 다운로드.
 
 ### 자동화 (API 키)
-관리자 계정의 **전체 제어** 키(`vccf_`, #1059)로 `POST /api/admin/backup` 을 부르면 백업이 시작됩니다. 진행 상태(`status/:id`)와 목록(`list`)은 다른 API 키로도 조회됩니다.
+관리자 계정의 **API 용** 키(`vcc_`, #1061)로 `POST /api/admin/backup` 을 부르면 백업이 시작됩니다. 진행 상태(`status/:id`)와 목록(`list`)은 다른 API 키로도 조회됩니다.
 다운로드·삭제·복구는 어떤 API 키로도 안 되고, 웹에 로그인한 상태에서만 됩니다. 자동화에서 백업 파일이 필요하면 `BACKUP_HOST_PATH` 로 지정한 호스트 폴더에서 읽으세요.
 
 ### 백업 파일 구조

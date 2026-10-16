@@ -47,7 +47,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
-import { API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf, apiKeyScopeTone } from '../utils/apiKeyScope';
+import { ADMIN_API_KEY_NOTICE, API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf, apiKeyScopeTone } from '../utils/apiKeyScope';
 import { useAuth } from '../contexts/AuthContext';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -310,7 +310,7 @@ function SecuritySettings() {
   const [newKeyScope, setNewKeyScope] = useState(DEFAULT_NEW_KEY_SCOPE);
   const [createdKey, setCreatedKey] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const queryClient = useQueryClient();
 
   // API Key 목록 조회
@@ -533,10 +533,8 @@ function SecuritySettings() {
               />
             ))}
           </RadioGroup>
-          {newKeyScope === 'full' && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              이 키가 새면 이 계정으로 할 수 있는 일을 남도 다 할 수 있어요. 믿을 수 있는 곳에만 넣고, 의심되면 바로 파기하세요.
-            </Alert>
+          {user?.isAdmin && newKeyScope === 'api' && (
+            <Alert severity="warning" sx={{ mt: 1 }}>{ADMIN_API_KEY_NOTICE}</Alert>
           )}
         </DialogContent>
         <DialogActions>
