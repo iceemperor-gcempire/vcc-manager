@@ -16,19 +16,19 @@ docker-compose up -d
 
 ```bash
 # 첫 실행 — Playwright 브라우저 다운로드
-npx playwright install chromium
+pnpm exec playwright install chromium
 
 # 헤드리스 실행
-npm run test:e2e
+pnpm run test:e2e
 
 # UI 모드 (인터랙티브)
-npm run test:e2e:ui
+pnpm run test:e2e:ui
 
 # 헤드 모드 (브라우저 창 보이게)
-npm run test:e2e:headed
+pnpm run test:e2e:headed
 
 # baseURL 오버라이드
-E2E_BASE_URL=http://localhost:8080 npm run test:e2e
+E2E_BASE_URL=http://localhost:8080 pnpm run test:e2e
 ```
 
 ## 디렉토리 구조
@@ -37,9 +37,14 @@ E2E_BASE_URL=http://localhost:8080 npm run test:e2e
 e2e/
 ├── helpers/
 │   └── auth.js          # signup / login helper
+├── ios-sim/             # iOS 시뮬레이터 레이아웃 검사 (Playwright 아님 — ios-sim/README.md)
 ├── smoke.spec.js        # critical user journey smoke 테스트
 └── README.md            # 이 문서
 ```
+
+## 모바일 레이아웃 — iOS 시뮬레이터 검사
+
+Playwright 는 데스크톱 Chromium 이라 모바일에서만 생기는 깨짐(#1053·#1054)을 못 잡는다. 실제 iOS Safari 로 모든 화면의 가로 넘침·제목 줄 수를 재는 검사는 [`ios-sim/README.md`](ios-sim/README.md) 를 본다 (`pnpm run test:ios-sim`). UI 에 영향 있는 마이너 이상 릴리스 전에 돌린다.
 
 ## 사용자 생성 정책
 
@@ -49,7 +54,7 @@ e2e/
 
 - UI 변경 (셀렉터, 네비게이션 흐름, 텍스트 라벨 등) 시 관련 e2e 테스트도 함께 업데이트.
 - 핵심 user journey 추가 시 smoke 테스트 1개 이상 추가 권장.
-- PR 머지 전 로컬에서 `npm run test:e2e` 통과 확인.
+- PR 머지 전 로컬에서 `pnpm run test:e2e` 통과 확인.
 
 ## 향후
 
