@@ -1,18 +1,20 @@
 /**
  * API 키의 용도 (#995).
  *
- * - 'api' — 범용. 그 계정의 REST 를 쓴다 (파괴적 작업은 #994 로 키 인증 자체가 막혀 있다)
- * - 'mcp' — MCP 전용. MCP 도구가 실제로 호출하는 요청만 허용하고 나머지는 거부한다
+ * - 'api'  — 범용. 그 계정의 REST 를 쓴다 (되돌릴 수 없는 작업은 #994 로 막혀 있다)
+ * - 'mcp'  — MCP 전용. MCP 도구가 실제로 호출하는 요청만 허용하고 나머지는 거부한다
+ * - 'full' — 전체 제어 (#1059). AI 에게 계정 운영을 맡길 때. #994 로 막힌 작업 중 삭제·정리·백업 실행까지 열린다.
+ *            키 관리·백업 복원·백업 반출은 이 키로도 안 된다 — 키를 재발급해도 되돌릴 수 없는 일이라서
  *
  * 막을 걸 나열하지 않고 허용할 걸 나열한다 — 새 라우트가 생겨도 MCP 키로는 기본이 거부다.
  * 키 용도는 **라우트**를 막고 데이터는 막지 않는다. 데이터까지 나누려면 MCP 전용 계정을 쓴다.
  */
 
-const API_KEY_SCOPES = ['api', 'mcp'];
+const API_KEY_SCOPES = ['api', 'mcp', 'full'];
 const DEFAULT_API_KEY_SCOPE = 'api';
 
 // 설정 파일에서 어떤 키인지 바로 보이도록 접두사를 다르게 한다
-const API_KEY_PREFIX = { api: 'vcc_', mcp: 'vccm_' };
+const API_KEY_PREFIX = { api: 'vcc_', mcp: 'vccm_', full: 'vccf_' };
 
 // MCP 키로 허용하는 요청 — 경로는 /api 기준.
 // mcp-server/src/tools/*.js 가 호출하는 것과 정확히 같아야 한다 (apiKeyScope.test.js 가 양방향으로 대조).

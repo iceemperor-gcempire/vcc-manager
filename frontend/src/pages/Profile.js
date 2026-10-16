@@ -47,7 +47,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
-import { API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf } from '../utils/apiKeyScope';
+import { API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf, apiKeyScopeTone } from '../utils/apiKeyScope';
 import { useAuth } from '../contexts/AuthContext';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -442,7 +442,7 @@ function SecuritySettings() {
                           {apiKey.name}
                         </Typography>
                         {/* 용도 (#995) — 예전 키는 범용(API) */}
-                        <ToneChip tone={apiKeyScopeOf(apiKey) === 'mcp' ? 'info' : 'accent'} label={apiKeyScopeLabel(apiKey)} />
+                        <ToneChip tone={apiKeyScopeTone(apiKey)} label={apiKeyScopeLabel(apiKey)} />
                         {/* MUI Chip color 직접 사용은 금지 규칙 (ToneChip 주석) + error.main 이 라이트에서 3.74:1 (#727) */}
                         {apiKey.isRevoked && <ToneChip tone="error" label="파기됨" />}
                       </Box>
@@ -533,6 +533,11 @@ function SecuritySettings() {
               />
             ))}
           </RadioGroup>
+          {newKeyScope === 'full' && (
+            <Alert severity="warning" sx={{ mt: 1 }}>
+              이 키가 새면 이 계정으로 할 수 있는 일을 남도 다 할 수 있어요. 믿을 수 있는 곳에만 넣고, 의심되면 바로 파기하세요.
+            </Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); setNewKeyScope(DEFAULT_NEW_KEY_SCOPE); }}>

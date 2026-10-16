@@ -102,6 +102,11 @@ describe('enforceApiKeyScope', () => {
     expect(next).toHaveBeenCalled();
   });
 
+  test('전체 제어 키는 영향 없음 (#1059)', () => {
+    const { next } = run({ authMethod: 'apikey', apiKeyScope: 'full', method: 'DELETE', path: '/workboards/w1' });
+    expect(next).toHaveBeenCalled();
+  });
+
   test('로그인 세션(JWT)은 영향 없음', () => {
     const { next } = run({ method: 'DELETE', path: '/jobs/j1' });
     expect(next).toHaveBeenCalled();
@@ -109,15 +114,20 @@ describe('enforceApiKeyScope', () => {
 });
 
 describe('키 발급 — 용도별 접두사', () => {
-  test.each(['api', 'mcp'])('%s 키의 접두사', (scope) => {
+  test.each(['api', 'mcp', 'full'])('%s 키의 접두사', (scope) => {
     const { fullKey, prefix } = ApiKey.generateKey(scope);
     expect(fullKey.startsWith(API_KEY_PREFIX[scope])).toBe(true);
-    expect(fullKey).toMatch(/^vccm?_[0-9a-f]{40}$/);
+    expect(fullKey).toMatch(/^vcc[mf]?_[0-9a-f]{40}$/);
     expect(prefix).toBe(fullKey.substring(0, 8));
   });
 
   test('용도를 안 주면 범용', () => {
     expect(ApiKey.generateKey().fullKey.startsWith('vcc_')).toBe(true);
+  });
+
+  test('용도마다 접두사가 다르다', () => {
+    const prefixes = API_KEY_SCOPES.map((scope) => API_KEY_PREFIX[scope]);
+    expect(new Set(prefixes).size).toBe(API_KEY_SCOPES.length);
   });
 
   test('모르는 용도는 거부', () => {

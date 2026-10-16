@@ -4,8 +4,11 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 인증은 두 가지다 — 로그인 세션은 `Authorization: Bearer <JWT>`, API 키는 **`X-API-Key: <키>` 헤더로만** 보낸다. `Authorization: Bearer` 에 API 키를 넣으면 JWT 로 검증돼 401 이다 (`Bearer <api_key>` 는 MCP 서버에 붙을 때의 규약). 자세한 인증 정책은 root [CLAUDE.md](../CLAUDE.md) 참고.
 
-> **API 키로 할 수 없는 작업** (#994, #1017) — 되돌릴 수 없는 작업은 API 키로 요청하면 `403 이 작업은 API 키로 할 수 없습니다` 가 난다. 로그인 세션에서만 된다: 계정 삭제(`DELETE /users/account`), 백업 생성·서명 URL·다운로드·삭제·복원(`/admin/backup/*`), 사용자 삭제, 무결성 정리, 서버·그룹·작업판·작업 절차·작업 절차 문서·프롬프트 가이드의 **삭제**.
-> 서버 등록·수정, 모델·LoRA 캐시와 동기화 초기화, 작업판·그룹·문서·가이드 수정, LoRA 전역 설정, 사용자 승인·거절 같은 **구성 작업은 관리자 계정의 API 용 키로 된다** — AI 가 서버·작업판을 스스로 등록하도록 ([AGENT_WORKBOARD_SETUP.md](AGENT_WORKBOARD_SETUP.md)). MCP 키로는 안 된다.
+> **API 키로 할 수 없는 작업** (#994, #1017, #1059) — 되돌릴 수 없는 작업은 키 용도에 따라 두 단계로 막힌다.
+> - **어떤 키로도 안 됨 (로그인 세션에서만)** — 키 관리(`/apikeys`), 백업 복원(`/admin/backup/restore*`), 백업 서명 URL·다운로드·삭제. 키를 재발급해도 되돌릴 수 없는 일이라서다. `403 이 작업은 API 키로 할 수 없습니다`
+> - **전체 제어 키(`vccf_`) 또는 로그인 세션에서만** — 계정 삭제(`DELETE /users/account`), 백업 실행(`POST /admin/backup`), 사용자 삭제, 무결성 정리, 서버·그룹·작업판·작업 절차·작업 절차 문서·프롬프트 가이드의 **삭제**. 범용·MCP 키로는 `403 이 작업은 이 API 키로 할 수 없습니다. … 전체 제어 키를 쓰세요`
+>
+> 서버 등록·수정, 모델·LoRA 캐시와 동기화 초기화, 작업판·그룹·문서·가이드 수정, LoRA 전역 설정, 사용자 승인·거절 같은 **구성 작업은 관리자 계정의 API 용 키로 된다** (전체 제어 키로도 된다) — AI 가 서버·작업판을 스스로 등록하도록 ([AGENT_WORKBOARD_SETUP.md](AGENT_WORKBOARD_SETUP.md)). MCP 키로는 안 된다.
 
 ## 인증 (Auth)
 
@@ -38,10 +41,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
 | `GET` | `/apikeys` | 내 API Key 목록 | Yes |
-| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개). body `{ name, scope }` — `scope` 는 `api`(범용, 기본) 또는 `mcp`(MCP 전용) | Yes |
+| `POST` | `/apikeys` | API Key 발급 (사용자당 최대 10개). body `{ name, scope }` — `scope` 는 `api`(범용, 기본) · `mcp`(MCP 전용) · `full`(전체 제어, #1059) | Yes |
 | `DELETE` | `/apikeys/:id` | API Key 폐기 | Yes |
 
-**키 용도** (#995) — MCP 키(`vccm_` 로 시작)는 MCP 도구가 쓰는 요청만 허용된다: 작업판 조회, 생성(`POST /jobs/generate`), 작업 조회(`/jobs/my`, `/jobs/:id`), 결과 조회(`/images/generated|videos|audios/:id`), 이미지 업로드, 프로젝트·파이프라인 조회와 실행. 그 밖의 요청은 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다. 범용 키(`vcc_`)는 기존과 같다. 어느 쪽이든 되돌릴 수 없는 작업은 키로 할 수 없다(위 인증 절).
+**키 용도** (#995) — MCP 키(`vccm_` 로 시작)는 MCP 도구가 쓰는 요청만 허용된다: 작업판 조회, 생성(`POST /jobs/generate`), 작업 조회(`/jobs/my`, `/jobs/:id`), 결과 조회(`/images/generated|videos|audios/:id`), 이미지 업로드, 프로젝트·파이프라인 조회와 실행. 그 밖의 요청은 `403 이 키는 MCP 용이라 이 작업에 쓸 수 없습니다` 가 난다. 범용 키(`vcc_`)는 계정의 API 전반을 쓴다. 전체 제어 키(`vccf_`, #1059)는 범용 키에 더해 삭제·정리·백업 실행까지 된다 — AI 에게 운영을 맡길 때. 되돌릴 수 없는 작업의 구분은 위 인증 절.
 
 ## 서버 (Servers, v1.2.4+)
 

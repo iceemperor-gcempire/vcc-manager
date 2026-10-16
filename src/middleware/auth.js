@@ -287,12 +287,31 @@ const enforceApiKeyScope = (req, res, next) => {
   });
 };
 
+/**
+ * 로그인 세션에서만 — 어떤 키로도 안 된다.
+ * 키를 재발급해도 되돌릴 수 없는 작업에 건다: 키 관리, 백업 복원, 백업 반출·삭제 (#994, #1059).
+ */
 const requireNonApiKeyAuth = (req, res, next) => {
   if (req.authMethod === 'apikey') {
     // 키 관리뿐 아니라 계정 삭제·복원 같은 파괴적 작업에도 쓰므로 문구를 일반화했다 (#994)
     return res.status(403).json({
       success: false,
       message: '이 작업은 API 키로 할 수 없습니다. 로그인한 상태에서 진행해 주세요.',
+    });
+  }
+  return next();
+};
+
+/**
+ * 로그인 세션 또는 전체 제어 키(#1059) — 범용·MCP 키는 안 된다.
+ * 되돌릴 수 없지만 AI 에게 운영을 맡기려면 필요한 작업에 건다: 삭제, 정리, 백업 실행.
+ * 관리자 검사(requireAdmin)는 따로 그대로 건다.
+ */
+const requireLoginOrFullKey = (req, res, next) => {
+  if (req.authMethod === 'apikey' && req.apiKeyScope !== 'full') {
+    return res.status(403).json({
+      success: false,
+      message: '이 작업은 이 API 키로 할 수 없습니다. 로그인한 상태에서 하거나, 전체 제어 키를 쓰세요.',
     });
   }
   return next();
@@ -384,6 +403,7 @@ module.exports = {
   verifyApiKey,
   enforceApiKeyScope,
   requireNonApiKeyAuth,
+  requireLoginOrFullKey,
   authRateLimit,
   signupRateLimit,
   requireWorkboardAccess,

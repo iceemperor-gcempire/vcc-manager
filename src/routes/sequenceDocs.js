@@ -1,5 +1,5 @@
 const express = require('express');
-const { requireAdmin, requireNonApiKeyAuth } = require('../middleware/auth');
+const { requireAdmin, requireLoginOrFullKey } = require('../middleware/auth');
 const SequenceDoc = require('../models/SequenceDoc');
 const Sequence = require('../models/Sequence');
 
@@ -125,7 +125,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
 });
 
 // 삭제 — 쓰는 작업 절차가 있으면 막는다. 조용히 빼면 LLM 출력이 이유 없이 달라진다 (PromptGuide 와 같은 정책).
-router.delete('/:id', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.delete('/:id', requireAdmin, requireLoginOrFullKey, async (req, res) => {
   try {
     if (!isId(req.params.id)) return res.status(404).json({ success: false, message: NOT_FOUND });
     const doc = await SequenceDoc.findById(req.params.id);
