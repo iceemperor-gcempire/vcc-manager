@@ -26,10 +26,11 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 4. 머지 후 issue 자동 close 가 안 됐다면 `gh issue close <번호>` 로 명시.
 
 **버전 릴리스 시:**
-1. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
-2. `dev` → `main` PR 생성 및 머지
-3. `main` 브랜치에서 버전 태그 생성
-4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
+1. **UI 에 영향 있는 변경이 들어간 마이너 이상 릴리스는 UI 풀 테스트 필수** — 알파에서 iOS 시뮬레이터 레이아웃 검사(`e2e/ios-sim/README.md`)를 390·440px 두 폭으로, 로그인 뒤 화면과 `--public` 둘 다 돌리고 결과 요약을 `dev` → `main` PR 에 붙인다. 데스크톱 e2e 는 모바일 깨짐을 못 잡는다 (#1053·#1054)
+2. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
+3. `dev` → `main` PR 생성 및 머지
+4. `main` 브랜치에서 버전 태그 생성
+5. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 **사용자 비가시 변경 시** (CLAUDE.md, `docs/`, `e2e/`, 내부 스크립트, CI 설정 등 배포 산출물에 영향 없는 변경):
 1. 일반 개발 작업과 동일하게 issue → feature/fix 브랜치 → PR → `dev` 머지
@@ -202,6 +203,11 @@ pnpm run test:e2e:headed
 - 핵심 user journey 추가 (예: 신규 페이지, 새 인증 흐름) 시 smoke 1개 이상 추가 권장.
 - PR 머지 전 로컬에서 `pnpm run test:e2e` 통과 확인.
 - 테스트가 깨졌을 때 \"테스트가 잘못됨\" 으로 무조건 spec 만 고치지 말 것 — UI 실제 동작 검증 후 spec / 실 동작 어느 쪽이 맞는지 결정.
+
+### iOS 시뮬레이터 레이아웃 검사 (#1057)
+실제 iOS Safari(WebKit)에서 `App.js` 의 모든 화면을 열어 가로 넘침·제목 줄 수를 재고 스크린샷을 남긴다 (`pnpm run test:ios-sim`). 절차·판정·종료 코드는 `e2e/ios-sim/README.md`.
+- **로그인 방식이 곧 페이즈다.** 시뮬레이터에서 직접 로그인하면 QA, 개발용 쿠키(`e2e/ios-sim/dev-login-cookie.js`, localhost 전용)를 심으면 개발 중 테스트다
+- `App.js` 에 `:param` 화면을 추가하면 `layout-check.js` 의 `PARAM_SAMPLES` 에 견본 규칙도 넣는다 — 안 넣으면 "측정 못 함"(종료 코드 2)으로 드러난다
 
 ### 환경 변수 파일
 - `.env` - 로컬 개발용
