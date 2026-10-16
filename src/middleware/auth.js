@@ -288,8 +288,10 @@ const enforceApiKeyScope = (req, res, next) => {
 };
 
 /**
- * 로그인 세션에서만 — 어떤 키로도 안 된다.
- * 키를 재발급해도 되돌릴 수 없는 작업에 건다: 키 관리, 백업 복원, 백업 반출·삭제 (#994, #1059).
+ * 로그인 세션에서만 — 어떤 키로도 안 된다 (#994, #1061).
+ * 키 관리, 백업 복원·반출·삭제, 계정·사용자 삭제, 무결성 정리에 건다.
+ * 구성물 삭제와 백업 실행은 걸지 않는다 — 관리자 범용 키로 되게 열었다 (requireAdmin 이 일반 사용자를,
+ * enforceApiKeyScope 가 MCP 키를 막는다).
  */
 const requireNonApiKeyAuth = (req, res, next) => {
   if (req.authMethod === 'apikey') {
@@ -302,20 +304,6 @@ const requireNonApiKeyAuth = (req, res, next) => {
   return next();
 };
 
-/**
- * 로그인 세션 또는 전체 제어 키(#1059) — 범용·MCP 키는 안 된다.
- * 되돌릴 수 없지만 AI 에게 운영을 맡기려면 필요한 작업에 건다: 삭제, 정리, 백업 실행.
- * 관리자 검사(requireAdmin)는 따로 그대로 건다.
- */
-const requireLoginOrFullKey = (req, res, next) => {
-  if (req.authMethod === 'apikey' && req.apiKeyScope !== 'full') {
-    return res.status(403).json({
-      success: false,
-      message: '이 작업은 이 API 키로 할 수 없습니다. 로그인한 상태에서 하거나, 전체 제어 키를 쓰세요.',
-    });
-  }
-  return next();
-};
 
 /**
  * 사용자가 프로젝트에 접근 가능한지 검사 (#802).
@@ -403,7 +391,6 @@ module.exports = {
   verifyApiKey,
   enforceApiKeyScope,
   requireNonApiKeyAuth,
-  requireLoginOrFullKey,
   authRateLimit,
   signupRateLimit,
   requireWorkboardAccess,

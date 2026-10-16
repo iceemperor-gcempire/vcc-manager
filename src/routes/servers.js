@@ -4,7 +4,7 @@ const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
 const Workboard = require('../models/Workboard');
-const { requireAuth, requireAdmin, userHasWorkboardAccess, requireLoginOrFullKey } = require('../middleware/auth');
+const { requireAuth, requireAdmin, userHasWorkboardAccess } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -757,7 +757,7 @@ router.post('/:id/models/sync/reset', requireAdmin, async (req, res) => {
 });
 
 // 서버 삭제 시 LoRA 캐시도 함께 삭제
-router.delete('/:id', requireAdmin, requireLoginOrFullKey, async (req, res) => {
+router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const server = await Server.findById(req.params.id);
 

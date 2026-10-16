@@ -2,7 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { requireAdmin, requireNonApiKeyAuth, requireLoginOrFullKey } = require('../middleware/auth');
+const { requireAdmin, requireNonApiKeyAuth } = require('../middleware/auth');
 const backupService = require('../services/backupService');
 const restoreService = require('../services/restoreService');
 const {
@@ -76,7 +76,7 @@ router.get('/lock-status', requireAdmin, (req, res) => {
  * POST /api/admin/backup
  * 백업 생성 시작
  */
-router.post('/', requireAdmin, requireLoginOrFullKey, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     // 이미 백업 진행 중인지 확인
     if (isBackupInProgress()) {

@@ -102,11 +102,6 @@ describe('enforceApiKeyScope', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  test('전체 제어 키는 영향 없음 (#1059)', () => {
-    const { next } = run({ authMethod: 'apikey', apiKeyScope: 'full', method: 'DELETE', path: '/workboards/w1' });
-    expect(next).toHaveBeenCalled();
-  });
-
   test('로그인 세션(JWT)은 영향 없음', () => {
     const { next } = run({ method: 'DELETE', path: '/jobs/j1' });
     expect(next).toHaveBeenCalled();
@@ -114,10 +109,10 @@ describe('enforceApiKeyScope', () => {
 });
 
 describe('키 발급 — 용도별 접두사', () => {
-  test.each(['api', 'mcp', 'full'])('%s 키의 접두사', (scope) => {
+  test.each(['api', 'mcp'])('%s 키의 접두사', (scope) => {
     const { fullKey, prefix } = ApiKey.generateKey(scope);
     expect(fullKey.startsWith(API_KEY_PREFIX[scope])).toBe(true);
-    expect(fullKey).toMatch(/^vcc[mf]?_[0-9a-f]{40}$/);
+    expect(fullKey).toMatch(/^vccm?_[0-9a-f]{40}$/);
     expect(prefix).toBe(fullKey.substring(0, 8));
   });
 
@@ -130,8 +125,9 @@ describe('키 발급 — 용도별 접두사', () => {
     expect(new Set(prefixes).size).toBe(API_KEY_SCOPES.length);
   });
 
-  test('모르는 용도는 거부', () => {
+  test('모르는 용도는 거부 — 전체 제어(full)는 #1061 에서 없앴다', () => {
     expect(() => ApiKey.generateKey('admin')).toThrow();
+    expect(() => ApiKey.generateKey('full')).toThrow();
   });
 });
 

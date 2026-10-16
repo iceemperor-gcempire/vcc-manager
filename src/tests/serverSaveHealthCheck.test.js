@@ -10,7 +10,6 @@ const request = require('supertest');
 
 jest.mock('../middleware/auth', () => ({
   requireNonApiKeyAuth: jest.requireActual('../middleware/auth').requireNonApiKeyAuth,
-  requireLoginOrFullKey: jest.requireActual('../middleware/auth').requireLoginOrFullKey,
   requireAuth: (req, res, next) => { req.user = { id: 'admin-1', isAdmin: true }; next(); },
   requireAdmin: (req, res, next) => { req.user = { id: 'admin-1', isAdmin: true }; next(); },
   userHasWorkboardAccess: jest.fn().mockResolvedValue(true),
