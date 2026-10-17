@@ -76,7 +76,7 @@ router.get('/lock-status', requireAdmin, (req, res) => {
  * POST /api/admin/backup
  * 백업 생성 시작
  */
-router.post('/', requireAdmin, requireNonApiKeyAuth, async (req, res) => {
+router.post('/', requireAdmin, async (req, res) => {
   try {
     // 이미 백업 진행 중인지 확인
     if (isBackupInProgress()) {

@@ -26,6 +26,10 @@ playwright.config.js
 samples
 tools
 scripts
+# 오픈소스 라이선스 고지 생성기 — 세 이미지가 빌드할 때 부른다 (#1063)
+!scripts/third-party-notices.cjs
+!scripts/third-party-license-review.json
+!scripts/license-texts
 claude
 mongo-init
 

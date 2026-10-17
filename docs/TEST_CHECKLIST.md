@@ -120,6 +120,11 @@
 - [ ] 백엔드 환경 변수가 `.env.production`에서 로드되는지 확인
 - [ ] 프론트엔드 빌드 시 환경 변수가 적용되는지 확인
 
+### 7.3 오픈소스 라이선스 고지 (#1063, 릴리스마다)
+- [ ] `pnpm run licenses:update` 가 통과하고 `docs/THIRD_PARTY_LICENSES.md` 변경분을 commit 했다 (허용형 밖 라이선스는 검토 목록에 판단을 남겼다)
+- [ ] 알파를 `--no-cache` 로 빌드한 뒤 설정 → 정보 → 오픈소스 라이선스가 고지 파일을 연다 (index.html 이 아니라 패키지 목록이 보인다)
+- [ ] 백엔드·MCP 컨테이너에 `/app/THIRD_PARTY_LICENSES.txt` 가 있다 (`deploy-prod.sh` 끝에 패키지 수가 찍힌다)
+
 ---
 
 ## 8. 알려진 이슈 및 주의사항

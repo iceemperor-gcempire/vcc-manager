@@ -1,6 +1,6 @@
 {
   "name": "vcc-manager",
-  "version": "4.9.1",
+  "version": "4.10.0",
   "description": "Visual Content Creator Manager - ComfyUI integration service",
   "main": "src/server.js",
   "scripts": {
@@ -11,9 +11,11 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
+    "test:ios-sim": "node e2e/ios-sim/layout-check.js",
     "test:frontend": "pnpm --dir frontend test",
     "test:all": "pnpm test && pnpm run test:frontend && pnpm run test:mcp",
-    "test:mcp": "pnpm --dir mcp-server test"
+    "test:mcp": "pnpm --dir mcp-server test",
+    "licenses:update": "node scripts/third-party-notices.cjs update"
   },
   "dependencies": {
     "archiver": "^7.0.1",

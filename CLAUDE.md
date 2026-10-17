@@ -26,10 +26,14 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 4. 머지 후 issue 자동 close 가 안 됐다면 `gh issue close <번호>` 로 명시.
 
 **버전 릴리스 시:**
-1. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
-2. `dev` → `main` PR 생성 및 머지
-3. `main` 브랜치에서 버전 태그 생성
-4. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
+1. **UI 에 영향 있는 변경이 들어간 마이너 이상 릴리스는 UI 풀 테스트 필수** — 알파에서 iOS 시뮬레이터 레이아웃 검사(`e2e/ios-sim/README.md`)를 390·440px 두 폭으로, 로그인 뒤 화면과 `--public` 둘 다 돌리고 결과 요약을 `dev` → `main` PR 에 붙인다. 데스크톱 e2e 는 모바일 깨짐을 못 잡는다 (#1053·#1054)
+2. **오픈소스 라이선스 고지 갱신** (#1063) — `pnpm run licenses:update` 로 `docs/THIRD_PARTY_LICENSES.md` 를 다시 만들어 commit. 허용형 목록 밖 라이선스가 새로 들어왔으면 실패하니, 조건을 확인해 `scripts/third-party-license-review.json` 에 판단을 남기고 다시 돌린다. 알파를 `--no-cache` 로 빌드한 뒤 웹 `/third-party-licenses.txt` 와 백엔드·MCP 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt` 가 비어 있지 않은지 확인하고, 구성별 패키지 수·검토 항목을 `dev` → `main` PR 에 붙인다
+   - 고지 원문은 빌드할 때 만들어진다 (세 Dockerfile). 저장소의 목록 문서는 사람이 읽는 사본이다
+   - **빌드 도구를 바꾸면 이전 도구가 만들던 산출물이 그대로 나오는지 본다.** CRA 가 만들던 `*.js.LICENSE.txt` 가 #526 Vite 전환 때 사라졌는데 넉 달 동안 아무도 몰랐다
+3. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
+4. `dev` → `main` PR 생성 및 머지
+5. `main` 브랜치에서 버전 태그 생성
+6. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 **사용자 비가시 변경 시** (CLAUDE.md, `docs/`, `e2e/`, 내부 스크립트, CI 설정 등 배포 산출물에 영향 없는 변경):
 1. 일반 개발 작업과 동일하게 issue → feature/fix 브랜치 → PR → `dev` 머지
@@ -154,6 +158,7 @@ pnpm --dir frontend test     # 하위 프로젝트
 
 - 설치는 `--frozen-lockfile` 로 — 락파일과 다르면 조용히 해결하지 말고 실패해야 한다
 - 의존성 추가 시 락파일 변경분을 PR 에서 확인할 것 (추가된 전이 의존성이 눈에 보이도록)
+- 운영 의존성을 추가하면 같은 PR 에서 `pnpm run licenses:update` 로 라이선스 목록을 갱신한다 — 안 하면 `thirdPartyNotices.test.js` 가 실패한다. 허용형 밖 라이선스면 그때 검토한다 (#1063)
 - **npm 으로 패키지를 추가하면 실패한다** — pnpm 프로젝트에서 `npm install` 은
   `Cannot read properties of null` 로 죽는다. 에러 메시지가 원인을 안 알려주니 주의
 
@@ -202,6 +207,11 @@ pnpm run test:e2e:headed
 - 핵심 user journey 추가 (예: 신규 페이지, 새 인증 흐름) 시 smoke 1개 이상 추가 권장.
 - PR 머지 전 로컬에서 `pnpm run test:e2e` 통과 확인.
 - 테스트가 깨졌을 때 \"테스트가 잘못됨\" 으로 무조건 spec 만 고치지 말 것 — UI 실제 동작 검증 후 spec / 실 동작 어느 쪽이 맞는지 결정.
+
+### iOS 시뮬레이터 레이아웃 검사 (#1057)
+실제 iOS Safari(WebKit)에서 `App.js` 의 모든 화면을 열어 가로 넘침·제목 줄 수를 재고 스크린샷을 남긴다 (`pnpm run test:ios-sim`). 절차·판정·종료 코드는 `e2e/ios-sim/README.md`.
+- **로그인 방식이 곧 페이즈다.** 시뮬레이터에서 직접 로그인하면 QA, 개발용 쿠키(`e2e/ios-sim/dev-login-cookie.js`, localhost 전용)를 심으면 개발 중 테스트다
+- `App.js` 에 `:param` 화면을 추가하면 `layout-check.js` 의 `PARAM_SAMPLES` 에 견본 규칙도 넣는다 — 안 넣으면 "측정 못 함"(종료 코드 2)으로 드러난다
 
 ### 환경 변수 파일
 - `.env` - 로컬 개발용
@@ -345,7 +355,9 @@ pnpm run test:e2e:headed
 ### 6. 인증 정책 (JWT + API Key)
 - 백엔드 인증은 JWT 전용. 세션 미들웨어 (`express-session`, `passport.session`) 는 v1.4.10 에서 제거
 - 외부 프로그램은 백엔드 REST 에 **`X-API-Key` 헤더로만** API 키를 보낸다 (사용자 프로필 > 보안 설정에서 발급, 사용자당 최대 10개). `Authorization: Bearer` 는 JWT 용이라 API 키를 넣으면 401 이다. `Bearer <api_key>` 는 **MCP 서버**가 클라이언트에게서 키를 받는 규약이다
-- API 키로는 되돌릴 수 없는 작업을 못 한다 (`requireNonApiKeyAuth`, #994) — 계정 삭제, 백업 전부, 사용자 삭제, 무결성 정리, 공유 구성물 **삭제**. 새 파괴적 라우트를 만들면 같은 가드를 붙이고 `src/tests/apiKeyDestructiveGuard.test.js` 목록에 넣는다
+- **어떤 키로도 안 되는 작업**은 `requireNonApiKeyAuth` 로 로그인 세션에서만 되게 한다 (#994, #1061): 키 관리, 계정 삭제, 사용자 삭제, 백업 복원·반출(서명 URL·다운로드)·삭제, 무결성 정리. 키를 재발급해도 되돌릴 수 없거나 API 로 제공할 이유가 없는 일이다
+- **관리자 계정의 범용 키로는 구성물 삭제와 백업 실행이 된다** (#1061) — 일반 사용자 키는 `requireAdmin`, MCP 키는 허용 목록이 막는다. 키 종류를 따로 두지 않는다 (사용자 결정 10-17: 관리자가 같은 성격의 키를 또 발급하는 건 어색하다)
+- 새 파괴적 라우트를 만들면 둘 중 어디에 속하는지 정해 `src/tests/apiKeyDestructiveGuard.test.js` 의 `LOGIN_ONLY` 또는 `ADMIN_KEY_OPEN` 에 넣는다
 - 반대로 **구성 작업(서버 등록·수정, 작업판 등 수정, 동기화)은 키로 연다** (#1017) — AI 가 이 저장소를 읽고 서버·작업판을 스스로 등록하는 게 기본 목적이다. 절차는 `docs/AGENT_WORKBOARD_SETUP.md`. 구성용 라우트를 새로 만들면 같은 테스트의 `MUST_STAY_OPEN` 에 넣는다
 - API 키에는 용도가 있다 (#995): `api`(범용, `vcc_`) / `mcp`(MCP 전용, `vccm_`). MCP 키는 `src/constants/apiKeyScopes.js` 의 허용 목록만 통과 (`enforceApiKeyScope`, 전역 인증 직후). **MCP 도구가 새 백엔드 경로를 쓰면 허용 목록에도 넣는다** — `apiKeyScope.test.js` 가 도구 소스와 목록을 양방향으로 대조해 어긋나면 실패한다. 화면 문구는 `frontend/src/utils/apiKeyScope.js`(용도 값은 같은 테스트가 대조)
 - OAuth 콜백은 토큰을 URL fragment (`#token=`) 로 전달. 서버 로그 / Referer 노출 차단 목적

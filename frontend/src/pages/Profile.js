@@ -47,7 +47,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { userAPI, apiKeyAPI } from '../services/api';
-import { API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf } from '../utils/apiKeyScope';
+import { ADMIN_API_KEY_NOTICE, API_KEY_SCOPE_OPTIONS, DEFAULT_NEW_KEY_SCOPE, apiKeyScopeLabel, apiKeyScopeOf, apiKeyScopeTone } from '../utils/apiKeyScope';
 import { useAuth } from '../contexts/AuthContext';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
@@ -310,7 +310,7 @@ function SecuritySettings() {
   const [newKeyScope, setNewKeyScope] = useState(DEFAULT_NEW_KEY_SCOPE);
   const [createdKey, setCreatedKey] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const queryClient = useQueryClient();
 
   // API Key 목록 조회
@@ -442,7 +442,7 @@ function SecuritySettings() {
                           {apiKey.name}
                         </Typography>
                         {/* 용도 (#995) — 예전 키는 범용(API) */}
-                        <ToneChip tone={apiKeyScopeOf(apiKey) === 'mcp' ? 'info' : 'accent'} label={apiKeyScopeLabel(apiKey)} />
+                        <ToneChip tone={apiKeyScopeTone(apiKey)} label={apiKeyScopeLabel(apiKey)} />
                         {/* MUI Chip color 직접 사용은 금지 규칙 (ToneChip 주석) + error.main 이 라이트에서 3.74:1 (#727) */}
                         {apiKey.isRevoked && <ToneChip tone="error" label="파기됨" />}
                       </Box>
@@ -533,6 +533,9 @@ function SecuritySettings() {
               />
             ))}
           </RadioGroup>
+          {user?.isAdmin && newKeyScope === 'api' && (
+            <Alert severity="warning" sx={{ mt: 1 }}>{ADMIN_API_KEY_NOTICE}</Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => { setCreateKeyDialogOpen(false); setNewKeyName(''); setNewKeyScope(DEFAULT_NEW_KEY_SCOPE); }}>

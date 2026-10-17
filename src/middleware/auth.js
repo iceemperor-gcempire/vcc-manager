@@ -287,6 +287,12 @@ const enforceApiKeyScope = (req, res, next) => {
   });
 };
 
+/**
+ * 로그인 세션에서만 — 어떤 키로도 안 된다 (#994, #1061).
+ * 키 관리, 백업 복원·반출·삭제, 계정·사용자 삭제, 무결성 정리에 건다.
+ * 구성물 삭제와 백업 실행은 걸지 않는다 — 관리자 범용 키로 되게 열었다 (requireAdmin 이 일반 사용자를,
+ * enforceApiKeyScope 가 MCP 키를 막는다).
+ */
 const requireNonApiKeyAuth = (req, res, next) => {
   if (req.authMethod === 'apikey') {
     // 키 관리뿐 아니라 계정 삭제·복원 같은 파괴적 작업에도 쓰므로 문구를 일반화했다 (#994)
@@ -297,6 +303,7 @@ const requireNonApiKeyAuth = (req, res, next) => {
   }
   return next();
 };
+
 
 /**
  * 사용자가 프로젝트에 접근 가능한지 검사 (#802).

@@ -1,37 +1,46 @@
 /**
- * API 키로 파괴적 작업을 못 하게 막는 가드 (#994).
+ * API 키로 할 수 있는 파괴적 작업의 범위 (#994, #1061).
  *
- * API 키는 범용이라 새면 그 계정의 REST 가 통째로 열린다. 그래서 되돌릴 수 없거나 서버 구성을
- * 바꾸는 작업은 `requireNonApiKeyAuth` 로 로그인 세션(JWT)에서만 되게 한다 — 키 관리에 이미 쓰던 방식.
+ * - 로그인 세션(JWT)에서만 (`requireNonApiKeyAuth`) — 키를 재발급해도 되돌릴 수 없거나, API 로 제공할 이유가 없는 작업
+ * - 관리자 계정의 범용 키로 된다 — 구성물 삭제와 백업 실행. 일반 사용자 키는 requireAdmin 이,
+ *   MCP 키는 enforceApiKeyScope 의 허용 목록이 막는다
  *
  * 라우터의 미들웨어 체인을 직접 검사한다. 라우트를 새로 만들거나 가드를 빼먹으면 여기서 깨진다.
  */
-const { requireNonApiKeyAuth, verifyJWT } = require('../middleware/auth');
+const { requireNonApiKeyAuth, requireAdmin, verifyJWT } = require('../middleware/auth');
+const { isMcpKeyAllowed } = require('../constants/apiKeyScopes');
 
-// 키로 하면 안 되는 작업 — 파일, 메서드, 경로 (마운트 지점 기준 상대 경로)
-const GUARDED = [
-  // 계정 삭제: 일반 사용자 키로도 계정 + 콘텐츠가 cascade 로 지워진다
+// 어떤 키로도 안 되는 작업 — 파일, 메서드, 경로 (마운트 지점 기준 상대 경로)
+// 키 관리(apikeys.js)는 router.use 로 라우터 전체에 건다 — 아래 별도 테스트
+const LOGIN_ONLY = [
+  // 계정 삭제 — API 로 제공할 이유가 없다. 계정 + 개인 콘텐츠가 cascade 로 지워진다
   ['users', 'delete', '/account'],
-  // 백업·복원 (/api/admin/backup): 복원은 DB 완전 교체, 다운로드는 DB 전체 반출, 생성은 서비스 전면 차단을 건다
-  // (백업 생성을 키로 열지는 아직 정하지 않았다 — #1017 에서 현행 유지)
-  ['backup', 'post', '/'],
-  ['backup', 'post', '/:id/signed-url'],
-  ['backup', 'get', '/download/:id'],
-  ['backup', 'delete', '/:id'],
+  // 복원: 서버를 통째로 바꾼다. 백업에 키 목록도 들어 있어 옛 백업을 복원하면 폐기한 키가 되살아난다
   ['backup', 'post', '/restore/server-validate'],
   ['backup', 'post', '/restore/validate'],
   ['backup', 'post', '/restore'],
-  // 사용자 삭제·정리 작업 — 되돌릴 수 없다
+  // 반출·삭제: 자동화에는 필요 없다 — 백업 파일은 BACKUP_HOST_PATH 로 호스트 폴더에서 읽는다
+  ['backup', 'post', '/:id/signed-url'],
+  ['backup', 'get', '/download/:id'],
+  ['backup', 'delete', '/:id'],
+  // 사용자 삭제 — 다른 사용자의 계정과 생성물을 통째로 지운다 (요구가 생기면 연다)
   ['admin', 'delete', '/users/:id'],
+  // 무결성 정리 — 데이터가 깨졌을 때 사람이 보고 돌리는 작업이라 API 로 거칠 이유가 없다
   ['admin', 'post', '/integrity/cleanup-owner-orphans'],
   ['admin', 'post', '/integrity/cleanup-orphan-files'],
-  // 공유 구성물의 삭제
-  ['servers', 'delete', '/:id'],
-  ['groups', 'delete', '/:id'],
-  ['sequences', 'delete', '/:id'],
-  ['sequenceDocs', 'delete', '/:id'],
-  ['promptGuides', 'delete', '/:id'],
-  ['workboards', 'delete', '/:id'],
+];
+
+// 관리자 계정의 범용 키로 되는 파괴적 작업 (#1061) — 마운트 지점(/api 기준)도 함께 둔다 (MCP 허용 목록 대조용)
+const ADMIN_KEY_OPEN = [
+  // 구성물 삭제 — 이미 키로 되는 수정과 위험이 비슷하다. 쓰는 곳이 있으면 각 라우트가 거부한다
+  ['workboards', 'delete', '/:id', '/workboards/x1'],
+  ['servers', 'delete', '/:id', '/servers/x1'],
+  ['groups', 'delete', '/:id', '/groups/x1'],
+  ['sequences', 'delete', '/:id', '/sequences/x1'],
+  ['sequenceDocs', 'delete', '/:id', '/sequence-docs/x1'],
+  ['promptGuides', 'delete', '/:id', '/prompt-guides/x1'],
+  // 백업 실행 — 시간당 1회 제한·디스크 점검이 라우트에 있다
+  ['backup', 'post', '/', '/admin/backup'],
 ];
 
 // 키로 계속 돼야 하는 작업 — MCP 도구, 작업판 동기화(scripts/sync-workboards.js),
@@ -83,13 +92,33 @@ function routeHandlers(file, method, path) {
   return layer.route.stack.map((s) => s.handle);
 }
 
-describe('API 키 파괴적 작업 차단 (#994)', () => {
-  describe.each(GUARDED)('%s %s %s', (file, method, path) => {
+const guardAt = (handlers, guard) => {
+  const at = handlers.indexOf(guard);
+  return at >= 0 && at < handlers.length - 1;
+};
+
+describe('API 키 파괴적 작업 범위 (#994, #1061)', () => {
+  describe.each(LOGIN_ONLY)('로그인만: %s %s %s', (file, method, path) => {
     test('requireNonApiKeyAuth 가 핸들러보다 앞에 있다', () => {
-      const handlers = routeHandlers(file, method, path);
-      const at = handlers.indexOf(requireNonApiKeyAuth);
-      expect(at).toBeGreaterThanOrEqual(0);
-      expect(at).toBeLessThan(handlers.length - 1);
+      expect(guardAt(routeHandlers(file, method, path), requireNonApiKeyAuth)).toBe(true);
+    });
+  });
+
+  test('키 관리는 라우터 전체가 로그인만', () => {
+    const router = require('../routes/apikeys'); // eslint-disable-line global-require
+    const mw = router.stack.filter((l) => !l.route).map((l) => l.handle);
+    expect(mw).toContain(requireNonApiKeyAuth);
+  });
+
+  describe.each(ADMIN_KEY_OPEN)('관리자 범용 키로 된다: %s %s %s', (file, method, path, apiPath) => {
+    test('키 차단 가드가 없다', () => {
+      expect(routeHandlers(file, method, path)).not.toContain(requireNonApiKeyAuth);
+    });
+    test('requireAdmin 이 핸들러보다 앞에 있다 — 일반 사용자 키는 막힌다', () => {
+      expect(guardAt(routeHandlers(file, method, path), requireAdmin)).toBe(true);
+    });
+    test('MCP 키 허용 목록에 없다 — MCP 키는 막힌다', () => {
+      expect(isMcpKeyAllowed(method, apiPath)).toBe(false);
     });
   });
 
@@ -119,22 +148,22 @@ describe('API 키 파괴적 작업 차단 (#994)', () => {
   });
 
   describe('requireNonApiKeyAuth', () => {
-    const run = (authMethod) => {
-      const req = { authMethod };
+    const run = (authMethod, apiKeyScope) => {
+      const req = { authMethod, apiKeyScope };
       const res = { status: jest.fn().mockReturnThis(), json: jest.fn().mockReturnThis() };
       const next = jest.fn();
       requireNonApiKeyAuth(req, res, next);
       return { res, next };
     };
 
-    test('API 키 인증이면 403 이고 다음으로 넘기지 않는다', () => {
-      const { res, next } = run('apikey');
+    test.each(['api', 'mcp', undefined])('API 키(용도 %s)면 403 이고 다음으로 넘기지 않는다', (scope) => {
+      const { res, next } = run('apikey', scope);
       expect(res.status).toHaveBeenCalledWith(403);
       expect(next).not.toHaveBeenCalled();
     });
 
     test('로그인 세션(JWT)이면 통과한다', () => {
-      const { res, next } = run(undefined);
+      const { res, next } = run(undefined, undefined);
       expect(next).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalled();
     });

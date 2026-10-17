@@ -40,7 +40,9 @@ function UpdateLogDialog({ open, onClose, majorVersion }) {
           </Typography>
         )}
         {content && (
-          <Box sx={{ '& h1': { fontSize: '24px', mb: 2 }, '& h2': { fontSize: '18px', mt: 3, mb: 1 }, '& li': { mb: 0.5 } }}>
+          <Box sx={{ '& h1': { fontSize: '24px', mb: 2 }, '& h2': { fontSize: '18px', mt: 3, mb: 1 }, '& li': { mb: 0.5 },
+            // 긴 파일 이름(공백 없는 code)이 모바일에서 본문을 옆으로 밀지 않게 (#1054)
+            '& code': { overflowWrap: 'anywhere' } }}>
             <ReactMarkdown>{content}</ReactMarkdown>
           </Box>
         )}

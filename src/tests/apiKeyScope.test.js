@@ -120,8 +120,14 @@ describe('키 발급 — 용도별 접두사', () => {
     expect(ApiKey.generateKey().fullKey.startsWith('vcc_')).toBe(true);
   });
 
-  test('모르는 용도는 거부', () => {
+  test('용도마다 접두사가 다르다', () => {
+    const prefixes = API_KEY_SCOPES.map((scope) => API_KEY_PREFIX[scope]);
+    expect(new Set(prefixes).size).toBe(API_KEY_SCOPES.length);
+  });
+
+  test('모르는 용도는 거부 — 전체 제어(full)는 #1061 에서 없앴다', () => {
     expect(() => ApiKey.generateKey('admin')).toThrow();
+    expect(() => ApiKey.generateKey('full')).toThrow();
   });
 });
 
