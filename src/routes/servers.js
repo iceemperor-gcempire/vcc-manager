@@ -4,6 +4,7 @@ const Server = require('../models/Server');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const ServerModelCache = require('../models/ServerModelCache');
 const Workboard = require('../models/Workboard');
+const ModelLicense = require('../models/ModelLicense');
 const { requireAuth, requireAdmin, userHasWorkboardAccess } = require('../middleware/auth');
 const loraMetadataService = require('../services/loraMetadataService');
 const modelMetadataService = require('../services/modelMetadataService');
@@ -14,6 +15,7 @@ const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../uti
 const { inferBaseModelSource } = require('../utils/workboardModelSource');
 const { getFieldByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { resolveModelLicense } = require('../constants/modelLicense');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', requireAuth, async (req, res) => {
@@ -391,6 +393,13 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         serverType: server.serverType,
         page: parseInt(page),
         limit: parseInt(limit)
+      });
+
+      // 모델마다 붙은 라이선스 (#1073) — 모델 선택기가 이름 옆에 보인다. 없으면 null (= 라이선스 미등록)
+      const licenses = await ModelLicense.find({}).lean();
+      result.models = result.models.map((m) => {
+        const item = typeof m.toObject === 'function' ? m.toObject() : m;
+        return { ...item, license: resolveModelLicense(item.filename, licenses) };
       });
 
       return res.json({

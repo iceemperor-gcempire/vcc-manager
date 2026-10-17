@@ -23,6 +23,7 @@ import {
 } from '@mui/icons-material';
 import MetadataMediaThumbnail from './MetadataMediaThumbnail';
 import { getKindLabel } from '../../utils/metadataItem';
+import { ModelLicenseChip } from './ModelLicenseChip';
 
 // baseModel → MUI color 매핑 — LoRA / Model 공용. 기존 LoraListModal 의 정책 그대로.
 export function getBaseModelColor(baseModel) {
@@ -169,6 +170,7 @@ const MetadataItemCard = React.memo(function MetadataItemCard({
           {item.capabilities.slice(0, 3).map((c) => (
             <Chip key={c} label={c} variant="outlined" />
           ))}
+          <ModelLicenseChip license={item.license} />
           {!item.hasMetadata && !item.hash && (
             <Tooltip title={item.hashError || '메타데이터 없음 — sync 가 아직 안 됐거나 Civitai/provider 미등록'}>
               <Chip icon={<InfoIcon />} label="메타데이터 없음" variant="outlined" />

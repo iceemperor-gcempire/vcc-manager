@@ -8,6 +8,7 @@ import {
 } from '@mui/material';
 import { Search as SearchIcon, Clear as ClearIcon } from '@mui/icons-material';
 import MetadataPickerModal from './MetadataPickerModal';
+import { ModelLicenseLine } from './ModelLicenseChip';
 
 // 작업판 사용자 페이지의 type='baseModel' / 'lora' 필드 렌더러.
 // 다른 customField (select / number / string) 와 동일하게 TextField 의 floating label 사용해 디자인 통일.
@@ -66,6 +67,8 @@ function MetadataFieldInput({ kind, field, value, onChange, workboardId, serverI
           helperText={errorMessage || (value && value !== shown ? value : field.description)}
         />
       </Tooltip>
+      {/* 고른 베이스 모델의 라이선스 (#1073) — LoRA 는 다음 버전 */}
+      {kind === 'model' && value && <ModelLicenseLine filename={value} />}
       <MetadataPickerModal
         kind={kind}
         open={pickerOpen}

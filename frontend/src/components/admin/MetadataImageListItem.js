@@ -18,6 +18,7 @@ import MetadataMediaThumbnail from '../common/MetadataMediaThumbnail';
 import { getKindLabel } from '../../utils/metadataItem';
 import { getBaseModelColor } from '../common/MetadataItemCard';
 import { MONO } from '../../theme';
+import { ModelLicenseChip } from '../common/ModelLicenseChip';
 
 // 한 줄 / 아이템 — 이미지 좌측, 정보 우측 (#344).
 // 좌: 썸네일 (90x90). 우: 모델명+버전 / chips / 트리거 워드 또는 파일명 / 액션 버튼.
@@ -113,6 +114,7 @@ function MetadataImageListItem({
           {item.capabilities?.slice(0, 2).map((c) => (
             <Chip key={c} label={c} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />
           ))}
+          <ModelLicenseChip license={item.license} dense />
           {!item.hasMetadata && (
             <Chip label={item.hash ? '미등록' : '메타데이터 없음'} variant="outlined" sx={{ height: 20, fontSize: '11px' }} />
           )}

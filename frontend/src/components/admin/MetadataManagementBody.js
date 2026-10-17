@@ -31,7 +31,8 @@ import {
   DeleteSweep as DeleteSweepIcon,
   ViewModule as GridViewIcon,
   ViewList as ListViewIcon,
-  ViewStream as ImageListIcon
+  ViewStream as ImageListIcon,
+  Gavel as GavelIcon
 } from '@mui/icons-material';
 import toast from 'react-hot-toast';
 import Pagination from '../common/Pagination';
@@ -39,6 +40,7 @@ import MetadataItemCard from '../common/MetadataItemCard';
 import MetadataItemGrid from '../common/MetadataItemGrid';
 import MetadataDetailDialog from '../common/MetadataDetailDialog';
 import MetadataImageListItem from './MetadataImageListItem';
+import ModelLicenseDialog from './ModelLicenseDialog';
 import { METADATA_ADAPTERS } from '../../utils/metadataAdapters';
 import useMetadataSyncPolling, { checkInitialSyncStatus } from '../../hooks/useMetadataSyncPolling';
 import { MONO } from '../../theme';
@@ -70,6 +72,7 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
   const [detailItem, setDetailItem] = useState(null);
   const [clearCacheConfirmOpen, setClearCacheConfirmOpen] = useState(false);
   const [clearingCache, setClearingCache] = useState(false);
+  const [licenseDialogOpen, setLicenseDialogOpen] = useState(false);
 
   // view mode 는 kind 별 localStorage 영속화
   const viewModeKey = `${VIEW_MODE_KEY_PREFIX}${kind}`;
@@ -273,6 +276,12 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           </ToggleButton>
         </ToggleButtonGroup>
         <Box sx={{ flexGrow: 1, minWidth: 0 }} />
+        {/* 모델 라이선스 (#1073) — 기본 모델만. LoRA 는 다음 버전 */}
+        {kind === 'model' && (
+          <Button variant="outlined" startIcon={<GavelIcon />} onClick={() => setLicenseDialogOpen(true)}>
+            라이선스
+          </Button>
+        )}
         <Tooltip title={`${adapter.label} 메타데이터 동기화`}>
           <span>
             <Button
@@ -470,6 +479,14 @@ function MetadataManagementBody({ kind, selectedServerId, selectedServer, nsfwMo
           </Button>
         </DialogActions>
       </Dialog>
+      {kind === 'model' && (
+        <ModelLicenseDialog
+          open={licenseDialogOpen}
+          onClose={() => setLicenseDialogOpen(false)}
+          serverId={selectedServerId}
+          onChanged={() => fetchItems(pagination.current)}
+        />
+      )}
     </Box>
   );
 }

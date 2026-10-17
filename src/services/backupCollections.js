@@ -29,6 +29,7 @@ const { GENERATED_MEDIA_DIRS, UPLOAD_MEDIA_DIR } = require('../constants/mediaTy
 const User = require('../models/User');
 const Group = require('../models/Group');
 const PromptGuide = require('../models/PromptGuide');
+const ModelLicense = require('../models/ModelLicense');
 const Tag = require('../models/Tag');
 const Server = require('../models/Server');
 const Project = require('../models/Project');
@@ -64,6 +65,8 @@ const BACKUP_COLLECTIONS = [
   { name: 'PromptGuide', model: PromptGuide },
   { name: 'Tag', model: Tag },
   { name: 'Server', model: Server, encryptFields: ['configuration.apiKey'] },
+  // 모델 라이선스 (#1073) — 사람이 판단해 적은 것이라 모델 목록 캐시와 달리 백업한다
+  { name: 'ModelLicense', model: ModelLicense },
   // 워크스페이스 / 작업판 / 문서
   { name: 'Project', model: Project },
   { name: 'Workboard', model: Workboard },
