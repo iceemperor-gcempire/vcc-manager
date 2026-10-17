@@ -33,3 +33,14 @@ html, body, #root {
   display: flex;
   flex-direction: column;
 }
+
+/* iOS Safari 는 글자가 16px 보다 작은 입력 칸에 포커스가 가면 화면을 확대하고, 키보드를 내려도 확대가 남는다 (#1068).
+   테마의 입력 글자는 13px 이고 화면마다 sx 로 더 작게 준 칸도 있어서, 터치 기기에서만 여기서 한 번에 16px 로 올린다.
+   마우스를 쓰는 데스크톱(pointer: fine)의 밀도는 그대로다. */
+@media (pointer: coarse) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="hidden"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}

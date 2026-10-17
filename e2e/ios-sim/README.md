@@ -34,6 +34,7 @@ xcrun simctl openurl <UDID> http://localhost:8136/login   # Safari 에서 앱을
 - 390px: iPhone 17e · 16e. 440px: iPhone 17 Pro Max · 16 Pro Max
 - 기기 이름은 iOS 런타임마다 겹치니 UDID 로 고른다
 - **부팅된 시뮬레이터가 둘 이상이면 검사가 멈춘다.** Orca 의 `attach` 는 새 기기를 켜면서 이전 기기를 끈다
+- Orca `attach` 로 켠 기기에서 SpringBoard 가 계속 죽으면 (2026-10-17, 화면 초기화 `FBSDisplayMonitor` 에서 충돌) `xcrun simctl boot <UDID>` 로만 켠다. Simulator 창이 없어도 Safari·브리지·스크린샷은 된다
 
 ### 2. 로그인 — 테스트 페이즈에 따라 다르다
 
@@ -75,7 +76,7 @@ pnpm run test:ios-sim -- /admin/workboards  # 고른 화면만
 | 결과 | 뜻 |
 |---|---|
 | 통과 | 아래 기준을 모두 만족 |
-| 문제 | 문서에 가로 스크롤이 생김 (`scrollWidth > clientWidth`) · 가로 스크롤 영역 밖으로 요소가 삐져나옴 · `h1` 이 세 줄 이상 |
+| 문제 | 문서에 가로 스크롤이 생김 (`scrollWidth > clientWidth`) · 가로 스크롤 영역 밖으로 요소가 삐져나옴 · `h1` 이 세 줄 이상 · 보이는 입력 칸 글자가 16px 미만 (누르면 iOS 가 화면을 확대한다, #1068) |
 | 측정 못 함 | 견본 ID 규칙이 없는 새 `:param` 화면 · 이 인스턴스에 견본이 없음 · 다른 주소로 튕김 (권한·로그인) |
 | 건너뜀 | 이번 모드 대상이 아님 · `<Navigate>` 만 하는 이동 주소 · 일회용 토큰이 필요한 화면 |
 
