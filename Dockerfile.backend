@@ -18,6 +18,11 @@ RUN pnpm config set strict-dep-builds false && pnpm install --frozen-lockfile --
 COPY src/ ./src/
 COPY docs/updatelogs/ ./docs/updatelogs/
 
+# 오픈소스 라이선스 고지 (#1063) — 이미지의 /app/THIRD_PARTY_LICENSES.txt
+COPY scripts/third-party-notices.cjs scripts/third-party-license-review.json ./scripts/
+RUN node scripts/third-party-notices.cjs notice --out THIRD_PARTY_LICENSES.txt --title "VCC Manager 백엔드" \
+    --system "ffmpeg (Alpine 패키지, 동영상 썸네일 추출에 CLI 로만 호출) — LGPL-2.1-or-later / GPL-2.0-or-later, https://ffmpeg.org/legal.html"
+
 RUN addgroup -g 1001 -S nodejs
 RUN adduser -S nodeuser -u 1001
 

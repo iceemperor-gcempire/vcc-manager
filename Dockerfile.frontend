@@ -20,6 +20,11 @@ ENV VITE_API_URL=${VITE_API_URL}
 
 RUN pnpm run build
 
+# 오픈소스 라이선스 고지 (#1063) — 번들에 라이선스 주석이 남지 않아 따로 만든다. /third-party-licenses.txt 로 제공.
+# (CRA 시절 webpack 이 만들던 *.js.LICENSE.txt 가 #526 Vite 전환 때 사라졌다)
+COPY scripts/third-party-notices.cjs scripts/third-party-license-review.json /app/scripts/
+RUN node /app/scripts/third-party-notices.cjs notice --out build/third-party-licenses.txt --title "VCC Manager 웹 화면"
+
 FROM nginx:alpine
 
 COPY --from=builder /app/frontend/build /usr/share/nginx/html

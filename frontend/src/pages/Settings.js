@@ -6,15 +6,17 @@ import {
   Box,
   Switch,
   Alert,
+  Button,
   CircularProgress
 } from '@mui/material';
+import { OpenInNew } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { userAPI } from '../services/api';
 import PageHeader from '../components/common/PageHeader';
 import toast from 'react-hot-toast';
 
-// 설정 행 — 좌측 라벨+설명, 우측 스위치 (v2, #564)
-function SettingRow({ label, caption, checked, onChange, disabled }) {
+// 설정 행 — 좌측 라벨+설명, 우측 스위치 (v2, #564). action 을 주면 스위치 대신 그것을 둔다
+function SettingRow({ label, caption, checked, onChange, disabled, action }) {
   return (
     <Box sx={{
       display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 4,
@@ -26,7 +28,7 @@ function SettingRow({ label, caption, checked, onChange, disabled }) {
           {caption}
         </Typography>
       </Box>
-      <Switch checked={checked} onChange={onChange} disabled={disabled} sx={{ flexShrink: 0, mt: -0.5 }} />
+      {action || <Switch checked={checked} onChange={onChange} disabled={disabled} sx={{ flexShrink: 0, mt: -0.5 }} />}
     </Box>
   );
 }
@@ -153,6 +155,27 @@ function Settings() {
           checked={preferences.resetWorkboardApiFormat || false}
           onChange={handleToggle('resetWorkboardApiFormat')}
           disabled={busy}
+        />
+      </SettingCard>
+
+      {/* 오픈소스 라이선스 고지 (#1063) — 빌드할 때 만들어지는 파일 (Dockerfile.frontend) */}
+      <SettingCard title="정보">
+        <SettingRow
+          label="오픈소스 라이선스"
+          caption="이 화면에 쓰인 오픈소스 라이브러리와 라이선스 원문을 새 탭에서 엽니다."
+          action={(
+            <Button
+              variant="outlined"
+              size="small"
+              endIcon={<OpenInNew fontSize="small" />}
+              href="/third-party-licenses.txt"
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ flexShrink: 0 }}
+            >
+              열기
+            </Button>
+          )}
         />
       </SettingCard>
     </Container>
