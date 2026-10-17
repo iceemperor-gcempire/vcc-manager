@@ -112,6 +112,10 @@ MIT — [LICENSE](../LICENSE) 참고.
 
 - 운영 의존성을 추가하면 `pnpm run licenses:update` 로 목록을 갱신한다 (`thirdPartyNotices.test.js` 가 직접 의존성 누락을 잡는다)
 - 허용형(MIT·ISC·BSD·Apache-2.0 등) 밖 라이선스가 들어오면 갱신이 실패한다. 조건을 확인하고 `scripts/third-party-license-review.json` 에 판단을 남긴다 (플랫폼별 바이너리는 `이름-*` 접두사로)
+- GPL·LGPL 처럼 원문을 함께 실어야 하는 라이선스는 `scripts/license-texts/<SPDX id>.txt` (gnu.org 원본) 를 고지 끝에 부록으로 붙인다. 원문이 없는 카피레프트가 들어오면 갱신이 실패한다
+- 백엔드 이미지의 **ffmpeg** (Alpine, GPL 빌드) 는 별도 프로세스로만 부른다 (`execFile('ffmpeg', …)`). 라이브러리로 링크하는 바인딩을 넣으면 백엔드가 GPL 결합 저작물이 되므로 넣지 않는다. 고지의 ffmpeg 버전·라이선스는 빌드할 때 `ffmpeg -L` 에서 읽는다
+- libvips (sharp, LGPL-3.0) 는 sharp 의 네이티브 모듈이 별도 공유 라이브러리로 동적 링크한다. libvips 를 고치거나 정적으로 묶지 않는다
+- 저장소는 소스만 배포하고 이미지는 설치자가 빌드한다. **빌드한 이미지를 레지스트리 등으로 배포하기 시작하면** 그 안의 GPL·LGPL 바이너리(ffmpeg, libvips)의 소스 제공 의무가 생기므로 그때 방법을 먼저 정한다
 
 ---
 **마지막 업데이트**: 2026-05-02

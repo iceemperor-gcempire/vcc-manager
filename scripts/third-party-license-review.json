@@ -4,7 +4,7 @@
     {
       "match": "@img/sharp-libvips-*",
       "license": "LGPL-3.0-or-later",
-      "decision": "sharp 가 불러 쓰는 libvips 공유 라이브러리. 고치지 않고, 별도 패키지로 남아 바꿔 끼울 수 있다. 고지 원문을 싣는다",
+      "decision": "sharp 의 네이티브 모듈이 동적 링크하는 libvips 공유 라이브러리(libvips-cpp, 별도 패키지). 고치지 않고 쓰며 바꿔 끼울 수 있다. 고지에 README 의 라이선스 절(함께 묶인 라이브러리 표)과 LGPL-3.0·GPL-3.0 원문 부록을 싣는다",
       "reviewed": "2026-10-17"
     },
     {

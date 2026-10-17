@@ -8,6 +8,11 @@
 - 웹 화면: 설정 → 정보 → 오픈소스 라이선스 (`/third-party-licenses.txt`)
 - 백엔드·MCP 서버: 각 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt`
 
+GPL·LGPL 처럼 원문을 함께 실어야 하는 라이선스는 `scripts/license-texts/` 의 원문을 고지 끝에 부록으로 붙인다.
+
+백엔드 이미지에는 시스템 패키지 **ffmpeg** 도 들어간다 (Alpine 빌드, 동영상 썸네일·업로드 faststart 처리에 별도 프로세스로만 호출).
+버전과 라이선스는 빌드할 때 이미지 안의 `ffmpeg -L` 에서 읽어 고지에 적는다 — 아래 목록에는 없다.
+
 ## 요약
 
 | 구성 | 패키지 | 라이선스 |
@@ -22,7 +27,7 @@
 
 | 패키지 | 라이선스 | 판단 |
 |---|---|---|
-| `@img/sharp-libvips-*` | LGPL-3.0-or-later | sharp 가 불러 쓰는 libvips 공유 라이브러리. 고치지 않고, 별도 패키지로 남아 바꿔 끼울 수 있다. 고지 원문을 싣는다 |
+| `@img/sharp-libvips-*` | LGPL-3.0-or-later | sharp 의 네이티브 모듈이 동적 링크하는 libvips 공유 라이브러리(libvips-cpp, 별도 패키지). 고치지 않고 쓰며 바꿔 끼울 수 있다. 고지에 README 의 라이선스 절(함께 묶인 라이브러리 표)과 LGPL-3.0·GPL-3.0 원문 부록을 싣는다 |
 | `dompurify` | (MPL-2.0 OR Apache-2.0) | 이중 라이선스 중 Apache-2.0 을 따른다. 고치지 않고 쓴다 |
 | `pause` | Unknown | package.json 에 표기가 없지만 README 에 MIT 원문이 있다 (passport 의존성) |
 
