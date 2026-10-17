@@ -228,3 +228,9 @@ curl http://your-comfyui-server:8188/system_stats
 ## 라이선스
 
 이 프로젝트는 [MIT 라이선스](./LICENSE)를 따릅니다.
+
+함께 쓰는 오픈소스 라이브러리 목록은 [THIRD_PARTY_LICENSES.md](./docs/THIRD_PARTY_LICENSES.md) 에 있습니다. 라이선스 원문(고지)은 빌드할 때 자동으로 만들어집니다.
+- 웹 화면: 설정 → 정보 → 오픈소스 라이선스 (`/third-party-licenses.txt`)
+- 백엔드·MCP 서버: 각 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt`
+
+설치한 서비스를 다른 사람에게 제공한다면 이 고지가 함께 나가도록 두세요.

@@ -108,5 +108,10 @@ frontend(`frontend/src/templates/capabilities.js`)와 mcp-server(`mcp-server/src
 
 MIT — [LICENSE](../LICENSE) 참고.
 
+오픈소스 라이브러리 목록은 [THIRD_PARTY_LICENSES.md](./THIRD_PARTY_LICENSES.md) (생성 파일). 고지 원문은 세 Dockerfile 이 빌드할 때 `scripts/third-party-notices.cjs` 로 만든다 — 웹은 `/third-party-licenses.txt`, 백엔드·MCP 는 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt`.
+
+- 운영 의존성을 추가하면 `pnpm run licenses:update` 로 목록을 갱신한다 (`thirdPartyNotices.test.js` 가 직접 의존성 누락을 잡는다)
+- 허용형(MIT·ISC·BSD·Apache-2.0 등) 밖 라이선스가 들어오면 갱신이 실패한다. 조건을 확인하고 `scripts/third-party-license-review.json` 에 판단을 남긴다 (플랫폼별 바이너리는 `이름-*` 접두사로)
+
 ---
 **마지막 업데이트**: 2026-05-02

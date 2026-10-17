@@ -155,6 +155,26 @@ else
     echo "   💡 수동 확인: curl http://localhost:$MCP_PORT/health"
 fi
 
+# 오픈소스 라이선스 고지 (#1063) — 빌드할 때 만들어진다. 배포물과 함께 나가야 한다.
+# nginx 는 없는 경로에도 index.html 을 200 으로 주므로 상태 코드가 아니라 내용으로 본다.
+NOTICE_TMP=$(mktemp)
+curl -s http://localhost:$FRONTEND_PORT/third-party-licenses.txt -o "$NOTICE_TMP" 2>/dev/null || true
+NOTICE_PKGS=$(grep -c '^License: ' "$NOTICE_TMP" 2>/dev/null || true)  # set -e — 0건이면 grep 이 1 로 끝난다
+rm -f "$NOTICE_TMP"
+if [ "${NOTICE_PKGS:-0}" -gt 0 ]; then
+    echo -e "${GREEN}✅ 오픈소스 라이선스 고지 (웹): 패키지 ${NOTICE_PKGS}개${NC}"
+else
+    echo -e "${YELLOW}⚠️  오픈소스 라이선스 고지 (웹): 없음 — /third-party-licenses.txt 가 비어 있거나 index.html 이다${NC}"
+fi
+for SVC in backend mcp-server; do
+    SVC_PKGS=$(docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE exec -T $SVC grep -c '^License: ' /app/THIRD_PARTY_LICENSES.txt 2>/dev/null || true)
+    if [ "${SVC_PKGS:-0}" -gt 0 ] 2>/dev/null; then
+        echo -e "${GREEN}✅ 오픈소스 라이선스 고지 ($SVC): 패키지 ${SVC_PKGS}개${NC}"
+    else
+        echo -e "${YELLOW}⚠️  오픈소스 라이선스 고지 ($SVC): /app/THIRD_PARTY_LICENSES.txt 없음${NC}"
+    fi
+done
+
 # 로그 확인 안내
 echo -e "\n${BLUE}📋 유용한 명령어:${NC}"
 echo "🔍 로그 확인: docker-compose -f $COMPOSE_FILE --env-file $ENV_FILE logs -f"

@@ -14,7 +14,8 @@
     "test:ios-sim": "node e2e/ios-sim/layout-check.js",
     "test:frontend": "pnpm --dir frontend test",
     "test:all": "pnpm test && pnpm run test:frontend && pnpm run test:mcp",
-    "test:mcp": "pnpm --dir mcp-server test"
+    "test:mcp": "pnpm --dir mcp-server test",
+    "licenses:update": "node scripts/third-party-notices.cjs update"
   },
   "dependencies": {
     "archiver": "^7.0.1",
