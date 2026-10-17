@@ -9,7 +9,8 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const {
-  PERMISSIVE, COMPONENTS, flattenLicenses, addInstalledOptional, readmeLicenseSection, findLicenseText, findReview, classify, renderNotice,
+  PERMISSIVE, COMPONENTS, flattenLicenses, addInstalledOptional, readmeLicenseSection, findLicenseText, findReview, classify,
+  loadLicenseTexts, usesLicense, appendixTexts, ffmpegLicense, renderNotice,
 } = require('../../scripts/third-party-notices.cjs');
 
 const ROOT = path.join(__dirname, '../..');
@@ -138,6 +139,61 @@ describe('검토 목록 대조', () => {
   });
 });
 
+describe('ffmpegLicense — ffmpeg -L 이 밝히는 라이선스 (#1066)', () => {
+  const said = (lesser, version) => `ffmpeg is free software; you can redistribute it and/or modify
+it under the terms of the GNU ${lesser ? 'Lesser ' : ''}General Public License as published by
+the Free Software Foundation; either version ${version} of the License, or
+(at your option) any later version.`;
+
+  test('GPL 3 이상 — Alpine 빌드(--enable-gpl --enable-version3)', () => {
+    expect(ffmpegLicense(said(false, '3'))).toBe('GPL-3.0-or-later');
+  });
+  test('기본 빌드는 LGPL 2.1 이상', () => {
+    expect(ffmpegLicense(said(true, '2.1'))).toBe('LGPL-2.1-or-later');
+  });
+  test('nonfree 빌드는 재배포할 수 없다', () => {
+    expect(ffmpegLicense(`This version of ffmpeg has nonfree parts compiled in.
+Therefore it is not legally redistributable.`)).toBe('NONFREE');
+  });
+  test('읽지 못하면 null', () => {
+    expect(ffmpegLicense('')).toBeNull();
+    expect(ffmpegLicense('unknown option -L')).toBeNull();
+  });
+});
+
+describe('원문 부록 (#1066)', () => {
+  test('usesLicense — -only·-or-later·+ 는 같은 원문, LGPL·AGPL 안의 GPL 은 아니다', () => {
+    for (const l of ['GPL-3.0', 'GPL-3.0-only', 'GPL-3.0-or-later', 'GPL-3.0+', '(MIT OR GPL-3.0)']) expect(usesLicense(l, 'GPL-3.0')).toBe(true);
+    for (const l of ['LGPL-3.0-or-later', 'AGPL-3.0', 'GPL-2.0', 'GPL-3.0.1', 'MIT', undefined]) expect(usesLicense(l, 'GPL-3.0')).toBe(false);
+  });
+
+  test('LGPL-3.0 은 GPL-3.0 원문도 함께 싣는다 — 원문 없는 카피레프트는 따로 알린다', () => {
+    const available = { 'GPL-3.0': 'G', 'LGPL-3.0': 'L' };
+    const r = appendixTexts([
+      { name: 'libvips', license: 'LGPL-3.0-or-later' },
+      { name: 'ffmpeg', license: 'GPL-3.0-or-later' },
+      { name: 'cairo', license: 'MPL-2.0' },
+      { name: 'react', license: 'MIT' },
+    ], available);
+    expect(r.texts).toEqual([
+      { id: 'GPL-3.0', users: ['libvips', 'ffmpeg'] },
+      { id: 'LGPL-3.0', users: ['libvips'] },
+    ]);
+    expect(r.missing).toEqual([{ name: 'cairo', license: 'MPL-2.0' }]);
+  });
+
+  test('허용형뿐이면 부록도 빠짐도 없다', () => {
+    expect(appendixTexts([{ name: 'a', license: 'MIT' }, { name: 'b', license: 'Apache-2.0' }], { 'GPL-3.0': 'G' })).toEqual({ texts: [], missing: [] });
+  });
+
+  test('저장소의 원문은 gnu.org 원본 머리말로 시작한다', () => {
+    const texts = loadLicenseTexts(path.join(ROOT, 'scripts/license-texts'));
+    expect(Object.keys(texts)).toEqual(['GPL-3.0', 'LGPL-3.0']);
+    expect(texts['GPL-3.0']).toMatch(/^GNU GENERAL PUBLIC LICENSE\s+Version 3, 29 June 2007/);
+    expect(texts['LGPL-3.0']).toMatch(/^GNU LESSER GENERAL PUBLIC LICENSE\s+Version 3, 29 June 2007/);
+  });
+});
+
 describe('renderNotice', () => {
   test('패키지마다 이름·버전·라이선스·원문, 이중 라이선스는 따르는 쪽을 적는다', () => {
     const dir = fixture({ LICENSE: 'DOMPurify 원문' });
@@ -156,6 +212,24 @@ describe('renderNotice', () => {
     expect(text).toContain('package.json 의 표기 MIT, 저작자 누군가');
     expect(text).toContain('- ffmpeg — 시스템 패키지');
     expect(counts).toEqual({ file: 1, readme: 0, missing: 1 });
+  });
+
+  test('카피레프트 원문은 끝에 부록으로 — 이중 라이선스는 따르는 쪽으로 판단, 시스템 구성요소도 센다', () => {
+    const { text, appendix } = renderNotice({
+      title: '시험',
+      pkgs: [
+        { name: '@img/sharp-libvips-linuxmusl-arm64', versions: ['1.2.4'], paths: [fixture({ 'README.md': '## Licensing\n\n라이브러리 표' })], license: 'LGPL-3.0-or-later', author: '', homepage: '' },
+        { name: 'dompurify', versions: ['3.4.11'], paths: [fixture({ LICENSE: 'x' })], license: '(MPL-2.0 OR Apache-2.0)', author: '', homepage: '' },
+      ],
+      reviews: [{ match: 'dompurify', license: '(MPL-2.0 OR Apache-2.0)', use: 'Apache-2.0' }],
+      system: [{ name: 'ffmpeg', license: 'GPL-3.0-or-later', line: 'ffmpeg 8.1.2 (시험) — GPL-3.0-or-later' }],
+      licenseTexts: { 'GPL-3.0': 'GPL 원문', 'LGPL-3.0': 'LGPL 원문' },
+    });
+    expect(appendix.missing).toEqual([]); // dompurify 는 Apache-2.0 을 따르므로 MPL 원문이 필요 없다
+    expect(text).toContain('- ffmpeg 8.1.2 (시험) — GPL-3.0-or-later');
+    expect(text).toContain('라이선스 원문 부록(맨 끝): GPL-3.0, LGPL-3.0');
+    expect(text).toContain('부록: GPL-3.0 원문\n이 라이선스를 따르거나 바탕으로 하는 구성요소: @img/sharp-libvips-linuxmusl-arm64, ffmpeg\n\nGPL 원문');
+    expect(text.indexOf('부록: LGPL-3.0 원문')).toBeGreaterThan(text.indexOf('dompurify 3.4.11'));
   });
 });
 

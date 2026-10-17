@@ -20,6 +20,7 @@ COPY --chown=nodeuser:nodejs mcp-server/index.js ./
 
 # 오픈소스 라이선스 고지 (#1063) — 이미지의 /app/THIRD_PARTY_LICENSES.txt
 COPY scripts/third-party-notices.cjs scripts/third-party-license-review.json ./scripts/
+COPY scripts/license-texts/ ./scripts/license-texts/
 RUN node scripts/third-party-notices.cjs notice --out THIRD_PARTY_LICENSES.txt --title "VCC Manager MCP 서버"
 RUN chmod -R u=rwX,go=rX /app
 USER nodeuser
