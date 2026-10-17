@@ -61,6 +61,28 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `POST` | `/servers/:id/loras/sync` | LoRA 동기화 시작 | **Admin** |
 | `GET` | `/servers/:id/loras/status` | LoRA 동기화 상태 | Yes |
 
+`GET /servers/:id/models?detailed=true` 의 모델 항목마다 `license` 가 붙는다 (#1073) — 아래 모델 라이선스가 붙은 것이 있으면 `{ licenseId, name, url, commercialUse, note, matchedBy, target }`, 없으면 `null` (화면에는 "라이선스 미등록").
+
+## 모델 라이선스 (Model Licenses, #1073)
+
+관리자가 라이선스를 등록하고 모델 **폴더나 파일**에 붙인다. 모델 선택기와 생성 화면에 표시된다. 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 원문을 확인한 관리자가 적는다.
+
+| Method | Endpoint | Description | Auth |
+|:---:|---|---|:---:|
+| `GET` | `/model-licenses` | 라이선스 목록 (붙인 경로 포함) | Yes |
+| `GET` | `/model-licenses/resolve?filename=` | 모델 파일 하나에 붙은 라이선스 — 없으면 `license: null` | Yes |
+| `POST` | `/model-licenses` | 등록 | **Admin** |
+| `PUT` | `/model-licenses/:id` | 수정 (온 필드만) | **Admin** |
+| `DELETE` | `/model-licenses/:id` | 삭제 — 붙어 있던 모델은 미등록으로 돌아간다 | **Admin** |
+
+- 본문: `name`(필수, 100자), `url`(http/https, 원문 링크), `commercialUse`(필수, `allowed` / `conditional` / `prohibited`), `note`(한 줄, 200자), `targets`(경로 배열, 50개까지)
+- **경로 규칙**: ComfyUI 가 보고하는 모델 경로(로더 폴더 기준 상대 경로). 끝이 `/` 나 `\` 면 폴더 — 그 아래 모든 파일(하위 폴더 포함), 아니면 파일 하나. 구분자·대소문자는 가리지 않는다. 절대 경로·`..` 은 400
+- **우선순위**: 파일로 붙인 것 > 깊은 폴더 > 얕은 폴더. `checkpoints` 와 `diffusion_models` 를 가리지 않는다
+- 경로 하나는 라이선스 하나에만 — 다른 라이선스가 쥔 경로면 `409` (`data.taken` 에 겹친 경로와 라이선스)
+- 서버를 가리지 않고 경로로 붙는다. 서버가 여럿이면 폴더 배치를 맞춘다
+- 백업 대상이다. 모델 목록을 다시 동기화하거나 캐시를 비워도 남는다
+- 관리자 계정의 API 용 키로도 된다 (MCP 키는 안 된다)
+
 ## 작업판 (Workboards)
 
 | Method | Endpoint | Description | Auth |

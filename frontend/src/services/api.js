@@ -284,6 +284,15 @@ export const promptGuideAPI = {
   delete: (id) => api.delete(`/prompt-guides/${id}`),
 };
 
+// 모델 라이선스 (#1073) — 조회·판정은 인증 사용자, 변경은 admin. 판정은 서버만 한다
+export const modelLicenseAPI = {
+  getAll: () => api.get('/model-licenses'),
+  resolve: (filename) => api.get('/model-licenses/resolve', { params: { filename } }),
+  create: (data) => api.post('/model-licenses', data),
+  update: (id, data) => api.put(`/model-licenses/${id}`, data),
+  delete: (id) => api.delete(`/model-licenses/${id}`),
+};
+
 export const promptDataAPI = {
   getAll: (params) => api.get('/prompt-data', { params }),
   getById: (id) => api.get(`/prompt-data/${id}`),
