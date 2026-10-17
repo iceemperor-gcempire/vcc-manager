@@ -1,7 +1,7 @@
 // 모델 라이선스 (#1073) — 관리자가 라이선스를 등록하고 모델 폴더·파일에 붙인다.
 //
 // 값 목록·길이 상한의 단일 source. frontend/src/constants/modelLicense.js 는 mirror (모듈 시스템이
-// 달라 직접 import 불가) — 바꾸면 양쪽 모두 갱신 (modelLicenseMirror.test.js 가 어긋남을 잡는다).
+// 달라 직접 import 불가) — 바꾸면 양쪽 모두 갱신 (modelLicense.test.js 가 어긋남을 잡는다).
 // 화면 문구(가능·조건부·불가)는 프런트가 정한다.
 //
 // 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 요약이 틀리면 설치한 쪽이 그대로 믿게 된다.
