@@ -50,7 +50,7 @@
         "label": "베이스 모델",
         "type": "baseModel",
         "required": true,
-        "defaultValue": "qwen_image_2.1_int8_convrot.safetensors",
+        "defaultValue": "qwen\\qwen_image_2.1_int8_convrot.safetensors",
         "description": "기본 Qwen-Image 2.1. Turbo 를 고르면 스텝을 8 로.",
         "formatString": "{{##base_model##}}",
         "options": []

@@ -25,7 +25,7 @@
         "label": "베이스 모델",
         "type": "baseModel",
         "required": true,
-        "defaultValue": "qwen_image_2.1_int8_convrot.safetensors",
+        "defaultValue": "qwen\\qwen_image_2.1_int8_convrot.safetensors",
         "description": "Qwen-Image 2.1 계열 모델. 파인튜닝판을 골라도 같은 설정으로 동작합니다.",
         "formatString": "{{##base_model##}}",
         "options": []
