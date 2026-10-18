@@ -6,7 +6,8 @@
 // class_type 으로 폴더를 알아내 picker 를 거른다. 순수 함수.
 
 const CHECKPOINT_LOADERS = /^(CheckpointLoader|CheckpointLoaderSimple|ImageOnlyCheckpointLoader|unCLIPCheckpointLoader|CheckpointLoaderNF4|Checkpoint Loader.*)$/;
-const UNET_LOADERS = /^(UNETLoader|UnetLoaderGGUF|UnetLoaderGGUFAdvanced|UNETLoaderNF4|DualCLIPLoaderGGUF|MultiGPU.*UNET.*|LoadDiffusionModel.*)$/;
+// MOSSImageUNETLoader (#1065) — MOSS-Image 커스텀 노드. 목록은 UNETLoader 와 같은 diffusion_models
+const UNET_LOADERS = /^(UNETLoader|UnetLoaderGGUF|UnetLoaderGGUFAdvanced|UNETLoaderNF4|DualCLIPLoaderGGUF|MultiGPU.*UNET.*|LoadDiffusionModel.*|MOSSImageUNETLoader)$/;
 
 /**
  * @param {string|Object} workflowData — API 포맷 워크플로 (문자열 또는 객체)
