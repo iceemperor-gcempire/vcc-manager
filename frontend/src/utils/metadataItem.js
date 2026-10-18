@@ -118,6 +118,8 @@ export function normalizeModel(raw, { serverType } = {}) {
     capabilities: prov.capabilities || [],
     outputFormats: prov.outputFormats || [],
     contextWindow: prov.contextWindow || null,
+    // 서버가 판정한 라이선스 (#1073) — null 은 "라이선스 미등록", undefined 는 응답에 없음(그리지 않음)
+    license: raw.license,
     hash: raw.hash || null,
     hashError: raw.hashError || null,
     hasMetadata: pickMetadataSource(raw) !== null,

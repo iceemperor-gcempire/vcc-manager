@@ -29,7 +29,7 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 1. **UI 에 영향 있는 변경이 들어간 마이너 이상 릴리스는 UI 풀 테스트 필수** — 알파에서 iOS 시뮬레이터 레이아웃 검사(`e2e/ios-sim/README.md`)를 390·440px 두 폭으로, 로그인 뒤 화면과 `--public` 둘 다 돌리고 결과 요약을 `dev` → `main` PR 에 붙인다. 데스크톱 e2e 는 모바일 깨짐을 못 잡는다 (#1053·#1054)
 2. **오픈소스 라이선스 고지 갱신** (#1063) — `pnpm run licenses:update` 로 `docs/THIRD_PARTY_LICENSES.md` 를 다시 만들어 commit. 허용형 목록 밖 라이선스가 새로 들어왔으면 실패하니, 조건을 확인해 `scripts/third-party-license-review.json` 에 판단을 남기고 다시 돌린다. 알파를 `--no-cache` 로 빌드한 뒤 웹 `/third-party-licenses.txt` 와 백엔드·MCP 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt` 가 비어 있지 않은지 확인하고, 구성별 패키지 수·검토 항목을 `dev` → `main` PR 에 붙인다
    - 고지 원문은 빌드할 때 만들어진다 (세 Dockerfile). 저장소의 목록 문서는 사람이 읽는 사본이다
-   - **빌드 도구를 바꾸면 이전 도구가 만들던 산출물이 그대로 나오는지 본다.** CRA 가 만들던 `*.js.LICENSE.txt` 가 #526 Vite 전환 때 사라졌는데 넉 달 동안 아무도 몰랐다
+   - **고지는 빌드 도구가 알아서 만들어 주는 것에 기대지 않고 이 단계에서 확인한다.** 예전에는 고지 작성이 절차에 없었고 CRA 가 설정 없이 만들던 `*.js.LICENSE.txt` 에 기대고 있었다. 그래서 #526 Vite 전환 때 빠졌는데 넉 달 동안 아무도 몰랐다 (#1063)
 3. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
 4. `dev` → `main` PR 생성 및 머지
 5. `main` 브랜치에서 버전 태그 생성

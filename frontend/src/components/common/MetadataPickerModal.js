@@ -42,6 +42,7 @@ import MetadataDetailDialog from './MetadataDetailDialog';
 import MetadataImageListItem from '../admin/MetadataImageListItem';
 import { METADATA_ADAPTERS } from '../../utils/metadataAdapters';
 import useMetadataSyncPolling, { checkInitialSyncStatus } from '../../hooks/useMetadataSyncPolling';
+import { ModelLicenseChip } from './ModelLicenseChip';
 
 const VIEW_MODE_KEY_PREFIX = 'vcc.picker.viewMode.';
 
@@ -478,6 +479,9 @@ function MetadataPickerModal({
                         <Typography variant="caption" color="text.secondary" noWrap title={item.filename} sx={{ fontFamily: 'monospace', display: 'block' }}>
                           {item.filename}
                         </Typography>
+                        {item.license !== undefined && (
+                          <Box sx={{ mt: 0.25, minWidth: 0 }}><ModelLicenseChip license={item.license} dense /></Box>
+                        )}
                       </Box>
                       {item.baseModel && (
                         <Typography variant="caption" color="text.secondary" noWrap sx={{ flexShrink: 1, minWidth: 0, maxWidth: { xs: 80, sm: 160 }, overflow: 'hidden', textOverflow: 'ellipsis' }}>

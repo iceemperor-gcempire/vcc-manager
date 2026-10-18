@@ -165,7 +165,14 @@ const MEASURE = `(() => {
   const h1 = document.querySelector('h1');
   let title = null;
   if (h1) { const r = h1.getBoundingClientRect(); title = { text: h1.innerText.slice(0, 30), width: Math.round(r.width), lines: Math.round(r.height / (parseFloat(getComputedStyle(h1).lineHeight) || r.height || 1)) }; }
-  return { final: location.pathname, vw, scrollWidth: document.documentElement.scrollWidth, title, wideCount: wide.length, wide: wide.slice(0, 5) };
+  // iOS 는 16px 보다 작은 입력 칸에 포커스가 가면 화면을 확대한다 (#1068) — 보이는 입력 칸의 글자 크기
+  const SKIP = ['checkbox', 'radio', 'range', 'file', 'hidden'];
+  const small = [...document.querySelectorAll('input, textarea, select')]
+    .filter((el) => !SKIP.includes(el.type) && el.getBoundingClientRect().width > 0)
+    .map((el) => ({ tag: el.tagName.toLowerCase(), size: parseFloat(getComputedStyle(el).fontSize), name: el.name || el.placeholder || '' }))
+    .filter((x) => x.size < 16);
+  return { final: location.pathname, vw, scrollWidth: document.documentElement.scrollWidth, title, wideCount: wide.length, wide: wide.slice(0, 5),
+    smallInputCount: small.length, smallInputs: small.slice(0, 3) };
 })()`;
 
 const HIDE_DIALOGS = `(() => { const d = document.querySelectorAll('.MuiDialog-root'); d.forEach((x) => x.remove());
@@ -247,6 +254,7 @@ async function main() {
       if (row.scrollWidth > row.vw) problems.push(`문서 폭 ${row.scrollWidth} > ${row.vw}`);
       if (row.wideCount) problems.push(`삐져나온 요소 ${row.wideCount}개 (${row.wide.map((w) => `${w.tag}:${w.right}px "${w.text}"`).join(', ')})`);
       if (row.title && row.title.lines > 2) problems.push(`제목 ${row.title.lines}줄 (폭 ${row.title.width}px)`);
+      if (row.smallInputCount) problems.push(`16px 미만 입력 칸 ${row.smallInputCount}개 — 누르면 iOS 가 확대 (${row.smallInputs.map((x) => `${x.tag}:${x.size}px "${x.name.slice(0, 20)}"`).join(', ')})`);
       row.status = problems.length ? 'fail' : 'pass';
       row.note = problems.join(' · ') + (row.title ? '' : (problems.length ? ' · ' : '') + '제목(h1) 없음');
     } catch (e) {

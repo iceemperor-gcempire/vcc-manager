@@ -39,6 +39,7 @@ const ADMIN_KEY_OPEN = [
   ['sequences', 'delete', '/:id', '/sequences/x1'],
   ['sequenceDocs', 'delete', '/:id', '/sequence-docs/x1'],
   ['promptGuides', 'delete', '/:id', '/prompt-guides/x1'],
+  ['modelLicenses', 'delete', '/:id', '/model-licenses/x1'],
   // 백업 실행 — 시간당 1회 제한·디스크 점검이 라우트에 있다
   ['backup', 'post', '/', '/admin/backup'],
 ];
@@ -71,6 +72,9 @@ const MUST_STAY_OPEN = [
   ['groups', 'put', '/:id'],
   ['sequenceDocs', 'put', '/:id'],
   ['promptGuides', 'put', '/:id'],
+  // 모델 라이선스 (#1073) — AI 가 서버·작업판을 등록할 때 라이선스도 적는다
+  ['modelLicenses', 'post', '/'],
+  ['modelLicenses', 'put', '/:id'],
   ['admin', 'put', '/settings/lora'],
   ['admin', 'post', '/users/:id/approve'],
   ['admin', 'post', '/users/:id/reject'],
@@ -82,6 +86,8 @@ const MUST_STAY_OPEN = [
   ['servers', 'get', '/:id/loras/status'],
   ['promptGuides', 'get', '/'],
   ['promptGuides', 'get', '/:id'],
+  ['modelLicenses', 'get', '/'],
+  ['modelLicenses', 'get', '/resolve'],
 ];
 
 function routeHandlers(file, method, path) {
