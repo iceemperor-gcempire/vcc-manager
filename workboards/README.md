@@ -38,6 +38,7 @@
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
+| `comfyui/text-to-image-moss-image.json` | Text to Image - MOSS-Image | 이미지 ×1 · 긍정·부정 프롬프트 · 중국어·영어 글씨 · 긴 프롬프트(약 4천 토큰) | MOSS-Image **커스텀 노드** + 한 파일로 합친 모델 3개 `openmoss/…` (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 50스텝 약 26초 |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
@@ -371,6 +372,65 @@ models/
 | 타일 디코드 | 메모리가 부족할 때 켠다. 조금 느려진다 |
 
 실측: 최대 120초 설정 · RTX PRO 6000 기준 **72초 소요 → 21초 곡** (mp3 44.1kHz 스테레오).
+
+---
+
+## MOSS-Image
+
+OpenMOSS 의 5B 텍스트→이미지 모델 ([GitHub](https://github.com/OpenMOSS/MOSS-Image) ·
+[🤗 OpenMOSS-Team/MOSS-Image-SFT](https://huggingface.co/OpenMOSS-Team/MOSS-Image-SFT)). 중국어·영어 글씨를 잘 쓰고
+긴 프롬프트를 받는다. 가중치는 Apache-2.0, 동봉 VAE(FLUX.2 small decoder)도 Apache-2.0 이다.
+ComfyUI 내장이 아니라 **커스텀 노드**가 필요하다. 확인한 ComfyUI 는 0.41.0 이다.
+
+### 커스텀 노드
+
+MOSS-Image 저장소의 `comfyui/moss-image/` 폴더를 ComfyUI 의 `custom_nodes/moss-image` 로 넣고 다시 시작한다
+(확인한 커밋 `c1355e6`). 추가로 설치할 pip 패키지는 없다. 다시 시작한 뒤 노드 목록에 `MOSSImageUNETLoader` 가 보이면 된다.
+
+### 필요한 모델 — 한 파일씩 합쳐서 둔다
+
+HF 저장소는 diffusers 폴더(`transformer/` `text_encoder/` `vae/` …)이고 가중치가 여러 조각으로 나뉘어 있다. 이 작업판은 서버
+모델 목록에서 고르는 **파일 로더**를 쓰므로 조각을 한 파일로 합쳐 둔다.
+
+```
+models/
+├── diffusion_models/openmoss/moss_image_sft_bf16.safetensors        ← transformer/   (텐서 463개, 9.5 GiB)
+├── text_encoders/openmoss/moss_image_qwen35_9b_bf16.safetensors     ← text_encoder/  (텐서 759개, 15.6 GiB)
+└── vae/openmoss/moss_image_flux2_small_decoder.safetensors          ← vae/           (텐서 251개, 238 MiB)
+```
+
+합치는 법 — 조각의 텐서를 **키 이름 그대로** 한 파일에 담는다 (노드의 폴더 로더가 읽는 방식과 같다). ComfyUI 의 python 으로:
+
+```python
+# merge_shards.py <폴더> <stem> <출력>
+#   transformer  diffusion_pytorch_model  → diffusion_models/openmoss/moss_image_sft_bf16.safetensors
+#   text_encoder model                    → text_encoders/openmoss/moss_image_qwen35_9b_bf16.safetensors
+#   vae          diffusion_pytorch_model  → vae/openmoss/moss_image_flux2_small_decoder.safetensors (원래 한 파일)
+import json, sys
+from pathlib import Path
+from safetensors.torch import load_file, save_file
+src, stem, out = Path(sys.argv[1]), sys.argv[2], Path(sys.argv[3])
+idx = src / f"{stem}.safetensors.index.json"
+files = sorted(set(json.loads(idx.read_text())["weight_map"].values())) if idx.exists() else [f"{stem}.safetensors"]
+state = {}
+for f in files: state.update(load_file(str(src / f)))
+out.parent.mkdir(parents=True, exist_ok=True)
+save_file(state, str(out), metadata={"format": "pt"})
+print(out, len(state), "tensors")
+```
+
+출력 파일의 텐서 수가 `*.safetensors.index.json` 의 키 수와 같은지 확인한다. 원본 폴더는 `models/` 밖에 받아 두는 게 좋다 —
+안에 두면 조각 파일이 전부 모델 목록에 뜬다.
+
+같은 시드로 원본 폴더 로더와 비교하면 모델·텍스트 인코더는 **픽셀까지 같다**. VAE 만 최대 4/255 차이가 나는데, 노드의 폴더 로더는
+VAE 를 fp32 로 고정하고 ComfyUI 기본 VAE 로더는 장치 기본 정밀도로 디코딩하기 때문이다. 눈으로는 구분되지 않는다.
+
+### 기본값과 입력
+
+- 기본값은 공식 권장값이다: 50스텝 · CFG 3 · 시프트 5 · SLG(layer 22) · Euler + `sgm_uniform`. 크기는 전부 16 의 배수
+- 실측(RTX PRO 6000, 3회 중앙값): 1024x1024 50스텝 **약 26초**
+- CFG 를 쓰는 모델이라 **부정 프롬프트가 적용된다** (CFG 1 인 Qwen-Image 2.1 판과 다르다)
+- 프롬프트는 약 4천 토큰까지 받는다. 약 3,700토큰 프롬프트의 마지막 문장에 적은 글씨까지 그려지는 것을 확인했다
 
 ## 갱신 규칙
 

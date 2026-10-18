@@ -15,6 +15,10 @@ describe('inferBaseModelSource (#898)', () => {
     expect(inferBaseModelSource(wf({ 6: { class_type: 'UnetLoaderGGUF', inputs: { unet_name: '{{##base_model##}}' } } }))).toBe('diffusion_models');
   });
 
+  test('MOSS-Image 파일 로더도 diffusion_models (#1065)', () => {
+    expect(inferBaseModelSource(wf({ 2: { class_type: 'MOSSImageUNETLoader', inputs: { unet_name: '{{##base_model##}}', weight_dtype: 'default' } } }))).toBe('diffusion_models');
+  });
+
   test('placeholder 를 아무 노드도 안 쓰면 null', () => {
     expect(inferBaseModelSource(wf({ 6: { class_type: 'UNETLoader', inputs: { unet_name: 'fixed.safetensors' } } }))).toBeNull();
   });
