@@ -39,6 +39,7 @@
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
 | `comfyui/text-to-image-moss-image.json` | Text to Image - MOSS-Image | 이미지 ×1 · 긍정·부정 프롬프트 · 중국어·영어 글씨 · 긴 프롬프트(약 4천 토큰) | ComfyUI **0.42 이상** + Comfy-Org 모델 3개 `openmoss/…` (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 50스텝 약 25초 (int8 모델 약 14초) |
+| `comfyui/text-to-image-moss-image-fast.json` | Text to Image - MOSS-Image (빠름) | 이미지 ×1 · ComfyUI 공식 템플릿 설정 · **프롬프트 늘려 쓰기**(기본 켬) · 긍정·부정 프롬프트 | 위 판과 같은 폴더의 int8 모델 · w4a8 인코더 · VAE (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 25스텝 약 9초 (늘려 쓰기를 끄면 약 7.5초) |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
@@ -389,15 +390,15 @@ ComfyUI 용으로 한 파일씩 묶어 둔 [🤗 Comfy-Org/MOSS-Image](https://h
 
 ```
 models/
-├── diffusion_models/openmoss/moss_image_sft_bf16.safetensors          (9.5 GiB, 기본)
-├── diffusion_models/openmoss/moss_image_sft_int8_convrot.safetensors  (5.0 GiB, 선택 — 약 1.8배 빠름)
-├── text_encoders/openmoss/qwen3.5_9b_bf16.safetensors                 (18.0 GiB, 기본)
-├── text_encoders/openmoss/qwen3.5_9b_w4a8_gptq.safetensors            (6.8 GiB, 선택 — 메모리 절약)
-└── vae/openmoss/flux2-vae_small.safetensors                           (238 MiB)
+├── diffusion_models/openmoss/moss_image_sft_bf16.safetensors          (9.5 GiB, 기본 판)
+├── diffusion_models/openmoss/moss_image_sft_int8_convrot.safetensors  (5.0 GiB, 빠른 판 — 기본 판에서도 고를 수 있음)
+├── text_encoders/openmoss/qwen3.5_9b_bf16.safetensors                 (18.0 GiB, 기본 판)
+├── text_encoders/openmoss/qwen3.5_9b_w4a8_gptq.safetensors            (6.8 GiB, 빠른 판 — 기본 판에서도 고를 수 있음)
+└── vae/openmoss/flux2-vae_small.safetensors                           (238 MiB, 두 판 모두)
 ```
 
-- 선택 파일은 쓰지 않으면 받지 않아도 된다. 판의 "베이스 모델"·"텍스트 인코더" 칸에서 고른다
-- `moss_image_base_*` 는 파인튜닝용 Base 체크포인트라 이 판에는 쓰지 않는다
+- 한 판만 쓴다면 그 판의 파일만 받으면 된다. 빠른 판만 쓰면 int8 모델 · w4a8 인코더 · VAE 세 개다
+- `moss_image_base_*` 는 파인튜닝용 Base 체크포인트라 두 판 모두 쓰지 않는다
 
 ### 커스텀 노드 판(v4.11.0)에서 옮길 때
 
@@ -412,7 +413,22 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
 - 같은 시드로 커스텀 노드 판과 비교하면 구도·내용은 같고 세부만 조금 다르다. 텍스트 인코더는 픽셀까지 같았고, 차이는 모델
   계산(본체 구현과 커스텀 노드 구현)에서 난다
 
-### 기본값과 입력
+### 두 판
+
+| | `Text to Image - MOSS-Image` | `Text to Image - MOSS-Image (빠름)` |
+|---|---|---|
+| 기준 | OpenMOSS 공식 권장값 | ComfyUI 공식 템플릿(`image_moss_image_t2i`) |
+| 모델 · 인코더 | bf16 · bf16 (둘 다 고를 수 있음) | int8 · w4a8 (모델은 고를 수 있음) |
+| 스텝 · CFG | 50 · 3 | 25 · 2.5 |
+| 샘플러 | Euler + `sgm_uniform`, 시프트 5 | `er_sde` + `simple`, 시프트는 모델 기본값 5 |
+| SLG (layer 22) | 켬, 전 구간 | 끔 (켜면 앞쪽 절반) |
+| 부정 프롬프트 | 입력한 것만 | 템플릿 권장 문구 + 입력한 것 |
+| 프롬프트 늘려 쓰기 | 없음 | 켬 (끌 수 있음) |
+| 1024² 한 장 | 약 25초 | 약 9초 (늘려 쓰기를 끄면 약 7.5초) |
+
+같은 시드라도 샘플러가 달라서 두 판의 구도는 다르다. 크기 목록과 업스케일 선택은 두 판이 같다.
+
+### 기본 판의 기본값과 입력
 
 - 기본값은 공식 권장값이다: 50스텝 · CFG 3 · 시프트 5 · SLG(layer 22, 전 구간) · Euler + `sgm_uniform`. 크기는 전부 16 의 배수
 - 실측(RTX PRO 6000, 1024x1024, 3회 중앙값, 프롬프트 읽기 포함):
@@ -429,12 +445,21 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
 - CFG 를 쓰는 모델이라 **부정 프롬프트가 적용된다** (CFG 1 인 Qwen-Image 2.1 판과 다르다)
 - 프롬프트는 약 4천 토큰까지 받는다. 약 3,700토큰 프롬프트의 마지막 문장에 적은 글씨까지 그려지는 것을 확인했다
 
-### ComfyUI 공식 템플릿과 다른 점
+### 빠른 판 (ComfyUI 공식 템플릿 설정)
 
-ComfyUI 의 MOSS-Image 템플릿(`image_moss_image_t2i`)은 속도 쪽으로 맞춰져 있다: int8 모델 · w4a8 인코더 · 25스텝 · CFG 2.5 ·
-`er_sde` + `simple` · SLG 꺼짐, 그리고 짧은 프롬프트를 텍스트 인코더가 영어 장면 묘사로 늘려 쓰는 단계가 켜져 있다.
-이 판은 공식 권장값을 기본으로 두고 모델·인코더·스텝을 고를 수 있게 했다. 샘플러를 바꾸면 같은 시드에서도 구도가 달라진다.
-프롬프트 늘려 쓰기는 넣지 않았다 — 실제로 들어간 프롬프트가 작업 기록에 남지 않는다.
+- 템플릿의 샘플링 설정 · 권장 부정 프롬프트 · 프롬프트 늘려 쓰기를 그대로 옮겼다. 같은 시드에서, 템플릿 설정을 API 그래프로
+  옮겨 ComfyUI 에서 직접 돌린 결과와 이 판의 결과가 픽셀까지 같았다 (늘려 쓰기 켬·끔 모두)
+- **프롬프트 늘려 쓰기**: 프롬프트를 읽는 Qwen 이 먼저 프롬프트를 자세한 영어 장면 묘사로 늘려 쓰고, 그 글로 그린다. 시스템 프롬프트와
+  설정은 템플릿 것이다 (템플릿은 OpenMOSS 의 프롬프트 개선 스킬을 바탕으로 썼다고 밝힌다). 인코더 파일을 같이 쓰므로 모델을 더 받지 않는다
+  - 따옴표 안의 글씨는 원문 그대로 둔다. 한글 간판 문구 네 줄이 늘려 쓴 글에 그대로 남는 것을 확인했다
+  - 늘려 쓰기의 시드는 템플릿처럼 0 으로 고정이다. 같은 프롬프트로 다시 돌리면 늘려 쓴 글과 그림이 픽셀까지 같았다. 다만
+    ComfyUI 나 인코더 파일이 바뀌면 같은 프롬프트에서도 다른 글이 나올 수 있다
+  - 늘려 쓴 글은 vcc 작업 기록에도, 이미지 파일의 PNG 정보에도 남지 않는다 (PNG 에는 원래 프롬프트와 늘려 쓰기 설정만 들어간다).
+    ComfyUI 실행 기록의 "실제로 쓴 프롬프트" 노드 출력에서는 볼 수 있다 — ComfyUI 를 재시작하기 전까지
+- 부정 프롬프트 칸을 비우면 템플릿 권장 문구(`nsfw, worst quality, bad anatomy, watermark, jpeg artifact`)만 들어가고,
+  쓰면 그 뒤에 `, ` 로 이어 붙는다
+- 실측(RTX PRO 6000, 1024x1024, 25스텝, 3회 중앙값, 프롬프트 읽기 포함): 늘려 쓰기를 끄면 약 7.5초, 켜면 약 9초.
+  늘려 쓰기는 한 장에 약 2초다
 
 ## 갱신 규칙
 
