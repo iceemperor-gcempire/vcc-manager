@@ -4,7 +4,7 @@
     "major": 4,
     "minor": 11
   },
-  "exportedAt": "2026-10-19T17:49:38.570Z",
+  "exportedAt": "2026-10-19T17:56:11.716Z",
   "workboard": {
     "name": "Text to Image - MOSS-Image",
     "description": "OpenMOSS 의 MOSS-Image(5B)로 이미지를 만드는 판입니다. 중국어·영어 글씨를 잘 쓰고 긴 프롬프트(약 4천 토큰까지)를 받습니다. 공식 권장값(50스텝 · CFG 3 · 시프트 5 · SLG)이 기본이며 1024x1024 한 장에 약 25초(int8 모델은 약 14초)이고, 프롬프트가 길면 조금 더 걸립니다. CFG 를 쓰는 모델이라 부정 프롬프트가 적용됩니다. 업스케일을 고르면 업스케일본만 저장됩니다.",
@@ -55,7 +55,7 @@
           }
         ],
         "defaultValue": "openmoss\\qwen3.5_9b_bf16.safetensors",
-        "description": "프롬프트를 읽는 모델입니다. w4a8 은 ComfyUI 공식 템플릿의 기본값으로, 메모리를 약 12GB 덜 쓰고 속도는 같습니다. 그림은 조금 달라집니다.",
+        "description": "프롬프트를 읽는 모델입니다. w4a8 은 ComfyUI 공식 템플릿의 기본값으로, 파일이 약 12GB 작아 메모리가 적은 GPU 에 맞습니다. 그림은 조금 달라집니다.",
         "formatString": "{{##text_encoder##}}"
       },
       {
@@ -221,7 +221,7 @@
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 2
+    "version": 3
   },
   "server": {
     "name": "ComfyUI-Image",
