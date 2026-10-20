@@ -2,12 +2,12 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 10
+    "minor": 11
   },
-  "exportedAt": "2026-10-18T12:00:45.849Z",
+  "exportedAt": "2026-10-19T17:56:11.716Z",
   "workboard": {
     "name": "Text to Image - MOSS-Image",
-    "description": "OpenMOSS 의 MOSS-Image(5B)로 이미지를 만드는 판입니다. 중국어·영어 글씨를 잘 쓰고 긴 프롬프트(약 4천 토큰까지)를 받습니다. 공식 권장값(50스텝 · CFG 3 · 시프트 5 · SLG)이 기본이며 1024x1024 한 장에 약 26초이고, 프롬프트가 길면 조금 더 걸립니다. CFG 를 쓰는 모델이라 부정 프롬프트가 적용됩니다. 업스케일을 고르면 업스케일본만 저장됩니다.",
+    "description": "OpenMOSS 의 MOSS-Image(5B)로 이미지를 만드는 판입니다. 중국어·영어 글씨를 잘 쓰고 긴 프롬프트(약 4천 토큰까지)를 받습니다. 공식 권장값(50스텝 · CFG 3 · 시프트 5 · SLG)이 기본이며 1024x1024 한 장에 약 25초(int8 모델은 약 14초)이고, 프롬프트가 길면 조금 더 걸립니다. CFG 를 쓰는 모델이라 부정 프롬프트가 적용됩니다. 업스케일을 고르면 업스케일본만 저장됩니다.",
     "workboardType": "image",
     "outputFormat": "image",
     "additionalInputFields": [
@@ -27,8 +27,36 @@
         "required": true,
         "options": [],
         "defaultValue": "openmoss\\moss_image_sft_bf16.safetensors",
-        "description": "MOSS-Image SFT (일반 생성용). Base 체크포인트는 파인튜닝용이라 그대로 쓰면 품질이 떨어집니다.",
+        "description": "MOSS-Image SFT (일반 생성용). int8 변환본(moss_image_sft_int8_convrot)을 고르면 약 1.8배 빠르고, 그림은 조금 달라집니다. Base 체크포인트는 파인튜닝용이라 그대로 쓰면 품질이 떨어집니다.",
         "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "text_encoder",
+        "label": "텍스트 인코더",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "bf16 (기본)",
+            "value": "openmoss\\qwen3.5_9b_bf16.safetensors"
+          },
+          {
+            "key": "w4a8 (메모리 절약)",
+            "value": "openmoss\\qwen3.5_9b_w4a8_gptq.safetensors"
+          }
+        ],
+        "defaultValue": "openmoss\\qwen3.5_9b_bf16.safetensors",
+        "description": "프롬프트를 읽는 모델입니다. w4a8 은 ComfyUI 공식 템플릿의 기본값으로, 파일이 약 12GB 작아 메모리가 적은 GPU 에 맞습니다. 그림은 조금 달라집니다.",
+        "formatString": "{{##text_encoder##}}"
       },
       {
         "imageConfig": {
@@ -102,12 +130,16 @@
             "value": "40"
           },
           {
-            "key": "30 (빠름)",
+            "key": "30",
             "value": "30"
+          },
+          {
+            "key": "25 (빠름)",
+            "value": "25"
           }
         ],
         "defaultValue": "50",
-        "description": "공식 권장 50. 줄이면 시간은 비례해 줄지만 디테일과 글씨가 흐려질 수 있습니다.",
+        "description": "공식 권장 50. 줄이면 시간은 비례해 줄고 구도는 거의 그대로지만, 디테일과 글씨가 흐려질 수 있습니다.",
         "formatString": "{{##steps##}}"
       },
       {
@@ -183,13 +215,13 @@
         "formatString": "{{##upscale_model##}}"
       }
     ],
-    "workflowData": "{\"1\": {\"class_type\": \"MOSSImageUNETLoader\", \"inputs\": {\"unet_name\": \"{{##base_model##}}\", \"weight_dtype\": \"default\"}, \"_meta\": {\"title\": \"MOSS-Image 모델\"}}, \"2\": {\"class_type\": \"MOSSImageCLIPLoader\", \"inputs\": {\"clip_name\": \"openmoss\\\\moss_image_qwen35_9b_bf16.safetensors\", \"device\": \"default\"}, \"_meta\": {\"title\": \"텍스트 인코더 (Qwen3.5-9B)\"}}, \"3\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"openmoss\\\\moss_image_flux2_small_decoder.safetensors\"}, \"_meta\": {\"title\": \"VAE (FLUX.2 small decoder)\"}}, \"4\": {\"class_type\": \"CLIPTextEncode\", \"inputs\": {\"clip\": [\"2\", 0], \"text\": \"{{##prompt##}}\"}, \"_meta\": {\"title\": \"긍정 프롬프트\"}}, \"5\": {\"class_type\": \"CLIPTextEncode\", \"inputs\": {\"clip\": [\"2\", 0], \"text\": \"{{##negative_prompt##}}\"}, \"_meta\": {\"title\": \"부정 프롬프트\"}}, \"6\": {\"class_type\": \"EmptyFlux2LatentImage\", \"inputs\": {\"width\": \"{{##width##}}\", \"height\": \"{{##height##}}\", \"batch_size\": 1}, \"_meta\": {\"title\": \"빈 잠재 이미지\"}}, \"7\": {\"class_type\": \"ModelSamplingSD3\", \"inputs\": {\"model\": [\"1\", 0], \"shift\": 5.0}, \"_meta\": {\"title\": \"시프트 5 (공식 권장)\"}}, \"8\": {\"class_type\": \"SkipLayerGuidanceDiTSimple\", \"inputs\": {\"model\": [\"7\", 0], \"double_layers\": \"\", \"single_layers\": \"22\", \"start_percent\": 0.0, \"end_percent\": 1.0}, \"_meta\": {\"title\": \"SLG layer 22 (공식 권장)\"}}, \"9\": {\"class_type\": \"KSampler\", \"inputs\": {\"model\": [\"8\", 0], \"positive\": [\"4\", 0], \"negative\": [\"5\", 0], \"latent_image\": [\"6\", 0], \"seed\": \"{{##seed##}}\", \"steps\": \"{{##steps##}}\", \"cfg\": \"{{##cfg##}}\", \"sampler_name\": \"euler\", \"scheduler\": \"sgm_uniform\", \"denoise\": 1.0}, \"_meta\": {\"title\": \"샘플링 (Flow-matching Euler)\"}}, \"10\": {\"class_type\": \"VAEDecode\", \"inputs\": {\"samples\": [\"9\", 0], \"vae\": [\"3\", 0]}, \"_meta\": {\"title\": \"디코드\"}}, \"11\": {\"class_type\": \"UpscaleModelLoader\", \"inputs\": {\"model_name\": \"{{##upscale_model##}}\"}, \"_meta\": {\"title\": \"업스케일 모델\"}}, \"12\": {\"class_type\": \"ImageUpscaleWithModel\", \"inputs\": {\"upscale_model\": [\"11\", 0], \"image\": [\"10\", 0]}, \"_meta\": {\"title\": \"업스케일\"}, \"_vcc\": {\"bypassUnless\": {\"condition\": \"{{##upscale_model##}}\", \"passthrough\": {\"0\": \"image\"}}}}, \"13\": {\"class_type\": \"SaveImage\", \"inputs\": {\"images\": [\"12\", 0], \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\moss_image\"}, \"_meta\": {\"title\": \"저장\"}}}",
+    "workflowData": "{\"1\": {\"class_type\": \"UNETLoader\", \"inputs\": {\"unet_name\": \"{{##base_model##}}\", \"weight_dtype\": \"default\"}, \"_meta\": {\"title\": \"MOSS-Image 모델\"}}, \"2\": {\"class_type\": \"CLIPLoader\", \"inputs\": {\"clip_name\": \"{{##text_encoder##}}\", \"type\": \"moss_image\", \"device\": \"default\"}, \"_meta\": {\"title\": \"텍스트 인코더 (Qwen3.5-9B)\"}}, \"3\": {\"class_type\": \"VAELoader\", \"inputs\": {\"vae_name\": \"openmoss\\\\flux2-vae_small.safetensors\"}, \"_meta\": {\"title\": \"VAE (FLUX.2 small)\"}}, \"4\": {\"class_type\": \"CLIPTextEncode\", \"inputs\": {\"clip\": [\"2\", 0], \"text\": \"{{##prompt##}}\"}, \"_meta\": {\"title\": \"긍정 프롬프트\"}}, \"5\": {\"class_type\": \"CLIPTextEncode\", \"inputs\": {\"clip\": [\"2\", 0], \"text\": \"{{##negative_prompt##}}\"}, \"_meta\": {\"title\": \"부정 프롬프트\"}}, \"6\": {\"class_type\": \"EmptyFlux2LatentImage\", \"inputs\": {\"width\": \"{{##width##}}\", \"height\": \"{{##height##}}\", \"batch_size\": 1}, \"_meta\": {\"title\": \"빈 잠재 이미지\"}}, \"7\": {\"class_type\": \"ModelSamplingAuraFlow\", \"inputs\": {\"model\": [\"1\", 0], \"shift\": 5.0}, \"_meta\": {\"title\": \"시프트 5 (공식 권장)\"}}, \"8\": {\"class_type\": \"SkipLayerGuidanceDiTSimple\", \"inputs\": {\"model\": [\"7\", 0], \"double_layers\": \"\", \"single_layers\": \"22\", \"start_percent\": 0.0, \"end_percent\": 1.0}, \"_meta\": {\"title\": \"SLG layer 22 (공식 권장)\"}}, \"9\": {\"class_type\": \"KSampler\", \"inputs\": {\"model\": [\"8\", 0], \"positive\": [\"4\", 0], \"negative\": [\"5\", 0], \"latent_image\": [\"6\", 0], \"seed\": \"{{##seed##}}\", \"steps\": \"{{##steps##}}\", \"cfg\": \"{{##cfg##}}\", \"sampler_name\": \"euler\", \"scheduler\": \"sgm_uniform\", \"denoise\": 1.0}, \"_meta\": {\"title\": \"샘플링 (Flow-matching Euler)\"}}, \"10\": {\"class_type\": \"VAEDecode\", \"inputs\": {\"samples\": [\"9\", 0], \"vae\": [\"3\", 0]}, \"_meta\": {\"title\": \"디코드\"}}, \"11\": {\"class_type\": \"UpscaleModelLoader\", \"inputs\": {\"model_name\": \"{{##upscale_model##}}\"}, \"_meta\": {\"title\": \"업스케일 모델\"}}, \"12\": {\"class_type\": \"ImageUpscaleWithModel\", \"inputs\": {\"upscale_model\": [\"11\", 0], \"image\": [\"10\", 0]}, \"_meta\": {\"title\": \"업스케일\"}, \"_vcc\": {\"bypassUnless\": {\"condition\": \"{{##upscale_model##}}\", \"passthrough\": {\"0\": \"image\"}}}}, \"13\": {\"class_type\": \"SaveImage\", \"inputs\": {\"images\": [\"12\", 0], \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\moss_image\"}, \"_meta\": {\"title\": \"저장\"}}}",
     "allowedModelTypes": [],
     "modelExposurePolicy": "full",
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 1
+    "version": 3
   },
   "server": {
     "name": "ComfyUI-Image",
