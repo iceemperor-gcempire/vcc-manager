@@ -791,6 +791,7 @@ router.post('/import', requireAdmin, async (req, res) => {
         additionalInputFields: wb.additionalInputFields || [],
         workflowData: wb.workflowData || '',
         allowedModelTypes: wb.allowedModelTypes || [],
+        allowedModelFolders: Array.isArray(wb.allowedModelFolders) ? wb.allowedModelFolders : [], // 스키마가 정규화한다
         allowedGroupIds: defaultGroup ? [defaultGroup._id] : [],
         modelExposurePolicy: wb.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
         modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],

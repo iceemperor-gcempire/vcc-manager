@@ -3,6 +3,7 @@ const ServerModelCache = require('../models/ServerModelCache');
 const SystemSettings = require('../models/SystemSettings');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { getServerTypeSpec } = require('../constants/serverTypes');
+const { isInModelFolders, foldersOfModels } = require('../utils/modelFolders');
 
 // LoRA service 와 동일한 Civitai rate limit / 재시도 정책.
 // 단순 재구현 (Phase B 에서는 두 서비스가 독립으로 진화할 여지를 두기 위해
@@ -632,14 +633,15 @@ const resetSyncStatus = async (serverId) => {
  *   (작업판의 allowedModelTypes 와 매핑 — 필터 활성 시 Civitai 미등록 모델은 제외, #320)
  * @param {string} opts.source — 'checkpoints' | 'diffusion_models' — 작업판 로더 폴더로 한정 (#898)
  */
-const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, whitelist, outputFormat, serverType, source, page = 1, limit = 50 } = {}) => {
+const searchServerModels = async (serverId, { search, hasMetadata, baseModel, allowedBaseModels, allowedFolders, whitelist, outputFormat, serverType, source, page = 1, limit = 50 } = {}) => {
   const cache = await ServerModelCache.findOne({ serverId });
 
   if (!cache) {
     return {
       models: [],
       pagination: { current: 1, pages: 0, total: 0 },
-      availableBaseModels: []
+      availableBaseModels: [],
+      availableFolders: []
     };
   }
 
@@ -655,6 +657,15 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
   // 고르면 value_not_in_list 로 실패하던 것을 막는다. source 가 없는 옛 캐시 항목은 남긴다.
   if (source) {
     filtered = filtered.filter(m => !m.source || m.source === source);
+  }
+
+  // 편집기의 "허용 모델 폴더" 후보 — 로더 폴더로 좁힌 뒤, 다른 거름 전에 뽑는다 (#1086)
+  const availableFolders = foldersOfModels(filtered.map(m => m.filename));
+
+  // allowedFolders: 작업판의 allowedModelFolders (#1086). 빈 배열/미설정은 제약 없음.
+  // 파일 경로만으로 판단하므로 Civitai 정보가 없는 모델도 거를 수 있다.
+  if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
+    filtered = filtered.filter(m => isInModelFolders(m.filename, allowedFolders));
   }
 
   if (search) {
@@ -725,6 +736,7 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
     models: paginatedModels,
     pagination: { current: page, pages, total },
     availableBaseModels,
+    availableFolders,
     cacheInfo: {
       status: cache.status,
       lastFetched: cache.lastFetched,

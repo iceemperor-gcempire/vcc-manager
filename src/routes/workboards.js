@@ -18,6 +18,7 @@ const router = express.Router();
 
 const { WORKBOARD_EXPORT_VERSION: EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
 const { diffWorkboard, UPDATABLE_FIELDS } = require('../utils/workboardDiff');
+const { normalizeModelFolders } = require('../utils/modelFolders');
 
 // 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
 // Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
@@ -393,6 +394,10 @@ router.post('/import', requireAdmin, async (req, res) => {
     if (!['create', 'update'].includes(mode)) {
       return res.status(400).json({ message: `mode 는 create 또는 update 여야 합니다. (${mode})` });
     }
+    const importFolders = normalizeModelFolders(data.workboard && data.workboard.allowedModelFolders);
+    if (importFolders.errors.length > 0) {
+      return res.status(400).json({ message: `모델 폴더: ${importFolders.errors.join(' ')}` });
+    }
 
     const warnings = [];
 
@@ -513,6 +518,7 @@ router.post('/import', requireAdmin, async (req, res) => {
       additionalInputFields: wb.additionalInputFields || [],
       workflowData: wb.workflowData || '',
       allowedModelTypes: wb.allowedModelTypes || [],
+      allowedModelFolders: importFolders.folders,
       allowedGroupIds: defaultGroupForImport ? [defaultGroupForImport._id] : [],
       modelExposurePolicy: wb.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],
@@ -614,6 +620,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       additionalInputFields,
       workflowData,
       allowedModelTypes,
+      allowedModelFolders,
       allowedGroupIds,
       modelExposurePolicy,
       modelWhitelist,
@@ -622,6 +629,11 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       promptGuideIds,
       llmExtraParams
     } = req.body;
+
+    const folderCheck = normalizeModelFolders(allowedModelFolders);
+    if (folderCheck.errors.length > 0) {
+      return res.status(400).json({ message: `모델 폴더: ${folderCheck.errors.join(' ')}` });
+    }
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
     const resolvedWorkboardType = workboardType || (resolvedOutputFormat === 'text' ? 'prompt' : 'image');
@@ -666,6 +678,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       additionalInputFields: additionalInputFields || [],
       workflowData: isComfyUI ? workflowData : '',
       allowedModelTypes: isComfyUI ? (allowedModelTypes || []) : [],
+      allowedModelFolders: isComfyUI ? folderCheck.folders : [],
       allowedGroupIds: resolvedAllowedGroupIds,
       promptGuideIds: Array.isArray(promptGuideIds) ? promptGuideIds : [],
       modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -704,6 +717,7 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       additionalInputFields,
       workflowData,
       allowedModelTypes,
+      allowedModelFolders,
       allowedGroupIds,
       modelExposurePolicy,
       modelWhitelist,
@@ -713,6 +727,11 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       llmExtraParams,
       isActive
     } = req.body;
+
+    const folderCheck = normalizeModelFolders(allowedModelFolders);
+    if (folderCheck.errors.length > 0) {
+      return res.status(400).json({ message: `모델 폴더: ${folderCheck.errors.join(' ')}` });
+    }
 
     const workboard = await Workboard.findById(req.params.id);
     if (!workboard) {
@@ -761,6 +780,10 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       // ComfyUI 작업판만 의미 있음 — 다른 serverType 은 빈 배열 강제
       const wbServer = await Server.findById(workboard.serverId);
       workboard.allowedModelTypes = wbServer?.serverType === 'ComfyUI' ? (allowedModelTypes || []) : [];
+    }
+    if (allowedModelFolders !== undefined) {
+      const wbServer = await Server.findById(workboard.serverId);
+      workboard.allowedModelFolders = wbServer?.serverType === 'ComfyUI' ? folderCheck.folders : [];
     }
     // 권한 / 노출 정책 (#198)
     if (Array.isArray(allowedGroupIds)) {
@@ -895,6 +918,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       additionalInputFields: originalWorkboard.additionalInputFields,
       workflowData: originalWorkboard.workflowData,
       allowedModelTypes: originalWorkboard.allowedModelTypes || [],
+      allowedModelFolders: originalWorkboard.allowedModelFolders || [],
       allowedGroupIds: originalWorkboard.allowedGroupIds || [],
       modelExposurePolicy: originalWorkboard.modelExposurePolicy || 'full',
       modelWhitelist: originalWorkboard.modelWhitelist || [],

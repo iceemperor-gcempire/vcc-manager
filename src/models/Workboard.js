@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { normalizeModelFolders } = require('../utils/modelFolders');
 
 const selectOptionSchema = new mongoose.Schema({
   key: {
@@ -128,10 +129,19 @@ const workboardSchema = new mongoose.Schema({
   additionalInputFields: [inputFieldSchema],
   // ComfyUI 작업판이 허용하는 base 모델 타입 (#252).
   // civitai.baseModel 과 매칭. 빈 배열이면 제약 없음 (모든 모델 허용).
-  // baseModel 미상 (Civitai 미등록 / hash 없음) 모델은 노출 (custom merge 등 일상적 케이스).
+  // 제약이 있으면 baseModel 미상 (Civitai 미등록 / hash 없음) 모델은 목록에서 빠진다 (#320) —
+  // 그런 모델을 쓰는 판은 allowedModelFolders 로 거른다 (#1086).
   allowedModelTypes: {
     type: [String],
     default: []
+  },
+  // 모델 폴더 제한 (#1086) — 이 폴더(하위 포함) 안의 베이스 모델만 목록에 나오고, 밖의 모델로는
+  // 실행할 수 없다. 빈 배열이면 제약 없음. 저장 형태는 `qwen/` (utils/modelFolders).
+  // allowedModelTypes 와 겹쳐 적용된다. Civitai 정보가 없는 파일도 이걸로는 거를 수 있다.
+  allowedModelFolders: {
+    type: [String],
+    default: [],
+    set: (v) => (Array.isArray(v) ? normalizeModelFolders(v).folders : v)
   },
   // 작업판 단위 LLM 추가 요청 파라미터 (#493). 텍스트 챗(OpenAI/Compatible/Gemini) 요청에
   // 그대로 passthrough — temperature / top_p / chat_template_kwargs(enable_thinking) 등을

@@ -43,7 +43,7 @@ function VariableRow({ variable, label, note, used, copied, onCopy }) {
   );
 }
 
-function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, availableBaseModels }) {
+function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, availableBaseModels, availableFolders = [] }) {
   const [copiedVariable, setCopiedVariable] = useState('');
   const copyTimerRef = useRef(null);
   const textareaRef = useRef(null);
@@ -191,10 +191,45 @@ function WorkflowEditDialog({ open, onClose, control, watch, setValue, errors, a
             </Alert>
           </Paper>
 
+          <Paper variant="outlined" sx={{ p: 2.5, mb: 2 }}>
+            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>허용 모델 폴더 (선택)</Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+              비워 두면 폴더로 거르지 않습니다. 정하면 그 폴더(하위 폴더 포함)의 모델만 목록에 나오고, 다른 모델로는
+              실행할 수 없습니다. 파일 경로로 거르므로 Civitai 에 없는 모델도 걸러집니다.
+            </Typography>
+            <Controller
+              name="allowedModelFolders"
+              control={control}
+              render={({ field }) => (
+                <Autocomplete
+                  {...field}
+                  multiple
+                  freeSolo
+                  size="small"
+                  options={availableFolders}
+                  value={field.value || []}
+                  onChange={(_, newValue) => field.onChange(newValue)}
+                  renderTags={(value, getTagProps) =>
+                    value.map((option, index) => (
+                      <Chip {...getTagProps({ index })} key={option} label={option} color="primary" variant="outlined" sx={{ fontFamily: MONO }} />
+                    ))
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={availableFolders.length === 0 ? '서버 모델 sync 후 자동 채움' : '예: qwen/, Krea2/'}
+                    />
+                  )}
+                />
+              )}
+            />
+          </Paper>
+
           <Paper variant="outlined" sx={{ p: 2.5 }}>
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>허용 모델 타입 (선택)</Typography>
             <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-              비워두면 모든 모델 표시. Civitai 미등록 모델은 제약과 무관하게 항상 노출됩니다.
+              비워 두면 타입으로 거르지 않습니다. 타입은 Civitai 분류라, 정하면 Civitai 정보가 없는 모델(공식 배포 파일 등)은
+              목록에서 빠집니다. 그런 모델을 쓰는 판은 폴더로 거르세요. 폴더와 함께 정하면 둘 다 맞는 모델만 나옵니다.
             </Typography>
             <Controller
               name="allowedModelTypes"

@@ -4,7 +4,7 @@
     "major": 4,
     "minor": 12
   },
-  "exportedAt": "2026-10-21T03:53:18.488Z",
+  "exportedAt": "2026-10-21T04:14:34.579Z",
   "workboard": {
     "name": "Text to Image - Qwen-Image 2.1",
     "description": "Qwen-Image 2.1 로 이미지를 만드는 판입니다. 긍정·부정 프롬프트를 한 인코더가 함께 처리하며 CFG 는 1 로 고정입니다 (공식 템플릿 기준 25스텝). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다. 모델 선택: 기본(int8) · Turbo(8스텝으로 약 1.5초, 스텝을 8 로) · Uncensored(공식 모델에 검열 해제 LoRA 를 합친 변형, 설정은 기본과 같음).",
@@ -193,11 +193,14 @@
     ],
     "workflowData": "{\"1\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 모델\"}},\"2\":{\"inputs\":{\"clip_name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"type\":\"qwen_image\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"Qwen3-VL 텍스트 인코더\"}},\"3\":{\"inputs\":{\"vae_name\":\"qwen_image_2.1_vae_bf16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 VAE\"}},\"4\":{\"inputs\":{\"clip\":[\"2\",0],\"prompt\":\"{{##prompt##}}\",\"negative_prompt\":\"{{##negative_prompt##}}\",\"resolution\":1024},\"class_type\":\"TextEncodeQwenImage21\",\"_meta\":{\"title\":\"프롬프트 인코딩 (긍정·부정)\"}},\"5\":{\"inputs\":{\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"batch_size\":1},\"class_type\":\"EmptyLatentImage\",\"_meta\":{\"title\":\"빈 latent\"}},\"6\":{\"inputs\":{\"seed\":\"{{##seed##}}\",\"steps\":\"{{##steps##}}\",\"cfg\":1,\"sampler_name\":\"{{##sampler##}}\",\"scheduler\":\"simple\",\"denoise\":1,\"model\":[\"1\",0],\"positive\":[\"4\",0],\"negative\":[\"4\",1],\"latent_image\":[\"5\",0]},\"class_type\":\"KSampler\",\"_meta\":{\"title\":\"샘플링\"}},\"7\":{\"inputs\":{\"samples\":[\"6\",0],\"vae\":[\"3\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"디코드\"}},\"8\":{\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"class_type\":\"UpscaleModelLoader\",\"_meta\":{\"title\":\"업스케일 모델\"}},\"9\":{\"inputs\":{\"upscale_model\":[\"8\",0],\"image\":[\"7\",0]},\"class_type\":\"ImageUpscaleWithModel\",\"_meta\":{\"title\":\"업스케일 (선택)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}},\"10\":{\"inputs\":{\"filename_prefix\":\"{{##user_id##}}\\\\image\\\\qwen_image_21\",\"images\":[\"9\",0]},\"class_type\":\"SaveImage\",\"_meta\":{\"title\":\"이미지 저장\"}}}",
     "allowedModelTypes": [],
+    "allowedModelFolders": [
+      "qwen/"
+    ],
     "modelExposurePolicy": "full",
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 4
+    "version": 5
   },
   "server": {
     "name": "ComfyUI-Image",

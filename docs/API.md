@@ -63,6 +63,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 `GET /servers/:id/models?detailed=true` 의 모델 항목마다 `license` 가 붙는다 (#1073) — 아래 모델 라이선스가 붙은 것이 있으면 `{ licenseId, name, url, commercialUse, note, matchedBy, target }`, 없으면 `null` (화면에는 "라이선스 미등록").
 
+`workboardId` 를 함께 주면 그 작업판의 모델 제한을 서버가 직접 적용한다 (#1086) — 허용 모델 폴더(`allowedModelFolders`), 허용 모델 타입(`allowedModelTypes`, Civitai 분류), 노출 목록(`modelWhitelist`), 로더 폴더(checkpoints / diffusion_models). 제한은 겹쳐 적용되고, 이때 쿼리의 `allowedBaseModels` 는 쓰지 않는다. 응답 `data.restrictions` 에 적용한 제한(`{ folders, modelTypes, whitelist }`)이, `data.availableFolders` 에 폴더 후보가 실린다.
+
 ## 모델 라이선스 (Model Licenses, #1073)
 
 관리자가 라이선스를 등록하고 모델 **폴더나 파일**에 붙인다. 모델 선택기와 생성 화면에 표시된다. 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 원문을 확인한 관리자가 적는다.
@@ -101,6 +103,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `GET` | `/workboards/:id/stats` | 작업판 사용 통계 | **Admin** |
 | `GET` | `/workboards/:id/lora-models` | 작업판 LoRA 모델 | Yes |
 | `POST` | `/workboards/:id/lora-models/refresh` | LoRA 캐시 갱신 | Yes |
+
+**허용 모델 폴더** (`allowedModelFolders`, ComfyUI 작업판, #1086) — 이 폴더(하위 포함) 안의 베이스 모델만 모델 선택 목록에 나오고, 밖의 모델로 들어온 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다(메시지에 허용 폴더가 나온다). 저장 형태는 `qwen/` — `qwen\`·`Qwen` 처럼 보내도 그렇게 정규화되고, 비교할 때 구분자와 대소문자는 가리지 않는다. 빈 배열이면 제한 없음. 허용 모델 타입은 Civitai 분류라 Civitai 정보가 없는 파일을 판단하지 못한다 — 타입 제한이 있으면 그런 파일은 목록에서 빠지고, 실행 거절은 하지 않는다.
 
 ## 작업 (Jobs)
 
