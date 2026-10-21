@@ -23,6 +23,7 @@ import { MONO } from '../../../theme';
 function WorkflowSummaryCard({ watch, errors, onOpenEditor }) {
   const workflowData = watch('workflowData') || '';
   const allowedModelTypes = watch('allowedModelTypes') || [];
+  const allowedModelFolders = watch('allowedModelFolders') || [];
   const customFields = (watch('additionalCustomFields') || []).filter((f) => f.name);
 
   // 플레이스홀더는 따옴표 밖에도 올 수 있어({"seed": {{##seed##}}}) 마스킹 후 파싱
@@ -52,6 +53,7 @@ function WorkflowSummaryCard({ watch, errors, onOpenEditor }) {
       </Box>
       {kv('노드', nodeCount === null ? '—' : `${nodeCount}개`)}
       {kv('치환 변수', `${usedCount}개 사용 중`)}
+      {kv('허용 모델 폴더', allowedModelFolders.length ? allowedModelFolders.join(', ') : '전체')}
       {kv('허용 모델 타입', allowedModelTypes.length ? allowedModelTypes.join(', ') : '전체')}
       {workflowData ? (
         <Box sx={{ bgcolor: 'grey.100', borderRadius: 2, p: 1.5, my: 1.5, maxHeight: 76, overflow: 'hidden' }}>

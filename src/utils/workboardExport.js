@@ -33,6 +33,7 @@ function buildWorkboardExportEntry(workboard, server) {
       additionalInputFields: workboard.additionalInputFields,
       workflowData: workboard.workflowData,
       allowedModelTypes: workboard.allowedModelTypes || [],
+      allowedModelFolders: workboard.allowedModelFolders || [],
       modelExposurePolicy: workboard.modelExposurePolicy || 'full',
       modelWhitelist: workboard.modelWhitelist || [],
       loraExposurePolicy: workboard.loraExposurePolicy || 'full',

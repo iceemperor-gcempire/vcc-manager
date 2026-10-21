@@ -3,6 +3,7 @@ const path = require('path');
 
 const { WORKFLOW_VARIABLE_KEYS } = require('../constants/workflowVariables');
 const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
+const { normalizeModelFolders, isInModelFolders } = require('../utils/modelFolders');
 
 // `workboards/` 배포 산출물 가드 (#825).
 //
@@ -67,6 +68,16 @@ describe('workboards/ 배포 산출물', () => {
       const unresolved = [...used].filter((name) => !known.has(name)).sort();
       // 치환되지 않은 placeholder 는 ComfyUI 에 문자열 그대로 도달해 value_not_in_list 로 죽는다
       expect(unresolved).toEqual([]);
+    });
+
+    it('베이스 모델 기본값이 판의 모델 폴더 제한 안에 있다 (#1086)', () => {
+      // 밖에 있으면 판을 열자마자 실행이 거절된다. 폴더 제한은 저장 형태(`qwen/`)여야 한다 —
+      // 아니면 가져온 서버에 정규화된 값이 저장돼 dry-run 이 영원히 would-update 로 남는다.
+      const folders = wb.allowedModelFolders || [];
+      expect(normalizeModelFolders(folders)).toEqual({ folders, errors: [] });
+      const baseModel = fields.find((f) => f.type === 'baseModel');
+      if (folders.length === 0 || !baseModel || !baseModel.defaultValue) return;
+      expect(isInModelFolders(baseModel.defaultValue, folders)).toBe(true);
     });
 
     it('required 필드에 기본값이 있다', () => {

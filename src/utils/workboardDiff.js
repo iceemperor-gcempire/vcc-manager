@@ -9,6 +9,7 @@
 
 const { WORKFLOW_VARIABLE_KEYS } = require('../constants/workflowVariables');
 const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
+const { normalizeModelFolders } = require('./modelFolders');
 
 const SAVE_NODE_RE = /^(SaveImage|SaveVideo|SaveAudio|SaveAnimatedWEBP|SaveAnimatedPNG|VHS_VideoCombine|CreateVideo)$/;
 const PLACEHOLDER_RE = /\{\{##([A-Za-z0-9_]+)##\}\}/g;
@@ -67,6 +68,13 @@ function diffWorkboard(existingDoc, incoming) {
   }
   for (const k of ['modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist', 'allowedModelTypes']) {
     if (!same(existing[k], incoming[k])) change('policy', k);
+  }
+  // 모델 폴더 (#1086) — 저장할 때 정규화(`qwen\` → `qwen/`)되므로 비교도 정규화해서 한다.
+  // 이 설정이 없는 옛 export 는 갱신 때도 덮어쓰지 않으므로(라우트) 비교하지 않는다.
+  if (incoming.allowedModelFolders !== undefined) {
+    const before = normalizeModelFolders(existing.allowedModelFolders).folders;
+    const after = normalizeModelFolders(incoming.allowedModelFolders).folders;
+    if (!same(before, after)) change('policy', 'allowedModelFolders', `${before.join(', ') || '(없음)'} → ${after.join(', ') || '(없음)'}`);
   }
 
   // ---- 입력 필드 ----
@@ -195,7 +203,7 @@ function diffWorkboard(existingDoc, incoming) {
 /** 갱신 모드에서 export 로부터 덮어쓰는 필드 — 나머지(_id·serverId·allowedGroupIds·isActive·usageCount·createdBy)는 유지 */
 const UPDATABLE_FIELDS = Object.freeze([
   'description', 'workboardType', 'outputFormat', 'additionalInputFields', 'workflowData',
-  'allowedModelTypes', 'modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist',
+  'allowedModelTypes', 'allowedModelFolders', 'modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist',
 ]);
 
 module.exports = { diffWorkboard, UPDATABLE_FIELDS, placeholdersIn };

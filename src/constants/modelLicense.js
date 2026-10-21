@@ -6,6 +6,8 @@
 //
 // 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 요약이 틀리면 설치한 쪽이 그대로 믿게 된다.
 
+const { comparableModelPath, normalizeModelPath } = require('../utils/modelPath');
+
 // 상업적 이용
 const COMMERCIAL_USE = ['allowed', 'conditional', 'prohibited'];
 
@@ -26,18 +28,12 @@ const MODEL_LICENSE_LIMITS = {
  * @returns {{ match: string|null, error: string|null }}
  */
 function normalizeLicenseTarget(raw) {
-  if (typeof raw !== 'string') return { match: null, error: '경로는 문자열이어야 합니다.' };
-  let match = raw.trim().replace(/\\/g, '/').replace(/\/{2,}/g, '/');
-  while (match.startsWith('./')) match = match.slice(2);
-  if (!match || match === '/') return { match: null, error: '빈 경로는 붙일 수 없습니다.' };
-  if (match.length > MODEL_LICENSE_LIMITS.target) return { match: null, error: `경로는 ${MODEL_LICENSE_LIMITS.target}자 이내여야 합니다.` };
-  if (match.startsWith('/') || /^[a-z]:/i.test(match)) return { match: null, error: `절대 경로는 붙일 수 없습니다: ${raw}` };
-  if (match.split('/').includes('..')) return { match: null, error: `'..' 이 든 경로는 붙일 수 없습니다: ${raw}` };
-  return { match, error: null };
+  const { path, error } = normalizeModelPath(raw, { maxLength: MODEL_LICENSE_LIMITS.target });
+  return { match: path, error };
 }
 
 // 비교용 — Windows 서버의 경로는 대소문자를 가리지 않는다
-const comparable = (s) => String(s || '').replace(/\\/g, '/').toLowerCase();
+const comparable = comparableModelPath;
 
 /**
  * 모델 파일에 붙은 라이선스를 찾는다. 파일로 붙인 것이 폴더보다, 깊은 폴더가 얕은 폴더보다 우선한다.

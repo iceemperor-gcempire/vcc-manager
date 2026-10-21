@@ -164,6 +164,7 @@ const workboardCreateSchema = Joi.object({
   outputFormat: Joi.string(),
   additionalInputFields: Joi.array(),
   allowedModelTypes: Joi.array(),
+  allowedModelFolders: Joi.array().items(Joi.string()), // 정규화·상한은 라우트 (utils/modelFolders, #1086)
   allowedGroupIds: Joi.array(),
   modelExposurePolicy: Joi.string(),
   modelWhitelist: Joi.array(),
@@ -181,6 +182,7 @@ const workboardUpdateSchema = Joi.object({
   outputFormat: Joi.string(),
   additionalInputFields: Joi.array(),
   allowedModelTypes: Joi.array(),
+  allowedModelFolders: Joi.array().items(Joi.string()), // 정규화·상한은 라우트 (utils/modelFolders, #1086)
   allowedGroupIds: Joi.array(),
   modelExposurePolicy: Joi.string(),
   modelWhitelist: Joi.array(),

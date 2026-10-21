@@ -40,6 +40,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
   const [serverSwitchConfirm, setServerSwitchConfirm] = useState(null); // { prev: {serverId, serverType} }
   const [loading, setLoading] = useState(false);
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
+  const [availableFolders, setAvailableFolders] = useState([]); // 허용 모델 폴더 후보 (#1086)
   const [availableGroups, setAvailableGroups] = useState([]);
   const [availablePromptGuides, setAvailablePromptGuides] = useState([]);
   const [copiedId, setCopiedId] = useState(false);
@@ -56,6 +57,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       outputFormat: 'image',
       workflowData: '',
       allowedModelTypes: [],
+      allowedModelFolders: [],
       allowedGroupIds: [],
       promptGuideIds: [],
       modelExposurePolicy: 'full',
@@ -85,15 +87,22 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
   const isGemini = serverType === 'Gemini';
   const isOpenAIImage = (serverType === 'OpenAI' || serverType === 'OpenAI Compatible') && outputFormat === 'image';
 
-  // ComfyUI 서버의 availableBaseModels (#252) — allowedModelTypes 옵션 풀
+  // ComfyUI 서버의 availableBaseModels (#252) · availableFolders (#1086) — 허용 모델 타입·폴더 옵션 풀
   useEffect(() => {
     if (!isComfyUI || !watchedServerId) {
       setAvailableBaseModels([]);
+      setAvailableFolders([]);
       return;
     }
     serverAPI.getDetailedModels(watchedServerId, { limit: 1 })
-      .then((res) => setAvailableBaseModels(res.data?.data?.availableBaseModels || []))
-      .catch(() => setAvailableBaseModels([]));
+      .then((res) => {
+        setAvailableBaseModels(res.data?.data?.availableBaseModels || []);
+        setAvailableFolders(res.data?.data?.availableFolders || []);
+      })
+      .catch(() => {
+        setAvailableBaseModels([]);
+        setAvailableFolders([]);
+      });
   }, [isComfyUI, watchedServerId]);
 
   // 그룹 목록 (#198) — 실패 시 재시도 없이 빈 목록이면 칩이 raw id 로 보이므로 에러 안내
@@ -133,6 +142,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           outputFormat: fullData.outputFormat || (fullData.workboardType === 'prompt' ? 'text' : 'image'),
           workflowData: fullData.workflowData || '',
           allowedModelTypes: fullData.allowedModelTypes || [],
+          allowedModelFolders: fullData.allowedModelFolders || [],
           allowedGroupIds: (fullData.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
           promptGuideIds: (fullData.promptGuideIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
           modelExposurePolicy: fullData.modelExposurePolicy || 'full',
@@ -276,6 +286,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       outputFormat: data.outputFormat || 'image',
       workflowData: isComfyUIServer ? data.workflowData : '',
       allowedModelTypes: isComfyUIServer ? (data.allowedModelTypes || []) : [],
+      allowedModelFolders: isComfyUIServer ? (data.allowedModelFolders || []) : [],
       allowedGroupIds: data.allowedGroupIds || [],
       promptGuideIds: data.promptGuideIds || [],
       modelExposurePolicy: data.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -398,6 +409,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           setValue={setValue}
           errors={errors}
           availableBaseModels={availableBaseModels}
+          availableFolders={availableFolders}
         />
       )}
 

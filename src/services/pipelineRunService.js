@@ -22,6 +22,7 @@ const {
 const { findDefinitionMismatch } = require('../utils/runSteps');
 const { MEDIA_FIELD_TYPES } = require('../utils/sequenceSteps');
 const { findUnusableAttachments, describeUnusableAttachments } = require('./attachmentOwnership');
+const { findModelFolderViolation } = require('./modelFolderGuard');
 const { buildSequenceStepInput } = require('../utils/sequenceInputs');
 const queueService = require('./queueService');
 
@@ -295,6 +296,10 @@ async function runImageStep(userId, run, step, inputData, ctx = {}) {
     });
     if (unusable.length > 0) throw new Error(describeUnusableAttachments(unusable));
   }
+
+  // 판의 모델 폴더 밖이면 막는다 (#1086) — /jobs/generate 와 같은 규칙
+  const folderViolation = findModelFolderViolation(workboard, jobInput);
+  if (folderViolation) throw new Error(folderViolation);
 
   // queueService 의 addImageGenerationJob 재사용
   const job = await queueService.addImageGenerationJob(userId, workboard._id, jobInput, ctx.jobMarker || {});

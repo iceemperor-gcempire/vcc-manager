@@ -43,6 +43,7 @@ import MetadataImageListItem from '../admin/MetadataImageListItem';
 import { METADATA_ADAPTERS } from '../../utils/metadataAdapters';
 import useMetadataSyncPolling, { checkInitialSyncStatus } from '../../hooks/useMetadataSyncPolling';
 import { ModelLicenseChip } from './ModelLicenseChip';
+import { MONO } from '../../theme';
 
 const VIEW_MODE_KEY_PREFIX = 'vcc.picker.viewMode.';
 
@@ -97,6 +98,8 @@ function MetadataPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
+  // 서버가 적용한 작업판 모델 제한 (#1086) — 폴더·타입. 없으면(옛 서버·LoRA) prop 값을 쓴다
+  const [restrictions, setRestrictions] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [detailItem, setDetailItem] = useState(null);
 
@@ -152,6 +155,7 @@ function MetadataPickerModal({
         setCacheInfo(adapter.extractCacheInfo(responseData, isWorkboardFallback));
         const bm = adapter.extractAvailableBaseModels(responseData);
         if (bm) setAvailableBaseModels(bm);
+        if (kind === 'model') setRestrictions(responseData?.restrictions || null);
       } catch (err) {
         console.error(`Failed to fetch ${kind}:`, err);
         setError(err.response?.data?.message || `${adapter.listLabel} 목록을 가져오는데 실패했습니다.`);
@@ -202,9 +206,13 @@ function MetadataPickerModal({
     ? items.filter((raw) => !raw.civitai?.nsfw)
     : items;
 
-  // dropdown 의 baseModel 옵션을 allowedModelTypes 와 교집합 (Model 의 작업판 제약)
-  const dropdownBaseModels = allowedModelTypes.length > 0
-    ? availableBaseModels.filter((bm) => allowedModelTypes.includes(bm))
+  // 작업판 제약 — 서버가 판에서 읽어 적용한 값이 우선 (#1086). 파이프라인·대화 패널은 prop 을 안 넘긴다
+  const effectiveModelTypes = restrictions?.modelTypes || allowedModelTypes;
+  const allowedFolders = restrictions?.folders || [];
+
+  // dropdown 의 baseModel 옵션을 허용 타입과 교집합 (Model 의 작업판 제약)
+  const dropdownBaseModels = effectiveModelTypes.length > 0
+    ? availableBaseModels.filter((bm) => effectiveModelTypes.includes(bm))
     : availableBaseModels;
 
   const cardPrimaryVariant = mode === 'prompt-insert' ? 'insert' : (mode === 'multi-add' ? 'add' : 'select');
@@ -329,13 +337,23 @@ function MetadataPickerModal({
           </Box>
         )}
 
-        {/* 작업판 허용 모델 타입 안내 (Model 만) */}
-        {kind === 'model' && allowedModelTypes.length > 0 && (
+        {/* 작업판 허용 모델 폴더·타입 안내 (Model 만) */}
+        {kind === 'model' && allowedFolders.length > 0 && (
+          <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              작업판 허용 폴더:
+            </Typography>
+            {allowedFolders.map((f) => (
+              <Chip key={f} label={f} color="primary" variant="outlined" sx={{ fontFamily: MONO }} />
+            ))}
+          </Box>
+        )}
+        {kind === 'model' && effectiveModelTypes.length > 0 && (
           <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
             <Typography variant="caption" color="text.secondary">
               작업판 허용 타입:
             </Typography>
-            {allowedModelTypes.map((t) => (
+            {effectiveModelTypes.map((t) => (
               <Chip key={t} label={t} color="primary" variant="outlined" />
             ))}
           </Box>
@@ -381,6 +399,16 @@ function MetadataPickerModal({
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {adapter.listLabel} 항목이 없습니다.
             </Typography>
+            {kind === 'model' && allowedFolders.length > 0 && (
+              <Typography variant="caption" color="text.secondary" display="block">
+                이 작업판은 {allowedFolders.join(', ')} 폴더의 모델만 씁니다. 그 폴더에 모델이 없거나 모델 목록을 아직 동기화하지 않았을 수 있습니다.
+              </Typography>
+            )}
+            {kind === 'model' && effectiveModelTypes.length > 0 && (
+              <Typography variant="caption" color="text.secondary" display="block">
+                허용 타입은 Civitai 분류라 Civitai 정보가 없는 모델은 나오지 않습니다.
+              </Typography>
+            )}
             {isAdmin && serverId && (
               <Typography variant="caption" color="text.secondary">
                 상단 "동기화" 버튼으로 목록을 가져오세요.
