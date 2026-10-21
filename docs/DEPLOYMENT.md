@@ -419,6 +419,16 @@ VCC_BASE_URL=… VCC_API_KEY=… node scripts/sync-workboards.js --apply --yes w
   판정은 넘긴 파일이 아니라 저장소 전체 작업본·이력 기준이라 **전체 이력이 있는 clone 에서** 돌린다 (얕은 clone 이면 일부를 놓친다).
   끄려면 `--no-retire`
 - 서버 `/health` 의 `version` 과 export 의 `appVersion` 이 major 가 다르면 건너뛰고, minor 차이는 경고만 남기고 진행한다 (#934 — 서버 import 와 같은 기준)
+- **준비 검사** (#1087, v4.13.0+) — 판마다 그 판의 ComfyUI 와 맞춰 본 결과가 같이 나온다. 문제는 `✗` 줄, 문제가 없어도
+  `준비 검사: 노드 N · 선택값 N · 기본 모델 목록 확인 — 문제 0` 한 줄이 남는다
+  - `NODE_MISSING` 노드 클래스가 서버에 없다 — 커스텀 노드 미설치 또는 ComfyUI 버전이 낮다
+  - `VALUE_NOT_ON_SERVER` 선택형 입력의 값(모델·패치·업스케일 파일, 샘플러 이름 등)이 서버 목록에 없다. 필드의 기본값과 선택지를 모두 본다
+  - `VALUE_SEPARATOR_MISMATCH` 경로 구분자만 다르다 (`qwen/x` vs `qwen\x`) — ComfyUI 는 정확히 같은 문자열만 받는다
+  - `DEFAULT_MODEL_FILTERED` 베이스 모델 기본값이 판의 제한(허용 모델 폴더·타입·노출 목록·로더 폴더)에 걸려 모델 선택 목록에 안 나온다
+  - `DEFAULT_MODEL_NOT_IN_LIST` 기본값이 모델 목록 캐시에 없다 — 서버 모델 동기화가 필요할 수 있다
+  - `?` 줄은 ComfyUI 에 닿지 못해 확인하지 못한 것이다 (문제 없음이 아니다)
+  - 적용은 막지 않는다 (판을 먼저 넣고 모델을 나중에 받는 순서도 있다). 문제나 "확인 못 함" 이 있으면 종료 코드가 3 이다
+  - 업스케일 "없음" 처럼 `_vcc` 조건으로 노드를 우회하는 끄는 값(`0` 등)은 검사하지 않는다 — 실행 때 ComfyUI 에 가지 않는다
 - 갱신 후 새 모델·LoRA 파일이 필요한 판은 `workboards/README.md` 각주대로 ComfyUI 에 파일을 두어야 한다
 
 
