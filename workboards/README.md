@@ -17,6 +17,23 @@
 가져오기 시 접근 그룹은 **기본 그룹**이 자동 할당된다. 다른 그룹에도 열려면 등록 후 작업판 편집기에서 조정한다.
 (내보내기 형식에 그룹이 포함되지 않는 이유는 인스턴스마다 그룹 ID 가 달라 매칭이 불가능하기 때문이다.)
 
+### 모델 폴더
+
+베이스 모델은 **계열마다 폴더를 나눠 둔다** — `diffusion_models/qwen/`, `diffusion_models/Krea2/`,
+`diffusion_models/openmoss/`, `diffusion_models/LTX-2/` 처럼. 작업판의 기본 모델이 이 폴더를 포함한 경로이고,
+아래 판들은 **허용 모델 폴더**가 정해져 있어 그 폴더의 모델만 모델 선택 목록에 나오고 다른 모델로는 실행이
+거절된다 (#1086 — 짝이 안 맞는 모델이 ComfyUI 까지 가서 원인 모를 오류로 실패하던 것을 막는다).
+
+| 판 | 허용 모델 폴더 |
+|---|---|
+| Text to Image - Qwen-Image 2.1 · Sketch to Image - Qwen-Image 2.1 | `qwen/` |
+| Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
+| Sketch to Image - Krea2 | `Krea2/` |
+| LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
+
+폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
+허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
+
 ---
 
 ## 목록
@@ -34,7 +51,7 @@
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-qwen-image-21.json` | Sketch to Image - Qwen-Image 2.1 | 이미지 ×1 · 스케치(스크리블) 또는 사진(Canny) 구도로 생성 · 한글 글씨 | Qwen-Image 2.1 판과 같은 모델 + 공식 컨트롤넷 `model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot` ([🤗 Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/tree/main/model_patches)) — ComfyUI 0.38 이상. 1024² 약 9초, Turbo 8스텝 약 4초. 제어 강도 0.8~1.0 |
-| `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 Turbo 모델 + qwen3vl_4b TE + 업스케일 모델². 기본 모델 `Krea2\krea2TurboOfficialComfy_krea2TurboInt8` 은 Civitai 배포본으로, [🤗 Comfy-Org/Krea-2](https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models) 의 `krea2_turbo_int8_convrot` 과 같은 파일이다(SHA256 일치). 공식 이름으로 받았다면 판의 베이스 모델 기본값을 그 이름으로 바꾸고 모델 종류 제한을 비운다 — Civitai 정보가 없는 파일은 종류 제한에 걸려 모델 선택 목록에 안 보인다 |
+| `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 Turbo 모델 + qwen3vl_4b TE + 업스케일 모델². 기본 모델 `Krea2\krea2TurboOfficialComfy_krea2TurboInt8` 은 Civitai 배포본으로, [🤗 Comfy-Org/Krea-2](https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models) 의 `krea2_turbo_int8_convrot` 과 같은 파일이다(SHA256 일치). 공식 이름으로 받았다면 판의 베이스 모델 기본값을 그 이름으로 바꾼다 (허용 모델 폴더 `Krea2/` 안이면 모델 선택 목록에 나온다) |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |

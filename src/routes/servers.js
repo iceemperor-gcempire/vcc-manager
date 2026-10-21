@@ -357,6 +357,7 @@ router.get('/:id/models', requireAuth, async (req, res) => {
       let whitelist = undefined;
       let outputFormat = outputFormatQuery || undefined;
       let source = undefined;
+      let allowedFolders = undefined;
       if (workboardId) {
         const wb = await Workboard.findById(workboardId);
         if (!wb) {
@@ -365,6 +366,10 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         if (!userHasWorkboardAccess(req.user, wb)) {
           return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
         }
+        // 판의 모델 제한은 서버가 판에서 직접 읽는다 (#1086) — 클라이언트가 보낸 allowedBaseModels 대신.
+        // 파이프라인·대화 패널의 선택기는 그 값을 보내지 않아 거름이 빠져 있었다.
+        allowedBaseModels = Array.isArray(wb.allowedModelTypes) ? [...wb.allowedModelTypes] : [];
+        allowedFolders = Array.isArray(wb.allowedModelFolders) ? [...wb.allowedModelFolders] : [];
         if (wb.modelExposurePolicy === 'whitelist') {
           whitelist = wb.modelWhitelist || [];
           // 빈 whitelist 면 정책상 0개 노출 — sentinel 로 빈 배열 대신 '__none__' 매칭 안 됨
@@ -387,6 +392,7 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
         baseModel,
         allowedBaseModels,
+        allowedFolders,
         whitelist,
         outputFormat,
         source,
@@ -401,6 +407,13 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         const item = typeof m.toObject === 'function' ? m.toObject() : m;
         return { ...item, license: resolveModelLicense(item.filename, licenses) };
       });
+
+      // 적용한 제한 — 선택기가 칩·빈 목록 안내로 보여 준다 (#1086)
+      result.restrictions = {
+        folders: allowedFolders || [],
+        modelTypes: allowedBaseModels || [],
+        whitelist: Array.isArray(whitelist) && whitelist.length > 0,
+      };
 
       return res.json({
         success: true,

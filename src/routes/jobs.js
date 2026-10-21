@@ -26,6 +26,7 @@ const { loadVisionImages } = require('../utils/visionImages');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { findSilentVideoViolation } = require('../services/videoAudioGuard');
 const { findOrientationViolation } = require('../services/imageOrientationGuard');
+const { findModelFolderViolation } = require('../services/modelFolderGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
@@ -168,6 +169,12 @@ router.post('/generate', requireAuth, async (req, res) => {
       return res.status(400).json({
         message: '베이스 모델이 지정되지 않았습니다. 작업판 \"입력 양식\" 에 베이스 모델 타입 필드가 있는지, 사용자 페이지에서 모델을 선택했는지 확인하세요.'
       });
+    }
+
+    // 판의 모델 폴더 밖이면 막는다 (#1086) — API·MCP 는 모델 선택 목록을 거치지 않는다
+    const folderViolation = findModelFolderViolation(wb, lookupInput);
+    if (folderViolation) {
+      return res.status(400).json({ message: folderViolation });
     }
 
     
@@ -391,6 +398,11 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
       const orientationViolation = await findOrientationViolation(retryWb, job.inputData || {});
       if (orientationViolation) {
         return res.status(400).json({ message: orientationViolation });
+      }
+      // 판의 폴더 제한이 나중에 생겼으면 예전 작업의 모델이 밖일 수 있다 (#1086)
+      const folderViolation = findModelFolderViolation(retryWb, job.inputData || {});
+      if (folderViolation) {
+        return res.status(400).json({ message: folderViolation });
       }
     }
 
