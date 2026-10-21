@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 8
+    "minor": 12
   },
-  "exportedAt": "2026-10-12T13:58:55.000Z",
+  "exportedAt": "2026-10-21T03:53:18.488Z",
   "workboard": {
     "name": "Text to Image - Qwen-Image 2.1",
     "description": "Qwen-Image 2.1 로 이미지를 만드는 판입니다. 긍정·부정 프롬프트를 한 인코더가 함께 처리하며 CFG 는 1 로 고정입니다 (공식 템플릿 기준 25스텝). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다. 모델 선택: 기본(int8) · Turbo(8스텝으로 약 1.5초, 스텝을 8 로) · Uncensored(공식 모델에 검열 해제 LoRA 를 합친 변형, 설정은 기본과 같음).",
@@ -25,10 +25,10 @@
         "label": "베이스 모델",
         "type": "baseModel",
         "required": true,
+        "options": [],
         "defaultValue": "qwen\\qwen_image_2.1_int8_convrot.safetensors",
         "description": "Qwen-Image 2.1 계열 모델. 파인튜닝판을 골라도 같은 설정으로 동작합니다.",
-        "formatString": "{{##base_model##}}",
-        "options": []
+        "formatString": "{{##base_model##}}"
       },
       {
         "imageConfig": {
@@ -44,9 +44,6 @@
         "label": "크기",
         "type": "select",
         "required": true,
-        "defaultValue": "1024x1024",
-        "description": "Qwen-Image 2.1 기본 1MP. 1.5MP 는 시간이 약 1.5배.",
-        "formatString": "{{##image_size##}}",
         "options": [
           {
             "key": "1024x1024 (1:1)",
@@ -84,7 +81,10 @@
             "key": "1024x1536 (세로 2:3 · 1.5MP)",
             "value": "1024x1536"
           }
-        ]
+        ],
+        "defaultValue": "1024x1024",
+        "description": "Qwen-Image 2.1 기본 1MP. 1.5MP 는 시간이 약 1.5배.",
+        "formatString": "{{##image_size##}}"
       },
       {
         "imageConfig": {
@@ -100,9 +100,6 @@
         "label": "스텝",
         "type": "select",
         "required": false,
-        "defaultValue": "25",
-        "description": "공식 템플릿 기준 25. 디테일이 아쉬우면 30. Turbo 모델(qwen_image_2.1_turbo)을 고르면 8 로 두세요 — 기본 25스텝과 같은 품질을 약 3배 빠르게 냅니다.",
-        "formatString": "{{##steps##}}",
         "options": [
           {
             "key": "25 (공식 기본)",
@@ -120,7 +117,10 @@
             "key": "8 (Turbo 모델용)",
             "value": "8"
           }
-        ]
+        ],
+        "defaultValue": "25",
+        "description": "공식 템플릿 기준 25. 디테일이 아쉬우면 30. Turbo 모델(qwen_image_2.1_turbo)을 고르면 8 로 두세요 — 기본 25스텝과 같은 품질을 약 3배 빠르게 냅니다.",
+        "formatString": "{{##steps##}}"
       },
       {
         "imageConfig": {
@@ -136,9 +136,6 @@
         "label": "샘플러",
         "type": "select",
         "required": false,
-        "defaultValue": "euler",
-        "description": "공식 템플릿은 euler + simple 스케줄러입니다.",
-        "formatString": "{{##sampler##}}",
         "options": [
           {
             "key": "euler (공식 기본)",
@@ -148,7 +145,10 @@
             "key": "res_multistep",
             "value": "res_multistep"
           }
-        ]
+        ],
+        "defaultValue": "euler",
+        "description": "공식 템플릿은 euler + simple 스케줄러입니다.",
+        "formatString": "{{##sampler##}}"
       },
       {
         "imageConfig": {
@@ -164,9 +164,6 @@
         "label": "업스케일 모델",
         "type": "select",
         "required": false,
-        "defaultValue": "0",
-        "description": "고르면 생성 직후 업스케일한 결과만 저장합니다.",
-        "formatString": "{{##upscale_model##}}",
         "options": [
           {
             "key": "없음 (원본 크기 저장)",
@@ -188,19 +185,19 @@
             "key": "RealESRGAN Anime 4x",
             "value": "RealESRGAN_x4plus_anime_6B.pth"
           }
-        ]
+        ],
+        "defaultValue": "0",
+        "description": "고르면 생성 직후 업스케일한 결과만 저장합니다.",
+        "formatString": "{{##upscale_model##}}"
       }
     ],
-    "allowedModelTypes": [
-      "ZImageTurbo",
-      "ZImageBase"
-    ],
+    "workflowData": "{\"1\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 모델\"}},\"2\":{\"inputs\":{\"clip_name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"type\":\"qwen_image\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"Qwen3-VL 텍스트 인코더\"}},\"3\":{\"inputs\":{\"vae_name\":\"qwen_image_2.1_vae_bf16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 VAE\"}},\"4\":{\"inputs\":{\"clip\":[\"2\",0],\"prompt\":\"{{##prompt##}}\",\"negative_prompt\":\"{{##negative_prompt##}}\",\"resolution\":1024},\"class_type\":\"TextEncodeQwenImage21\",\"_meta\":{\"title\":\"프롬프트 인코딩 (긍정·부정)\"}},\"5\":{\"inputs\":{\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"batch_size\":1},\"class_type\":\"EmptyLatentImage\",\"_meta\":{\"title\":\"빈 latent\"}},\"6\":{\"inputs\":{\"seed\":\"{{##seed##}}\",\"steps\":\"{{##steps##}}\",\"cfg\":1,\"sampler_name\":\"{{##sampler##}}\",\"scheduler\":\"simple\",\"denoise\":1,\"model\":[\"1\",0],\"positive\":[\"4\",0],\"negative\":[\"4\",1],\"latent_image\":[\"5\",0]},\"class_type\":\"KSampler\",\"_meta\":{\"title\":\"샘플링\"}},\"7\":{\"inputs\":{\"samples\":[\"6\",0],\"vae\":[\"3\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"디코드\"}},\"8\":{\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"class_type\":\"UpscaleModelLoader\",\"_meta\":{\"title\":\"업스케일 모델\"}},\"9\":{\"inputs\":{\"upscale_model\":[\"8\",0],\"image\":[\"7\",0]},\"class_type\":\"ImageUpscaleWithModel\",\"_meta\":{\"title\":\"업스케일 (선택)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}},\"10\":{\"inputs\":{\"filename_prefix\":\"{{##user_id##}}\\\\image\\\\qwen_image_21\",\"images\":[\"9\",0]},\"class_type\":\"SaveImage\",\"_meta\":{\"title\":\"이미지 저장\"}}}",
+    "allowedModelTypes": [],
     "modelExposurePolicy": "full",
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 1,
-    "workflowData": "{\"1\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 모델\"}},\"2\":{\"inputs\":{\"clip_name\":\"qwen3vl_8b_int8_convrot.safetensors\",\"type\":\"qwen_image\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"Qwen3-VL 텍스트 인코더\"}},\"3\":{\"inputs\":{\"vae_name\":\"qwen_image_2.1_vae_bf16.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"Qwen-Image 2.1 VAE\"}},\"4\":{\"inputs\":{\"clip\":[\"2\",0],\"prompt\":\"{{##prompt##}}\",\"negative_prompt\":\"{{##negative_prompt##}}\",\"resolution\":1024},\"class_type\":\"TextEncodeQwenImage21\",\"_meta\":{\"title\":\"프롬프트 인코딩 (긍정·부정)\"}},\"5\":{\"inputs\":{\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"batch_size\":1},\"class_type\":\"EmptyLatentImage\",\"_meta\":{\"title\":\"빈 latent\"}},\"6\":{\"inputs\":{\"seed\":\"{{##seed##}}\",\"steps\":\"{{##steps##}}\",\"cfg\":1,\"sampler_name\":\"{{##sampler##}}\",\"scheduler\":\"simple\",\"denoise\":1,\"model\":[\"1\",0],\"positive\":[\"4\",0],\"negative\":[\"4\",1],\"latent_image\":[\"5\",0]},\"class_type\":\"KSampler\",\"_meta\":{\"title\":\"샘플링\"}},\"7\":{\"inputs\":{\"samples\":[\"6\",0],\"vae\":[\"3\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"디코드\"}},\"8\":{\"inputs\":{\"model_name\":\"{{##upscale_model##}}\"},\"class_type\":\"UpscaleModelLoader\",\"_meta\":{\"title\":\"업스케일 모델\"}},\"9\":{\"inputs\":{\"upscale_model\":[\"8\",0],\"image\":[\"7\",0]},\"class_type\":\"ImageUpscaleWithModel\",\"_meta\":{\"title\":\"업스케일 (선택)\"},\"_vcc\":{\"bypassUnless\":{\"condition\":\"{{##upscale_model##}}\",\"passthrough\":{\"0\":\"image\"}}}},\"10\":{\"inputs\":{\"filename_prefix\":\"{{##user_id##}}\\\\image\\\\qwen_image_21\",\"images\":[\"9\",0]},\"class_type\":\"SaveImage\",\"_meta\":{\"title\":\"이미지 저장\"}}}"
+    "version": 4
   },
   "server": {
     "name": "ComfyUI-Image",
