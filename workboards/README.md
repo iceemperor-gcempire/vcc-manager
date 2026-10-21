@@ -30,6 +30,9 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
+| MiniMax H3 판 6개(FL2V·R2V·키프레임·FastH3) · MiniMax Music 3 - T2M | `minimax/` |
+
+H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
