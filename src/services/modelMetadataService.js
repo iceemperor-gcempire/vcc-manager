@@ -3,7 +3,8 @@ const ServerModelCache = require('../models/ServerModelCache');
 const SystemSettings = require('../models/SystemSettings');
 const { decryptSecret } = require('../utils/secretCrypto');
 const { getServerTypeSpec } = require('../constants/serverTypes');
-const { isInModelFolders, foldersOfModels } = require('../utils/modelFolders');
+const { foldersOfModels } = require('../utils/modelFolders');
+const { workboardFilterReason } = require('../utils/workboardModelFilters');
 
 // LoRA service 와 동일한 Civitai rate limit / 재시도 정책.
 // 단순 재구현 (Phase B 에서는 두 서비스가 독립으로 진화할 여지를 두기 위해
@@ -656,17 +657,18 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
   // source: 작업판의 로더 노드가 읽는 폴더로 한정 (#898). UNETLoader 판에 AIO 체크포인트가 떠서
   // 고르면 value_not_in_list 로 실패하던 것을 막는다. source 가 없는 옛 캐시 항목은 남긴다.
   if (source) {
-    filtered = filtered.filter(m => !m.source || m.source === source);
+    filtered = filtered.filter(m => !workboardFilterReason(m, { source }));
   }
 
   // 편집기의 "허용 모델 폴더" 후보 — 로더 폴더로 좁힌 뒤, 다른 거름 전에 뽑는다 (#1086)
   const availableFolders = foldersOfModels(filtered.map(m => m.filename));
 
-  // allowedFolders: 작업판의 allowedModelFolders (#1086). 빈 배열/미설정은 제약 없음.
-  // 파일 경로만으로 판단하므로 Civitai 정보가 없는 모델도 거를 수 있다.
-  if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
-    filtered = filtered.filter(m => isInModelFolders(m.filename, allowedFolders));
-  }
+  // 작업판 제한 (utils/workboardModelFilters — 동기화 준비 검사 #1087 과 같은 판정):
+  //  - allowedFolders: allowedModelFolders (#1086). 파일 경로로 판단 — Civitai 정보가 없는 모델도 거른다
+  //  - allowedBaseModels: allowedModelTypes. 활성 시 civitai 미등록 (baseModel 미상) 모델도 제외 (#320)
+  //  - whitelist: modelExposurePolicy='whitelist' + modelWhitelist, filename 정확 매칭 (#198 Phase D)
+  // 빈 배열/미설정은 제약 없음.
+  filtered = filtered.filter(m => !workboardFilterReason(m, { allowedFolders, allowedBaseModels, whitelist }));
 
   if (search) {
     const s = search.toLowerCase();
@@ -698,12 +700,6 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
     filtered = filtered.filter(m => m.civitai?.baseModel === baseModel);
   }
 
-  // allowedBaseModels: 작업판의 allowedModelTypes 적용. 빈 배열/미설정은 제약 없음.
-  // 필터 활성 시 civitai 미등록 (baseModel 미상) 모델도 제외 (#320).
-  if (Array.isArray(allowedBaseModels) && allowedBaseModels.length > 0) {
-    filtered = filtered.filter(m => allowedBaseModels.includes(m.civitai?.baseModel));
-  }
-
   // outputFormat: provider.outputFormats 기반 필터 (#354).
   // SaaS provider 모델 한정 — ComfyUI checkpoint 는 provider.found=false 라 영향 없음.
   // 미분류(빈 outputFormats) 처리: OpenAI Compatible(로컬 LLM 서버 — vLLM/Ollama/LM Studio)는
@@ -718,13 +714,6 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
       if (!Array.isArray(formats) || formats.length === 0) return showUnclassified;
       return formats.includes(outputFormat);
     });
-  }
-
-  // whitelist: 작업판의 modelExposurePolicy='whitelist' + modelWhitelist 적용 (#198 Phase D).
-  // filename 정확 매칭. 빈 배열/미설정은 제약 없음.
-  if (Array.isArray(whitelist) && whitelist.length > 0) {
-    const wlSet = new Set(whitelist);
-    filtered = filtered.filter(m => wlSet.has(m.filename));
   }
 
   const total = filtered.length;

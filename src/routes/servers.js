@@ -12,9 +12,7 @@ const comfyUIService = require('../services/comfyUIService');
 const { SERVER_TYPES, MODEL_SYNC_SERVER_TYPES } = require('../constants/serverTypes');
 const { encryptSecret } = require('../utils/secretCrypto');
 const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../utils/validation');
-const { inferBaseModelSource } = require('../utils/workboardModelSource');
-const { getFieldByRole } = require('../utils/customFieldHelpers');
-const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { buildWorkboardModelFilters } = require('../utils/workboardModelFilters');
 const { resolveModelLicense } = require('../constants/modelLicense');
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
@@ -353,7 +351,9 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         allowedBaseModels = undefined;
       }
 
-      // 작업판 컨텍스트의 모델 노출 정책 적용 (#198 Phase D) + outputFormat 자동 유추 (#354)
+      // 작업판 컨텍스트의 모델 제한 (#198 Phase D, #898, #1086) + outputFormat 자동 유추 (#354).
+      // 판이 주어지면 제한은 서버가 판에서 직접 읽는다 — 쿼리의 allowedBaseModels 대신.
+      // 파이프라인·대화 패널의 선택기는 그 값을 보내지 않아 거름이 빠져 있었다.
       let whitelist = undefined;
       let outputFormat = outputFormatQuery || undefined;
       let source = undefined;
@@ -366,24 +366,10 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         if (!userHasWorkboardAccess(req.user, wb)) {
           return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
         }
-        // 판의 모델 제한은 서버가 판에서 직접 읽는다 (#1086) — 클라이언트가 보낸 allowedBaseModels 대신.
-        // 파이프라인·대화 패널의 선택기는 그 값을 보내지 않아 거름이 빠져 있었다.
-        allowedBaseModels = Array.isArray(wb.allowedModelTypes) ? [...wb.allowedModelTypes] : [];
-        allowedFolders = Array.isArray(wb.allowedModelFolders) ? [...wb.allowedModelFolders] : [];
-        if (wb.modelExposurePolicy === 'whitelist') {
-          whitelist = wb.modelWhitelist || [];
-          // 빈 whitelist 면 정책상 0개 노출 — sentinel 로 빈 배열 대신 '__none__' 매칭 안 됨
-          if (whitelist.length === 0) whitelist = ['__no_models_in_whitelist__'];
-        }
+        ({ allowedBaseModels, allowedFolders, whitelist, source } = buildWorkboardModelFilters(wb, server.serverType));
         // 명시적 outputFormat 쿼리가 없으면 workboard 의 것으로 자동 적용
         if (!outputFormat && wb.outputFormat) {
           outputFormat = wb.outputFormat;
-        }
-        // 베이스 모델 로더 폴더로 picker 한정 (#898) — ComfyUI 작업판만 의미 있음
-        if (server.serverType === 'ComfyUI') {
-          const baseField = getFieldByRole(wb, FIELD_ROLES.MODEL);
-          const placeholder = (baseField && baseField.formatString) || '{{##base_model##}}';
-          source = inferBaseModelSource(wb.workflowData, placeholder) || undefined;
         }
       }
 

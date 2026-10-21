@@ -19,6 +19,7 @@ const router = express.Router();
 const { WORKBOARD_EXPORT_VERSION: EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
 const { diffWorkboard, UPDATABLE_FIELDS } = require('../utils/workboardDiff');
 const { normalizeModelFolders } = require('../utils/modelFolders');
+const { checkWorkboardReadiness } = require('../services/workboardReadiness');
 
 // 옛 환경에서 export 한 작업판 백업의 server.serverType 을 신규 enum 으로 폴백 매핑.
 // Phase 2 (#181, #182) 마이그레이션과 동일 매핑. import 자동 매칭 1차 실패 시 시도.
@@ -380,6 +381,16 @@ router.post('/reboot-comfyui', requireAdmin, async (req, res) => {
 //   dryRun: true — 저장하지 않고 diff·경고만 반환
 //   acknowledge: true — diff 에 위험 경고가 있어도 갱신 진행. 없으면 409 로 거부한다.
 //     (입력·출력 계약이 깨지는 변경을 사람이 보고 승인하게 하는 지점)
+// 준비 검사 (#1087) — 검사 자체가 실패해도 가져오기는 막지 않고 "확인 못 함" 으로 돌려준다
+async function readinessOf(workboardData, server) {
+  try {
+    return await checkWorkboardReadiness({ workboard: workboardData, server });
+  } catch (e) {
+    console.warn(`⚠️ 작업판 준비 검사 실패 (${workboardData && workboardData.name}): ${e.message}`);
+    return { checked: { nodes: 0, values: 0, defaultModel: false }, issues: [], unavailable: `준비 검사 실패 — ${e.message}`, skipped: null };
+  }
+}
+
 router.post('/import', requireAdmin, async (req, res) => {
   try {
     const { data, serverId: overrideServerId, mode = 'create', dryRun = false, acknowledge = false } = req.body;
@@ -405,10 +416,13 @@ router.post('/import', requireAdmin, async (req, res) => {
       const existing = await Workboard.findOne({ name: data.workboard.name });
       if (existing) {
         const diff = diffWorkboard(existing, data.workboard);
+        // 준비 검사 (#1087) — 가져올 판을 그 판의 서버와 맞춰 본다. 승인(409)은 걸지 않는다
+        const readiness = await readinessOf(data.workboard, await Server.findById(existing.serverId));
         const base = {
           action: 'update',
           workboard: { _id: existing._id, name: existing.name, version: existing.version, isActive: existing.isActive },
           diff,
+          readiness,
         };
         if (dryRun) {
           return res.json({ ...base, dryRun: true, message: diff.identical ? '변경 없음' : `변경 ${diff.changes.length}건 · 경고 ${diff.warnings.length}건` });
@@ -500,10 +514,11 @@ router.post('/import', requireAdmin, async (req, res) => {
 
     // 새 Workboard 생성
     const wb = data.workboard;
-    if (dryRun) {
-      return res.json({ dryRun: true, action: 'create', workboard: { name: wb && wb.name }, serverMatch: serverMatchInfo, warnings, message: '같은 이름의 작업판이 없어 새로 만들어집니다.' });
-    }
     const server = await Server.findById(matchedServerId);
+    const readiness = await readinessOf(wb || {}, server);
+    if (dryRun) {
+      return res.json({ dryRun: true, action: 'create', workboard: { name: wb && wb.name }, serverMatch: serverMatchInfo, warnings, readiness, message: '같은 이름의 작업판이 없어 새로 만들어집니다.' });
+    }
 
     // import 시 allowedGroupIds 는 기본 그룹으로 자동 할당 (export 에는 미포함, ObjectId 매칭 불가)
     const defaultGroupForImport = await Group.findDefault();
@@ -540,7 +555,8 @@ router.post('/import', requireAdmin, async (req, res) => {
       action: 'create',
       workboard: newWorkboard,
       serverMatch: serverMatchInfo,
-      warnings
+      warnings,
+      readiness
     });
   } catch (error) {
     console.error('Workboard import error:', error);

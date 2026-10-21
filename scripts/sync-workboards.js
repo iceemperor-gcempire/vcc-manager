@@ -18,11 +18,16 @@
  * 저장소에 한 번도 없던 판(운영에서만 만든 판)은 표시만 하고 건드리지 않는다. `--no-retire` 로 끈다.
  * 판정 기준은 넘긴 파일이 아니라 저장소 전체 작업본이라, 일부 파일만 동기화해도 다른 판을 퇴역으로 오인하지 않는다.
  *
- * 종료 코드: 0 전부 처리 · 2 승인 필요/건너뜀 있음 · 1 오류
+ * 준비 검사 (#1087) — 서버(v4.13.0+)가 판마다 대상 ComfyUI 와 맞춰 본 결과를 함께 돌려준다: 노드가 설치됐는지,
+ * 선택형 입력의 값(파일 이름 등)이 서버 목록에 있는지, 베이스 모델 기본값이 모델 선택 목록에 나오는지. 문제는 `✗` 로,
+ * 문제가 없어도 판마다 검사 수를 한 줄 남긴다. 적용을 막지는 않는다 (판을 먼저 넣고 모델을 나중에 받는 순서도 있다).
+ *
+ * 종료 코드: 0 전부 처리 · 3 준비 검사 문제/확인 못 함 있음 · 2 승인 필요/건너뜀 있음 · 1 오류
  */
 const fs = require('fs');
 const path = require('path');
 const { retiredBoards, planRetirement } = require('./lib/workboardHistory');
+const { formatReadiness, summarizeReadiness } = require('./lib/readinessReport');
 
 function parseArgs(argv) {
   const o = { files: [], apply: false, yes: false, baseUrl: process.env.VCC_BASE_URL, apiKey: process.env.VCC_API_KEY, serverId: null, json: false, retire: true };
@@ -94,14 +99,14 @@ async function main() {
     const summary = diff ? `+${diff.summary.fieldsAdded}/-${diff.summary.fieldsRemoved}/~${diff.summary.fieldsChanged} 필드 · +${diff.summary.nodesAdded}/-${diff.summary.nodesRemoved}/~${diff.summary.nodesChanged} 노드 · 경고 ${diff.summary.warnings}` : '';
 
     if (status === 200 && json.dryRun) {
-      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: (summary || json.message || '') + minorNote, diff });
+      rows.push({ file: name, board, result: json.action === 'create' ? 'would-create' : (diff && diff.identical ? 'unchanged' : 'would-update'), note: (summary || json.message || '') + minorNote, diff, readiness: json.readiness });
       if (diff && diff.warnings.length) needAck++;
     } else if (status === 200 && json.needsServer) {
       rows.push({ file: name, board, result: 'skipped', note: `서버 미매칭 (${(json.servers || []).map((s) => `${s.name}:${s._id}`).join(', ') || '활성 서버 없음'}) — --server-id 필요` }); failed++;
     } else if (status === 200 || status === 201) {
-      rows.push({ file: name, board, result: json.action === 'create' ? 'created' : (json.updated ? `updated v${json.workboard.version}${json.acknowledged ? ' (승인)' : ''}` : 'unchanged'), note: (summary || json.message || '') + minorNote, diff });
+      rows.push({ file: name, board, result: json.action === 'create' ? 'created' : (json.updated ? `updated v${json.workboard.version}${json.acknowledged ? ' (승인)' : ''}` : 'unchanged'), note: (summary || json.message || '') + minorNote, diff, readiness: json.readiness });
     } else if (status === 409) {
-      rows.push({ file: name, board, result: 'needs-ack', note: (summary || '') + minorNote, diff }); needAck++;
+      rows.push({ file: name, board, result: 'needs-ack', note: (summary || '') + minorNote, diff, readiness: json && json.readiness }); needAck++;
     } else {
       rows.push({ file: name, board, result: 'error', note: `${status} ${(json && json.message) || ''}` }); failed++;
     }
@@ -136,6 +141,15 @@ async function main() {
     }
   }
 
+  // 준비 검사 (#1087) — 서버 응답이 있었던 판만 (파싱 실패·버전 불일치·서버 미매칭은 위에서 오류로 센다)
+  const readinessStatuses = [];
+  for (const r of rows) {
+    if (!['unchanged', 'would-update', 'would-create', 'needs-ack', 'created'].includes(r.result) && !String(r.result).startsWith('updated')) continue;
+    r.readinessReport = formatReadiness(r.readiness);
+    readinessStatuses.push({ status: r.readinessReport.status, issueCount: (r.readiness && r.readiness.issues || []).length });
+  }
+  const readinessTrouble = readinessStatuses.some((x) => x.status === 'issues' || x.status === 'unavailable');
+
   if (opt.json) { console.log(JSON.stringify({ serverVersion, apply: opt.apply, rows, retire }, null, 2)); }
   else {
     console.log(`\n서버 ${opt.baseUrl} (v${serverVersion}) · ${opt.apply ? '적용' : 'dry-run'}${opt.yes ? ' · 경고 승인' : ''}\n`);
@@ -146,7 +160,9 @@ async function main() {
         if (r.diff.changes.length > 40) console.log(`     · … 외 ${r.diff.changes.length - 40}건`);
         for (const w of r.diff.warnings) console.log(`     ⚠ [${w.code}] ${w.message}`);
       }
+      if (r.readinessReport) for (const line of r.readinessReport.lines) console.log(`     ${line}`);
     }
+    if (readinessStatuses.length) console.log(`\n${summarizeReadiness(readinessStatuses)}`);
     // 퇴역 판 — 0건이어도 한 줄 남긴다 ("없었다" 와 "안 돌았다" 를 구분)
     if (retire.skipped) console.log(`\n퇴역 판 판정 건너뜀: ${retire.skipped}`);
     else {
@@ -158,7 +174,7 @@ async function main() {
     if (!opt.apply) console.log('dry-run 입니다. 실제 갱신은 --apply, 경고가 있는 판까지 갱신하려면 --apply --yes.');
     else if (needAck) console.log(`경고가 있어 갱신하지 않은 판 ${needAck}개 — 내용을 확인한 뒤 --yes 로 다시 실행하세요.`);
   }
-  process.exit(failed ? 1 : needAck ? 2 : 0);
+  process.exit(failed ? 1 : needAck ? 2 : readinessTrouble ? 3 : 0);
 }
 
 main().catch((e) => { console.error('sync-workboards 실패:', e.message); process.exit(1); });
