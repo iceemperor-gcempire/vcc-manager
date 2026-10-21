@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 0
+    "minor": 12
   },
-  "exportedAt": "2026-08-17T15:49:49.303Z",
+  "exportedAt": "2026-10-21T03:53:18.619Z",
   "workboard": {
     "name": "Sketch to Image - Anima",
     "description": "스케치·러프를 올리면 Anima 가 그 구도를 따라 생성합니다 (ControlNet-LLLite). ⚠️ Comfy-Org/Anima-LLLite 가중치를 ComfyUI models/model_patches/ 에 설치해야 동작합니다. 크기는 스케치 비율 기준 1M 픽셀 자동, 원본과 업스케일본 함께 저장.",
@@ -67,22 +67,6 @@
           {
             "key": "혼합 v2 (선화·스크리블·그레이스케일 권장)",
             "value": "anima-lllite-any-test-like-v2.safetensors"
-          },
-          {
-            "key": "Lineart (프리뷰판)",
-            "value": "anima-lllite-lineart-1.safetensors"
-          },
-          {
-            "key": "Scribble (프리뷰판)",
-            "value": "anima-lllite-scribble-1.safetensors"
-          },
-          {
-            "key": "Depth (프리뷰판)",
-            "value": "anima-lllite-depth-1.safetensors"
-          },
-          {
-            "key": "Pose (프리뷰판)",
-            "value": "anima-lllite-pose-1.safetensors"
           }
         ],
         "defaultValue": "anima-lllite-any-test-like-v2.safetensors",
@@ -172,7 +156,7 @@
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 4
+    "version": 5
   },
   "server": {
     "name": "ComfyUI-Image",
