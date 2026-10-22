@@ -65,6 +65,7 @@ H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로�
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-t2v-fasth3-v2.json` | MiniMax H3 - T2V (FastH3 V2) | 영상+오디오 · 텍스트 전용, 8스텝 (FastVideo 공식 DMD) | `minimax/fastvideo_fasth3_8step_v2_pruned_int8_convrot` ([🤗 FastVideo/FastVideo-FastH3-Comfy](https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy)) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹. ComfyUI 0.36 이상(정식 VSA 노드). NVFP4 변환본도 선택 가능 (5% 빠름·메모리 6.8 GiB 적음) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
@@ -488,6 +489,11 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
   배포본과 실제 동작이 어긋난다
 - `appVersion` 은 내보낸 시점의 앱 버전이다. `package.json` 의 version 에서 파생된다
 - 새 작업판을 추가할 때는 이 README 의 목록과 요구 사항도 함께 갱신한다
+- 작업판을 새로 만들거나 워크플로·설정값을 고칠 때는 그 이슈에 **`## 설계 근거` 표**를 남긴다
+  - 설정마다 기준: 공식 템플릿(저장소·커밋), 모델 카드·체크포인트 메타데이터(링크), 기존 판
+  - 기준과 다르게 둔 값과 그 이유. 이유가 없으면 "근거 없음"이라고 적는다
+  - 측정한 것과 추정한 것을 나눈다. 속도는 3회 이상 중앙값만 쓴다
+  - 판 파일(JSON)에는 메모를 넣을 수 없다(동기화 diff). 그래서 이슈가 기록 자리다
 
 ## 관련 문서
 
