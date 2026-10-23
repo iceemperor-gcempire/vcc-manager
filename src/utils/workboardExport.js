@@ -38,6 +38,7 @@ function buildWorkboardExportEntry(workboard, server) {
       modelWhitelist: workboard.modelWhitelist || [],
       loraExposurePolicy: workboard.loraExposurePolicy || 'full',
       loraWhitelist: workboard.loraWhitelist || [],
+      allowedLoraFolders: workboard.allowedLoraFolders || [],
       version: workboard.version,
     },
     server: server ? { name: server.name, serverType: server.serverType } : null,

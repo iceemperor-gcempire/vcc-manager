@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { Controller } from 'react-hook-form';
 import { WhitelistField } from './shared';
+import { MONO } from '../../../theme';
 
 function SectionLabel({ children }) {
   return (
@@ -26,7 +27,7 @@ function SectionLabel({ children }) {
   );
 }
 
-function PermissionsCard({ control, isComfyUI, serverId, outputFormat, groups, modelExposurePolicyValue, loraExposurePolicyValue }) {
+function PermissionsCard({ control, isComfyUI, serverId, outputFormat, groups, modelExposurePolicyValue, loraExposurePolicyValue, availableLoraFolders = [] }) {
   return (
     <Paper variant="outlined" sx={{ p: 3 }}>
       <Typography variant="h6" sx={{ mb: 0.5 }}>권한 / 노출</Typography>
@@ -166,6 +167,38 @@ function PermissionsCard({ control, isComfyUI, serverId, outputFormat, groups, m
               />
             </Box>
           )}
+
+          <SectionLabel>허용 LoRA 폴더</SectionLabel>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+            비워 두면 폴더로 거르지 않습니다. 정하면 그 폴더(하위 폴더 포함)의 LoRA 만 목록에 나오고, 다른 LoRA 태그로는
+            실행할 수 없습니다. 계열이 다른 LoRA 는 오류 없이 무시되므로, 짝이 정해진 판은 폴더로 묶어 두세요.
+          </Typography>
+          <Controller
+            name="allowedLoraFolders"
+            control={control}
+            render={({ field }) => (
+              <Autocomplete
+                {...field}
+                multiple
+                freeSolo
+                size="small"
+                options={availableLoraFolders}
+                value={field.value || []}
+                onChange={(_, newValue) => field.onChange(newValue)}
+                renderTags={(value, getTagProps) =>
+                  value.map((option, index) => (
+                    <Chip {...getTagProps({ index })} key={option} label={option} color="primary" variant="outlined" sx={{ fontFamily: MONO }} />
+                  ))
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder={availableLoraFolders.length === 0 ? '서버 LoRA sync 후 자동 채움' : '예: style/openmoss/'}
+                  />
+                )}
+              />
+            )}
+          />
         </>
       )}
     </Paper>

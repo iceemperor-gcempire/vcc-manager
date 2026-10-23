@@ -71,10 +71,12 @@ function diffWorkboard(existingDoc, incoming) {
   }
   // 모델 폴더 (#1086) — 저장할 때 정규화(`qwen\` → `qwen/`)되므로 비교도 정규화해서 한다.
   // 이 설정이 없는 옛 export 는 갱신 때도 덮어쓰지 않으므로(라우트) 비교하지 않는다.
-  if (incoming.allowedModelFolders !== undefined) {
-    const before = normalizeModelFolders(existing.allowedModelFolders).folders;
-    const after = normalizeModelFolders(incoming.allowedModelFolders).folders;
-    if (!same(before, after)) change('policy', 'allowedModelFolders', `${before.join(', ') || '(없음)'} → ${after.join(', ') || '(없음)'}`);
+  // LoRA 폴더 (#1099) 도 같은 규칙
+  for (const k of ['allowedModelFolders', 'allowedLoraFolders']) {
+    if (incoming[k] === undefined) continue;
+    const before = normalizeModelFolders(existing[k]).folders;
+    const after = normalizeModelFolders(incoming[k]).folders;
+    if (!same(before, after)) change('policy', k, `${before.join(', ') || '(없음)'} → ${after.join(', ') || '(없음)'}`);
   }
 
   // ---- 입력 필드 ----
@@ -204,6 +206,7 @@ function diffWorkboard(existingDoc, incoming) {
 const UPDATABLE_FIELDS = Object.freeze([
   'description', 'workboardType', 'outputFormat', 'additionalInputFields', 'workflowData',
   'allowedModelTypes', 'allowedModelFolders', 'modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist',
+  'allowedLoraFolders',
 ]);
 
 module.exports = { diffWorkboard, UPDATABLE_FIELDS, placeholdersIn };

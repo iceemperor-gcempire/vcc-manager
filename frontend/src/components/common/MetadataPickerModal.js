@@ -98,7 +98,7 @@ function MetadataPickerModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [baseModelFilter, setBaseModelFilter] = useState('');
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
-  // 서버가 적용한 작업판 모델 제한 (#1086) — 폴더·타입. 없으면(옛 서버·LoRA) prop 값을 쓴다
+  // 서버가 적용한 작업판 제한 — 모델 폴더·타입 (#1086), LoRA 폴더 (#1099). 없으면(옛 서버) prop 값을 쓴다
   const [restrictions, setRestrictions] = useState(null);
   const [pagination, setPagination] = useState({ current: 1, pages: 0, total: 0 });
   const [detailItem, setDetailItem] = useState(null);
@@ -155,7 +155,7 @@ function MetadataPickerModal({
         setCacheInfo(adapter.extractCacheInfo(responseData, isWorkboardFallback));
         const bm = adapter.extractAvailableBaseModels(responseData);
         if (bm) setAvailableBaseModels(bm);
-        if (kind === 'model') setRestrictions(responseData?.restrictions || null);
+        setRestrictions(responseData?.restrictions || null);
       } catch (err) {
         console.error(`Failed to fetch ${kind}:`, err);
         setError(err.response?.data?.message || `${adapter.listLabel} 목록을 가져오는데 실패했습니다.`);
@@ -337,8 +337,8 @@ function MetadataPickerModal({
           </Box>
         )}
 
-        {/* 작업판 허용 모델 폴더·타입 안내 (Model 만) */}
-        {kind === 'model' && allowedFolders.length > 0 && (
+        {/* 작업판 허용 폴더 (모델·LoRA) · 허용 타입 (모델만) 안내 */}
+        {allowedFolders.length > 0 && (
           <Box sx={{ mb: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
             <Typography variant="caption" color="text.secondary">
               작업판 허용 폴더:
@@ -399,9 +399,11 @@ function MetadataPickerModal({
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {adapter.listLabel} 항목이 없습니다.
             </Typography>
-            {kind === 'model' && allowedFolders.length > 0 && (
+            {allowedFolders.length > 0 && (
               <Typography variant="caption" color="text.secondary" display="block">
-                이 작업판은 {allowedFolders.join(', ')} 폴더의 모델만 씁니다. 그 폴더에 모델이 없거나 모델 목록을 아직 동기화하지 않았을 수 있습니다.
+                {kind === 'lora'
+                  ? `이 작업판은 ${allowedFolders.join(', ')} 폴더의 LoRA 만 씁니다. 그 폴더에 LoRA 가 없거나 LoRA 목록을 아직 동기화하지 않았을 수 있습니다.`
+                  : `이 작업판은 ${allowedFolders.join(', ')} 폴더의 모델만 씁니다. 그 폴더에 모델이 없거나 모델 목록을 아직 동기화하지 않았을 수 있습니다.`}
               </Typography>
             )}
             {kind === 'model' && effectiveModelTypes.length > 0 && (
