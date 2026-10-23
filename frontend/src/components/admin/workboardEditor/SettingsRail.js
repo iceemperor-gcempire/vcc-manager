@@ -117,7 +117,7 @@ function LlmParamsCard({ control }) {
 function SettingsRail({
   control, setValue, errors, watch,
   isComfyUI, isGemini, isOpenAIImage, outputFormat,
-  serverId, groups, promptGuides, onOpenWorkflowEditor,
+  serverId, groups, promptGuides, availableLoraFolders, onOpenWorkflowEditor,
 }) {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -141,6 +141,7 @@ function SettingsRail({
         groups={groups}
         modelExposurePolicyValue={watch('modelExposurePolicy')}
         loraExposurePolicyValue={watch('loraExposurePolicy')}
+        availableLoraFolders={availableLoraFolders}
       />
 
       {isComfyUI && (
