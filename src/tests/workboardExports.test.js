@@ -123,5 +123,15 @@ describe('workboards/ 배포 산출물', () => {
       const filename = String(baseModel.defaultValue).split('\\').pop().toLowerCase();
       expect(filename).toMatch(new RegExp(tokens.join('|')));
     });
+
+    it('시프트 노드를 쓰는 판은 시그마를 직접 넣지 않는다 (#1095)', () => {
+      // 시프트는 모델의 시그마 표에 걸리고, 스케줄러(BasicScheduler 등)가 그 표에서 시그마를 뽑는다.
+      // ManualSigmas 값은 그대로 샘플러로 가서 시프트를 건너뛴다. FastH3 V2 판이 학습 계단(시프트 전 값)을
+      // 이렇게 넣어 학습과 다른 스케줄로 돌았다. LTX 증류판처럼 시프트 노드 없이 확정 시그마를 쓰는 판은 대상이 아니다.
+      const classTypes = Object.values(workflow).map((n) => n.class_type);
+      const shifted = classTypes.some((t) => /SigmaShift|^ModelSampling/.test(t));
+      if (!shifted) return;
+      expect(classTypes).not.toContain('ManualSigmas');
+    });
   });
 });
