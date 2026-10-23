@@ -91,9 +91,10 @@ describe('workboards/ 배포 산출물', () => {
     it('베이스 모델이 워크플로의 조건부 경로와 같은 계열이다', () => {
       // 같은 모델 제품군이라도 조건부 방식마다 체크포인트가 갈린다. 값이 서버 목록에 있으면
       // ComfyUI 검증은 통과하므로, 계열 불일치는 여기서만 잡힌다 (#825).
+      // FastH3 Omni 는 ref2va 증류본이고 파일명에 'omniref' 를 쓴다 (#1093)
       const FAMILY_BY_NODE = {
-        MiniMaxH3ImageToVideo: 'fl2v',
-        MiniMaxH3ReferenceToVideo: 'ref2v',
+        MiniMaxH3ImageToVideo: ['fl2v'],
+        MiniMaxH3ReferenceToVideo: ['ref2v', 'omniref'],
       };
       const classTypes = new Set(Object.values(workflow).map((n) => n.class_type));
       const conditioning = Object.keys(FAMILY_BY_NODE).filter((n) => classTypes.has(n));
@@ -114,13 +115,23 @@ describe('workboards/ 배포 산출물', () => {
       if (t2vOnly) return;
 
       expect(conditioning).toHaveLength(1);
-      const family = FAMILY_BY_NODE[conditioning[0]];
+      const tokens = FAMILY_BY_NODE[conditioning[0]];
       const baseModel = fields.find((f) => f.name === 'base_model');
       expect(baseModel).toBeDefined();
 
       // 파일명 표기는 fl2va / ref2va 처럼 접미가 붙는다 — 계열 토큰만 확인한다
       const filename = String(baseModel.defaultValue).split('\\').pop().toLowerCase();
-      expect(filename).toContain(family);
+      expect(filename).toMatch(new RegExp(tokens.join('|')));
+    });
+
+    it('시프트 노드를 쓰는 판은 시그마를 직접 넣지 않는다 (#1095)', () => {
+      // 시프트는 모델의 시그마 표에 걸리고, 스케줄러(BasicScheduler 등)가 그 표에서 시그마를 뽑는다.
+      // ManualSigmas 값은 그대로 샘플러로 가서 시프트를 건너뛴다. FastH3 V2 판이 학습 계단(시프트 전 값)을
+      // 이렇게 넣어 학습과 다른 스케줄로 돌았다. LTX 증류판처럼 시프트 노드 없이 확정 시그마를 쓰는 판은 대상이 아니다.
+      const classTypes = Object.values(workflow).map((n) => n.class_type);
+      const shifted = classTypes.some((t) => /SigmaShift|^ModelSampling/.test(t));
+      if (!shifted) return;
+      expect(classTypes).not.toContain('ManualSigmas');
     });
   });
 });
