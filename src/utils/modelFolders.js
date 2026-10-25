@@ -27,11 +27,12 @@ function normalizeModelFolder(raw) {
 
 /**
  * 폴더 목록을 정규화한다. 같은 폴더(대소문자·구분자만 다른 것 포함)는 하나만 남긴다.
+ * LoRA 폴더 제한(#1099)도 같은 규칙을 쓴다 — label 은 오류 문구에만 쓰인다.
  * @returns {{ folders: string[], errors: string[] }}
  */
-function normalizeModelFolders(list) {
+function normalizeModelFolders(list, { label = '모델 폴더' } = {}) {
   if (list === undefined || list === null) return { folders: [], errors: [] };
-  if (!Array.isArray(list)) return { folders: [], errors: ['모델 폴더는 목록이어야 합니다.'] };
+  if (!Array.isArray(list)) return { folders: [], errors: [`${label}는 목록이어야 합니다.`] };
   const folders = [];
   const errors = [];
   const seen = new Set();
@@ -44,7 +45,7 @@ function normalizeModelFolders(list) {
     folders.push(folder);
   }
   if (folders.length > MODEL_FOLDER_LIMITS.count) {
-    errors.push(`모델 폴더는 ${MODEL_FOLDER_LIMITS.count}개까지 둘 수 있습니다.`);
+    errors.push(`${label}는 ${MODEL_FOLDER_LIMITS.count}개까지 둘 수 있습니다.`);
   }
   return { folders, errors };
 }

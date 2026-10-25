@@ -797,6 +797,7 @@ router.post('/import', requireAdmin, async (req, res) => {
         modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],
         loraExposurePolicy: wb.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
         loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
+        allowedLoraFolders: Array.isArray(wb.allowedLoraFolders) ? wb.allowedLoraFolders : [], // 스키마가 정규화한다
         createdBy: req.user._id,
         version: 1,
         usageCount: 0,

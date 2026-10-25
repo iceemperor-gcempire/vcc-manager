@@ -485,8 +485,9 @@ router.get('/:id/loras', requireAuth, async (req, res) => {
 
     const { search, hasMetadata, baseModel, workboardId, page = 1, limit = 50 } = req.query;
 
-    // 작업판 컨텍스트의 LoRA 노출 정책 적용 (#198 Phase D)
+    // 작업판 컨텍스트의 LoRA 노출 정책 (#198 Phase D)·LoRA 폴더 제한 (#1099) 적용
     let whitelist = undefined;
+    let allowedFolders = undefined;
     if (workboardId) {
       const wb = await Workboard.findById(workboardId);
       if (!wb) {
@@ -495,6 +496,7 @@ router.get('/:id/loras', requireAuth, async (req, res) => {
       if (!userHasWorkboardAccess(req.user, wb)) {
         return res.status(403).json({ success: false, message: '이 작업판에 접근할 권한이 없습니다.' });
       }
+      allowedFolders = Array.isArray(wb.allowedLoraFolders) ? [...wb.allowedLoraFolders] : [];
       if (wb.loraExposurePolicy === 'whitelist') {
         whitelist = wb.loraWhitelist || [];
         if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
@@ -512,10 +514,17 @@ router.get('/:id/loras', requireAuth, async (req, res) => {
       search,
       hasMetadata: hasMetadata === 'true' ? true : hasMetadata === 'false' ? false : undefined,
       baseModel,
+      allowedFolders,
       whitelist,
       page: parseInt(page),
       limit: parseInt(limit)
     });
+
+    // 적용한 제한 — 선택기가 칩·빈 목록 안내로 보여 준다 (#1099, 모델 목록과 같은 모양)
+    result.restrictions = {
+      folders: allowedFolders || [],
+      whitelist: Array.isArray(whitelist) && whitelist.length > 0,
+    };
 
     res.json({
       success: true,

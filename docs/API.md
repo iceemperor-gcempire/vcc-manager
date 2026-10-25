@@ -65,6 +65,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 `workboardId` 를 함께 주면 그 작업판의 모델 제한을 서버가 직접 적용한다 (#1086) — 허용 모델 폴더(`allowedModelFolders`), 허용 모델 타입(`allowedModelTypes`, Civitai 분류), 노출 목록(`modelWhitelist`), 로더 폴더(checkpoints / diffusion_models). 제한은 겹쳐 적용되고, 이때 쿼리의 `allowedBaseModels` 는 쓰지 않는다. 응답 `data.restrictions` 에 적용한 제한(`{ folders, modelTypes, whitelist }`)이, `data.availableFolders` 에 폴더 후보가 실린다.
 
+`GET /servers/:id/loras` 도 `workboardId` 를 주면 그 작업판의 허용 LoRA 폴더(`allowedLoraFolders`, #1099)와 노출 목록(`loraWhitelist`)을 겹쳐 적용한다. 응답 `data.restrictions` 는 `{ folders, whitelist }`, `data.availableFolders` 는 LoRA 폴더 후보다. `GET /workboards/:id/lora-models` 응답에도 같은 `restrictions` 가 실린다.
+
 ## 모델 라이선스 (Model Licenses, #1073)
 
 관리자가 라이선스를 등록하고 모델 **폴더나 파일**에 붙인다. 모델 선택기와 생성 화면에 표시된다. 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 원문을 확인한 관리자가 적는다.
@@ -105,6 +107,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `POST` | `/workboards/:id/lora-models/refresh` | LoRA 캐시 갱신 | Yes |
 
 **허용 모델 폴더** (`allowedModelFolders`, ComfyUI 작업판, #1086) — 이 폴더(하위 포함) 안의 베이스 모델만 모델 선택 목록에 나오고, 밖의 모델로 들어온 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다(메시지에 허용 폴더가 나온다). 저장 형태는 `qwen/` — `qwen\`·`Qwen` 처럼 보내도 그렇게 정규화되고, 비교할 때 구분자와 대소문자는 가리지 않는다. 빈 배열이면 제한 없음. 허용 모델 타입은 Civitai 분류라 Civitai 정보가 없는 파일을 판단하지 못한다 — 타입 제한이 있으면 그런 파일은 목록에서 빠지고, 실행 거절은 하지 않는다.
+
+**허용 LoRA 폴더** (`allowedLoraFolders`, ComfyUI 작업판, #1099) — 규칙은 허용 모델 폴더와 같다. 이 폴더(하위 포함) 안의 LoRA 만 LoRA 선택 목록에 나오고, 프롬프트의 `<lora:이름:가중치>` 태그가 폴더 밖 파일을 가리키면 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다. 태그는 LoRA 태그 로더(`LoraTagLoader`)와 같은 규칙으로 파일에 맞춘다 — 서버 LoRA 목록(정렬 순)에서 파일 이름이 태그 이름으로 시작하는 첫 파일. 목록에 없는 이름은 판단하지 않고 통과시킨다(로더도 그 태그를 건너뛴다). 계열이 다른 LoRA 는 ComfyUI 가 오류 없이 무시하므로, 짝이 정해진 판은 폴더로 묶어 둔다.
 
 ## 작업 (Jobs)
 

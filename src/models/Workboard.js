@@ -177,6 +177,13 @@ const workboardSchema = new mongoose.Schema({
     type: [String],
     default: []
   },
+  // LoRA 폴더 제한 (#1099) — allowedModelFolders 와 같은 규칙. 이 폴더(하위 포함) 안의 LoRA 만
+  // 목록에 나오고, 밖의 LoRA 태그로는 실행할 수 없다. 빈 배열이면 제약 없음. 노출 목록과 겹쳐 적용된다.
+  allowedLoraFolders: {
+    type: [String],
+    default: [],
+    set: (v) => (Array.isArray(v) ? normalizeModelFolders(v).folders : v)
+  },
   // 연결된 프롬프트 가이드 (#766). 배열 순서대로 시스템 프롬프트에 합성된다 —
   // "공통 작성 원칙" + "모델별 스펙" 처럼 쪼개 관리하고 겹쳐 쓰기 위함.
   // PromptGuide 는 소유자가 없는 전역 문서라, 이 작업판을 볼 수 있는 모든 사용자에게
