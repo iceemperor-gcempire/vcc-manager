@@ -28,8 +28,10 @@
 //     }
 //   }
 //
-// 키가 사라지면 상류 LoadImage 는 자동으로 고아가 되고, ComfyUI 는 출력 노드에서
-// 도달 불가능한 노드를 검증도 실행도 하지 않는다 (실측 확인). 즉 노드를 지울 필요가 없다.
+// 키가 사라지면 상류 LoadImage 는 고아가 된다. ComfyUI 는 출력 노드에서 도달 불가능한
+// 노드를 검증도 실행도 하지 않지만 (실측 확인), **다음 작업의 캐시 검사에서는 그래프의
+// 모든 노드를 훑는다** (#1102). 이때 파일 이름이 "" 인 LoadImage·LoadAudio 는 input 폴더
+// 자체를 열려다 윈도에서 Errno 13 경고를 남긴다. 그래서 끊은 뒤 고아가 된 상류는 지운다.
 //
 // `_vcc` 는 조건 유무와 무관하게 항상 제거한다 — ComfyUI 로 넘기지 않는다.
 
@@ -66,20 +68,27 @@ function isFalsy(value) {
  *
  * 조건이 꺼지면 `["200",0]` 을 보던 참조가 전부 `["6",0]` 이 되고 노드 200 은 사라진다.
  *
+ * 마지막으로, 생략·우회로 링크가 끊겨 **참조가 0 이 된 상류 노드**를 지운다 (#1102).
+ * 노드 종류로 고르지 않는다 — vcc 가 끊은 링크의 상류만 후보다. 판에 원래부터 있던
+ * 미연결 노드와, 출력이 없는 출력 노드(SaveImage·PreviewAny)는 후보가 될 수 없다.
+ *
  * @param {Object} workflowObj — 치환 완료된 워크플로 (API 포맷: nodeId → {inputs, class_type, ...})
- * @returns {{ workflow: Object, omitted: Array<{node,input}>, bypassed: Array<{node,classType}> }}
+ * @returns {{ workflow: Object, omitted: Array<{node,input}>, bypassed: Array<{node,classType}>, pruned: Array<{node,classType}> }}
  */
 function applyOmitDirectives(workflowObj) {
   const omitted = [];
   const bypassed = [];
+  const pruned = [];
   if (!workflowObj || typeof workflowObj !== 'object') {
-    return { workflow: workflowObj, omitted, bypassed };
+    return { workflow: workflowObj, omitted, bypassed, pruned };
   }
 
   // 우회 대상 수집 — 실제 제거는 입력 생략을 마친 뒤 한 번에 한다.
   // `["200",0] → ["6",0]` 형태의 재연결 표를 만든다.
   const rewire = new Map(); // "nodeId:outputIndex" → [sourceNodeId, sourceIndex]
   const toRemove = new Set();
+  // 링크를 끊은 상류 노드 — 끝에서 참조가 0 이 됐는지 본다 (#1102)
+  const cutSources = [];
 
   for (const [nodeId, node] of Object.entries(workflowObj)) {
     if (!node || typeof node !== 'object') continue;
@@ -100,6 +109,8 @@ function applyOmitDirectives(workflowObj) {
           ? condition.length > 0 && condition.every((c) => !isFalsy(c))
           : !isFalsy(condition);
         if (keep) continue;
+        const removed = node.inputs[inputKey];
+        if (Array.isArray(removed) && typeof removed[0] === 'string') cutSources.push(removed[0]);
         delete node.inputs[inputKey];
         omitted.push({ node: nodeId, input: inputKey });
       }
@@ -137,7 +148,8 @@ function applyOmitDirectives(workflowObj) {
   }
 
   if (toRemove.size === 0) {
-    return { workflow: workflowObj, omitted, bypassed };
+    pruneOrphans(workflowObj, cutSources, pruned);
+    return { workflow: workflowObj, omitted, bypassed, pruned };
   }
 
   // 연쇄 우회 해소 — A → B → C 에서 B·C 를 동시에 우회하면 A 로 직결돼야 한다.
@@ -165,10 +177,37 @@ function applyOmitDirectives(workflowObj) {
   }
 
   for (const nodeId of toRemove) {
+    // 우회한 노드의 나머지 입력(통과 경로가 아닌 것)도 끊긴 링크다 — 예: 업스케일을 끄면 UpscaleModelLoader
+    for (const value of Object.values(workflowObj[nodeId].inputs || {})) {
+      if (Array.isArray(value) && typeof value[0] === 'string') cutSources.push(value[0]);
+    }
     delete workflowObj[nodeId];
   }
 
-  return { workflow: workflowObj, omitted, bypassed };
+  pruneOrphans(workflowObj, cutSources, pruned);
+  return { workflow: workflowObj, omitted, bypassed, pruned };
+}
+
+/**
+ * 끊긴 링크의 상류 중 참조가 0 이 된 노드를 지운다 (#1102). 지운 노드의 상류도 같은 판정을 받는다
+ * (LoadImage → ImageScale → [끊김] 이면 둘 다). 아직 다른 곳이 쓰는 노드는 남는다.
+ */
+function pruneOrphans(workflowObj, candidates, pruned) {
+  const isReferenced = (targetId) => Object.values(workflowObj).some((node) =>
+    node && node.inputs && typeof node.inputs === 'object'
+    && Object.values(node.inputs).some((v) => Array.isArray(v) && v[0] === targetId));
+
+  const queue = [...candidates];
+  while (queue.length > 0) {
+    const id = queue.shift();
+    const node = workflowObj[id];
+    if (!node || isReferenced(id)) continue;
+    for (const value of Object.values(node.inputs || {})) {
+      if (Array.isArray(value) && typeof value[0] === 'string') queue.push(value[0]);
+    }
+    delete workflowObj[id];
+    pruned.push({ node: id, classType: node.class_type });
+  }
 }
 
 /**
