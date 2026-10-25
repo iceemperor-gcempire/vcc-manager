@@ -37,6 +37,10 @@ H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로�
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
 
+LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099). 지금은 MOSS-Image 두 판만 `style/openmoss/` 로 정해 두었다 —
+다른 계열 LoRA 는 MOSS 에서 오류 없이 무시되어, 고른 LoRA 가 안 걸린 줄 모르고 지나가기 쉽다. LoRA 를 다른 폴더에 두었다면
+작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
+
 ---
 
 ## 목록
@@ -58,8 +62,8 @@ H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로�
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
-| `comfyui/text-to-image-moss-image.json` | Text to Image - MOSS-Image | 이미지 ×1 · 긍정·부정 프롬프트 · 중국어·영어 글씨 · 긴 프롬프트(약 4천 토큰) | ComfyUI **0.42 이상** + Comfy-Org 모델 3개 `openmoss/…` (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 50스텝 약 25초 (int8 모델 약 14초) |
-| `comfyui/text-to-image-moss-image-fast.json` | Text to Image - MOSS-Image (빠름) | 이미지 ×1 · ComfyUI 공식 템플릿 설정 · **프롬프트 늘려 쓰기**(기본 켬) · 긍정·부정 프롬프트 | 위 판과 같은 폴더의 int8 모델 · w4a8 인코더 · VAE (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 25스텝 약 9초 (늘려 쓰기를 끄면 약 7.5초) |
+| `comfyui/text-to-image-moss-image.json` | Text to Image - MOSS-Image | 이미지 ×1 · 긍정·부정 프롬프트 · 중국어·영어 글씨 · 긴 프롬프트(약 4천 토큰) | ComfyUI **0.42 이상** + Comfy-Org 모델 3개 `openmoss/…` (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 50스텝 약 25초 (int8 모델 약 14초). LoRA 는 LoRA 태그 로더 노드 + `loras/style/openmoss/` (아래 「MOSS-Image」 LoRA) |
+| `comfyui/text-to-image-moss-image-fast.json` | Text to Image - MOSS-Image (빠름) | 이미지 ×1 · ComfyUI 공식 템플릿 설정 · **프롬프트 늘려 쓰기**(기본 켬) · 긍정·부정 프롬프트 | 위 판과 같은 폴더의 int8 모델 · w4a8 인코더 · VAE (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 25스텝 약 9초 (늘려 쓰기를 끄면 약 7.5초). LoRA 는 위 판과 같다 |
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
@@ -482,6 +486,38 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
   쓰면 그 뒤에 `, ` 로 이어 붙는다
 - 실측(RTX PRO 6000, 1024x1024, 25스텝, 3회 중앙값, 프롬프트 읽기 포함): 늘려 쓰기를 끄면 약 7.5초, 켜면 약 9초.
   늘려 쓰기는 한 장에 약 2초다
+
+### LoRA
+
+- 두 판 모두 LoRA 태그 로더(`LoraTagLoader`, [badjeff/comfyui_lora_tag_loader](https://github.com/badjeff/comfyui_lora_tag_loader))를 쓴다.
+  생성 화면의 LoRA 선택에서 고르면 프롬프트에 `<lora:이름:가중치>` 가 들어가고, 이 노드가 그 태그를 읽어 LoRA 를 건 뒤 프롬프트에서 태그를 지운다
+- 허용 LoRA 폴더는 `style/openmoss/` 다. LoRA 목록에는 이 폴더의 LoRA 만 나오고, 다른 LoRA 태그로는 실행이 거절된다
+- 첫 LoRA 는 애니 화풍 [🤗 axiomofmind/Moss-image-anime-lora](https://huggingface.co/axiomofmind/Moss-image-anime-lora) 의
+  **ComfyUI 변환본**이다 (Apache-2.0, 71 MiB). 같은 저장소의 `pytorch_lora_weights.safetensors`(Diffusers 형식)는 ComfyUI 에서 읽히지 않는다
+
+  ```
+  models/loras/style/openmoss/MOSS-Image-Anime-LoRA-ComfyUI.safetensors
+  ```
+
+- **파일 이름을 바꾸지 않는다.** 태그 로더는 파일 이름의 앞부분으로 찾는다. 다른 LoRA 파일 이름의 앞부분과 겹치면 엉뚱한 파일이 걸린다
+- 파일을 둔 뒤 관리자 서버 관리에서 **LoRA 동기화**를 돌려야 목록에 나온다
+- 모델 카드 권장값은 가중치 1.0, 50스텝 · CFG 3(기본 판의 기본값)이다. 트리거 단어 `moss_seinen_style` 는 넣지 않아도 된다
+- 텍스트 인코더에는 LoRA 를 걸지 않는다 (이 LoRA 파일에는 인코더 키가 없다). 빠름 판은 태그를 뺀 프롬프트로 늘려 쓰기를 한다
+- 실측 (RTX PRO 6000, 1024x1024):
+  - 태그를 넣지 않으면 LoRA 를 넣기 전의 판과 픽셀까지 같다 (두 판 · bf16·int8 모델 · 늘려 쓰기 켬·끔)
+  - 효과는 장면에 따라 다르다. 인물은 일러스트 쪽으로 분명히 바뀌고, 풍경·실내는 은은하다. bf16·int8 모델 모두 비슷하게 걸리고, 빠름 판에서도 걸린다
+  - 가중치 0 은 bf16 모델에서 LoRA 없음과 픽셀이 같다. int8 모델에서는 같지 않다 — ComfyUI 가 int8 가중치에 LoRA 를 더한 뒤
+    다시 int8 로 반올림하기 때문으로 본다 (ComfyUI 소스 기준 추정). LoRA 를 끄려면 가중치를 0 으로 두지 말고 태그를 지운다
+  - 빠름 판의 늘려 쓰기가 "A photorealistic …" 처럼 화풍 문구를 넣을 때가 있다 (장면 4개 중 2개). 이때는 LoRA 의 화풍과 부딪혀
+    효과가 약해지는 것으로 보인다 (추정 — 따로 갈라 재지는 않았다). 화풍을 분명히 하려면 프롬프트에 화풍을 적거나 늘려 쓰기를 끈다. 태그는 늘려 쓰기 전에 빠진다 (늘려 쓴 글 12건에 태그 없음)
+  - 속도 (3회 중앙값, 한 번 데운 뒤, 매번 다른 프롬프트, vcc 작업 시간): LoRA 를 걸면 한 장에 약 1~2초 늘어난다
+
+    | 판 · 구성 | LoRA 없음 | LoRA 있음 |
+    |---|---|---|
+    | 기본 판 · bf16 | 24.7초 | 26.5초 |
+    | 기본 판 · int8 | 14.2초 | 15.3초 |
+    | 빠름 판 · 늘려 쓰기 켬 | 9.9초 | 10.9초 |
+    | 빠름 판 · 늘려 쓰기 끔 | 7.9초 | 8.7초 |
 
 ## 갱신 규칙
 
