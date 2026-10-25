@@ -636,8 +636,8 @@ const uploadImageFieldsToComfyUI = async (serverUrl, additionalInputFields, inpu
       // 단, 조건부 생략 필드라면 주입하지 않는다 (#786). 이 필드의 입력 슬롯은
       // applyOmitDirectives 가 곧 제거하므로, 올려둔 흰 PNG 는 고아가 된 LoadImage 만
       // 참조해 모델에 도달하지 않는다 — 순수 낭비였다. R2V 처럼 슬롯이 많은 작업판에서 증폭된다.
-      // 맵에 넣지 않으면 치환 단계가 '' 로 채우고, 그 LoadImage 는 출력에서 도달 불가라
-      // ComfyUI 의 validate_prompt 대상에서도 빠진다 (출력 노드에서 역방향으로만 검증).
+      // 맵에 넣지 않으면 치환 단계가 '' 로 채우고, 고아가 된 그 LoadImage 는 applyOmitDirectives 가
+      // 요청에서 지운다 (#1102 — 남겨 두면 ComfyUI 캐시 검사가 input 폴더를 열려다 경고를 낸다).
       if (omitConditionedFields.has(fieldName)) {
         console.log(`⏭️ 조건부 생략 필드 "${fieldName}" 미첨부 — 흰 PNG 업로드 생략 (#786)`);
         continue;
@@ -970,7 +970,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
 
     // 조건부 입력 생략 (#771) — 치환이 끝난 뒤에 적용해야 조건식이 값으로 평가된다.
     // fallback(문자열 치환) 경로에서는 JSON 구조가 없어 지원하지 않는다.
-    const { workflow: prunedObj, omitted, bypassed } = applyOmitDirectives(replacedObj);
+    const { workflow: prunedObj, omitted, bypassed, pruned } = applyOmitDirectives(replacedObj);
     if (omitted.length > 0) {
       console.log(`✂️ 조건부 입력 생략 (${omitted.length}개):`,
         omitted.map((o) => `#${o.node}.${o.input}`).join(', '));
@@ -978,6 +978,10 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
     if (bypassed && bypassed.length > 0) {
       console.log(`⏭️ 조건부 노드 우회 (${bypassed.length}개):`,
         bypassed.map((b) => `#${b.node} ${b.classType}`).join(', '));
+    }
+    if (pruned && pruned.length > 0) {
+      console.log(`🧹 끊긴 상류 노드 제거 (${pruned.length}개):`,
+        pruned.map((p) => `#${p.node} ${p.classType}`).join(', '));
     }
 
     return {
