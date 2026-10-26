@@ -41,6 +41,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [availableBaseModels, setAvailableBaseModels] = useState([]);
   const [availableFolders, setAvailableFolders] = useState([]); // 허용 모델 폴더 후보 (#1086)
+  const [availableLoraFolders, setAvailableLoraFolders] = useState([]); // 허용 LoRA 폴더 후보 (#1099)
   const [availableGroups, setAvailableGroups] = useState([]);
   const [availablePromptGuides, setAvailablePromptGuides] = useState([]);
   const [copiedId, setCopiedId] = useState(false);
@@ -64,6 +65,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       modelWhitelist: [],
       loraExposurePolicy: 'full',
       loraWhitelist: [],
+      allowedLoraFolders: [],
       llmExtraParams: '',
       isActive: true,
       additionalCustomFields: [],
@@ -103,6 +105,17 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
         setAvailableBaseModels([]);
         setAvailableFolders([]);
       });
+  }, [isComfyUI, watchedServerId]);
+
+  // ComfyUI 서버의 LoRA 폴더 후보 (#1099)
+  useEffect(() => {
+    if (!isComfyUI || !watchedServerId) {
+      setAvailableLoraFolders([]);
+      return;
+    }
+    serverAPI.getLoras(watchedServerId, { limit: 1 })
+      .then((res) => setAvailableLoraFolders(res.data?.data?.availableFolders || []))
+      .catch(() => setAvailableLoraFolders([]));
   }, [isComfyUI, watchedServerId]);
 
   // 그룹 목록 (#198) — 실패 시 재시도 없이 빈 목록이면 칩이 raw id 로 보이므로 에러 안내
@@ -149,6 +162,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           modelWhitelist: fullData.modelWhitelist || [],
           loraExposurePolicy: fullData.loraExposurePolicy || 'full',
           loraWhitelist: fullData.loraWhitelist || [],
+          allowedLoraFolders: fullData.allowedLoraFolders || [],
           llmExtraParams: fullData.llmExtraParams && Object.keys(fullData.llmExtraParams).length > 0
             ? JSON.stringify(fullData.llmExtraParams, null, 2)
             : '',
@@ -293,6 +307,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUIServer && Array.isArray(data.loraWhitelist) ? data.loraWhitelist : [],
+      allowedLoraFolders: isComfyUIServer ? (data.allowedLoraFolders || []) : [],
       llmExtraParams: parsedLlmExtraParams,
       isActive: Boolean(data.isActive),
       additionalInputFields,
@@ -356,6 +371,7 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
               serverId={watchedServerId}
               groups={availableGroups}
               promptGuides={availablePromptGuides}
+              availableLoraFolders={availableLoraFolders}
               onOpenWorkflowEditor={() => setWorkflowDialogOpen(true)}
             />
 

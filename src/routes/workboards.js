@@ -409,6 +409,10 @@ router.post('/import', requireAdmin, async (req, res) => {
     if (importFolders.errors.length > 0) {
       return res.status(400).json({ message: `모델 폴더: ${importFolders.errors.join(' ')}` });
     }
+    const importLoraFolders = normalizeModelFolders(data.workboard && data.workboard.allowedLoraFolders, { label: 'LoRA 폴더' });
+    if (importLoraFolders.errors.length > 0) {
+      return res.status(400).json({ message: `LoRA 폴더: ${importLoraFolders.errors.join(' ')}` });
+    }
 
     const warnings = [];
 
@@ -539,6 +543,7 @@ router.post('/import', requireAdmin, async (req, res) => {
       modelWhitelist: Array.isArray(wb.modelWhitelist) ? wb.modelWhitelist : [],
       loraExposurePolicy: wb.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
+      allowedLoraFolders: importLoraFolders.folders,
       createdBy: req.user._id,
       version: 1,
       usageCount: 0,
@@ -642,6 +647,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      allowedLoraFolders,
       promptGuideIds,
       llmExtraParams
     } = req.body;
@@ -649,6 +655,10 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
     const folderCheck = normalizeModelFolders(allowedModelFolders);
     if (folderCheck.errors.length > 0) {
       return res.status(400).json({ message: `모델 폴더: ${folderCheck.errors.join(' ')}` });
+    }
+    const loraFolderCheck = normalizeModelFolders(allowedLoraFolders, { label: 'LoRA 폴더' });
+    if (loraFolderCheck.errors.length > 0) {
+      return res.status(400).json({ message: `LoRA 폴더: ${loraFolderCheck.errors.join(' ')}` });
     }
 
     const resolvedOutputFormat = outputFormat || (workboardType === 'prompt' ? 'text' : 'image');
@@ -701,6 +711,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: isComfyUI && Array.isArray(loraWhitelist) ? loraWhitelist : [],
+      allowedLoraFolders: isComfyUI ? loraFolderCheck.folders : [],
       llmExtraParams: (llmExtraParams && Object.keys(llmExtraParams).length > 0) ? llmExtraParams : undefined,
       createdBy: req.user._id
     });
@@ -739,6 +750,7 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       modelWhitelist,
       loraExposurePolicy,
       loraWhitelist,
+      allowedLoraFolders,
       promptGuideIds,
       llmExtraParams,
       isActive
@@ -747,6 +759,10 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     const folderCheck = normalizeModelFolders(allowedModelFolders);
     if (folderCheck.errors.length > 0) {
       return res.status(400).json({ message: `모델 폴더: ${folderCheck.errors.join(' ')}` });
+    }
+    const loraFolderCheck = normalizeModelFolders(allowedLoraFolders, { label: 'LoRA 폴더' });
+    if (loraFolderCheck.errors.length > 0) {
+      return res.status(400).json({ message: `LoRA 폴더: ${loraFolderCheck.errors.join(' ')}` });
     }
 
     const workboard = await Workboard.findById(req.params.id);
@@ -822,6 +838,10 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     if (Array.isArray(loraWhitelist)) {
       const wbServer = await Server.findById(workboard.serverId);
       workboard.loraWhitelist = wbServer?.serverType === 'ComfyUI' ? loraWhitelist : [];
+    }
+    if (allowedLoraFolders !== undefined) {
+      const wbServer = await Server.findById(workboard.serverId);
+      workboard.allowedLoraFolders = wbServer?.serverType === 'ComfyUI' ? loraFolderCheck.folders : [];
     }
     if (isActive !== undefined) workboard.isActive = isActive;
     // LLM 추가 파라미터 (#493) — 빈 객체/null 이면 미설정 처리. Mixed 라 markModified 필요.
@@ -940,6 +960,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       modelWhitelist: originalWorkboard.modelWhitelist || [],
       loraExposurePolicy: originalWorkboard.loraExposurePolicy || 'full',
       loraWhitelist: originalWorkboard.loraWhitelist || [],
+      allowedLoraFolders: originalWorkboard.allowedLoraFolders || [],
       llmExtraParams: originalWorkboard.llmExtraParams,
       createdBy: req.user._id
     });
@@ -1073,9 +1094,10 @@ router.get('/:id/lora-models', requireAuth, async (req, res) => {
       if (whitelist.length === 0) whitelist = ['__no_loras_in_whitelist__'];
     }
 
-    // 서버 단위 캐시에서 조회 (노출정책 화이트리스트 필터 적용)
+    // 서버 단위 캐시에서 조회 (노출정책 화이트리스트·LoRA 폴더 제한(#1099) 적용)
     const result = await loraMetadataService.searchServerLoras(server._id, {
       search,
+      allowedFolders: workboard.allowedLoraFolders || [],
       whitelist,
       page: parseInt(page),
       limit: parseInt(limit)
@@ -1090,7 +1112,12 @@ router.get('/:id/lora-models', requireAuth, async (req, res) => {
       loraInfoNodeAvailable: result.cacheInfo?.loraInfoNodeAvailable,
       fromCache: true,
       serverId: server._id,
-      serverName: server.name
+      serverName: server.name,
+      // 적용한 제한 — 서버 경유 목록(GET /servers/:id/loras)과 같은 모양 (#1099)
+      restrictions: {
+        folders: workboard.allowedLoraFolders || [],
+        whitelist: Array.isArray(whitelist) && whitelist.length > 0,
+      }
     });
   } catch (error) {
     console.error('Failed to fetch LoRA models:', error);

@@ -1,6 +1,7 @@
 const axios = require('axios');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const SystemSettings = require('../models/SystemSettings');
+const { isInModelFolders, foldersOfModels } = require('../utils/modelFolders');
 
 // Rate limiting을 위한 딜레이 함수
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -443,26 +444,36 @@ const resetSyncStatus = async (serverId) => {
 
 /**
  * 검색 필터를 적용한 LoRA 목록 조회
+ * @param {string[]} opts.allowedFolders — 작업판의 allowedLoraFolders (#1099). 빈 배열/미설정은 제약 없음
  */
-const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, whitelist, page = 1, limit = 50 } = {}) => {
+const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, allowedFolders, whitelist, page = 1, limit = 50 } = {}) => {
   const cache = await ServerLoraCache.findOne({ serverId });
 
   if (!cache) {
     return {
       loraModels: [],
       pagination: { current: 1, pages: 0, total: 0 },
-      availableBaseModels: []
+      availableBaseModels: [],
+      availableFolders: []
     };
   }
 
-  // 전체 LoRA 목록에서 사용 가능한 모든 기본 모델 추출 (필터링 전)
+  // 편집기의 "허용 LoRA 폴더" 후보 — 다른 거름 전에 뽑는다 (#1099)
+  const availableFolders = foldersOfModels(cache.loraModels.map(lora => lora.filename));
+
+  let filtered = [...cache.loraModels];
+
+  // 폴더 제한 (#1099) — 파일 경로로 판단하므로 Civitai 정보가 없는 LoRA 도 거를 수 있다
+  if (Array.isArray(allowedFolders) && allowedFolders.length > 0) {
+    filtered = filtered.filter(lora => isInModelFolders(lora.filename, allowedFolders));
+  }
+
+  // 기본 모델 드롭다운 후보 — 폴더 제한 뒤에 뽑아 판에 맞지 않는 계열은 고를 수 없게 한다
   const availableBaseModels = [...new Set(
-    cache.loraModels
+    filtered
       .filter(lora => lora.civitai?.baseModel)
       .map(lora => lora.civitai.baseModel)
   )].sort();
-
-  let filtered = [...cache.loraModels];
 
   // 검색어 필터
   if (search) {
@@ -514,6 +525,7 @@ const searchServerLoras = async (serverId, { search, hasMetadata, baseModel, whi
       total
     },
     availableBaseModels,
+    availableFolders,
     cacheInfo: {
       status: cache.status,
       lastFetched: cache.lastFetched,

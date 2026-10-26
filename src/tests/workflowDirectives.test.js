@@ -344,3 +344,152 @@ describe('조건부 노드 우회 (#789)', () => {
     expect(bypassed).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// #1102 — 끊긴 상류 노드 제거
+// 첨부 없는 슬롯의 로더가 파일 이름 "" 로 그래프에 남으면, ComfyUI 가 다음 작업의 캐시 검사에서
+// input 폴더 자체를 열려다 윈도에서 Errno 13 경고를 남긴다. vcc 가 끊은 링크의 상류만 지운다.
+// ---------------------------------------------------------------------------
+
+describe('끊긴 상류 노드 제거 (#1102)', () => {
+  // R2V 판 모양: 이미지 슬롯 3·영상 1(+사운드트랙)·오디오 1
+  const r2v = (attached) => ({
+    151: { class_type: 'LoadImage', inputs: { image: attached.img1 ? 'a.png' : '' } },
+    152: { class_type: 'LoadImage', inputs: { image: '' } },
+    153: { class_type: 'LoadImage', inputs: { image: '' } },
+    162: { class_type: 'VHS_LoadVideo', inputs: { video: '' } },
+    163: { class_type: 'LoadAudio', inputs: { audio: '' } },
+    136: {
+      class_type: 'MiniMaxH3ReferenceToVideo',
+      inputs: {
+        'ref_images.ref_image_0': ['151', 0],
+        'ref_images.ref_image_1': ['152', 0],
+        'ref_images.ref_image_2': ['153', 0],
+        'ref_videos.ref_video_0': ['162', 0],
+        'ref_video_audios.ref_video_audio_0': ['162', 2],
+        'ref_audios.ref_audio_0': ['163', 0],
+      },
+      _vcc: {
+        omitInputsUnless: {
+          'ref_images.ref_image_0': attached.img1 ? 1 : 0,
+          'ref_images.ref_image_1': 0,
+          'ref_images.ref_image_2': 0,
+          'ref_videos.ref_video_0': 0,
+          'ref_video_audios.ref_video_audio_0': [0, 1],
+          'ref_audios.ref_audio_0': 0,
+        },
+      },
+    },
+    170: { class_type: 'SaveVideo', inputs: { video: ['136', 0] } },
+  });
+
+  test('첨부 없는 슬롯의 로더가 요청에서 빠지고, 첨부한 슬롯의 로더는 남는다', () => {
+    const { workflow, pruned } = applyOmitDirectives(r2v({ img1: true }));
+    expect(Object.keys(workflow).sort()).toEqual(['136', '151', '170']);
+    expect(pruned.map((p) => p.node).sort()).toEqual(['152', '153', '162', '163']);
+    expect(pruned.find((p) => p.node === '163').classType).toBe('LoadAudio');
+  });
+
+  test('영상과 사운드트랙이 같은 로더를 가리켜도 한 번만 지운다', () => {
+    const { pruned } = applyOmitDirectives(r2v({ img1: true }));
+    expect(pruned.filter((p) => p.node === '162')).toHaveLength(1);
+  });
+
+  test('조건이 모두 truthy 면 아무것도 지우지 않는다', () => {
+    const { workflow, pruned } = applyOmitDirectives({
+      114: { class_type: 'LoadImage', inputs: { image: 'a.png' } },
+      104: {
+        class_type: 'MiniMaxH3ImageToVideo',
+        inputs: { first_frame: ['114', 0] },
+        _vcc: { omitInputsUnless: { first_frame: 1 } },
+      },
+    });
+    expect(workflow['114']).toBeDefined();
+    expect(pruned).toEqual([]);
+  });
+
+  test('상류로 따라 올라가며 지운다 — 로더 → 크기 조정 → 끊김', () => {
+    const { workflow, pruned } = applyOmitDirectives({
+      900: { class_type: 'LoadImage', inputs: { image: '' } },
+      901: { class_type: 'ImageScale', inputs: { image: ['900', 0], width: 512 } },
+      104: {
+        class_type: 'X',
+        inputs: { last_frame: ['901', 0] },
+        _vcc: { omitInputsUnless: { last_frame: 0 } },
+      },
+    });
+    expect(workflow['900']).toBeUndefined();
+    expect(workflow['901']).toBeUndefined();
+    expect(pruned.map((p) => p.node)).toEqual(['901', '900']);
+  });
+
+  test('다른 노드가 아직 쓰는 상류는 남는다', () => {
+    const { workflow, pruned } = applyOmitDirectives({
+      2: { class_type: 'CLIPLoader', inputs: {} },
+      4: { class_type: 'CLIPTextEncode', inputs: { clip: ['2', 0] } },
+      104: {
+        class_type: 'X',
+        inputs: { clip: ['2', 0] },
+        _vcc: { omitInputsUnless: { clip: 0 } },
+      },
+    });
+    expect(workflow['2']).toBeDefined();
+    expect(pruned).toEqual([]);
+  });
+
+  test('두 갈래가 모두 끊기면 공통 상류도 지운다', () => {
+    const { workflow } = applyOmitDirectives({
+      1: { class_type: 'LoadImage', inputs: { image: '' } },
+      2: { class_type: 'ImageScale', inputs: { image: ['1', 0] } },
+      3: { class_type: 'ImageInvert', inputs: { image: ['1', 0] } },
+      104: {
+        class_type: 'X',
+        inputs: { a: ['2', 0], b: ['3', 0] },
+        _vcc: { omitInputsUnless: { a: 0, b: 0 } },
+      },
+    });
+    expect(Object.keys(workflow)).toEqual(['104']);
+  });
+
+  test('우회한 노드의 나머지 입력도 끊긴 링크다 — 업스케일을 끄면 업스케일 모델 로더가 빠진다', () => {
+    const { workflow, pruned } = applyOmitDirectives({
+      10: { class_type: 'VAEDecode', inputs: {} },
+      11: { class_type: 'UpscaleModelLoader', inputs: { model_name: '0' } },
+      12: {
+        class_type: 'ImageUpscaleWithModel',
+        inputs: { upscale_model: ['11', 0], image: ['10', 0] },
+        _vcc: { bypassUnless: { condition: '0', passthrough: { 0: 'image' } } },
+      },
+      13: { class_type: 'SaveImage', inputs: { images: ['12', 0] } },
+    });
+    expect(workflow['13'].inputs.images).toEqual(['10', 0]);
+    expect(workflow['10']).toBeDefined(); // 통과 경로 상류는 재연결돼 남는다
+    expect(workflow['11']).toBeUndefined();
+    expect(pruned).toEqual([{ node: '11', classType: 'UpscaleModelLoader' }]);
+  });
+
+  test('판에 원래부터 있던 미연결 노드와 출력 노드는 건드리지 않는다', () => {
+    const { workflow, pruned } = applyOmitDirectives({
+      50: { class_type: 'LoadImage', inputs: { image: '' } }, // 원래 아무 데도 안 이어진 노드
+      16: { class_type: 'PreviewAny', inputs: { source: ['15', 0] } },
+      15: { class_type: 'TextGenerate', inputs: {} },
+      114: { class_type: 'LoadImage', inputs: { image: '' } },
+      104: {
+        class_type: 'X',
+        inputs: { first_frame: ['114', 0] },
+        _vcc: { omitInputsUnless: { first_frame: 0 } },
+      },
+    });
+    expect(workflow['50']).toBeDefined();
+    expect(workflow['16']).toBeDefined();
+    expect(workflow['114']).toBeUndefined();
+    expect(pruned).toEqual([{ node: '114', classType: 'LoadImage' }]);
+  });
+
+  test('워크플로에 없는 노드를 가리키던 링크를 끊어도 안전', () => {
+    const { pruned } = applyOmitDirectives({
+      104: { class_type: 'X', inputs: { a: ['999', 0] }, _vcc: { omitInputsUnless: { a: 0 } } },
+    });
+    expect(pruned).toEqual([]);
+  });
+});
