@@ -125,6 +125,13 @@ describe('loadTargetWorkboardInstructions (#1109)', () => {
     expect(r.error.status).toBe(403);
   });
 
+  test('isActive 필드가 없는 옛 문서는 활성으로 본다 — lean() 은 스키마 기본값을 채우지 않는다', async () => {
+    delete targetDoc.isActive;
+    const r = await loadTargetWorkboardInstructions({ targetWorkboardId: TARGET_ID, user });
+    expect(r.error).toBeUndefined();
+    expect(r.instructions).toBe('영어 한 문단으로 쓴다.');
+  });
+
   test('그룹이 겹치지 않으면 403', async () => {
     targetDoc.allowedGroupIds = [GROUP_B];
     const r = await loadTargetWorkboardInstructions({ targetWorkboardId: TARGET_ID, user });

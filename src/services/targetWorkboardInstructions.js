@@ -29,7 +29,8 @@ async function loadTargetWorkboardInstructions({ targetWorkboardId, user }) {
   if (!workboard) {
     return { error: { status: 404, message: '대상 작업판을 찾을 수 없습니다.' } };
   }
-  if (!workboard.isActive || !userHasWorkboardAccess(user, workboard)) {
+  // lean() 은 스키마 기본값(isActive: true)을 채우지 않는다 — 필드가 없는 옛 문서를 비활성으로 오판하지 않게 false 만 본다
+  if (workboard.isActive === false || !userHasWorkboardAccess(user, workboard)) {
     return { error: { status: 403, message: '대상 작업판에 접근할 권한이 없습니다.' } };
   }
   return { workboard, instructions: (workboard.promptGeneratorInstructions || '').trim() };
