@@ -124,6 +124,20 @@ describe('workboards/ 배포 산출물', () => {
       expect(filename).toMatch(new RegExp(tokens.join('|')));
     });
 
+    it('AI 프롬프트 생성 지침의 정렬 초가 길이 선택지와 맞는다 (#1111)', () => {
+      // H3 FL2V 판 지침은 끝 프레임 정렬 문장에 영상 길이를 초로 적게 하고, 그 값을 표로 준다.
+      // 길이는 프레임 수 ÷ 24 (ComfyUI nodes_minimax_h3.py 의 FPS). 길이 선택지만 바꾸고 지침을 그대로 두면
+      // 생성기가 판에 없는 길이의 초를 쓰고, 이건 생성해 봐야만 드러난다.
+      const text = wb.promptGeneratorInstructions || '';
+      if (!text.includes('aligns with the T-second mark')) return;
+      const length = fields.find((f) => f.name === 'length');
+      expect(length).toBeDefined();
+      const missing = (length.options || [])
+        .map((o) => (Number(o.value) / 24).toFixed(2))
+        .filter((sec) => !text.includes(sec));
+      expect(missing).toEqual([]);
+    });
+
     it('시프트 노드를 쓰는 판은 시그마를 직접 넣지 않는다 (#1095)', () => {
       // 시프트는 모델의 시그마 표에 걸리고, 스케줄러(BasicScheduler 등)가 그 표에서 시그마를 뽑는다.
       // ManualSigmas 값은 그대로 샘플러로 가서 시프트를 건너뛴다. FastH3 V2 판이 학습 계단(시프트 전 값)을
