@@ -58,6 +58,13 @@ const conversationJobSchema = new mongoose.Schema({
   // 합성 전 원본을 분리 저장해 display / audit 용도로 사용 (#396).
   // 실제 LLM 호출엔 둘을 합쳐 system 메시지 1개로 전송하지만, 보존은 분리.
   workboardSystemPrompt: String,
+  // AI 프롬프트 생성을 연 이미지·영상 판과, 그때 적용된 그 판의 지침 (#1109). 판 지침이 나중에 바뀌어도
+  // 이 대화가 어떤 지침으로 만들어졌는지 남는다.
+  targetWorkboardId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Workboard',
+  },
+  targetWorkboardInstructions: String,
   worldviewContext: String,
   messages: [conversationMessageSchema],
   status: {
