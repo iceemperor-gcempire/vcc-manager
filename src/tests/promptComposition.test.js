@@ -68,3 +68,26 @@ describe('composeSystemPrompt (#766)', () => {
     });
   });
 });
+
+// #1109 — 대상 작업판(이미지·영상 판)의 AI 프롬프트 생성 지침 층.
+describe('composeSystemPrompt — 대상 작업판 지침 (#1109)', () => {
+  test('대상 지침만 있어도 합성된다', () => {
+    expect(composeSystemPrompt({ targetInstructions: '영어로' })).toBe('[대상 작업판 지침]\n영어로');
+  });
+
+  test('가이드 → 대상 지침 → 작업 지침 → 배경 순서', () => {
+    const out = composeSystemPrompt({ guides: [GUIDE], targetInstructions: '영어로', systemPrompt: '지침', worldviewTexts: [DOC] });
+    expect(out.indexOf('[프롬프트 가이드]')).toBeLessThan(out.indexOf('[대상 작업판 지침]'));
+    expect(out.indexOf('[대상 작업판 지침]')).toBeLessThan(out.indexOf('[작업 지침]'));
+    expect(out.indexOf('[작업 지침]')).toBeLessThan(out.indexOf('[배경 / 사전 컨텍스트]'));
+  });
+
+  test('작업 지침을 덮어쓰지 않는다 — 둘 다 남는다', () => {
+    expect(composeSystemPrompt({ targetInstructions: '영어로', systemPrompt: '지침' }))
+      .toBe('[대상 작업판 지침]\n영어로\n\n[작업 지침]\n지침');
+  });
+
+  test('빈 대상 지침은 층을 만들지 않는다 — 기존 출력 그대로', () => {
+    expect(composeSystemPrompt({ targetInstructions: '', systemPrompt: '지침' })).toBe('[작업 지침]\n지침');
+  });
+});

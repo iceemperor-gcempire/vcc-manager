@@ -19,6 +19,7 @@ import { useQuery } from '@tanstack/react-query';
 import { workboardAPI } from '../services/api';
 import PromptGeneratorPanel from './PromptGeneratorPanel';
 import WorkboardChatPanel from './common/WorkboardChatPanel';
+import TargetInstructionsNotice from './common/TargetInstructionsNotice';
 
 function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
   const { data, isLoading } = useQuery({ queryKey: ['promptWorkboards'], queryFn: () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }), enabled: open });
@@ -64,7 +65,9 @@ function PromptWorkboardSelectDialog({ open, onClose, onSelect }) {
   );
 }
 
-function PromptGeneratorDialog({ open, onClose, onApply }) {
+// targetWorkboard (#1109): 다이얼로그를 연 이미지·영상 판. 그 판의 AI 프롬프트 생성 지침이 일반 생성·채팅
+// 두 경로 모두에 함께 들어간다 — 한쪽만 넘기면 채팅 모드 텍스트 판에서 지침이 소리 없이 빠진다.
+function PromptGeneratorDialog({ open, onClose, onApply, targetWorkboard }) {
   const [selectedWorkboard, setSelectedWorkboard] = useState(null);
   // #574: 대상 작업판이 채팅 모드면 다이얼로그 안에서 멀티턴 — 응답별 '이 응답을 프롬프트로 사용' 으로 반환
   const conversationMode = !!(selectedWorkboard?.additionalInputFields || [])
@@ -149,6 +152,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
           </Box>
         </DialogTitle>
         <DialogContent dividers>
+          <TargetInstructionsNotice instructions={targetWorkboard?.promptGeneratorInstructions} />
           {!selectedWorkboard ? (
             <Box 
               display="flex" 
@@ -172,6 +176,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
           ) : conversationMode ? (
             <WorkboardChatPanel
               workboard={selectedWorkboard}
+              targetWorkboardId={targetWorkboard?._id}
               onUseMessage={(content) => {
                 if (onApply) onApply(content);
                 handleClose();
@@ -180,6 +185,7 @@ function PromptGeneratorDialog({ open, onClose, onApply }) {
           ) : (
             <PromptGeneratorPanel
               workboard={selectedWorkboard}
+              targetWorkboardId={targetWorkboard?._id}
               onResultChange={handleResultChange}
               showHeader={false}
               showSystemPrompt={false}

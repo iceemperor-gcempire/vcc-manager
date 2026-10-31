@@ -1565,6 +1565,7 @@ function ImageGeneration() {
         open={promptGeneratorDialogOpen}
         onClose={() => setPromptGeneratorDialogOpen(false)}
         onApply={handleGeneratedPromptApply}
+        targetWorkboard={workboardData}
       />
     </Container>
   );

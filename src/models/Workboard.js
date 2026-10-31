@@ -1,6 +1,9 @@
 const mongoose = require('mongoose');
 const { normalizeModelFolders } = require('../utils/modelFolders');
 
+// AI 프롬프트 생성 지침 상한 (#1109) — 모델별 작성 가이드를 통째로 담을 수 있게 PromptGuide 와 같은 상한
+const PROMPT_GENERATOR_INSTRUCTIONS_MAX = 1_000_000;
+
 const selectOptionSchema = new mongoose.Schema({
   key: {
     type: String,
@@ -192,6 +195,15 @@ const workboardSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'PromptGuide'
   }],
+  // AI 프롬프트 생성 지침 (#1109) — 이미지·영상 판이 "자기에게 넘길 프롬프트를 어떻게 쓸지" 를 직접 가진다.
+  // 실행 화면의 AI 프롬프트 생성은 어느 텍스트 판을 고르든 이 지침을 시스템 프롬프트에 함께 넣는다.
+  // promptGuideIds 와 달리 이 판 전용이라 판을 지우면 사라지고, export·sync 로 함께 배포된다.
+  promptGeneratorInstructions: {
+    type: String,
+    trim: true,
+    maxlength: PROMPT_GENERATOR_INSTRUCTIONS_MAX,
+    default: ''
+  },
   workflowData: {
     type: String,
     default: ''
@@ -282,3 +294,4 @@ workboardSchema.methods.validateWorkflowData = function() {
 };
 
 module.exports = mongoose.model('Workboard', workboardSchema);
+module.exports.PROMPT_GENERATOR_INSTRUCTIONS_MAX = PROMPT_GENERATOR_INSTRUCTIONS_MAX;

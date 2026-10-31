@@ -41,7 +41,8 @@ import ChatBubble from './chat/ChatBubble';
 // PromptGeneration 페이지에서 workboard.conversation_mode = true 일 때 PromptGeneratorPanel 대신 렌더.
 // 매번 새 대화로 시작. 첫 메시지 전송 전엔 설정 (model / temperature / system_prompt 등) 편집 가능,
 // 전송 후엔 lock + collapse.
-function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }) {
+// targetWorkboardId (#1109): 이미지·영상 판에서 열렸을 때 그 판 id — 첫 메시지에서 그 판의 AI 프롬프트 생성 지침이 적용된다.
+function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage, targetWorkboardId }) {
   const [conversationId, setConversationId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(true);
   const [newMessage, setNewMessage] = useState('');
@@ -122,6 +123,7 @@ function WorkboardChatPanel({ workboard, projectId, useWorldview, onUseMessage }
         // 이어가는 메시지엔 이미 첫 턴의 system 메시지가 보존되어 있음.
         projectId: cid ? undefined : (projectId || undefined),
         useWorldview: cid ? undefined : !!useWorldview,
+        targetWorkboardId: cid ? undefined : (targetWorkboardId || undefined),
         inputData: { ...settings, userPrompt: text, ...(attachedImageIds.length && imageField ? { [imageField.name]: attachedImageIds } : {}) },
       },
       {

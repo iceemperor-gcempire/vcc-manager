@@ -172,6 +172,7 @@ const workboardCreateSchema = Joi.object({
   loraWhitelist: Joi.array(),
   allowedLoraFolders: Joi.array().items(Joi.string()), // 정규화·상한은 라우트 (utils/modelFolders, #1099)
   promptGuideIds: Joi.array(),
+  promptGeneratorInstructions: Joi.string().allow('', null), // 상한은 모델 (#1109)
   llmExtraParams: Joi.object().unknown(true).allow(null),
 }).unknown(true);
 
@@ -191,6 +192,7 @@ const workboardUpdateSchema = Joi.object({
   loraWhitelist: Joi.array(),
   allowedLoraFolders: Joi.array().items(Joi.string()), // 정규화·상한은 라우트 (utils/modelFolders, #1099)
   promptGuideIds: Joi.array(),
+  promptGeneratorInstructions: Joi.string().allow('', null), // 상한은 모델 (#1109)
   llmExtraParams: Joi.object().unknown(true).allow(null),
   isActive: Joi.boolean(),
 }).unknown(true);
