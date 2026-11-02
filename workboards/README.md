@@ -30,7 +30,7 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
-| MiniMax H3 판 6개(FL2V·R2V·키프레임·FastH3) · MiniMax Music 3 - T2M | `minimax/` |
+| MiniMax H3 판 8개(FL2V·R2V·키프레임) · MiniMax Music 3 - T2M | `minimax/` |
 
 H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
 
@@ -67,7 +67,6 @@ LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099)
 
 | `comfyui/minimax-h3-fl2v-turbo.json` | MiniMax H3 - FL2V (Turbo) | 영상 + 오디오 · **4~8스텝 가속** · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
-| `comfyui/minimax-h3-t2v-fasth3-v2.json` | MiniMax H3 - T2V (FastH3 V2) | 영상+오디오 · 텍스트 전용, 8스텝 (FastVideo 공식 DMD) | `minimax/fastvideo_fasth3_8step_v2_pruned_int8_convrot` ([🤗 FastVideo/FastVideo-FastH3-Comfy](https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy)) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹. ComfyUI 0.36 이상(정식 VSA 노드). NVFP4 변환본도 선택 가능 (5% 빠름·메모리 6.8 GiB 적음) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
