@@ -144,6 +144,24 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 `workboardId` 의 `serverId.serverType` 와 `outputFormat` 으로 백엔드의 `SERVICE_MAP` 이 dispatch 한다 (v1.8.0).
 
+### `POST /jobs/generate-prompt` — 대상 작업판 지침
+
+`targetWorkboardId` 에 이미지·영상 작업판 id 를 주면, 그 판의 AI 프롬프트 생성 지침(`promptGeneratorInstructions`)이
+시스템 프롬프트의 `[대상 작업판 지침]` 층으로 들어간다. 텍스트 판의 `system_prompt` 를 덮어쓰지 않는다 — 순서는
+`[프롬프트 가이드]` → `[대상 작업판 지침]` → `[작업 지침]` → `[배경 / 사전 컨텍스트]`.
+
+- 대상 판도 접근 검사를 거친다. 없으면 `404`, 비활성이거나 권한이 없으면 `403` (스트리밍 전 JSON 응답)
+- 새 대화에만 적용된다. `conversationId` 로 이어갈 때는 첫 턴의 시스템 메시지를 그대로 쓰고 대상 판을 다시 읽지 않는다
+- 적용된 지침은 대화 기록의 `targetWorkboardId` · `targetWorkboardInstructions` 에 남는다
+
+```json
+{
+  "workboardId": "<텍스트 작업판 id>",
+  "targetWorkboardId": "<이미지·영상 작업판 id>",
+  "inputData": { "userPrompt": "비 오는 골목의 고양이", "base_model": "..." }
+}
+```
+
 ## 이미지 (Images)
 
 | Method | Endpoint | Description | Auth |

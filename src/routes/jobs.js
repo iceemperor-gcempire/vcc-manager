@@ -2,6 +2,7 @@ const express = require('express');
 const { isPromptOptional } = require('../utils/workflowDirectives');
 const { requireAuth, userHasWorkboardAccess, userHasProjectAccess } = require('../middleware/auth');
 const { loadContextDocs, loadSystemPromptDoc, resolveProjectTag } = require('../services/containerDocAccess');
+const { loadTargetWorkboardInstructions } = require('../services/targetWorkboardInstructions');
 const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
 const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
@@ -506,7 +507,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
 router.post('/generate-prompt', requireAuth, async (req, res) => {
   let heartbeat = null; // SSE 하트비트 타이머 — 외부 catch 에서도 정리할 수 있도록 try 밖에 선언
   try {
-    const { workboardId, inputData, conversationId, projectId, useWorldview, contextDocIds, systemPromptDocId } = req.body;
+    const { workboardId, inputData, conversationId, projectId, useWorldview, contextDocIds, systemPromptDocId, targetWorkboardId } = req.body;
 
     if (!workboardId || !inputData?.userPrompt) {
       return res.status(400).json({
@@ -531,6 +532,16 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
     const server = workboard.serverId;
     if (!server || !server.isActive) {
       return res.status(400).json({ message: 'Server is not available' });
+    }
+
+    // 대상 작업판 지침 (#1109) — 프롬프트를 받을 이미지·영상 판이 가진 AI 프롬프트 생성 지침.
+    // 새 대화의 시스템 메시지에만 들어간다. 이어가기는 저장된 시스템 메시지를 그대로 쓰므로 다시 읽지 않는다.
+    // 대상 판도 접근 검사를 거친다 — 스트리밍 전에 JSON 오류로 끊는다.
+    const target = conversationId
+      ? { instructions: '' }
+      : await loadTargetWorkboardInstructions({ targetWorkboardId, user: req.user });
+    if (target.error) {
+      return res.status(target.error.status).json({ message: target.error.message });
     }
 
     // role 기반 lookup (#377) — 작업판 customField (`base_model`, `system_prompt`, ...) 가 단일 진입점.
@@ -641,6 +652,7 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       const guides = await loadGuidesForWorkboard(workboard);
       const composedSystem = composeSystemPrompt({
         guides,
+        targetInstructions: target.instructions,
         systemPrompt: resolvedSystemPrompt,
         worldviewTexts,
       });
@@ -668,6 +680,8 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
         serverType: server.serverType,
         model,
         workboardSystemPrompt: resolvedSystemPrompt || undefined,
+        targetWorkboardId: target.workboard?._id,
+        targetWorkboardInstructions: target.instructions || undefined,
         worldviewContext: worldviewContext || undefined,
         messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
         status: 'processing',

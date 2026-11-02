@@ -229,9 +229,20 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
                 </Typography>
               </Stack>
               <Divider />
-              {/* 작업 지침 / 사전 컨텍스트 분리 표시 (#396) */}
-              {(detailItem.workboardSystemPrompt || detailItem.worldviewContext) && (
+              {/* 작업 지침 / 사전 컨텍스트 분리 표시 (#396), 대상 작업판 지침 (#1109) */}
+              {(detailItem.targetWorkboardInstructions || detailItem.workboardSystemPrompt || detailItem.worldviewContext) && (
                 <Stack spacing={1}>
+                  {detailItem.targetWorkboardInstructions && (
+                    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                      <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
+                        <SystemIcon fontSize="small" color="action" />
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>대상 작업판 지침</Typography>
+                      </Stack>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {detailItem.targetWorkboardInstructions}
+                      </Typography>
+                    </Paper>
+                  )}
                   {detailItem.workboardSystemPrompt && (
                     <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
                       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
@@ -258,8 +269,8 @@ function ConversationHistoryPanel({ fetchFn, queryKey = 'conversations' }) {
               )}
               <Divider><Chip label="대화" icon={<ArticleIcon fontSize="small" />} /></Divider>
               {(detailItem.messages || []).map((msg, idx) => {
-                // workboardSystemPrompt / worldviewContext 가 별도 섹션으로 표시되면 system 메시지는 중복이라 숨김
-                if (msg.role === 'system' && (detailItem.workboardSystemPrompt || detailItem.worldviewContext)) {
+                // 지침·컨텍스트가 별도 섹션으로 표시되면 system 메시지는 중복이라 숨김
+                if (msg.role === 'system' && (detailItem.targetWorkboardInstructions || detailItem.workboardSystemPrompt || detailItem.worldviewContext)) {
                   return null;
                 }
                 return (

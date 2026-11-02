@@ -17,6 +17,7 @@ import { Controller } from 'react-hook-form';
 import WorkboardBasicInfoForm from '../WorkboardBasicInfoForm';
 import PermissionsCard from './PermissionsCard';
 import PromptGuideCard from './PromptGuideCard';
+import PromptGeneratorInstructionsCard from './PromptGeneratorInstructionsCard';
 import { BUILTIN_WORKFLOW_VARIABLES } from '../../../constants/workflowVariables';
 import { MONO } from '../../../theme';
 
@@ -149,6 +150,8 @@ function SettingsRail({
       )}
 
       {outputFormat === 'text' && <PromptGuideCard control={control} guides={promptGuides} />}
+
+      {outputFormat !== 'text' && <PromptGeneratorInstructionsCard control={control} />}
 
       {outputFormat === 'text' && <LlmParamsCard control={control} />}
 

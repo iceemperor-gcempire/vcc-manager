@@ -79,6 +79,14 @@ function diffWorkboard(existingDoc, incoming) {
     if (!same(before, after)) change('policy', k, `${before.join(', ') || '(없음)'} → ${after.join(', ') || '(없음)'}`);
   }
 
+  // AI 프롬프트 생성 지침 (#1109) — 스키마가 trim 해 저장하므로 비교도 trim. 이 설정이 없는 옛 export 는
+  // 갱신 때 덮어쓰지 않으므로(UPDATABLE_FIELDS 루프의 undefined 건너뛰기) 비교하지 않는다.
+  // 기존 작업의 입력·출력 계약과 무관해 경고는 붙이지 않는다.
+  if (incoming.promptGeneratorInstructions !== undefined
+    && !same(trimmedOf(existing.promptGeneratorInstructions), trimmedOf(incoming.promptGeneratorInstructions))) {
+    change('promptGeneratorInstructions', 'promptGeneratorInstructions');
+  }
+
   // ---- 입력 필드 ----
   const oldFields = (existing.additionalInputFields || []).map(plain);
   const newFields = (incoming.additionalInputFields || []).map(plain);
@@ -206,7 +214,7 @@ function diffWorkboard(existingDoc, incoming) {
 const UPDATABLE_FIELDS = Object.freeze([
   'description', 'workboardType', 'outputFormat', 'additionalInputFields', 'workflowData',
   'allowedModelTypes', 'allowedModelFolders', 'modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist',
-  'allowedLoraFolders',
+  'allowedLoraFolders', 'promptGeneratorInstructions',
 ]);
 
 module.exports = { diffWorkboard, UPDATABLE_FIELDS, placeholdersIn };

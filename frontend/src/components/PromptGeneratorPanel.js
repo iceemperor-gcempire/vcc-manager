@@ -144,7 +144,9 @@ function PromptGeneratorPanel({
   showSystemPrompt = true,
   compact = false,
   projectId,
-  useWorldview
+  useWorldview,
+  // 이미지·영상 판에서 열렸을 때 그 판 id (#1109) — 그 판의 AI 프롬프트 생성 지침이 시스템 프롬프트에 함께 들어간다
+  targetWorkboardId
 }) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResult, setGeneratedResult] = useState(null);
@@ -220,6 +222,7 @@ function PromptGeneratorPanel({
         // #396: 프로젝트 컨텍스트 / 세계관 적용 (단일 샷 모드)
         projectId: projectId || undefined,
         useWorldview: !!useWorldview,
+        targetWorkboardId: targetWorkboardId || undefined,
         inputData: {
           model: formData.model,
           userPrompt: formData.userPrompt,

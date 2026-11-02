@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 12
+    "minor": 15
   },
-  "exportedAt": "2026-10-21T04:14:34.649Z",
+  "exportedAt": "2026-10-31T16:53:12.048Z",
   "workboard": {
     "name": "Sketch to Image - Qwen-Image 2.1",
     "description": "스케치·러프를 올리면 Qwen-Image 2.1 이 그 구도를 따라 생성합니다 (공식 Fun ControlNet Union — 스크리블·Canny). 프롬프트로 무엇을 그릴지 설명하세요. 크기는 스케치 비율 기준 1M 픽셀 자동. 한글 글씨도 잘 씁니다. ⚠️ models/model_patches/ 에 qwen_image_2.1_fun_controlnet_union_int8_convrot 이 필요합니다.",
@@ -192,6 +192,8 @@
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
+    "allowedLoraFolders": [],
+    "promptGeneratorInstructions": "Sketch to Image - Qwen-Image 2.1 판 — AI 프롬프트 작성 지침\n\n이 판은 사용자가 올린 스케치(또는 Canny 모드의 사진)의 구도를 컨트롤넷으로 따르면서, 프롬프트가 설명하는 그림을 그린다. 구도와 형태는 스케치가 정하고, 프롬프트는 무엇을 어떤 모습으로 그릴지 정한다.\n\n- 완성된 프롬프트만 출력한다. 머리말, 설명, 코드 블록, 마크다운 강조를 붙이지 않는다.\n- 프롬프트 칸에 들어갈 긍정 프롬프트만 쓴다. 부정 프롬프트는 쓰지 않는다.\n- 너는 스케치를 볼 수 없다. 스케치에 무엇이 있는지는 사용자가 말한 만큼만 쓰고, 배치나 자세를 새로 지어내지 않는다.\n- 영어 자연어 한 문단, 대략 50~150 단어. 스케치의 각 요소가 무엇인지, 재질과 색, 빛과 시간대, 배경의 분위기, 화풍(사진, 수채화, 애니메이션 셀화 등)을 쓴다.\n- 스케치와 다른 구도(다른 화각, 인물 추가)를 요구하는 표현은 쓰지 않는다.\n- 이 모델은 한글을 포함한 글자를 잘 쓴다. 그림 안의 글자는 큰따옴표 안에 원문 그대로 쓴다.",
     "version": 3
   },
   "server": {

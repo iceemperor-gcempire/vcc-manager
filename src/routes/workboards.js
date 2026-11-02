@@ -76,7 +76,8 @@ router.get('/', requireAuth, async (req, res) => {
       // 목록에서 고른 작업판이 그대로 실행 패널로 전달되므로 여기서도 가이드 제목이 필요하다 (#766).
       // 본문은 싣지 않는다 — 제목만으로 "가이드 적용됨" 표시가 가능하다.
       .populate('promptGuideIds', 'title isActive')
-      .select('-workflowData')
+      // AI 프롬프트 생성 지침 (#1109) 도 싣지 않는다 — 길 수 있고, 실행 화면은 단건 조회로 받는다
+      .select('-workflowData -promptGeneratorInstructions')
       .sort({ usageCount: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit);
@@ -544,6 +545,7 @@ router.post('/import', requireAdmin, async (req, res) => {
       loraExposurePolicy: wb.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
       allowedLoraFolders: importLoraFolders.folders,
+      promptGeneratorInstructions: typeof wb.promptGeneratorInstructions === 'string' ? wb.promptGeneratorInstructions : '',
       createdBy: req.user._id,
       version: 1,
       usageCount: 0,
@@ -649,6 +651,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       loraWhitelist,
       allowedLoraFolders,
       promptGuideIds,
+      promptGeneratorInstructions,
       llmExtraParams
     } = req.body;
 
@@ -707,6 +710,7 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       allowedModelFolders: isComfyUI ? folderCheck.folders : [],
       allowedGroupIds: resolvedAllowedGroupIds,
       promptGuideIds: Array.isArray(promptGuideIds) ? promptGuideIds : [],
+      promptGeneratorInstructions: typeof promptGeneratorInstructions === 'string' ? promptGeneratorInstructions : '',
       modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -752,6 +756,7 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       loraWhitelist,
       allowedLoraFolders,
       promptGuideIds,
+      promptGeneratorInstructions,
       llmExtraParams,
       isActive
     } = req.body;
@@ -823,6 +828,9 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     }
     if (Array.isArray(promptGuideIds)) {
       workboard.promptGuideIds = promptGuideIds;
+    }
+    if (promptGeneratorInstructions !== undefined) {
+      workboard.promptGeneratorInstructions = promptGeneratorInstructions || '';
     }
     if (modelExposurePolicy === 'full' || modelExposurePolicy === 'whitelist') {
       workboard.modelExposurePolicy = modelExposurePolicy;
@@ -961,6 +969,7 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       loraExposurePolicy: originalWorkboard.loraExposurePolicy || 'full',
       loraWhitelist: originalWorkboard.loraWhitelist || [],
       allowedLoraFolders: originalWorkboard.allowedLoraFolders || [],
+      promptGeneratorInstructions: originalWorkboard.promptGeneratorInstructions || '',
       llmExtraParams: originalWorkboard.llmExtraParams,
       createdBy: req.user._id
     });
