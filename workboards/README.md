@@ -69,6 +69,8 @@ LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099)
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-t2v-fasth3-v2.json` | MiniMax H3 - T2V (FastH3 V2) | 영상+오디오 · 텍스트 전용, 8스텝 (FastVideo 공식 DMD) | `minimax/fastvideo_fasth3_8step_v2_pruned_int8_convrot` ([🤗 FastVideo/FastVideo-FastH3-Comfy](https://huggingface.co/FastVideo/FastVideo-FastH3-Comfy)) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹. ComfyUI 0.36 이상(정식 VSA 노드). NVFP4 변환본도 선택 가능 (5% 빠름·메모리 6.8 GiB 적음) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
@@ -99,7 +101,8 @@ LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `m
 (`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판은 **768p 학습 LoRA 2종**만 노출한다 (기본 1344x768 · 시프트 6/3):
 8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
-R2V 판은 4step v0.1 고정이며
+FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
+R2V 판은 8step v1.0 768p(기본)=스텝 8, 4step v0.1=스텝 4 이며
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 
 ⁵ **인코딩 전 업스케일** — H3 4종은 "업스케일 (인코딩 전)" 선택으로 생성 직후·인코딩 **전**에
@@ -241,7 +244,7 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 ### H3 업샘플러 — 영상 업스케일 판과 R2V 판 선택지
 
 **영상 업스케일 (H3 업샘플러 x2)** 판은 이미 만든 영상을 받아 **정확히 2배**로 키운다 (832×448 → 1664×896, 1344×768 → 2688×1536).
-R2V 판(기본·터보)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
+R2V 판(기본·터보·Pika Flex)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
 
 처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 ref2va 모델이 `h3upscale_v2_x2` LoRA 로
 원본을 가이드 삼아 한 번(denoise 0.1) 다시 그린다 → 디코드. 가이드는 원본을 출력 절반 크기(= 원본 크기)로 출력 격자 2칸마다 겹쳐
@@ -268,6 +271,41 @@ R2V 판(기본·터보)에는 같은 처리를 생성 직후에 붙이는 **업�
 
 같은 영상을 2MP(1.4~1.7배)로 키운 것보다 2배가 털 결이 더 살아났다. 어두운 역광 장면은 효과가 작다.
 R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다.
+
+### Pika H3 Flex — 6스텝 판 2개와 Turbo 판 합본 선택지
+
+Pika Labs 의 [Pika H3 Flex](https://huggingface.co/Pika-Labs/Pika-H3-Flex) 는 H3 에 얹는 LoRA 어댑터로, 6스텝에 영상과 소리를 함께 만든다
+(FL2VA·Ref2VA 두 가지). 두 방식으로 넣었다.
+
+| | 어디에 | 파일 (`loras/optimizer/minimax/`) |
+|---|---|---|
+| **공식 어댑터** | **FL2V (Pika Flex)** · **R2V (Pika Flex)** 판 | `pika_h3_flex_fl2va_v1_bf16` · `pika_h3_flex_ref2va_v1_bf16` (각 1.96 GB) — [🤗 Comfy-Org/MiniMax-H3](https://huggingface.co/Comfy-Org/MiniMax-H3/tree/main/loras) |
+| **커뮤니티 합본** | FL2V (Turbo) · 키프레임 앵커 (Turbo) 판의 터보 LoRA 선택지 "Pika Flex 합본 4step" | `pika_h3_flex_turbo_4step_fl2va` (3.91 GB) — [🤗 akhaliq/Pika-H3-Flex-Turbo-LoRA](https://huggingface.co/akhaliq/Pika-H3-Flex-Turbo-LoRA) |
+
+**Pika Flex 판**은 ComfyUI 공식 템플릿(`video_pika_h3_flex_fl2va` / `_ref2va`)의 샘플링을 그대로 쓴다 — 고정 시그마 6단계
+(`ManualSigmas`, Pika 의 계단 1000/750/500/250/100/40/0 에 시프트 12 를 건 값) + `lcm` 샘플러, LoRA 강도 1.0. 어댑터가 이 계단으로
+학습돼 스텝·시프트는 고르지 않는다. 시프트 노드가 없어도 ComfyUI 가 H3 기본값(영상 12·오디오 3)을 쓰므로 Pika 설정과 같다
+(ComfyUI 0.43.0 에서 확인). 템플릿과 다른 점은 베이스 모델(non-pruned `minimax_h3_*_int8_convrot` — 다른 H3 판과 같은 파일)과
+기본으로 켠 Sol-Attn 이다.
+
+**합본 4step**은 공식 어댑터(강도 0.5)와 lightx2v 4step v1.2 768p 를 한 파일에 담은 것이다 (만든 쪽 설명으로는 랭크 이어붙이기라 두 LoRA 를
+겹쳐 거는 것과 같은 계산). 기존 터보 설정(스텝 4 · euler · 시프트 6/3) 그대로 쓴다. 공식 배포본이 아니라 커뮤니티가 에이전트로 만든 저장소다.
+R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배경 변화가 세 시드 모두 보여 아직 넣지 않았다.
+
+실측 (RTX PRO 6000 · ComfyUI 0.43.0 · 1344×768·124프레임 · 같은 프롬프트 · 시드 3개 · ComfyUI 실행 시간 3회 중앙값):
+
+| 구성 | FL2V | R2V |
+|---|---|---|
+| Turbo 기본 (8step · Sol-Attn 켬) | 58.4초 | 66.3초 |
+| Turbo 4step (lightx2v) | 36.4초 | 41.6초 |
+| Turbo + Pika 합본 4step | 36.4초 | 41.6초 (판에 넣지 않음) |
+| **Pika Flex 판** (6스텝 · Sol-Attn 켬) | **48.7초** | **55.4초** |
+| Pika Flex 판 · Sol-Attn 끔 (= 공식 템플릿 계산) | 59.5초 | 66.6초 |
+
+- 합본 4step 은 같은 4스텝과 시간이 같고 카메라 회전·동작이 더 컸다 (연속 프레임 밝기 차이 평균 13.5 대 12.0)
+- Pika Flex 판은 Turbo 기본값보다 약 10초 빠르다. 정지 화면으로 보면 FL2V 는 카메라·동작이 크고, R2V 는 카메라가 차분했다
+- 끝의 대사 한 줄은 30개 중 29개에서 그대로 들렸고, 소리 크기(−12~−14 LUFS)는 구성 사이에 차이가 없었다
+- 시작·끝 프레임, 키프레임 앵커 ①②③ 을 넣은 경우에도 합본 4step 이 lightx2v 4step 만큼 앵커를 지켰다 (앵커 위치 SSIM 0.97 · 0.93 · 0.97, 대조군과 같음)
 
 ### 길이 · 해상도 제약
 
