@@ -284,8 +284,8 @@ Pika Labs 의 [Pika H3 Flex](https://huggingface.co/Pika-Labs/Pika-H3-Flex) 는 
 **Pika Flex 판**은 ComfyUI 공식 템플릿(`video_pika_h3_flex_fl2va` / `_ref2va`)의 샘플링을 그대로 쓴다 — 고정 시그마 6단계
 (`ManualSigmas`, Pika 의 계단 1000/750/500/250/100/40/0 에 시프트 12 를 건 값) + `lcm` 샘플러, LoRA 강도 1.0. 어댑터가 이 계단으로
 학습돼 스텝·시프트는 고르지 않는다. 시프트 노드가 없어도 ComfyUI 가 H3 기본값(영상 12·오디오 3)을 쓰므로 Pika 설정과 같다
-(ComfyUI 0.43.0 에서 확인). 템플릿과 다른 점은 베이스 모델(non-pruned `minimax_h3_*_int8_convrot` — 다른 H3 판과 같은 파일)과
-기본으로 켠 Sol-Attn 이다.
+(ComfyUI 0.43.0 에서 확인). 템플릿과 다른 점은 베이스 모델(non-pruned `minimax_h3_*_int8_convrot`)·영상 VAE(fp16 — 템플릿은 int8)와
+기본으로 켠 Sol-Attn 이다. 모델과 VAE 는 다른 H3 판과 같은 파일이다. 그래서 Sol-Attn 을 꺼도 템플릿과 같아지는 것은 샘플링까지다.
 
 **합본 4step**은 공식 어댑터(강도 0.5)와 lightx2v 4step v1.2 768p 를 한 파일에 담은 것이다 (만든 쪽 설명으로는 랭크 이어붙이기라 두 LoRA 를
 겹쳐 거는 것과 같은 계산). 기존 터보 설정(스텝 4 · euler · 시프트 6/3) 그대로 쓴다. 공식 배포본이 아니라 커뮤니티가 에이전트로 만든 저장소다.
@@ -299,7 +299,7 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 | Turbo 4step (lightx2v) | 36.4초 | 41.6초 |
 | Turbo + Pika 합본 4step | 36.4초 | 41.6초 (판에 넣지 않음) |
 | **Pika Flex 판** (6스텝 · Sol-Attn 켬) | **48.7초** | **55.4초** |
-| Pika Flex 판 · Sol-Attn 끔 (= 공식 템플릿 계산) | 59.5초 | 66.6초 |
+| Pika Flex 판 · Sol-Attn 끔 (= 공식 템플릿 샘플링) | 59.5초 | 66.6초 |
 
 - 합본 4step 은 같은 4스텝과 시간이 같고 카메라 회전·동작이 더 컸다 (연속 프레임 밝기 차이 평균 13.5 대 12.0)
 - Pika Flex 판은 Turbo 기본값보다 약 10초 빠르다. 정지 화면으로 보면 FL2V 는 카메라·동작이 크고, R2V 는 카메라가 차분했다
