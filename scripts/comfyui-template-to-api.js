@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * ComfyUI 템플릿(UI 포맷, 서브그래프 포함) → API 포맷 변환 (#800)
+ * 서브그래프 없는 평면 워크플로(모델 저장소 배포본 등)도 받는다 (#1121).
  *
  * ComfyUI 가 배포하는 공식 워크플로 템플릿은 에디터용 UI 포맷이다. VCC 작업판은
  * API 포맷(`nodeId → {inputs, class_type}`)을 요구하므로 변환이 필요하다.
@@ -19,7 +20,7 @@
  * ## 위젯 매핑이 어려운 이유
  *
  * `widgets_values` 는 **이름 없는 값 배열**이다. object_info 의 입력 순서대로 소비해야
- * 하는데, 소비 규칙이 세 군데서 어긋난다. 셋 다 **값을 조용히 한 칸씩 밀어놓고 구조
+ * 하는데, 소비 규칙이 네 군데서 어긋난다. 넷 다 **값을 조용히 한 칸씩 밀어놓고 구조
  * 검증은 통과**시킨 뒤 실행에서 터진다 — 전부 실제로 겪은 버그다.
  *
  *  1. `COMFY_DYNAMICCOMBO_V3` 는 고른 선택지의 하위 입력을 이어서 소비한다.
@@ -29,6 +30,7 @@
  *     같은 신규 링크 타입을 위젯으로 오인한다.
  *  3. 허용목록은 **다중 타입을 분리 비교**해야 한다. `LTXVEmptyLatentAudio.frame_rate`
  *     의 타입은 `"FLOAT,INT"` 다. 통째로 비교하면 위젯이 아니라고 판정된다.
+ *  4. `forceInput` 입력은 연결 소켓으로만 그려져 칸이 없다 (`TextGenerate.system_prompt`).
  *
  * 변환 후에는 `--verify` 로 원본 `widgets_values` 와 결과를 대조할 것.
  */
@@ -45,6 +47,9 @@ const isWidgetSpec = (spec) => {
   const t = spec[0];
   if (Array.isArray(t)) return true;           // legacy combo (옵션 배열이 직접 옴)
   if (typeof t !== 'string') return false;
+  // forceInput 은 연결 소켓으로만 그려져 widgets_values 에 칸이 없다 — TextGenerate.system_prompt (#1121).
+  // 위젯으로 세면 그 뒤의 값이 한 칸씩 밀린다.
+  if (spec[1] && spec[1].forceInput) return false;
   // 다중 타입 위젯이 있다 — LTXVEmptyLatentAudio.frame_rate 는 "FLOAT,INT" 다.
   // 통째로 비교하면 위젯이 아니라고 판정되어 widgets_values 소비가 밀린다 (실측 버그).
   return t.split(',').some((x) => WIDGET_TYPES.has(x.trim()));
@@ -100,10 +105,30 @@ function readWidgets(objInfo, classType, wv) {
   return { values, consumed: i };
 }
 
+// 변환할 그래프 — 공식 템플릿은 전체가 서브그래프 하나로 감싸져 있고, 모델 저장소가
+// 배포하는 워크플로는 서브그래프 없는 평면 그래프인 경우가 있다 (#1121 P-H3-Image).
+// 평면 그래프의 최상위 links 는 [id, 출처노드, 출처슬롯, 대상노드, 대상슬롯, 타입] 배열이라
+// 서브그래프 links 의 객체 형태로 맞춘다.
+function graphOf(tpl) {
+  const sg = tpl.definitions?.subgraphs?.[0];
+  if (sg) return sg;
+  return {
+    nodes: tpl.nodes || [],
+    links: (tpl.links || []).map((l) => (Array.isArray(l)
+      ? { id: l[0], origin_id: l[1], origin_slot: l[2], target_id: l[3], target_slot: l[4], type: l[5] }
+      : l)),
+    inputs: [],
+  };
+}
+
 function flatten(templatePath, objInfoPath) {
   const tpl = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
   const objInfo = JSON.parse(fs.readFileSync(objInfoPath, 'utf8'));
-  const sg = tpl.definitions.subgraphs[0];
+  return flattenGraph(tpl, objInfo);
+}
+
+function flattenGraph(tpl, objInfo) {
+  const sg = graphOf(tpl);
   const linkById = new Map((sg.links || []).map((l) => [l.id, l]));
 
   // 서브그래프 입력(호스트에서 주입되는 값) — 링크 id → 입력 정의
@@ -169,52 +194,58 @@ function verifyWidgets(audit) {
   return problems;
 }
 
-const args = process.argv.slice(2);
-const doVerify = args.includes('--verify');
-const [tplPath, objPath, outPath] = args.filter((a) => !a.startsWith('--'));
+function main() {
+  const args = process.argv.slice(2);
+  const doVerify = args.includes('--verify');
+  const [tplPath, objPath, outPath] = args.filter((a) => !a.startsWith('--'));
 
-if (!tplPath || !objPath || !outPath) {
-  console.error('사용법: node scripts/comfyui-template-to-api.js <템플릿.json> <object_info.json> <출력.json> [--verify]');
-  process.exit(1);
-}
+  if (!tplPath || !objPath || !outPath) {
+    console.error('사용법: node scripts/comfyui-template-to-api.js <템플릿.json> <object_info.json> <출력.json> [--verify]');
+    process.exit(1);
+  }
 
-const { api, hostFed, widgetAudit } = flatten(tplPath, objPath);
-fs.writeFileSync(outPath, JSON.stringify(api, null, 2));
-console.log('노드', Object.keys(api).length, '개 →', outPath);
+  const { api, hostFed, widgetAudit } = flatten(tplPath, objPath);
+  fs.writeFileSync(outPath, JSON.stringify(api, null, 2));
+  console.log('노드', Object.keys(api).length, '개 →', outPath);
 
-if (hostFed.length > 0) {
-  console.log('\n서브그래프 입력으로 주입되던 자리 (수동 지정 필요):');
-  hostFed.forEach((h) => console.log(`  #${h.node} ${h.type}.${h.input}  ← ${h.host}`));
-}
+  if (hostFed.length > 0) {
+    console.log('\n서브그래프 입력으로 주입되던 자리 (수동 지정 필요):');
+    hostFed.forEach((h) => console.log(`  #${h.node} ${h.type}.${h.input}  ← ${h.host}`));
+  }
 
-// 서브그래프 입력은 `["-10", n]` 으로 남는다 — n 은 subgraph inputs 배열의 인덱스다.
-const sgInputs = JSON.parse(fs.readFileSync(tplPath, 'utf8')).definitions.subgraphs[0].inputs || [];
-const pending = [];
-for (const [id, node] of Object.entries(api)) {
-  for (const [k, v] of Object.entries(node.inputs)) {
-    if (Array.isArray(v) && v[0] === '-10') {
-      const def = sgInputs[v[1]];
-      pending.push(`  #${id} ${node.class_type}.${k}  ← [${v[1]}] ${def ? (def.label || def.name) : '?'}`);
+  // 서브그래프 입력은 `["-10", n]` 으로 남는다 — n 은 subgraph inputs 배열의 인덱스다.
+  const sgInputs = graphOf(JSON.parse(fs.readFileSync(tplPath, 'utf8'))).inputs || [];
+  const pending = [];
+  for (const [id, node] of Object.entries(api)) {
+    for (const [k, v] of Object.entries(node.inputs)) {
+      if (Array.isArray(v) && v[0] === '-10') {
+        const def = sgInputs[v[1]];
+        pending.push(`  #${id} ${node.class_type}.${k}  ← [${v[1]}] ${def ? (def.label || def.name) : '?'}`);
+      }
+    }
+  }
+  if (pending.length > 0) {
+    console.log('\n치환해야 할 서브그래프 입력 (플레이스홀더 또는 고정값):');
+    pending.forEach((p) => console.log(p));
+  }
+
+  if (doVerify) {
+    const problems = verifyWidgets(widgetAudit);
+    console.log('\n=== 위젯 소비 정합성 ===');
+    if (problems.length === 0) {
+      console.log(`${widgetAudit.filter((a) => a.raw.length).length}개 노드 모두 원본 widgets_values 를 남김없이 소비`);
+    } else {
+      console.log(`불일치 ${problems.length}건 — 값이 밀렸을 가능성이 높다:`);
+      for (const p of problems) {
+        console.log(`  ${p.label}`);
+        console.log(`     ${p.detail}`);
+        console.log(`     매핑: ${JSON.stringify(p.mapped)}`);
+      }
+      process.exitCode = 1;
     }
   }
 }
-if (pending.length > 0) {
-  console.log('\n치환해야 할 서브그래프 입력 (플레이스홀더 또는 고정값):');
-  pending.forEach((p) => console.log(p));
-}
 
-if (doVerify) {
-  const problems = verifyWidgets(widgetAudit);
-  console.log('\n=== 위젯 소비 정합성 ===');
-  if (problems.length === 0) {
-    console.log(`${widgetAudit.filter((a) => a.raw.length).length}개 노드 모두 원본 widgets_values 를 남김없이 소비`);
-  } else {
-    console.log(`불일치 ${problems.length}건 — 값이 밀렸을 가능성이 높다:`);
-    for (const p of problems) {
-      console.log(`  ${p.label}`);
-      console.log(`     ${p.detail}`);
-      console.log(`     매핑: ${JSON.stringify(p.mapped)}`);
-    }
-    process.exitCode = 1;
-  }
-}
+if (require.main === module) main();
+
+module.exports = { graphOf, flattenGraph, verifyWidgets };

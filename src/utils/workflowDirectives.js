@@ -50,6 +50,14 @@ function isFalsy(value) {
   return false;
 }
 
+// `_vcc` 조건이 성립하는가. 배열이면 AND (#839) — 전부 truthy 여야 한다. 빈 배열은 성립하지 않는다
+// (조건 없는 AND 를 "항상 켬" 으로 보지 않는다). omitInputsUnless 와 bypassUnless 가 같은 규칙을 쓴다 (#1121).
+function conditionHolds(condition) {
+  return Array.isArray(condition)
+    ? condition.length > 0 && condition.every((c) => !isFalsy(c))
+    : !isFalsy(condition);
+}
+
 /**
  * 워크플로 객체에서 `_vcc.omitInputsUnless` 지시자를 적용한다.
  *
@@ -106,10 +114,7 @@ function applyOmitDirectives(workflowObj) {
         // 배열이면 AND (#839) — 전부 truthy 여야 입력이 살아남는다.
         // 예: 참조 영상의 사운드트랙은 "영상이 첨부됐고" AND "소리 스위치가 켜졌을 때"만.
         // 한쪽만 보면 영상 없이 스위치만 켜진 경우 고아 오디오 링크가 남는다.
-        const keep = Array.isArray(condition)
-          ? condition.length > 0 && condition.every((c) => !isFalsy(c))
-          : !isFalsy(condition);
-        if (keep) continue;
+        if (conditionHolds(condition)) continue;
         const removed = node.inputs[inputKey];
         if (Array.isArray(removed) && typeof removed[0] === 'string') cutSources.push(removed[0]);
         delete node.inputs[inputKey];
@@ -120,7 +125,9 @@ function applyOmitDirectives(workflowObj) {
     // 조건부 노드 우회 (#789) — ComfyUI 에디터의 ctrl+B 와 같은 의미.
     const bypass = directive && directive.bypassUnless;
     if (!bypass || typeof bypass !== 'object') continue;
-    if (!isFalsy(bypass.condition)) continue; // 조건이 truthy 면 노드를 그대로 둔다
+    // 조건이 성립하면 노드를 그대로 둔다. 배열(AND)도 받는다 (#1121) — P-H3-Image 편집 판은
+    // 참조 칸 N 의 그림 표기를 "1..N 칸이 모두 찼을 때" 만 넣어, 빈 칸을 건너뛰어도 그림 번호가 어긋나지 않게 한다.
+    if (conditionHolds(bypass.condition)) continue;
 
     const passthrough = bypass.passthrough;
     if (!passthrough || typeof passthrough !== 'object') continue;
