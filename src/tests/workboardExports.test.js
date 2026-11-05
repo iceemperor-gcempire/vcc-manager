@@ -154,5 +154,14 @@ describe('workboards/ 배포 산출물', () => {
       if (!shifted) return;
       expect(classTypes).not.toContain('ManualSigmas');
     });
+
+    it('MiniMax H3 를 쓰는 판은 설명에 "Powered by MiniMax H3" 고지가 있다 (#1124)', () => {
+      // H3 커뮤니티 라이선스 3-a 의 고지. H3 노드(MiniMaxH3*·PH3*)나 H3 가중치(minimax_h3*)를 쓰면 대상이다 —
+      // 업샘플러 판처럼 H3 노드 없이 H3 가중치만 쓰는 판도 있어 둘 다 본다. MiniMax Music 은 H3 가 아니다.
+      const source = wb.workflowData + JSON.stringify(fields);
+      const usesH3 = /"class_type":\s*"(MiniMaxH3|PH3)|minimax_h3/i.test(source);
+      if (!usesH3) return;
+      expect(wb.description).toContain('Powered by MiniMax H3');
+    });
   });
 });
