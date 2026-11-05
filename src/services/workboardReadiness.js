@@ -61,7 +61,7 @@ function conditionPlaceholders(workflow) {
   for (const node of Object.values(workflow || {})) {
     const d = node && node._vcc;
     if (!d || typeof d !== 'object') continue;
-    if (d.bypassUnless) add(d.bypassUnless.condition);
+    if (d.bypassUnless) { const c = d.bypassUnless.condition; (Array.isArray(c) ? c : [c]).forEach(add); }
     for (const c of Object.values(d.omitInputsUnless || {})) (Array.isArray(c) ? c : [c]).forEach(add);
   }
   return out;

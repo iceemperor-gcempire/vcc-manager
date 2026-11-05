@@ -271,6 +271,34 @@ describe('조건부 노드 우회 (#789)', () => {
     expect(applyOmitDirectives(chain('1')).workflow['200']).toBeDefined();
   });
 
+  test('배열 조건은 AND — 하나라도 falsy 면 우회, 빈 배열도 우회 (#1121)', () => {
+    expect(applyOmitDirectives(chain([1, 1])).workflow['200']).toBeDefined();
+    expect(applyOmitDirectives(chain([1, 0])).workflow['200']).toBeUndefined();
+    expect(applyOmitDirectives(chain(['1', 'false'])).workflow['200']).toBeUndefined();
+    expect(applyOmitDirectives(chain([])).workflow['200']).toBeUndefined();
+  });
+
+  test('문자열 체인 — 앞 칸이 비면 뒤 칸 표기도 빠져 그림 번호가 이어진다 (#1121 P-H3-Image 편집)', () => {
+    // 참조 1 은 첨부, 참조 2 는 비움, 참조 3 은 첨부 → 참조 2·3 의 표기가 모두 빠진다
+    const add = (n, prev, cond) => ({
+      class_type: 'StringFormat',
+      inputs: { 'values.a': [prev, 0], f_string: `{a}<Picture ${n}>` },
+      _vcc: { bypassUnless: { condition: cond, passthrough: { 0: 'values.a' } } },
+    });
+    const { workflow, bypassed } = applyOmitDirectives({
+      40: { class_type: 'PrimitiveStringMultiline', inputs: { value: '<Picture 1>' } },
+      41: add(2, '40', [1]),
+      42: add(3, '41', [1, 0]),
+      43: add(4, '42', [1, 0, 1]),
+      44: { class_type: 'StringFormat', inputs: { 'values.a': ['43', 0], f_string: '{a} Edit' } },
+    });
+    expect(workflow['41']).toBeDefined();
+    expect(workflow['42']).toBeUndefined();
+    expect(workflow['43']).toBeUndefined();
+    expect(workflow['44'].inputs['values.a']).toEqual(['41', 0]);
+    expect(bypassed.map((b) => b.node).sort()).toEqual(['42', '43']);
+  });
+
   test('연쇄 우회 — 두 노드를 동시에 끄면 최상류로 직결된다', () => {
     const { workflow } = applyOmitDirectives({
       6: { class_type: 'UNETLoader', inputs: {} },
