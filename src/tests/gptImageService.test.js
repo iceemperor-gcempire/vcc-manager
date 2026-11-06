@@ -154,6 +154,25 @@ describe('gptImageService.generateImage', () => {
       await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg', n: 2 })).rejects.toThrow(/n=1/);
     });
 
+    test('svg.model 은 svg 이고 값이 있을 때만 (계정에 작성 모델 선택이 꺼져 있으면 비운다)', async () => {
+      ok();
+      await gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg', svgModel: 'gpt-6.1-sol' });
+      expect(axios.post.mock.calls[0][1].svg).toEqual({ model: 'gpt-6.1-sol' });
+      await gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg' });
+      expect(axios.post.mock.calls[1][1]).not.toHaveProperty('svg');
+      await gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'png', svgModel: 'gpt-6.1-sol' });
+      expect(axios.post.mock.calls[2][1]).not.toHaveProperty('svg');
+    });
+
+    test('GIF 시트 초과·svg.model 누락 오류는 바꿀 것을 한국어로 덧붙인다 (실호출 메시지)', async () => {
+      axios.post.mockRejectedValue({ response: { data: { error: {
+        message: "No supported sheet fits 2 GIF frames at size '1024x1024'. Invalid size '4096x2048'. The longest edge must be less than or equal to 3840.",
+      } } } });
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'gif' })).rejects.toThrow(/512x512 처럼 작게/);
+      axios.post.mockRejectedValue({ response: { data: { error: { message: "SVG generation requires 'svg.model'." } } } });
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg' })).rejects.toThrow(/SVG 작성 모델/);
+    });
+
     test('모르는 출력 포맷은 거부', async () => {
       await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'bmp' })).rejects.toThrow(/출력 포맷/);
     });
