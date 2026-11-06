@@ -23,6 +23,8 @@ describe('getOpenAIProviderModels — 파싱 + outputFormat 추론', () => {
           { id: 'gpt-4o', owned_by: 'openai' },
           { id: 'dall-e-3' },
           { id: 'gpt-image-1.5' },
+          { id: 'chatgpt-image-latest' },
+          { id: 'sora-2' },
           { id: 'o3-mini' },
           { id: 'whisper-1' },
           { id: 'text-embedding-3-small' },
@@ -36,6 +38,9 @@ describe('getOpenAIProviderModels — 파싱 + outputFormat 추론', () => {
     expect(byId['gpt-4o']).toEqual(['text']);
     expect(byId['dall-e-3']).toEqual(['image']);
     expect(byId['gpt-image-1.5']).toEqual(['image']);
+    expect(byId['chatgpt-image-latest']).toEqual(['image']);
+    // sora 는 영상 — 이미지 판 선택 목록에 뜨면 안 된다 (#1139)
+    expect(byId['sora-2']).toEqual(['video']);
     expect(byId['o3-mini']).toEqual(['text']);
     // whisper / embedding 은 워크플로 미지원 — 미분류(빈 배열)
     expect(byId['whisper-1']).toEqual([]);
