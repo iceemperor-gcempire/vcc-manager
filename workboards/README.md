@@ -661,8 +661,18 @@ ComfyUI 워크플로가 없는 provider 직결 작업판. `workflowData` 가 비
 | 파일 | 작업판 | 출력 | 필요한 것 |
 |---|---|---|---|
 | `openai/gpt-image.json` | GPT Image | 이미지 | OpenAI 서버(`serverType: OpenAI`) + API 키 |
+| `openai/gpt-image-2.6.json` | GPT Image 2.6 | 이미지 · GIF 애니메이션 · SVG 벡터 | 〃 (GIF 는 OpenAI 계정의 GIF 미리보기 권한) |
 
 **GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 `full`(작업판 화이트리스트 없음, 서버 모델 목록이 그대로 보인다).
 크기는 권장 3종 + 2K/4K, 품질은 `low~max`. 커스텀 크기 규칙은 각 변 16의 배수 · 비율 1:3~3:1 · 한 변 ≤3840 ·
 총 픽셀 655,360~8,294,400 이며 **2560x1440 초과는 OpenAI 문서상 experimental** 이다.
 4K PNG 는 파일이 8MB 를 넘으므로 `output_format` 을 webp/jpeg 로 두는 편이 낫다 (실측 4K PNG 8.61MB vs 2K webp 2.58MB).
+
+**GPT-Image-2.6 (2026-10-28)** 은 별도 판이다 (#1132). 모델 노출은 화이트리스트(`gpt-image-2.6-flare` 기본 · `gpt-image-2.6-sunburst`).
+2.6 에서 생긴 것만 이 판에 있다:
+- **복잡도** `complexity` (low/medium/high, 비우면 high) — 그리기 전 계획량. 값이 있을 때만 요청에 넣어 GPT Image 판의 요청은 예전 그대로다
+- **GIF** (`frame_count` 2~16 기본 9, `frame_duration_ms` 20~ 기본 200) — 크기는 프레임 하나의 크기라 16 배수만 확인하고, 프레임 수×크기 예산(문서에 수치 없음)은 OpenAI 오류에 맡긴다. 압축률은 무시. OpenAI API 레퍼런스상 GIF 미리보기 권한이 필요하다
+- **SVG** — 한 장만(n=1), 압축률 무시. 응답의 `svg_usage`(작성 모델 토큰)는 단가를 몰라 **비용 추정을 내지 않고** 토큰 수만 남긴다. SVG 파일은 `/api/files` 가 스크립트를 막는 `Content-Security-Policy … sandbox` 헤더로 내보낸다
+
+나눈 까닭: 새 파라미터가 2.6 기능으로만 소개되고(2.5 이하가 받는지는 문서에 없다), OpenAI 판에는 모델에 따라 필드를 숨기는 장치가 없다.
+품질 `xhigh`·`max` 는 가이드가 2.6 도 된다고, API 레퍼런스는 2.5 전용이라고 적어 **2.6 에서는 미확인**이다.

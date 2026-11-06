@@ -194,6 +194,24 @@ describe('GET /api/files/* - 파일 서빙 라우트', () => {
     });
   });
 
+  // ── SVG 보안 헤더 (#1132) ──
+  // 헤더는 파일을 찾기 전에 붙는다 — 테스트용 파일 없이 서명만으로 확인한다
+
+  describe('SVG 응답 헤더 (#1132)', () => {
+    test('.svg 는 스크립트를 막는 CSP 샌드박스와 nosniff 를 붙인다', async () => {
+      const { path: urlPath, expires, sig } = parseSignedUrl(generateSignedUrl('/uploads/generated/x.svg'));
+      const res = await request(app).get(urlPath).query({ expires, sig });
+      expect(res.headers['content-security-policy']).toBe("default-src 'none'; style-src 'unsafe-inline'; sandbox");
+      expect(res.headers['x-content-type-options']).toBe('nosniff');
+    });
+
+    test('다른 형식에는 붙이지 않는다', async () => {
+      const { path: urlPath, expires, sig } = parseSignedUrl(generateSignedUrl('/uploads/generated/x.png'));
+      const res = await request(app).get(urlPath).query({ expires, sig });
+      expect(res.headers['content-security-policy']).toBeUndefined();
+    });
+  });
+
   // ── 복합 공격 시나리오 ──
 
   describe('복합 공격 시나리오', () => {

@@ -83,6 +83,13 @@ router.get('/*', (req, res) => {
   }
 
   res.set('Cache-Control', 'private, max-age=3600');
+  // SVG 는 문서라서 직접 열면 안의 스크립트가 앱과 같은 출처에서 돈다 (#1132).
+  // 생성 SVG 는 스크립트가 없다고 하지만 기대지 않고, 스크립트·외부 요청을 막고 샌드박스로 연다.
+  // <img> 로 보여 줄 때는 이 헤더와 무관하게 그대로 그려진다
+  if (path.extname(filePath).toLowerCase() === '.svg') {
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; sandbox");
+    res.set('X-Content-Type-Options', 'nosniff');
+  }
   res.sendFile(absolutePath, (err) => {
     if (err) {
       if (!res.headersSent) {

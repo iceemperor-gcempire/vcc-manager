@@ -101,6 +101,64 @@ describe('gptImageService.generateImage', () => {
     );
   });
 
+  // GPT Image 2.6 (#1132) — complexity·gif·svg 는 고른 경우에만 요청에 들어간다
+  describe('2.6 파라미터 (#1132)', () => {
+    const ok = () => axios.post.mockResolvedValue(okResponse([{ b64_json: 'aGk=' }]));
+
+    test('complexity 는 값이 있을 때만 — 기존 판 요청은 그대로', async () => {
+      ok();
+      await gptImageService.generateImage(null, 'key', 'p', { model: 'gpt-image-2.6-flare', complexity: 'low' });
+      expect(axios.post.mock.calls[0][1].complexity).toBe('low');
+      await gptImageService.generateImage(null, 'key', 'p', { model: 'gpt-image-2.5-flare' });
+      expect(axios.post.mock.calls[1][1]).not.toHaveProperty('complexity');
+      await expect(gptImageService.generateImage(null, 'key', 'p', { complexity: 'extreme' })).rejects.toThrow(/복잡도/);
+    });
+
+    test('gif: 프레임 설정을 보내고 압축률은 뺀다, 크기는 프레임 단위(16 배수만)', async () => {
+      ok();
+      await gptImageService.generateImage(null, 'key', 'p', {
+        outputFormat: 'gif', size: '512x512', frameCount: '4', frameDurationMs: 120, outputCompression: 80,
+      });
+      const body = axios.post.mock.calls[0][1];
+      expect(body).toMatchObject({ output_format: 'gif', size: '512x512', frame_count: 4, frame_duration_ms: 120 });
+      expect(body).not.toHaveProperty('output_compression');
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'gif', size: '500x500' })).rejects.toThrow(/16의 배수/);
+    });
+
+    test('gif 프레임 범위 위반은 이유와 함께 거부', async () => {
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'gif', frameCount: 17 })).rejects.toThrow(/2~16/);
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'gif', frameCount: 1.5 })).rejects.toThrow(/정수/);
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'gif', frameDurationMs: 10 })).rejects.toThrow(/20ms/);
+    });
+
+    test('gif 가 아니면 프레임 설정은 보내지 않는다', async () => {
+      ok();
+      await gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'png', frameCount: 4, frameDurationMs: 120 });
+      const body = axios.post.mock.calls[0][1];
+      expect(body).not.toHaveProperty('frame_count');
+      expect(body).not.toHaveProperty('frame_duration_ms');
+    });
+
+    test('svg: n=1 만, 압축률 제외, MIME·응답 크기로 보충', async () => {
+      axios.post.mockResolvedValue({ data: {
+        data: [{ b64_json: Buffer.from('<svg/>').toString('base64') }],
+        size: '1024x1024',
+        usage: { total_tokens: 10 },
+        svg_usage: { total_tokens: 300 },
+      } });
+      const result = await gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg', outputCompression: 50 });
+      expect(axios.post.mock.calls[0][1]).not.toHaveProperty('output_compression');
+      expect(result.images[0]).toMatchObject({ mimeType: 'image/svg+xml', width: 1024, height: 1024 });
+      expect(result.images[0].filename).toMatch(/\.svg$/);
+      expect(result.svgUsage).toEqual({ total_tokens: 300 });
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'svg', n: 2 })).rejects.toThrow(/n=1/);
+    });
+
+    test('모르는 출력 포맷은 거부', async () => {
+      await expect(gptImageService.generateImage(null, 'key', 'p', { outputFormat: 'bmp' })).rejects.toThrow(/출력 포맷/);
+    });
+  });
+
   test('에러 매핑: 조직 인증 안내 / 일반 API 메시지', async () => {
     axios.post.mockRejectedValue({
       response: { data: { error: { message: 'Your organization must be verified.' } } },

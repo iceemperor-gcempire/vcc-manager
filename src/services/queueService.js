@@ -245,6 +245,10 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
       ) || 'png',
       background: extractOptionValue(inputData.additionalParams?.background),
       outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
+      // GPT Image 2.6 (#1132) — 2.6 판에만 있는 필드라 다른 판에서는 비어 있다
+      complexity: extractOptionValue(inputData.additionalParams?.complexity),
+      frameCount: extractOptionValue(inputData.additionalParams?.frame_count),
+      frameDurationMs: extractOptionValue(inputData.additionalParams?.frame_duration_ms),
       timeout: workboardData.timeout,
       signal,
     }
@@ -263,6 +267,12 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
       totalTokens: result.usage.total_tokens,
     };
     costEstimate = computeOpenAIImageCost(result.model, result.usage);
+  }
+  // SVG 는 작성 모델 토큰(svg_usage)이 따로 과금되는데 단가를 모른다 (#1132).
+  // 이미지 토큰만 센 금액은 실제보다 적으므로 추정을 내지 않고 토큰만 남긴다
+  if (result.svgUsage) {
+    usageNormalized = { ...(usageNormalized || {}), svgAuthoringTokens: result.svgUsage.total_tokens };
+    costEstimate = null;
   }
 
   return {
@@ -1078,6 +1088,7 @@ const getExtensionFromMimeType = (mimeType) => {
     'image/jpeg': 'jpg',
     'image/webp': 'webp',
     'image/gif': 'gif',
+    'image/svg+xml': 'svg', // GPT Image 2.6 SVG 출력 (#1132)
     'image/bmp': 'bmp',
     'image/tiff': 'tiff',
     'image/apng': 'apng',
