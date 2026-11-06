@@ -249,6 +249,7 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
       complexity: extractOptionValue(inputData.additionalParams?.complexity),
       frameCount: extractOptionValue(inputData.additionalParams?.frame_count),
       frameDurationMs: extractOptionValue(inputData.additionalParams?.frame_duration_ms),
+      svgModel: extractOptionValue(inputData.additionalParams?.svg_model),
       timeout: workboardData.timeout,
       signal,
     }

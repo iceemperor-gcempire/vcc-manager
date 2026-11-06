@@ -116,6 +116,10 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
   };
   if (background) requestBody.background = background;
   if (complexity) requestBody.complexity = complexity;
+  // SVG 는 래스터 참조를 그린 뒤 텍스트 모델이 벡터를 쓴다. 계정에 작성 모델 선택이 켜져 있으면
+  // svg.model 이 필수고, 꺼져 있으면 svg 객체를 빼야 한다 — 값이 있을 때만 보낸다 (#1132)
+  const svgModel = extractValue(options.svgModel);
+  if (isSvg && svgModel) requestBody.svg = { model: svgModel };
   // gif·svg 는 압축률을 받지 않는다. 판에 값이 남아 있어도 형식을 바꿔 고른 경우라 조용히 뺀다
   if (!isGif && !isSvg && outputCompression !== undefined && outputCompression !== null && outputCompression !== '') {
     const compression = Number(outputCompression);
@@ -159,6 +163,15 @@ const generateImage = async (serverUrl, apiKey, prompt, options = {}) => {
       throw new Error(
         `${model} 모델 사용에는 OpenAI 조직 인증(Verify Organization)이 필요합니다. https://platform.openai.com/settings/organization/general 에서 인증 후 약 15분 대기하세요.`
       );
+    }
+    // 2.6 의 GIF·SVG 오류는 무엇을 바꿔야 하는지 한국어로 덧붙인다 (#1132, 실호출 2026-11-07)
+    if (apiMessage && /No supported sheet fits/i.test(apiMessage)) {
+      throw new Error(
+        `GIF 프레임이 너무 큽니다 — 프레임 여러 장을 긴 변 3840 이하의 시트 한 장에 그려 만드는데, 이 크기로는 들어가지 않습니다. 512x512 처럼 작게 고르세요. (OpenAI: ${apiMessage})`
+      );
+    }
+    if (apiMessage && /requires 'svg\.model'/i.test(apiMessage)) {
+      throw new Error(`이 계정은 SVG 작성 모델을 정해야 합니다 — 판의 "SVG 작성 모델" 을 고르세요. (OpenAI: ${apiMessage})`);
     }
     if (apiMessage) throw new Error(`OpenAI: ${apiMessage}`);
     throw err;
