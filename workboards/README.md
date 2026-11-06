@@ -663,7 +663,10 @@ ComfyUI 워크플로가 없는 provider 직결 작업판. `workflowData` 가 비
 | `openai/gpt-image.json` | GPT Image | 이미지 | OpenAI 서버(`serverType: OpenAI`) + API 키 |
 | `openai/gpt-image-2.6.json` | GPT Image 2.6 | 이미지 · GIF 애니메이션 · SVG 벡터 | 〃 (GIF 는 OpenAI 계정의 GIF 미리보기 권한) |
 
-**GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 `full`(작업판 화이트리스트 없음, 서버 모델 목록이 그대로 보인다).
+**GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 **노출 목록**(`gpt-image-2.5-flare` 기본 · `2.5-sunburst` · `2` · `1.5` · `1-mini`, #1136).
+OpenAI 모델은 파일이 아니라 ComfyUI 판처럼 폴더로 거를 수 없어서 노출 목록으로 막는다. 예전 `full` 에서는 영상 모델(`sora-2`)·종료된 `gpt-image-1`·
+가리키는 모델이 바뀌는 `chatgpt-image-latest`·날짜 스냅샷까지 선택 목록에 보였다. 2.6 은 아래 별도 판이다.
+OpenAI 서버의 모델 목록은 관리자 **모델 동기화**로만 새로 고쳐진다 — 새 모델이 선택 목록에 안 보이면 서버 관리에서 동기화한다.
 크기는 권장 3종 + 2K/4K, 품질은 `low~max`. 커스텀 크기 규칙은 각 변 16의 배수 · 비율 1:3~3:1 · 한 변 ≤3840 ·
 총 픽셀 655,360~8,294,400 이며 **2560x1440 초과는 OpenAI 문서상 experimental** 이다.
 4K PNG 는 파일이 8MB 를 넘으므로 `output_format` 을 webp/jpeg 로 두는 편이 낫다 (실측 4K PNG 8.61MB vs 2K webp 2.58MB).
