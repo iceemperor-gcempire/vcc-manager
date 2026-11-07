@@ -224,27 +224,38 @@ async function handleDIceAllImage({ workboardData, inputData, job, signal }) {
 }
 
 async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
+  // 호출부가 빠뜨린 칸은 판의 기본값으로 채운다 (#1142). 웹 화면은 모든 칸을 보내지만 API·MCP 는 빠뜨릴 수 있고,
+  // 그러면 GIF 판이 png 로, 프레임 크기 대신 1024x1024 로 요청됐다. ComfyUI 경로도 빠진 칸에 판 기본값을 쓴다
+  // 빈 문자열은 "일부러 비움" 으로 보고 채우지 않는다 — SVG 작성 모델을 꺼진 계정에서 비워 보내는 경로가 있다
+  const fieldDefault = (name) => (workboardData.additionalInputFields || []).find((f) => f.name === name)?.defaultValue;
+  const paramOrDefault = (name, value) => (value === undefined || value === null ? fieldDefault(name) : value);
+
   const result = await gptImageService.generateImage(
     workboardData.serverUrl,
     workboardData.apiKey,   // 위와 동일 (#813)
     buildGeminiPrompt(inputData, workboardData),
     {
       model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
-      size: extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE)),
-      quality: extractOptionValue(
+      size: extractOptionValue(paramOrDefault('image_size', getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE))),
+      quality: extractOptionValue(paramOrDefault('quality',
         inputData.additionalParams?.quality || inputData.quality
-      ),
+      )),
       n: extractOptionValue(
         inputData.additionalParams?.n || inputData.n
       ) || 1,
       // 필드명은 snake_case(output_format)가 작업판 관례이고 camelCase 는 구 호출부 — 둘 다 받는다 (#943)
-      outputFormat: extractOptionValue(
+      outputFormat: extractOptionValue(paramOrDefault('output_format',
         inputData.additionalParams?.output_format
         || inputData.additionalParams?.outputFormat
         || inputData.outputFormat
-      ) || 'png',
-      background: extractOptionValue(inputData.additionalParams?.background),
-      outputCompression: extractOptionValue(inputData.additionalParams?.output_compression),
+      )) || 'png',
+      background: extractOptionValue(paramOrDefault('background', inputData.additionalParams?.background)),
+      outputCompression: extractOptionValue(paramOrDefault('output_compression', inputData.additionalParams?.output_compression)),
+      // GPT Image 2.6 (#1132) — 2.6 판에만 있는 필드라 다른 판에서는 비어 있다
+      complexity: extractOptionValue(paramOrDefault('complexity', inputData.additionalParams?.complexity)),
+      frameCount: extractOptionValue(paramOrDefault('frame_count', inputData.additionalParams?.frame_count)),
+      frameDurationMs: extractOptionValue(paramOrDefault('frame_duration_ms', inputData.additionalParams?.frame_duration_ms)),
+      svgModel: extractOptionValue(paramOrDefault('svg_model', inputData.additionalParams?.svg_model)),
       timeout: workboardData.timeout,
       signal,
     }
@@ -263,6 +274,12 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
       totalTokens: result.usage.total_tokens,
     };
     costEstimate = computeOpenAIImageCost(result.model, result.usage);
+  }
+  // SVG 는 작성 모델 토큰(svg_usage)이 따로 과금되는데 단가를 모른다 (#1132).
+  // 이미지 토큰만 센 금액은 실제보다 적으므로 추정을 내지 않고 토큰만 남긴다
+  if (result.svgUsage) {
+    usageNormalized = { ...(usageNormalized || {}), svgAuthoringTokens: result.svgUsage.total_tokens };
+    costEstimate = null;
   }
 
   return {
@@ -1078,6 +1095,7 @@ const getExtensionFromMimeType = (mimeType) => {
     'image/jpeg': 'jpg',
     'image/webp': 'webp',
     'image/gif': 'gif',
+    'image/svg+xml': 'svg', // GPT Image 2.6 SVG 출력 (#1132)
     'image/bmp': 'bmp',
     'image/tiff': 'tiff',
     'image/apng': 'apng',

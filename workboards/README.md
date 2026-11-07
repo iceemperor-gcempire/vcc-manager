@@ -30,9 +30,10 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
-| MiniMax H3 판 8개(FL2V·R2V·키프레임) · MiniMax Music 3 - T2M | `minimax/` |
+| MiniMax H3 판 8개(FL2V·R2V·키프레임) · P-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
 H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
+P-H3-Image 판은 모델 선택 목록을 FL2VA 본체 4개로 좁혀 두었다 (허용 목록 — 아래 「P-H3-Image」).
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
@@ -71,6 +72,8 @@ LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099)
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
+| `comfyui/text-to-image-p-h3-image.json` | Text to Image - P-H3-Image | 이미지 ×1 · 800만/400만 화소 · 비율 7가지 · **프롬프트 늘려 쓰기**(기본 켬) · 프롬프트 속 글씨 | H3 FL2VA 본체(`minimax/minimax_h3_fl2va_int8_convrot`) + P-H3-Image LoRA·텍스트 인코더·보강 모듈·VAE (아래 「P-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.44.0 에서 확인. 800만 화소 약 19초 |
+| `comfyui/image-edit-p-h3-image.json` | Image Edit - P-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 400만/800만 화소 · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 400만 화소 참조 1장 약 27초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
@@ -101,8 +104,12 @@ LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `m
 8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
 FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
-R2V 판은 8step v1.0 768p(기본)=스텝 8, 4step v0.1=스텝 4 이며
+R2V 판은 8step v1.0 768p · 스텝 8 하나다 — 예전 4step v0.1 은 544p 혼합 비율 학습(시프트 12/3)이라 1344x768 과 맞지 않고, 빠른 동작 비교에서 가장 심하게 갈라져 뺐다 (#1127). R2V 판은
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
+**빠른 동작에는 약하다** (#1127, 2026-11 같은 시드 비교) — 휘두르기·회전 같은 장면에서 R2V 는 머리카락·옷 가장자리가
+털처럼 갈라지고, FL2V 는 화면이 일렁이며 옷이 번진다. 시프트·Sol-Attn 을 바꾸거나 v1.1 LoRA·PDD 가속 LoRA 로 바꿔도
+나아지지 않았다. 같은 장면에서 Pika Flex 판·R2V (FastH3 Omni)·LoRA 없는 (AV1) 판은 이렇게 깨지지 않았다
+(모션 블러는 남는다). 세 Turbo 판 설명에 이 안내를 적었다.
 
 ⁵ **인코딩 전 업스케일** — H3 4종은 "업스케일 (인코딩 전)" 선택으로 생성 직후·인코딩 **전**에
 AnimeSharp 2x 를 걸 수 있다 (기본 "없음" — 끄면 노드가 우회되어 이전과 동일 경로). 별도 판으로
@@ -359,6 +366,62 @@ MiniMax 공식 API·SGLang·diffusers 는 영상에 소리가 있으면 자동�
 매긴다. ComfyUI 는 입력 칸이 종류별이라 이미지 → 영상(켠 소리가 먼저) → 참조 오디오 순서로 고정이다. 그쪽 도구에서
 만든 R2V 프롬프트를 가져올 때는 영상 소리를 켜고 `<Audio N>` 이 같은 소리를 가리키는지 확인한다.
 
+### P-H3-Image — 이미지 판 2개 (영상 서버에 연결)
+
+PrunaAI 의 [P-H3-Image](https://huggingface.co/PrunaAI/P-H3-Image-Comfy) 는 H3 로 이미지를 만드는 LoRA 와 전용 텍스트 인코더·VAE·프롬프트
+보강 모듈이다. 8스텝·CFG 없이 800만 화소 이미지를 만들고, 고칠 이미지에 참조 이미지를 더해 편집한다. 전용 본체(bf16 40.5 GB 등)도
+있지만 이 판들은 이미 있는 H3 FL2VA 본체에 LoRA 를 거는 방법을 쓴다.
+
+**이미지 판이지만 H3 영상 판과 같은 ComfyUI 서버에 연결한다.** 본체가 FL2V 판과 같은 `minimax_h3_fl2va_*` 파일이라, 이미지 서버에
+붙이면 같은 본체가 두 벌 필요하다. 대신 이미지 작업이 영상 작업과 같은 대기열에 선다. 가져올 때 서버를 영상 서버로 고른다
+(`scripts/sync-workboards.js` 는 `--server-id`).
+
+FL2VA 본체 외에 필요한 파일 ([🤗 PrunaAI/P-H3-Image-Comfy](https://huggingface.co/PrunaAI/P-H3-Image-Comfy)):
+
+```
+models/
+├── loras/optimizer/minimax/p-h3-image_lora_bf16.safetensors        (1.96 GB)
+├── text_encoders/minimax/
+│   ├── p-h3-image_text_encoder_bf16.safetensors                     (9.14 GB)
+│   └── p-h3-image_prompt_upsampler_bf16.safetensors                 (19.31 GB)
+└── vae/minimax/p-h3-image_vae_bf16.safetensors                      (5.56 GB)
+```
+
+노드는 전부 ComfyUI 기본 노드다 (`PH3ImageConditioning` · `MiniMaxH3SigmaShift` · `TextGenerate` · `LoraLoaderBypassModelOnly` 등, 0.44.0 에서 확인).
+
+| | Text to Image - P-H3-Image | Image Edit - P-H3-Image |
+|---|---|---|
+| 입력 | 프롬프트 · 비율 7가지 · 800만/400만 화소 | 고칠 이미지(필수) + 참조 이미지 최대 3장 · 결과 400만/800만 화소 |
+| 기본 크기 | 800만 화소 — 1:1 이면 2912×2912, 16:9 면 3872×2176 | 400만 화소, 고칠 이미지의 비율 그대로 |
+
+- 샘플링은 공식 워크플로 그대로다 — 고정 시그마 8단계 + euler, CFG·부정 프롬프트 없음, LoRA 강도 1.0. 시프트는 1.0(영상·오디오 둘 다)으로
+  고정해 시그마를 그대로 쓴다
+- **프롬프트 늘려 쓰기**(기본 켬) — 워크플로 안의 보강 모듈이 짧은 요청을 자세한 프롬프트로 바꾼다. 모델 카드가 켜 두기를 권한다.
+  끄면 쓴 프롬프트가 그대로 들어간다. 같은 프롬프트로 시드만 바꿔 다시 돌리면 보강 결과를 재사용해 끈 것과 비슷하게 빨라진다
+- 모델 선택 목록은 FL2VA 본체 4개(`int8_convrot` 기본 · `bf16` · `pruned_w6a8` · `pruned_nvfp4_all`)로 좁혀 두었다
+- 따옴표로 감싼 글씨는 그대로 그리는 편이다 (시험한 간판·머그·메모 글씨가 모두 맞았다)
+
+**편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
+**놓인 순서대로** 번호를 매기므로, 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면
+3은 빠진다). 채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다. 프롬프트가 `Edit <Picture` 로 시작하지 않으면 앞에 `Edit <Picture 1>.`
+이 붙는다 (ComfyUI 노드 동작).
+
+실측 (RTX PRO 6000 · ComfyUI 0.44.0 · `int8_convrot` · 매번 다른 프롬프트 · vcc 작업 시간 3회 중앙값):
+
+| 구성 | 시간 |
+|---|---|
+| T2I 800만 화소 · 늘려 쓰기 켬 | 19.2초 |
+| T2I 800만 화소(16:9) · 늘려 쓰기 끔 | 15.0초 |
+| T2I 400만 화소 · 늘려 쓰기 켬 | 11.5초 |
+| 편집 400만 화소 · 참조 1장 · 늘려 쓰기 켬 | 26.9초 |
+
+- **H3 영상 판과 번갈아 돌리면 양쪽 다 느려진다** (3회 중앙값, 처음 돌릴 때도 이미지 쪽은 비슷하다) — 영상 작업 바로 뒤의 T2I 800만 화소는 36.3초(이어서 돌리면 19.2초),
+  그 뒤의 영상 작업(FL2V Turbo · 1024×768 · 3초)은 42.8초(이어서 돌리면 32.5초)다. 로그로 보면 본체 파일은 다시 읽지 않고, 상대편의
+  텍스트 인코더·VAE(이미지 쪽은 보강 모듈까지)를 다시 올린다. 본체에 거는 LoRA 방식도 달라(터보 LoRA 는 가중치 패치, P-H3 는 Bypass)
+  본체를 다시 준비한다. 어느 단계가 몇 초인지는 나눠 재지 않았다
+- 본체 4개 모두 400만 화소에서 정상 결과를 확인했다 (각 1회). 본체를 바꾸면 처음 한 번은 본체를 올리느라 느리다
+- Qwen-Image 2.1 판(이미지 서버)은 100만 화소(1024²) 25스텝 4.3초다. 해상도가 8배라 직접 비교는 안 된다
+
 ---
 
 ## LTX-2.5
@@ -594,12 +657,29 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
 ## SaaS 작업판 (`openai/`)
 
 ComfyUI 워크플로가 없는 provider 직결 작업판. `workflowData` 가 비어 있고 모델·크기·품질은 필드로만 정해진다.
+관리자 "새 작업판" 화면의 OpenAI 이미지 시작 양식 셋은 이 판 파일에서 만든 사본이다 — 판 파일을 고치면 `node scripts/sync-workboard-templates.js` 로 다시 만든다 (#1142).
 
 | 파일 | 작업판 | 출력 | 필요한 것 |
 |---|---|---|---|
 | `openai/gpt-image.json` | GPT Image | 이미지 | OpenAI 서버(`serverType: OpenAI`) + API 키 |
+| `openai/gpt-image-2.6.json` | GPT Image 2.6 | 이미지 · SVG 벡터 | 〃 |
+| `openai/gpt-image-2.6-gif.json` | GPT Image 2.6 GIF | GIF 애니메이션 | 〃 + OpenAI 계정의 GIF 미리보기 권한 |
 
-**GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 `full`(작업판 화이트리스트 없음, 서버 모델 목록이 그대로 보인다).
+**GPT-Image-2.5 (2026-09-08)** 대응 — 모델 노출은 **노출 목록**(`gpt-image-2.5-flare` 기본 · `2.5-sunburst` · `2` · `1.5` · `1-mini`, #1136).
+OpenAI 모델은 파일이 아니라 ComfyUI 판처럼 폴더로 거를 수 없어서 노출 목록으로 막는다. 예전 `full` 에서는 영상 모델(`sora-2`)·종료된 `gpt-image-1`·
+가리키는 모델이 바뀌는 `chatgpt-image-latest`·날짜 스냅샷까지 선택 목록에 보였다. 2.6 은 아래 별도 판이다.
+OpenAI 서버의 모델 목록은 관리자 **모델 동기화**로만 새로 고쳐진다 — 새 모델이 선택 목록에 안 보이면 서버 관리에서 동기화한다.
 크기는 권장 3종 + 2K/4K, 품질은 `low~max`. 커스텀 크기 규칙은 각 변 16의 배수 · 비율 1:3~3:1 · 한 변 ≤3840 ·
 총 픽셀 655,360~8,294,400 이며 **2560x1440 초과는 OpenAI 문서상 experimental** 이다.
 4K PNG 는 파일이 8MB 를 넘으므로 `output_format` 을 webp/jpeg 로 두는 편이 낫다 (실측 4K PNG 8.61MB vs 2K webp 2.58MB).
+
+**GPT-Image-2.6 (2026-10-28)** 은 별도 판 둘이다 — 정지 이미지·SVG 는 `GPT Image 2.6`, GIF 는 `GPT Image 2.6 GIF` (#1132, #1142).
+모델 노출은 둘 다 화이트리스트(`gpt-image-2.6-flare` 기본 · `gpt-image-2.6-sunburst`). 2.6 에서 생긴 것:
+- **복잡도** `complexity` (low/medium/high) — 그리기 전 계획량. 판 기본값은 OpenAI 기본값과 같은 high (웹 화면의 선택 칸은 비울 수 없어서 기본값을 명시했다). 값이 있을 때만 요청에 넣어 GPT Image 판의 요청은 예전 그대로다
+- **GIF** — `GPT Image 2.6 GIF` 판 (`frame_count` 2~16 기본 9, `frame_duration_ms` 20~ 기본 200). 크기는 **프레임 한 장의 크기**이고, OpenAI 는 프레임을 정해진 칸 배치의 시트 한 장에 그린다 (2~8장 4×2·2×4, 9장 3×3, 10~12장 3×4·4×3·4×4, 13~16장 4×4). 시트가 일반 크기 규칙(한 변 ≤3840 · ≤8,294,400px)을 지켜야 해서 **정지 이미지 크기(1024² 이상)는 GIF 에서 전부 거절**된다 (실측 2026-11-07, #1132). 그래서 판을 나누고 크기 선택지를 **프레임 수와 상관없이 늘 들어가는 크기**(가로·세로 ≤960 · 넓이 ≤518,400px)만 두었다: 512x512(기본) · 720x720 · 944x528 · 528x944 · 자동. 720x720·944x528 은 16장으로 실제 생성 확인, 528x944 는 배치가 대칭이라 같다고 본다(추정), 자동은 9장에서 512x512 를 골랐다. 배경·압축률 칸은 없다 (GIF 투명 배경은 미확인, 압축률은 API 가 거절)
+- **SVG** — 한 장만(n=1), 압축률 무시. 래스터 참조를 그린 뒤 텍스트 모델이 벡터를 쓴다. 계정에 **작성 모델 선택이 켜져 있으면 `svg.model` 이 필수**라 판에 "SVG 작성 모델" 필드를 두었다 (기본 `gpt-6.1-sol`, 선택 `gpt-5.4-mini` — 같은 프롬프트 1회 비교에서 mini 는 선이 겹치고 어긋났다). 꺼진 계정은 비운다. 응답의 `svg_usage`(작성 모델 토큰)는 단가를 몰라 **비용 추정을 내지 않고** 토큰 수만 남긴다. SVG 파일은 `/api/files` 가 스크립트를 막는 `Content-Security-Policy … sandbox` 헤더로 내보낸다
+
+나눈 까닭: 2.5 이하는 복잡도·GIF·SVG 를 모두 거절하고(실측 2026-11-07 — 새 파라미터가 생긴 경계는 2.6 하나다), OpenAI 판에는 모델이나 출력 포맷에 따라 필드·선택지를 숨기는 장치가 없다. GIF 는 크기의 뜻(프레임 한 장)과 들어가는 크기가 정지 이미지와 달라서 2.6 안에서도 판을 나눴다.
+API·MCP 로 부를 때 빠뜨린 칸은 판의 기본값으로 채운다 (#1142 — 예전에는 GIF 판도 출력 포맷이 빠지면 png 로 갔다).
+품질 `xhigh` 는 2.6-flare 에서 실제로 된다 (API 레퍼런스는 2.5 전용이라고 적지만 가이드가 맞았다, 실호출 2026-11-07). `max` 는 시험하지 않았다.
+같은 1024² · low 에서 출력 토큰은 2.6-flare(복잡도 low) 824 대 2.5-flare 196 — **2.6 은 같은 설정에서 비용이 약 4배**다 (각 1회).

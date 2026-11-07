@@ -217,8 +217,13 @@ const fetchCivitaiMetadataByHash = async (hash, apiKey = null, retryCount = 0) =
 const inferOpenAIOutputFormats = (modelId) => {
   if (!modelId || typeof modelId !== 'string') return [];
   const id = modelId.toLowerCase();
-  // image 생성 (DALL-E, GPT-Image, sora 등)
-  if (id.startsWith('dall-e') || id.includes('gpt-image') || id.startsWith('sora')) {
+  // 영상 생성 (sora) — 예전엔 image 로 봐서 이미지 판 선택 목록에 sora-2 가 떴다 (#1139).
+  // vcc 의 OpenAI 서버는 image·text 만 지원하므로 video 로 두면 어느 판에도 안 보인다
+  if (id.startsWith('sora')) {
+    return ['video'];
+  }
+  // image 생성 (DALL-E, GPT-Image — chatgpt-image-latest 포함)
+  if (id.startsWith('dall-e') || id.includes('gpt-image')) {
     return ['image'];
   }
   // text/chat 모델

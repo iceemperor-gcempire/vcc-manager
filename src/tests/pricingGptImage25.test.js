@@ -19,7 +19,7 @@ describe('computeOpenAIImageCost — GPT-Image-2.5 (#943)', () => {
       // 출력 205토큰 × $30/1M = $0.00615, 입력 31토큰 × $5/1M = $0.000155
       expect(c.breakdown.output).toBeCloseTo(0.00615, 6);
       expect(c.breakdown.inputText).toBeCloseTo(0.000155, 6);
-      expect(c.pricingVersion).toBe('2026-09');
+      expect(c.pricingVersion).toBe('2026-11');
     }
   });
 
@@ -32,6 +32,13 @@ describe('computeOpenAIImageCost — GPT-Image-2.5 (#943)', () => {
 
   test('gpt-image-2 스냅샷도 마찬가지 (회귀 방지)', () => {
     expect(computeOpenAIImageCost('gpt-image-2-2026-04-21', usage)).not.toBeNull();
+  });
+
+  test('GPT-Image-2.6 두 모델도 2.5 와 같은 단가 (#1132)', () => {
+    const base = computeOpenAIImageCost('gpt-image-2.5-flare', usage);
+    for (const model of ['gpt-image-2.6-flare', 'gpt-image-2.6-sunburst']) {
+      expect(computeOpenAIImageCost(model, usage).amount).toBe(base.amount);
+    }
   });
 
   test('모르는 모델은 여전히 null', () => {

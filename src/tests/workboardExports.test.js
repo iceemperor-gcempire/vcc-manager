@@ -142,10 +142,26 @@ describe('workboards/ 배포 산출물', () => {
       // 시프트는 모델의 시그마 표에 걸리고, 스케줄러(BasicScheduler 등)가 그 표에서 시그마를 뽑는다.
       // ManualSigmas 값은 그대로 샘플러로 가서 시프트를 건너뛴다. FastH3 V2 판이 학습 계단(시프트 전 값)을
       // 이렇게 넣어 학습과 다른 스케줄로 돌았다. LTX 증류판처럼 시프트 노드 없이 확정 시그마를 쓰는 판은 대상이 아니다.
+      // 시프트 1.0 은 항등이라 시그마 표를 바꾸지 않는다 — P-H3-Image 공식 워크플로처럼 시프트를 1.0 으로 고정하고
+      // 확정 시그마를 넣는 판도 대상이 아니다 (#1121). 값이 자리표시자면 사용자가 바꿀 수 있으니 시프트로 본다.
       const classTypes = Object.values(workflow).map((n) => n.class_type);
-      const shifted = classTypes.some((t) => /SigmaShift|^ModelSampling/.test(t));
+      const isIdentityShift = (n) => {
+        const shifts = Object.entries(n.inputs || {}).filter(([k]) => /shift/i.test(k)).map(([, v]) => v);
+        return shifts.length > 0 && shifts.every((v) => v === 1);
+      };
+      const shifted = Object.values(workflow)
+        .some((n) => /SigmaShift|^ModelSampling/.test(n.class_type) && !isIdentityShift(n));
       if (!shifted) return;
       expect(classTypes).not.toContain('ManualSigmas');
+    });
+
+    it('MiniMax H3 를 쓰는 판은 설명에 "Powered by MiniMax H3" 고지가 있다 (#1124)', () => {
+      // H3 커뮤니티 라이선스 3-a 의 고지. H3 노드(MiniMaxH3*·PH3*)나 H3 가중치(minimax_h3*)를 쓰면 대상이다 —
+      // 업샘플러 판처럼 H3 노드 없이 H3 가중치만 쓰는 판도 있어 둘 다 본다. MiniMax Music 은 H3 가 아니다.
+      const source = wb.workflowData + JSON.stringify(fields);
+      const usesH3 = /"class_type":\s*"(MiniMaxH3|PH3)|minimax_h3/i.test(source);
+      if (!usesH3) return;
+      expect(wb.description).toContain('Powered by MiniMax H3');
     });
   });
 });

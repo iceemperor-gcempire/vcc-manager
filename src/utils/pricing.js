@@ -3,8 +3,8 @@
 // 단가는 \$/1M tokens 단위. 갱신 시 PRICING_VERSION 도 함께 올려야 과거 저장된
 // 추정치가 \"어느 시점의 단가로 계산됐는지\" 추적 가능.
 
-// 가격표는 2026-09 기준 (GPT-Image-2.5 추가). 출처: https://developers.openai.com/api/docs/pricing
-const PRICING_VERSION = '2026-09';
+// 가격표는 2026-11 기준 (GPT-Image-2.6 추가 — 단가는 2.5 와 같다). 출처: https://developers.openai.com/api/docs/pricing
+const PRICING_VERSION = '2026-11';
 
 // 단위: USD per 1,000,000 tokens
 const OPENAI_IMAGE_PRICING = {
@@ -40,6 +40,20 @@ const OPENAI_IMAGE_PRICING = {
     output: 30,
   },
   'gpt-image-2.5-sunburst': {
+    input_text: 5,
+    input_image: 8,
+    input_image_cached: 2,
+    output: 30,
+  },
+  // GPT-Image-2.6 (2026-10-28, #1132). 모델 페이지 단가가 2.5 와 같다.
+  // SVG 출력의 작성 모델 토큰(svg_usage)은 여기 단가로 계산되지 않는다 — 호출부가 추정을 내지 않는다
+  'gpt-image-2.6-flare': {
+    input_text: 5,
+    input_image: 8,
+    input_image_cached: 2,
+    output: 30,
+  },
+  'gpt-image-2.6-sunburst': {
     input_text: 5,
     input_image: 8,
     input_image_cached: 2,

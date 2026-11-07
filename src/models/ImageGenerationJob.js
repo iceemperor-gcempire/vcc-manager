@@ -98,6 +98,8 @@ const imageGenerationJobSchema = new mongoose.Schema({
     inputImageTokens: Number,
     outputTokens: Number,
     totalTokens: Number,
+    // GPT Image 2.6 SVG 의 작성 모델 토큰 (#1132). 단가를 몰라 costEstimate 에는 넣지 않는다
+    svgAuthoringTokens: Number,
   },
   // 자체 가격표 (src/utils/pricing.js) 로 산출한 비용 추정 (#364)
   costEstimate: {
