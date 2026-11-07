@@ -54,7 +54,7 @@ VCC Manager 의 백엔드 / 프론트엔드 / MCP 서버 구조와 핵심 모듈
 | 모듈 | 위치 | 역할 |
 | --- | --- | --- |
 | 인증 컨텍스트 | `frontend/src/contexts/AuthContext.js` | 전역 사용자 상태, 토큰 관리 |
-| 작업판 템플릿 | `frontend/src/templates/` | `<serverType>-<outputFormat>.json` + `index.js` 로더 + `capabilities.js` (capability matrix) (v1.8.0) |
+| 작업판 템플릿 | `frontend/src/templates/` | `<serverType>-<outputFormat>.json` + `index.js` 로더 + `capabilities.js` (capability matrix) (v1.8.0). 한 조합에 여럿이면 `index.js` 에 배열로 등록하고 만들기 화면이 "시작 양식" 으로 고르게 한다. 배포용 판 파일과 같은 템플릿(OpenAI 이미지)은 `node scripts/sync-workboard-templates.js` 가 `workboards/` 에서 만든다 — 손으로 고치지 않는다 (#1142) |
 | 관리자 작업판 편집 | `frontend/src/components/admin/WorkboardManagement.js` | 작업판 생성·편집, 템플릿 기반 폼 |
 | 공통 컴포넌트 | `frontend/src/components/common/` | 13개 공통 다이얼로그/패널 (root `CLAUDE.md` "공통 컴포넌트 활용" 참고) |
 
@@ -70,6 +70,7 @@ frontend(`frontend/src/templates/capabilities.js`)와 mcp-server(`mcp-server/src
 3. `src/services/queueService.js` 에 provider service 핸들러 작성 + `SERVICE_MAP` 에
    `'<타입>:<format>'` 키 연결 (image/video capability 는 핸들러가 없으면 테스트 실패)
 4. `frontend/src/templates/<타입>-<format>.json` 템플릿 작성 + `index.js` `TEMPLATES` 에 등록
+   (배포용 판 파일이 있으면 `scripts/sync-workboard-templates.js` 의 `TEMPLATE_SOURCES` 에 넣어 생성한다)
    (capability 조합마다 템플릿 필요 — 테스트로 검증)
 5. `npx jest` — `serverTypesSingleSource.test.js` (capability↔SERVICE_MAP 정합)
    + `serverTypesMirror.test.js` (mirror 동기화·템플릿 커버리지) 통과 확인

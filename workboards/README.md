@@ -657,6 +657,7 @@ v4.11.0 의 판은 커스텀 노드 `moss-image` 와 HF 조각을 직접 합친 
 ## SaaS 작업판 (`openai/`)
 
 ComfyUI 워크플로가 없는 provider 직결 작업판. `workflowData` 가 비어 있고 모델·크기·품질은 필드로만 정해진다.
+관리자 "새 작업판" 화면의 OpenAI 이미지 시작 양식 셋은 이 판 파일에서 만든 사본이다 — 판 파일을 고치면 `node scripts/sync-workboard-templates.js` 로 다시 만든다 (#1142).
 
 | 파일 | 작업판 | 출력 | 필요한 것 |
 |---|---|---|---|

@@ -31,8 +31,9 @@ function WorkboardCreatePage() {
   const handleSave = (data) => {
     const serverType = data.serverType || 'ComfyUI';
     const outputFormat = data.outputFormat || 'image';
-    const template = getWorkboardTemplate(serverType, outputFormat);
-    const { serverType: _omit, ...rest } = data;
+    // 템플릿 고르기(#1142)는 화면 상태라 작업판 데이터로 보내지 않는다
+    const template = getWorkboardTemplate(serverType, outputFormat, data.templateId);
+    const { serverType: _omit, templateId: _templateId, ...rest } = data;
     const workboardData = {
       ...rest,
       outputFormat,

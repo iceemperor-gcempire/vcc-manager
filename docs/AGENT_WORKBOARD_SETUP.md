@@ -39,7 +39,7 @@ vcc() { curl -sS -H "X-API-Key: $VCC_API_KEY" -H 'Content-Type: application/json
 |---|---|
 | 서버 종류 이름·지원 출력 형식·연결 확인 경로 | `src/constants/serverTypes.js` (단일 출처) |
 | 바로 가져다 쓰는 완성 작업판 (ComfyUI 워크플로 포함) | `workboards/` 와 그 `README.md` (필요한 모델·노드) |
-| 새 작업판의 기본 입력 칸 (서버 종류 × 출력 형식) | `frontend/src/templates/<serverType>-<outputFormat>.json` |
+| 새 작업판의 기본 입력 칸 (서버 종류 × 출력 형식) | `frontend/src/templates/<serverType>-<outputFormat>.json` — 같은 조합에 여럿이면 `<serverType>-<outputFormat>-<이름>.json` 이 더 있다 (예: OpenAI 이미지는 2.5 이하 · 2.6 · 2.6 GIF). 목록은 `index.js` |
 | ComfyUI 워크플로를 작업판으로 만드는 법 | [COMFYUI_WORKFLOW_AUTHORING.md](COMFYUI_WORKFLOW_AUTHORING.md) |
 | 요청 목록 전체 | [API.md](API.md) |
 
