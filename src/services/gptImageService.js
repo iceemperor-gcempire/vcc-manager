@@ -26,7 +26,7 @@ const QUALITY_VALUES = ['auto', 'low', 'medium', 'high', 'xhigh', 'max'];
 
 // GPT Image 2.6 (2026-10-28) 에서 생긴 것 (#1132).
 // complexity 는 값이 있을 때만 보낸다 — 2.5 이하 판의 요청은 예전 그대로다.
-// gif·svg 는 2.6 판에서만 고를 수 있다 (2.5 가 받는지는 문서에 없다).
+// 2.5 이하는 complexity·gif·svg 를 모두 거절한다 (실측 2026-11-07). gif 는 GPT Image 2.6 GIF 판, svg 는 2.6 판에서만 고른다 (#1142).
 const COMPLEXITY_VALUES = ['low', 'medium', 'high'];
 const OUTPUT_FORMATS = ['png', 'jpeg', 'webp', 'gif', 'svg'];
 // 레퍼런스는 frame_duration_ms 최소값만 적는다 (가이드의 2000ms 상한은 판 설명에만 둔다).
