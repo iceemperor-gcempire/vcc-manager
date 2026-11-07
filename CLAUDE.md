@@ -348,7 +348,7 @@ pnpm run test:e2e:headed
 - Server 는 provider 단위 (`OpenAI` / `OpenAI Compatible` / `Gemini` / `ComfyUI`)
 - **serverType 목록·capability·헬스체크 spec 의 단일 source 는 `src/constants/serverTypes.js`** (#745). `frontend/src/templates/capabilities.js` 와 `mcp-server/src/constants/serverTypes.js` 는 **생성된 mirror — 직접 수정 금지**, backend 상수 수정 후 `node scripts/sync-server-type-mirrors.js` 재실행 (어긋나면 `serverTypesMirror.test.js` 실패). 신규 provider 추가 절차는 `docs/DEVELOPMENT.md` "신규 serverType 추가 절차" 참고
 - Workboard 는 (server, outputFormat) 조합으로 capability 결정. legacy `apiFormat` 필드는 v2.0 (Phase 6) 에서 완전 제거
-- 신규 작업판 템플릿은 `frontend/src/templates/<serverType>-<outputFormat>.json` + `index.js` 로더 + `capabilities.js` (generated capability matrix · 라벨 헬퍼) 로 정의
+- 신규 작업판 템플릿은 `frontend/src/templates/<serverType>-<outputFormat>.json` + `index.js` 로더 + `capabilities.js` (generated capability matrix · 라벨 헬퍼) 로 정의. 한 조합에 여럿이면 배열로 등록(첫 항목이 기본, 만들기 화면이 고르게 함). **배포용 판 파일과 같은 템플릿은 `node scripts/sync-workboard-templates.js` 가 `workboards/` 에서 생성** — 판 파일을 고치면 재실행 (어긋나면 `workboardTemplatesMirror.test.js` 실패, #1142)
 - 백엔드 라우팅은 `services/queueService.js` 의 `SERVICE_MAP[(serverType, outputFormat)]` dispatcher 가 단일 진입점
 - `routes/jobs.js` prompt-generate 는 `server.serverType` 기반으로 `geminiService.complete` / `openAIChatService.complete` 분기
 
