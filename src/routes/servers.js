@@ -420,18 +420,10 @@ router.get('/:id/models', requireAuth, async (req, res) => {
 
     // 캐시가 없거나 forceRefresh 면 ComfyUI 에서 lightweight (filename only) 재조회.
     // 메타데이터 (hash / Civitai) 는 별도 POST /models/sync 로만 채워짐.
+    // 두 폴더를 다 읽는다 — 체크포인트만 읽어 덮어쓰면 diffusion 모델(H3 등)이 캐시에서 빠진다 (#1150)
     if (!cache || forceRefresh) {
-      const filenames = await modelMetadataService.getCheckpointFilenames(server.serverUrl);
-      const existingByFilename = {};
-      if (cache) {
-        for (const m of cache.models) existingByFilename[m.filename] = m;
-      }
-      const updatedModels = filenames.map(filename => existingByFilename[filename] || {
-        filename,
-        hash: null,
-        hashError: null,
-        civitai: { found: false }
-      });
+      const entries = await modelMetadataService.getModelFileEntries(server.serverUrl);
+      const updatedModels = modelMetadataService.mergeModelFileEntries(cache ? cache.models : [], entries);
 
       cache = await ServerModelCache.findOneAndUpdate(
         { serverId: server._id },

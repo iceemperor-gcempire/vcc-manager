@@ -75,6 +75,34 @@ const getDiffusionModelFilenames = async (serverUrl) => {
 };
 
 /**
+ * 두 폴더(checkpoints · diffusion_models)의 파일 이름을 source 를 붙여 가져온다 (#410).
+ * 캐시를 새로 만들거나 이름만 다시 읽을 때 쓴다 — 한쪽만 읽으면 다른 쪽이 캐시에서 빠진다 (#1150).
+ */
+const getModelFileEntries = async (serverUrl) => {
+  const checkpointFilenames = await getCheckpointFilenames(serverUrl);
+  const diffusionFilenames = await getDiffusionModelFilenames(serverUrl);
+  return [
+    ...checkpointFilenames.map((filename) => ({ filename, source: 'checkpoints' })),
+    ...diffusionFilenames.map((filename) => ({ filename, source: 'diffusion_models' })),
+  ];
+};
+
+/**
+ * 다시 읽은 파일 목록을 캐시 항목과 합친다 (#1150).
+ * 같은 (source, filename) 의 기존 항목은 해시·Civitai 정보째 그대로 두고, 새 파일은 빈 메타데이터로 넣는다.
+ * 목록에 없는 항목은 빠진다. source 가 없는 옛 항목은 checkpoints 로 본다 (전체 동기화와 같은 규칙).
+ */
+const mergeModelFileEntries = (existingModels, entries) => {
+  const existing = {};
+  for (const m of existingModels || []) {
+    const item = typeof m.toObject === 'function' ? m.toObject() : m;
+    existing[`${item.source || 'checkpoints'}:${item.filename}`] = item;
+  }
+  return entries.map(({ filename, source }) => existing[`${source}:${filename}`]
+    || { filename, source, hash: null, hashError: null, civitai: { found: false } });
+};
+
+/**
  * VCC File Hash 커스텀 노드 설치 여부 확인.
  * 신규 `/file-hash/ping` 우선, 실패 시 legacy `/lora-hash/ping` 으로 fallback
  * (사용자가 아직 노드 업데이트 전인 경우라도 LoRA 가 동작하도록).
@@ -545,12 +573,7 @@ const getServerCheckpoints = async (serverId, serverUrl) => {
 
   if (!cache) {
     try {
-      const checkpointFilenames = await getCheckpointFilenames(serverUrl);
-      const diffusionFilenames = await getDiffusionModelFilenames(serverUrl);
-      const models = [
-        ...checkpointFilenames.map((filename) => ({ filename, source: 'checkpoints', hash: null, civitai: { found: false } })),
-        ...diffusionFilenames.map((filename) => ({ filename, source: 'diffusion_models', hash: null, civitai: { found: false } })),
-      ];
+      const models = mergeModelFileEntries([], await getModelFileEntries(serverUrl));
 
       const hashNodeAvailable = await checkVccFileHashNodeAvailable(serverUrl);
 
@@ -743,6 +766,8 @@ const searchServerModels = async (serverId, { search, hasMetadata, baseModel, al
 module.exports = {
   getCheckpointFilenames,
   getDiffusionModelFilenames,
+  getModelFileEntries,
+  mergeModelFileEntries,
   getModelHash,
   checkVccFileHashNodeAvailable,
   getCheckpointHash,
