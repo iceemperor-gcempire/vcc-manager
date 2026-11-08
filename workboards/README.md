@@ -324,13 +324,14 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 
 | 판 | 파일 (`diffusion_models/minimax/`) | 샘플링 |
 |---|---|---|
-| **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · simple · 시프트 12/3, 터보 LoRA 없음 |
+| **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · beta57 · 시프트 12/3, 터보 LoRA 없음 |
 | **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | R2V (Pika Flex) 판과 같은 6스텝 고정 시그마 · lcm, Pika LoRA 없음 |
 
 - 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
 - **가속·Pika 가 이미 병합돼 있어 LoRA 를 걸지 않는다.** R2V (Turbo)·(Pika Flex) 판에서 LoRA 노드만 뺀 구성이다. 모델 선택 목록을 그 병합본 하나로 좁혀
   둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
-- 모델 카드는 PRISM 에 beta57 스케줄러를 권하지만, beta57 은 RES4LYF 커스텀 노드팩이 있어야 해서 ComfyUI 기본 `simple` 을 쓴다. 알파 비교(1회)에서 둘은 거의 같은 그림이었다
+- 스케줄러는 모델 카드 권장 beta57 이다. beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다
+  (기본값 0.6·0.6). 판은 ComfyUI 기본 노드 `BetaSamplingScheduler` 에 이 두 값을 넣어 같은 시그마를 만든다 — 노드팩이 필요 없다
 - **프롬프트에서 참조를 태그로 불러야 한다.** 참조를 `<Picture 1>` 처럼 부르고 이어받을 특징을 글로도 적은 Ref2VA 형식에서는 두 판 모두 참조를 지켰다.
   태그도 설명도 없는 기본 형식 프롬프트에서는 참조를 거의 따르지 않았다 (공식 모델은 지켰다). AI 프롬프트 생성은 이 형식으로 써 준다
 - 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
