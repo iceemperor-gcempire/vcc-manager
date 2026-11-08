@@ -1,4 +1,4 @@
-const { applyOmitDirectives, isFalsy } = require('../utils/workflowDirectives');
+const { applyOmitDirectives, isFalsy, getSupportedBuiltinInputs } = require('../utils/workflowDirectives');
 
 // #771 — 조건부 입력 생략.
 // autogrow 슬롯(ref_images.ref_image_N)을 요청 단위로 없애기 위한 기능이라,
@@ -519,5 +519,50 @@ describe('끊긴 상류 노드 제거 (#1102)', () => {
       104: { class_type: 'X', inputs: { a: ['999', 0] }, _vcc: { omitInputsUnless: { a: 0 } } },
     });
     expect(pruned).toEqual([]);
+  });
+});
+
+describe('getSupportedBuiltinInputs — LoRA 칸 (#1155)', () => {
+  // LoRA 칸은 프롬프트에 태그를 넣는다. 태그를 읽는 LoRA 태그 로더가 있을 때만 띄운다
+  const wf = (nodes) => JSON.stringify(nodes);
+  const promptNode = { class_type: 'CLIPTextEncode', inputs: { text: '{{##prompt##}}' } };
+
+  test('LoRA 태그 로더가 있으면 표시', () => {
+    const data = wf({ 1: { class_type: 'LoraTagLoader', inputs: { text: '{{##prompt##}}' } } });
+    expect(getSupportedBuiltinInputs(data).lora).toBe(true);
+  });
+
+  test('다른 LoRA 노드만 있으면 숨김 — H3 판의 고정 가속 LoRA', () => {
+    const data = wf({
+      1: promptNode,
+      210: { class_type: 'LoraLoaderModelOnly', inputs: { model: ['6', 0], lora_name: 'turbo.safetensors' } },
+    });
+    expect(getSupportedBuiltinInputs(data).lora).toBe(false);
+  });
+
+  test('LoRA 노드가 없으면 숨김', () => {
+    expect(getSupportedBuiltinInputs(wf({ 1: promptNode })).lora).toBe(false);
+  });
+
+  test('lora 타입 입력 칸이 있어도 태그 로더가 없으면 숨김 — 입력 칸은 자기 선택 칸이 있다', () => {
+    const data = wf({
+      1: promptNode,
+      214: { class_type: 'LoraLoaderModelOnly', inputs: { model: ['210', 0], lora_name: '{{##style_lora##}}' } },
+    });
+    expect(getSupportedBuiltinInputs(data).lora).toBe(false);
+  });
+
+  test('JSON 으로 안 읽히는 판(따옴표 없는 숫자 자리표시자)도 같은 기준', () => {
+    const tagged = '{"3":{"inputs":{"seed": {{##seed##}}},"class_type":"KSampler"},'
+      + '"10":{"inputs":{"text":"{{##prompt##}}"},"class_type": "LoraTagLoader"}}';
+    const untagged = '{"3":{"inputs":{"seed": {{##seed##}}},"class_type":"KSampler"},'
+      + '"10":{"inputs":{"lora_name":"a.safetensors"},"class_type":"LoraLoaderModelOnly"}}';
+    expect(getSupportedBuiltinInputs(tagged)).toMatchObject({ lora: true, seed: true, prompt: true });
+    expect(getSupportedBuiltinInputs(untagged).lora).toBe(false);
+  });
+
+  test('워크플로가 없는 API 판은 숨김', () => {
+    expect(getSupportedBuiltinInputs('').lora).toBe(false);
+    expect(getSupportedBuiltinInputs(undefined).lora).toBe(false);
   });
 });
