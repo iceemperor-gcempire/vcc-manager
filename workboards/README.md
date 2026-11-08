@@ -30,10 +30,11 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
-| MiniMax H3 판 8개(FL2V·R2V·키프레임) · P-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
+| MiniMax H3 판 10개(FL2V·R2V·키프레임) · P-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
 H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
 P-H3-Image 판은 모델 선택 목록을 FL2VA 본체 4개로 좁혀 두었다 (허용 목록 — 아래 「P-H3-Image」).
+R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 모델 하나로 좁혀 두었다 (허용 목록 — 아래 「PRISM 병합 모델」).
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
@@ -72,6 +73,8 @@ LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099)
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
+| `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
 | `comfyui/text-to-image-p-h3-image.json` | Text to Image - P-H3-Image | 이미지 ×1 · 800만/400만 화소 · 비율 7가지 · **프롬프트 늘려 쓰기**(기본 켬) · 프롬프트 속 글씨 | H3 FL2VA 본체(`minimax/minimax_h3_fl2va_int8_convrot`) + P-H3-Image LoRA·텍스트 인코더·보강 모듈·VAE (아래 「P-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.44.0 에서 확인. 800만 화소 약 19초 |
 | `comfyui/image-edit-p-h3-image.json` | Image Edit - P-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 400만/800만 화소 · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 400만 화소 참조 1장 약 27초 |
 
@@ -312,6 +315,27 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - Pika Flex 판은 Turbo 기본값보다 약 10초 빠르다. 정지 화면으로 보면 FL2V 는 카메라·동작이 크고, R2V 는 카메라가 차분했다
 - 끝의 대사 한 줄은 30개 중 29개에서 그대로 들렸고, 소리 크기(−12~−14 LUFS)는 구성 사이에 차이가 없었다
 - 시작·끝 프레임, 키프레임 앵커 ①②③ 을 넣은 경우에도 합본 4step 이 lightx2v 4step 만큼 앵커를 지켰다 (앵커 위치 SSIM 0.97 · 0.93 · 0.97, 대조군과 같음)
+
+### PRISM 병합 모델 — R2V 판 2개 (커뮤니티)
+
+[🤗 OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM) 의 커뮤니티 병합 모델 두 개로 만든 R2V 판이다.
+원본은 [Singularity](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity)(ref2va v2 미세조정)와 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max)(8step turbo)다.
+저장소에는 변형이 11개 있고, 판은 아래 두 파일만 쓴다.
+
+| 판 | 파일 (`diffusion_models/minimax/`) | 샘플링 |
+|---|---|---|
+| **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · simple · 시프트 12/3, 터보 LoRA 없음 |
+| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | R2V (Pika Flex) 판과 같은 6스텝 고정 시그마 · lcm, Pika LoRA 없음 |
+
+- 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
+- **가속·Pika 가 이미 병합돼 있어 LoRA 를 걸지 않는다.** R2V (Turbo)·(Pika Flex) 판에서 LoRA 노드만 뺀 구성이다. 모델 선택 목록을 그 병합본 하나로 좁혀
+  둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
+- 모델 카드는 PRISM 에 beta57 스케줄러를 권하지만, beta57 은 RES4LYF 커스텀 노드팩이 있어야 해서 ComfyUI 기본 `simple` 을 쓴다. 알파 비교(1회)에서 둘은 거의 같은 그림이었다
+- **프롬프트에서 참조를 태그로 불러야 한다.** 참조를 `<Picture 1>` 처럼 부르고 이어받을 특징을 글로도 적은 Ref2VA 형식에서는 두 판 모두 참조를 지켰다.
+  태그도 설명도 없는 기본 형식 프롬프트에서는 참조를 거의 따르지 않았다 (공식 모델은 지켰다). AI 프롬프트 생성은 이 형식으로 써 준다
+- 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
+- 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
+  표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
 
 ### 길이 · 해상도 제약
 
