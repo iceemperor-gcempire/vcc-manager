@@ -56,7 +56,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `DELETE` | `/servers/:id` | 서버 삭제 | **Admin** |
 | `POST` | `/servers/:id/health-check` | 단일 서버 헬스체크 | **Admin** |
 | `POST` | `/servers/health-check/all` | 전체 서버 헬스체크 | **Admin** |
-| `GET` | `/servers/:id/models` | 서버 모델 목록 (ComfyUI: 체크포인트, OpenAI: `/v1/models`) | Yes |
+| `GET` | `/servers/:id/models` | 서버 모델 목록 (ComfyUI: 체크포인트 + diffusion_models, OpenAI: `/v1/models`). `?refresh=true` 는 두 폴더의 파일 이름을 다시 읽고 해시·Civitai 정보는 그대로 둔다 (#1150) | Yes |
 | `GET` | `/servers/:id/loras` | 서버 LoRA 목록 | Yes |
 | `POST` | `/servers/:id/loras/sync` | LoRA 동기화 시작 | **Admin** |
 | `GET` | `/servers/:id/loras/status` | LoRA 동기화 상태 | Yes |
