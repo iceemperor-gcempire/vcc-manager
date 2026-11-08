@@ -134,3 +134,41 @@ describe('POST /api/jobs/:id/retry — LoRA 폴더 (#1099)', () => {
     expect(addImageGenerationJob).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('LoRA 선택 칸 값 — 폴더 (#1157)', () => {
+  const styleField = { name: 'style_lora', label: '스타일 LoRA', type: 'lora' };
+  const fieldWb = { ...wb, allowedLoraFolders: ['style/minimax/fl2va/'], additionalInputFields: [styleField] };
+  const REF = 'style\\Minimax\\ref2va\\Mystic-ref2va.safetensors';
+  const FL = 'style\\Minimax\\fl2va\\Mystic.safetensors';
+  beforeEach(() => { Workboard.findById.mockImplementation(() => wbQuery(fieldWb)); });
+
+  const generateWith = (style_lora) => request(app).post('/api/jobs/generate')
+    .send({ workboardId: 'wb-1', prompt: 'x', additionalParams: { style_lora } });
+
+  test('폴더 밖 칸 값 → 400, 작업을 만들지 않는다', async () => {
+    const res = await generateWith(REF);
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('스타일 LoRA');
+    expect(res.body.message).toContain('style/minimax/fl2va/');
+    expect(addImageGenerationJob).not.toHaveBeenCalled();
+  });
+
+  test('폴더 안 칸 값·빈 칸 → 작업을 만든다', async () => {
+    expect((await generateWith(FL)).status).toBe(201);
+    expect((await generateWith('')).status).toBe(201);
+    expect(addImageGenerationJob).toHaveBeenCalledTimes(2);
+  });
+
+  test('나중에 바뀐 폴더 밖의 예전 작업은 재시도로도 통과하지 않는다', async () => {
+    const job = {
+      _id: 'job-2', userId: 'user-1', workboardId: 'wb-1', status: 'failed',
+      inputData: { prompt: 'x', additionalParams: { style_lora: REF } },
+      canRetry: () => true, incrementRetry: jest.fn(async () => {}),
+    };
+    ImageGenerationJob.findById.mockResolvedValue(job);
+    const res = await request(app).post('/api/jobs/job-2/retry');
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('스타일 LoRA');
+    expect(job.incrementRetry).not.toHaveBeenCalled();
+  });
+});

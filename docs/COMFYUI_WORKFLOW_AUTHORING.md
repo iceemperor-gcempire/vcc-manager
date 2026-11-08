@@ -374,7 +374,7 @@ falsy 판정은 `""` · `"0"` · `"false"` 문자열도 포함하므로, "없음
 | `video` | 업로드된 파일명 | `_attached` 자동 제공. `VHS_LoadVideo` 등에서 소비 |
 | `audio` | 업로드된 파일명 | `_attached` 자동 제공. `LoadAudio` 등에서 소비 (#772) |
 | `baseModel` | 모델 파일명 / ID | 서버 모델 목록에서 선택 |
-| `lora` | LoRA 파일명 | |
+| `lora` | LoRA 파일명 | 판의 허용 LoRA 폴더로 선택 목록을 거르고, 폴더 밖 값은 실행 전에 거절한다. 비워 둘 수 있게 하려면 LoRA 노드에 `_vcc.bypassUnless`(3.5)를 건다 |
 
 ### 4.2 select 옵션 키는 `options` 다
 
