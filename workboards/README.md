@@ -39,9 +39,17 @@ R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 �
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
 
-LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099). 지금은 MOSS-Image 두 판만 `style/openmoss/` 로 정해 두었다 —
-다른 계열 LoRA 는 MOSS 에서 오류 없이 무시되어, 고른 LoRA 가 안 걸린 줄 모르고 지나가기 쉽다. LoRA 를 다른 폴더에 두었다면
-작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
+LoRA 도 같은 방식으로 **허용 LoRA 폴더**를 정할 수 있다 (#1099). 그 폴더의 LoRA 만 선택 목록에 나오고, 프롬프트 태그나
+LoRA 선택 칸에 다른 폴더의 LoRA 를 넣으면 실행이 거절된다 (#1157). 다른 계열 LoRA 는 ComfyUI 가 오류 없이 무시해,
+고른 LoRA 가 안 걸린 줄 모르고 지나가기 쉬워서다.
+
+| 판 | 허용 LoRA 폴더 |
+|---|---|
+| Text to Image - MOSS-Image · MOSS-Image (빠름) | `style/openmoss/` |
+| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
+| MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) · R2V (PRISM+Pika) | `style/Minimax/ref2va/` |
+
+LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
 
 ---
 
@@ -328,7 +336,7 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 | **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | R2V (Pika Flex) 판과 같은 6스텝 고정 시그마 · lcm, Pika LoRA 없음 |
 
 - 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
-- **가속·Pika 가 이미 병합돼 있어 LoRA 를 걸지 않는다.** R2V (Turbo)·(Pika Flex) 판에서 LoRA 노드만 뺀 구성이다. 모델 선택 목록을 그 병합본 하나로 좁혀
+- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V (Turbo)·(Pika Flex) 판에서 가속 LoRA 노드만 뺀 구성이다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
   둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
 - 스케줄러는 모델 카드 권장 beta57 이다. beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다
   (기본값 0.6·0.6). 판은 ComfyUI 기본 노드 `BetaSamplingScheduler` 에 이 두 값을 넣어 같은 시그마를 만든다 — 노드팩이 필요 없다
@@ -337,6 +345,26 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
 - 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
   표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
+
+### 스타일 LoRA — 판 8개의 선택 칸
+
+FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)
+판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
+
+- **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
+- **LoRA 는 본체 계열별 폴더에 둔다.** H3 LoRA 는 FL2VA 본체용과 REF2VA 본체용이 따로 나온다 (같은 Civitai 버전에 파일 두 개가
+  함께 올라오기도 한다). LoRA 종류나 파일 이름으로는 가를 수 없어 폴더로 가른다
+
+  | 둘 곳 (`loras/`) | 쓰는 판 |
+  |---|---|
+  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) |
+  | `style/Minimax/ref2va/` | R2V 판 5개 |
+
+  파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다
+- 걸리는 자리: 가속 LoRA(터보·Pika 합본)가 있는 판은 그 뒤, 없는 판(PRISM·FastH3)은 본체 바로 뒤다. 시그마 시프트보다 앞이다.
+  R2V 판의 H3 업샘플러 단계에는 걸지 않는다 — 터보 LoRA 도 그 단계에는 걸지 않는다
+- 프롬프트에 `<lora:이름:가중치>` 태그를 적어도 H3 판에서는 걸리지 않는다. 이 판들의 워크플로에는 태그를 읽는 LoRA 태그 로더가 없고,
+  그래서 생성 화면에 "LoRA 추가" 칸도 뜨지 않는다 (#1155). LoRA 는 이 선택 칸으로 건다
 
 ### 길이 · 해상도 제약
 
