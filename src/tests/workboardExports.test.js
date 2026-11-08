@@ -120,8 +120,14 @@ describe('workboards/ 배포 산출물', () => {
       expect(baseModel).toBeDefined();
 
       // 파일명 표기는 fl2va / ref2va 처럼 접미가 붙는다 — 계열 토큰만 확인한다
+      // 이름에 계열 토큰이 없는 커뮤니티 병합본은 파일 헤더가 밝힌 원본 계열로 따로 적는다
+      // (#1148 — PRISM 병합본 헤더의 source_a 가 Singularity ref2va v2)
+      const FAMILY_BY_FILE = {
+        'prism_dmad_pdmd_int8.safetensors': 'ref2v',
+        '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors': 'ref2v',
+      };
       const filename = String(baseModel.defaultValue).split('\\').pop().toLowerCase();
-      expect(filename).toMatch(new RegExp(tokens.join('|')));
+      expect(FAMILY_BY_FILE[filename] || filename).toMatch(new RegExp(tokens.join('|')));
     });
 
     it('AI 프롬프트 생성 지침의 정렬 초가 길이 선택지와 맞는다 (#1111)', () => {
