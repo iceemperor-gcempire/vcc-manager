@@ -207,14 +207,15 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         p: 3.5, display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%',
         cursor: admin ? 'default' : 'pointer',
         transition: 'border-color 150ms, box-shadow 150ms',
-        // 보관 판 (#1169) — 면을 페이지 배경으로 낮추고 테두리를 점선으로 바꿔 칩을 읽지 않아도 갈리게 한다.
-        // 예전의 opacity 0.72 는 차이가 작았고 글자 대비까지 AA 밑으로 떨어뜨려 쓰지 않는다.
-        // 점선은 상태를 알리는 경계라 면 대비 3:1 이상 — 라이트 grey.600 3.45:1, 다크 grey.500 3.24:1
-        // (다크 grey.600 은 7:1 넘게 튀고, 라이트 grey.500 은 2.50:1 로 모자란다)
+        // 보관 판 (#1169) — 비활성 요소로 보고 내용을 흐린다 (보관 판 편집은 부가 기능일 뿐이라는 사용자 결정).
+        // 다크는 면 밝기 차이가 거의 안 보여 면·점선·회색조만으로는 갈리지 않았다. 흐림은 카드가 아니라 안쪽
+        // 요소에 걸어 점선 테두리는 그대로 보이게 한다. 불투명도는 모드별 토큰 (라이트 0.5 / 다크 0.4).
+        // 점선은 페이지 대비 3:1 이상 — 라이트 grey.600 3.45:1, 다크 grey.500 3.24:1
         ...(archived && {
           bgcolor: 'background.default',
           borderStyle: 'dashed',
           borderColor: (t) => (t.palette.mode === 'dark' ? t.palette.grey[500] : t.palette.grey[600]),
+          '& > *': { opacity: (t) => t.palette.action.inactiveOpacity },
         }),
         '&:hover': admin ? {} : { borderColor: 'primary.main', boxShadow: 2 },
       }}
@@ -224,10 +225,11 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
           모델명을 담은 이름이 대부분 말줄임으로 잘렸다. 제목을 위로 올려 폭 전체를 주고
           나머지는 메타 행으로 내린다. 2줄 허용은 안 한다 — 카드 높이가 어긋난다. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: archived ? 'text.secondary' : 'text.primary' }} noWrap>{wb.name}</Typography>
+        {/* 보관 판도 제목은 1차 글자색 — 흐린 뒤에도 페이지 대비 3:1 이상이라 다시 켤 판을 이름으로 찾는다 (#1169) */}
+        <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: 'text.primary' }} noWrap>{wb.name}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          {/* 보관 판은 종류 아이콘·출력 칩의 색을 뺀다 (#1169) — 다크에서는 면·테두리 차이가 거의 안 보여,
-              색이 있느냐 없느냐로 갈리게 한다. 색은 게시됨 판만 쓴다 */}
+          {/* 보관 판은 종류 아이콘·출력 칩의 색을 뺀다 (#1169) — 흐려도 색이 남으면 게시됨 판처럼 읽힌다.
+              색은 게시됨 판만 쓴다 */}
           <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: archived ? 'grey.100' : kind.tint, color: archived ? 'text.tertiary' : kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
             <KindIcon sx={{ fontSize: 14 }} />
           </Box>
