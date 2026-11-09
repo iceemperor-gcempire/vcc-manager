@@ -597,7 +597,7 @@ router.get('/:id', requireAuth, async (req, res) => {
     const payload = workboard.toObject();
     payload.omitConditionedFields = getOmitConditionedFieldNames(workboard.workflowData);
     // 워크플로가 실제로 쓰는 내장 입력 (#820) — 쓰지 않는 칸은 화면에서 감춘다
-    payload.supportedInputs = getSupportedBuiltinInputs(workboard.workflowData, workboard.additionalInputFields);
+    payload.supportedInputs = getSupportedBuiltinInputs(workboard.workflowData);
 
     res.json({ workboard: payload });
   } catch (error) {

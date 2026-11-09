@@ -13,7 +13,7 @@ const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
 const Workboard = require('../models/Workboard');
 const { extractLoraTagNames, resolveLoraTag } = require('../utils/loraTags');
-const { findLoraFolderViolation } = require('../services/loraFolderGuard');
+const { findLoraFolderViolation, findLoraFieldViolation } = require('../services/loraFolderGuard');
 const { normalizeModelFolders } = require('../utils/modelFolders');
 const { diffWorkboard, UPDATABLE_FIELDS } = require('../utils/workboardDiff');
 const { buildWorkboardExportEntry } = require('../utils/workboardExport');
@@ -121,6 +121,49 @@ describe('findLoraFolderViolation — 실행 거절', () => {
       // eslint-disable-next-line no-await-in-loop
       expect(await findLoraFolderViolation(wb, `<lora:${name}:1>`, { loraFilenames: FILES })).toBeNull();
     }
+  });
+});
+
+describe('findLoraFieldViolation — LoRA 선택 칸 값 (#1157)', () => {
+  // API·MCP·재시도는 선택 목록을 거치지 않는다. 칸 값은 파일 경로 그대로라 서버 목록 없이 판단한다
+  const field = { name: 'style_lora', label: '스타일 LoRA', type: 'lora' };
+  const wb = { allowedLoraFolders: ['style/minimax/fl2va/'], additionalInputFields: [field] };
+  const REF = 'style\\Minimax\\ref2va\\Mystic-ref2va.safetensors';
+  const FL = 'style\\Minimax\\fl2va\\Mystic.safetensors';
+
+  test('폴더 밖 값이면 칸 이름·허용 폴더·받은 파일을 알려 준다', () => {
+    const msg = findLoraFieldViolation(wb, { additionalParams: { style_lora: REF } });
+    expect(msg).toContain('스타일 LoRA');
+    expect(msg).toContain('style/minimax/fl2va/');
+    expect(msg).toContain(REF);
+  });
+
+  test('폴더 안이면 통과 — 대소문자·구분자가 달라도 목록 거름과 같은 판정', () => {
+    expect(findLoraFieldViolation(wb, { additionalParams: { style_lora: FL } })).toBeNull();
+  });
+
+  test('비어 있으면 LoRA 를 걸지 않으니 통과', () => {
+    for (const v of ['', null, undefined, { value: '' }]) {
+      expect(findLoraFieldViolation(wb, { additionalParams: { style_lora: v } })).toBeNull();
+    }
+    expect(findLoraFieldViolation(wb, {})).toBeNull();
+  });
+
+  test('top-level 값과 { value } 꼴도 본다', () => {
+    expect(findLoraFieldViolation(wb, { style_lora: REF })).toContain(REF);
+    expect(findLoraFieldViolation(wb, { additionalParams: { style_lora: { value: REF } } })).toContain(REF);
+  });
+
+  test('lora 칸이 여럿이면 모두 본다', () => {
+    const two = { ...wb, additionalInputFields: [field, { name: 'extra_lora', label: '추가 LoRA', type: 'lora' }] };
+    const msg = findLoraFieldViolation(two, { additionalParams: { style_lora: FL, extra_lora: REF } });
+    expect(msg).toContain('추가 LoRA');
+  });
+
+  test('폴더 제한이 없거나 lora 칸이 아니면 보지 않는다', () => {
+    expect(findLoraFieldViolation({ ...wb, allowedLoraFolders: [] }, { additionalParams: { style_lora: REF } })).toBeNull();
+    const selectField = { ...wb, additionalInputFields: [{ name: 'style_lora', type: 'select' }] };
+    expect(findLoraFieldViolation(selectField, { additionalParams: { style_lora: REF } })).toBeNull();
   });
 });
 

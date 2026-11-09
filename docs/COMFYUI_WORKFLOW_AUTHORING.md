@@ -192,6 +192,12 @@ ComfyUI UI 에서 열어 API 포맷으로 export 하는 방법도 있다. 결과
 "filename_prefix": "{{##user_id##}}/video/MyWorkboard"
 ```
 
+생성 화면은 워크플로가 쓰는 내장 입력만 보여 준다. 프롬프트·부정 프롬프트·시드 칸은 해당 플레이스홀더가 있을 때,
+**LoRA 칸**(프롬프트에 `<lora:이름:가중치>` 태그를 넣는 칸)은 그 태그를 읽는 LoRA 태그 로더(`LoraTagLoader`,
+[badjeff/comfyui_lora_tag_loader](https://github.com/badjeff/comfyui_lora_tag_loader)) 노드가 워크플로에 있을 때만 뜬다.
+`LoraLoaderModelOnly` 처럼 파일을 고정해 거는 LoRA 노드는 태그를 읽지 않으므로 LoRA 칸이 뜨지 않는다.
+사용자가 LoRA 를 고르게 하려면 태그 로더를 넣거나, `lora` 타입 필드(4.1)를 만들어 LoRA 노드의 `lora_name` 에 연결한다.
+
 ### 2.3 커스텀 필드 플레이스홀더
 
 작업판에 정의한 필드는 **이름이 곧 플레이스홀더**다. `steps` 필드 → `{{##steps##}}`.
@@ -368,7 +374,7 @@ falsy 판정은 `""` · `"0"` · `"false"` 문자열도 포함하므로, "없음
 | `video` | 업로드된 파일명 | `_attached` 자동 제공. `VHS_LoadVideo` 등에서 소비 |
 | `audio` | 업로드된 파일명 | `_attached` 자동 제공. `LoadAudio` 등에서 소비 (#772) |
 | `baseModel` | 모델 파일명 / ID | 서버 모델 목록에서 선택 |
-| `lora` | LoRA 파일명 | |
+| `lora` | LoRA 파일명 | 판의 허용 LoRA 폴더로 선택 목록을 거르고, 폴더 밖 값은 실행 전에 거절한다. 비워 둘 수 있게 하려면 LoRA 노드에 `_vcc.bypassUnless`(3.5)를 건다 |
 
 ### 4.2 select 옵션 키는 `options` 다
 

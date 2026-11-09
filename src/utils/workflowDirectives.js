@@ -267,6 +267,9 @@ function getOmitConditionedFieldNames(workflowData) {
   return [...names];
 }
 
+// 프롬프트의 LoRA 태그를 읽는 노드 (comfyui_lora_tag_loader). utils/loraTags 가 이 로더의 규칙을 옮긴다
+const LORA_TAG_LOADER = 'LoraTagLoader';
+
 /**
  * 워크플로가 실제로 쓰는 내장 입력 (#820).
  *
@@ -278,21 +281,23 @@ function getOmitConditionedFieldNames(workflowData) {
  * 프론트가 workflowData 를 파싱하지 않도록 백엔드가 계산해 내려준다 (#774 와 같은 방식).
  *
  * @param {string} workflowData
- * @param {Array} additionalInputFields
  * @returns {{ prompt: boolean, negativePrompt: boolean, seed: boolean, lora: boolean }}
  */
-function getSupportedBuiltinInputs(workflowData, additionalInputFields = []) {
+function getSupportedBuiltinInputs(workflowData) {
   const wf = typeof workflowData === 'string' ? workflowData : '';
   const uses = (name) => wf.includes(`{{##${name}##}}`);
 
-  // LoRA 는 플레이스홀더가 아니라 노드/필드로 판정한다 —
-  // LoRA 태그는 프롬프트 문자열에 섞여 들어가므로 전용 플레이스홀더가 없다.
-  let lora = (additionalInputFields || []).some((f) => f && f.type === 'lora');
-  if (!lora && wf) {
+  // LoRA 칸은 프롬프트에 `<lora:이름:가중치>` 태그를 넣는다. 전용 플레이스홀더가 없어 노드로 판정하는데,
+  // 태그를 읽는 것은 LoRA 태그 로더뿐이다 (#1155). 가속 LoRA 를 LoraLoaderModelOnly 로 고정한 H3 판처럼
+  // 다른 LoRA 노드만 있는 판은 태그가 아무 LoRA 도 걸지 못하고 프롬프트 본문에 섞인다.
+  // `lora` 타입 입력 칸은 자기 선택 칸이 따로 있어 이 칸과 관계없다.
+  let lora = false;
+  if (wf) {
     try {
-      lora = Object.values(JSON.parse(wf)).some((n) => /lora/i.test(n?.class_type || ''));
+      lora = Object.values(JSON.parse(wf)).some((n) => n?.class_type === LORA_TAG_LOADER);
     } catch {
-      lora = /"class_type"\s*:\s*"[^"]*[Ll]ora/.test(wf);
+      // 숫자 자리표시자를 따옴표 없이 넣은 판(`"seed": {{##seed##}}`)은 JSON 으로 안 읽힌다
+      lora = new RegExp(`"class_type"\\s*:\\s*"${LORA_TAG_LOADER}"`).test(wf);
     }
   }
 
