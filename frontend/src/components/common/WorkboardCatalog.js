@@ -226,7 +226,9 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
         <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: archived ? 'text.secondary' : 'text.primary' }} noWrap>{wb.name}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: kind.tint, color: kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
+          {/* 보관 판은 종류 아이콘·출력 칩의 색을 뺀다 (#1169) — 다크에서는 면·테두리 차이가 거의 안 보여,
+              색이 있느냐 없느냐로 갈리게 한다. 색은 게시됨 판만 쓴다 */}
+          <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: archived ? 'grey.100' : kind.tint, color: archived ? 'text.tertiary' : kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
             <KindIcon sx={{ fontSize: 14 }} />
           </Box>
           <Typography sx={{ fontSize: 11, color: 'text.tertiary', fontFamily: MONO, minWidth: 0 }} noWrap>
@@ -234,7 +236,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
           </Typography>
           <Box sx={{ flex: 1 }} />
           {admin && <WbStatusBadge isActive={wb.isActive} />}
-          <ToneChip tone={OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
+          <ToneChip tone={archived ? 'neutral' : OUT_TONE[out]} label={out} mono sx={{ flex: '0 0 auto' }} />
         </Box>
       </Box>
 
