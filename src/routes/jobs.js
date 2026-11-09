@@ -28,7 +28,7 @@ const { decryptSecret } = require('../utils/secretCrypto');
 const { findSilentVideoViolation } = require('../services/videoAudioGuard');
 const { findOrientationViolation } = require('../services/imageOrientationGuard');
 const { findModelFolderViolation } = require('../services/modelFolderGuard');
-const { findLoraFolderViolation } = require('../services/loraFolderGuard');
+const { findLoraFolderViolation, findLoraFieldViolation } = require('../services/loraFolderGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
@@ -178,8 +178,8 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (folderViolation) {
       return res.status(400).json({ message: folderViolation });
     }
-    // 판의 LoRA 폴더 밖 LoRA 태그도 막는다 (#1099)
-    const loraViolation = await findLoraFolderViolation(wb, prompt);
+    // 판의 LoRA 폴더 밖 LoRA 태그(#1099)와 LoRA 선택 칸 값(#1157)도 막는다
+    const loraViolation = await findLoraFolderViolation(wb, prompt) || findLoraFieldViolation(wb, lookupInput);
     if (loraViolation) {
       return res.status(400).json({ message: loraViolation });
     }
@@ -411,7 +411,8 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
       if (folderViolation) {
         return res.status(400).json({ message: folderViolation });
       }
-      const loraViolation = await findLoraFolderViolation(retryWb, (job.inputData || {}).prompt);
+      const loraViolation = await findLoraFolderViolation(retryWb, (job.inputData || {}).prompt)
+        || findLoraFieldViolation(retryWb, job.inputData || {});
       if (loraViolation) {
         return res.status(400).json({ message: loraViolation });
       }
