@@ -6,19 +6,29 @@ import { Controller } from 'react-hook-form';
 import { useQuery } from '@tanstack/react-query';
 import { serverAPI } from '../../../services/api';
 import MetadataPickerModal from '../../common/MetadataPickerModal';
+import { fetchAllServerMetadata } from '../../../utils/fetchAllServerMetadata';
+
+// 기본값 입력기 도움말 — 목록이 잘렸거나 못 받았으면 그렇다고 보인다 (#1167, 조용히 일부만 보여 주지 않는다)
+function defaultValueHelperText({ serverId, isLoading, isError, data }) {
+  if (!serverId) return '서버 선택 후 사용 가능';
+  if (isLoading) return '목록 불러오는 중...';
+  if (isError) return '목록을 불러오지 못했습니다. 저장된 값은 그대로 둡니다.';
+  const shown = data?.items?.length || 0;
+  if (data?.truncated) return `전체 ${data.total}개 중 ${shown}개만 불러왔습니다`;
+  return `${shown}개 중 선택`;
+}
 
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
 export function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
   const fetcher = type === 'baseModel' ? serverAPI.getDetailedModels : serverAPI.getLoras;
-  const { data, isLoading } = useQuery({ queryKey: ['adminDefaultValueMetadata', type, serverId], queryFn: () => fetcher(serverId, { limit: 200, detailed: true }), enabled: !!serverId, staleTime: 60_000 });
-  const items = data?.data?.data?.items
-    || data?.data?.data?.models
-    || data?.data?.data?.loraModels
-    || data?.data?.data?.loras
-    || data?.data?.models
-    || data?.data?.loraModels
-    || data?.data?.loras
-    || [];
+  // 모든 페이지를 받는다 (#1167) — 첫 페이지(200개)만 받으면 그 뒤 LoRA·모델은 기본값으로 고를 수 없었다
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['adminDefaultValueMetadata', type, serverId],
+    queryFn: () => fetchAllServerMetadata(fetcher, serverId, { detailed: true }),
+    enabled: !!serverId,
+    staleTime: 60_000,
+  });
+  const items = data?.items || [];
 
   const keyOf = (m) => (typeof m === 'string' ? m : (m?.filename || m?.fileName || m?.name || ''));
 
@@ -54,7 +64,8 @@ export function ServerMetadataDefaultValueInput({ serverId, type, value, onChang
           {...params}
           fullWidth
           label={label}
-          helperText={!serverId ? '서버 선택 후 사용 가능' : (isLoading ? '모델 목록 로딩 중...' : `${items.length}개 중 선택`)}
+          error={isError}
+          helperText={defaultValueHelperText({ serverId, isLoading, isError, data })}
         />
       )}
       size="small"
