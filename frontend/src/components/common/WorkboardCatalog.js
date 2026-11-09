@@ -208,8 +208,14 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         cursor: admin ? 'default' : 'pointer',
         transition: 'border-color 150ms, box-shadow 150ms',
         // 보관 판 (#1169) — 면을 페이지 배경으로 낮추고 테두리를 점선으로 바꿔 칩을 읽지 않아도 갈리게 한다.
-        // 예전의 opacity 0.72 는 차이가 작았고 글자 대비까지 AA 밑으로 떨어뜨려 쓰지 않는다
-        ...(archived && { bgcolor: 'background.default', borderStyle: 'dashed', borderColor: 'grey.500' }),
+        // 예전의 opacity 0.72 는 차이가 작았고 글자 대비까지 AA 밑으로 떨어뜨려 쓰지 않는다.
+        // 점선은 상태를 알리는 경계라 면 대비 3:1 이상 — 라이트 grey.600 3.45:1, 다크 grey.500 3.24:1
+        // (다크 grey.600 은 7:1 넘게 튀고, 라이트 grey.500 은 2.50:1 로 모자란다)
+        ...(archived && {
+          bgcolor: 'background.default',
+          borderStyle: 'dashed',
+          borderColor: (t) => (t.palette.mode === 'dark' ? t.palette.grey[500] : t.palette.grey[600]),
+        }),
         '&:hover': admin ? {} : { borderColor: 'primary.main', boxShadow: 2 },
       }}
     >
