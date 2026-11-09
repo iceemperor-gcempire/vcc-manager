@@ -205,8 +205,11 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
       onClick={admin ? undefined : onClick}
       sx={{
         p: 3.5, display: 'flex', flexDirection: 'column', gap: 2.5, height: '100%',
-        cursor: admin ? 'default' : 'pointer', opacity: archived ? 0.72 : 1,
+        cursor: admin ? 'default' : 'pointer',
         transition: 'border-color 150ms, box-shadow 150ms',
+        // 보관 판 (#1169) — 면을 페이지 배경으로 낮추고 테두리를 점선으로 바꿔 칩을 읽지 않아도 갈리게 한다.
+        // 예전의 opacity 0.72 는 차이가 작았고 글자 대비까지 AA 밑으로 떨어뜨려 쓰지 않는다
+        ...(archived && { bgcolor: 'background.default', borderStyle: 'dashed', borderColor: 'grey.500' }),
         '&:hover': admin ? {} : { borderColor: 'primary.main', boxShadow: 2 },
       }}
     >
@@ -215,7 +218,7 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
           모델명을 담은 이름이 대부분 말줄임으로 잘렸다. 제목을 위로 올려 폭 전체를 주고
           나머지는 메타 행으로 내린다. 2줄 허용은 안 한다 — 카드 높이가 어긋난다. */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-        <Typography sx={{ fontSize: 13.5, fontWeight: 600 }} noWrap>{wb.name}</Typography>
+        <Typography sx={{ fontSize: 13.5, fontWeight: 600, color: archived ? 'text.secondary' : 'text.primary' }} noWrap>{wb.name}</Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box sx={{ width: 24, height: 24, borderRadius: 1.5, bgcolor: kind.tint, color: kind.color, display: 'grid', placeItems: 'center', flex: '0 0 auto' }}>
             <KindIcon sx={{ fontSize: 14 }} />
