@@ -5,6 +5,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { findBaseModelField, describeBaseModel, applyBaseModel } from '../../src/utils/baseModel.js';
+import { fillFieldDefaults } from '../../src/utils/fieldDefaults.js';
+
+// generate·continue_job 이 하는 순서 — aiModel 을 칸에 넣고, 남은 칸은 기본값으로
+const prepare = (wb, params, aiModel) => {
+  const r = applyBaseModel(wb, params, aiModel);
+  const d = fillFieldDefaults(wb, r.additionalParams);
+  return { ...r, additionalParams: d.additionalParams, filled: d.filled };
+};
 
 const MODEL_FIELD = {
   name: 'base_model', label: '베이스 모델', type: 'baseModel', required: true,
@@ -40,15 +48,23 @@ test('aiModel 을 주면 베이스 모델 칸에 들어가고 top-level 로는 �
   assert.deepEqual(missingRequired(WB, r.additionalParams), []);
 });
 
-test('aiModel 을 안 주면 칸 기본값을 넣는다 (화면이 기본값을 미리 채우는 것과 같다)', () => {
-  const r = applyBaseModel(WB, {}, undefined);
+test('aiModel 을 안 주면 applyBaseModel 은 칸을 비워 두고, fillFieldDefaults 가 기본값을 넣는다 (defaultsUsed 에 모델 칸도 나온다)', () => {
+  assert.equal(applyBaseModel(WB, {}, undefined).additionalParams.base_model, undefined);
+  const r = prepare(WB, {}, undefined);
   assert.equal(r.additionalParams.base_model, 'qwen/default.safetensors');
+  assert.ok(r.filled.includes('base_model'));
   assert.deepEqual(missingRequired(WB, r.additionalParams), []);
+});
+
+test('aiModel 을 주면 모델 칸은 defaultsUsed 에 나오지 않는다', () => {
+  const r = prepare(WB, {}, 'qwen/picked.safetensors');
+  assert.equal(r.additionalParams.base_model, 'qwen/picked.safetensors');
+  assert.equal(r.filled.includes('base_model'), false);
 });
 
 test('기본값도 없고 aiModel 도 없으면 비워 둔다 — 필수 칸 검사가 알린다', () => {
   const wb = { ...WB, additionalInputFields: [{ ...MODEL_FIELD, defaultValue: undefined }] };
-  const r = applyBaseModel(wb, {}, '');
+  const r = prepare(wb, {}, '');
   assert.equal(r.additionalParams.base_model, undefined);
   assert.deepEqual(missingRequired(wb, r.additionalParams), ['base_model']);
 });
@@ -103,7 +119,7 @@ const SELECT_WB = { additionalInputFields: [{
 test('select 모델 칸 — 표시 이름이나 값으로 선택지를 찾아 {key, value} 로 넣는다', () => {
   assert.deepEqual(applyBaseModel(SELECT_WB, {}, 'Other').additionalParams.base_model, { key: 'Other', value: 'other' });
   assert.deepEqual(applyBaseModel(SELECT_WB, {}, 'other').additionalParams.base_model, { key: 'Other', value: 'other' });
-  assert.deepEqual(applyBaseModel(SELECT_WB, {}, undefined).additionalParams.base_model, { key: 'Codex (구독 · ImageGen)', value: 'codex' });
+  assert.deepEqual(prepare(SELECT_WB, {}, undefined).additionalParams.base_model, { key: 'Codex (구독 · ImageGen)', value: 'codex' });
 });
 
 test('select 모델 칸 — 직접 넣은 {key, value} 와 같은 선택지를 표시 이름으로 줘도 경고하지 않는다', () => {

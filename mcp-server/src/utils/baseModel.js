@@ -53,8 +53,8 @@ const sameModel = (field, a, b) => valueOf(toFieldValue(field, a)) === valueOf(t
  * generate·continue_job 의 aiModel 을 판의 베이스 모델 칸에 넣는다.
  *
  * - 칸이 있는 판: additionalParams 에 그 칸 값이 이미 있으면 그대로 둔다(칸에 직접 넣던 호출을 깨지 않는다).
- *   없으면 aiModel, 그것도 없으면 칸 기본값. top-level aiModel 은 보내지 않는다 — 백엔드가 칸 값을 쓰고
- *   top-level 값은 칸 기본값에 덮인다 (#1174)
+ *   없으면 aiModel 을 넣는다. 둘 다 없으면 비워 두고, 칸 기본값은 다른 칸과 함께 fillFieldDefaults 가 채운다.
+ *   top-level aiModel 은 보내지 않는다 — 백엔드가 칸 값을 쓰고 top-level 값은 칸 기본값에 덮인다 (#1174)
  * - 칸이 없는 판: aiModel 을 top-level 로 그대로 넘긴다. 칸 없이 aiModel 을 읽는 판이 있다(d-ice-all 의 provider)
  *
  * @returns {{ additionalParams: object, aiModel: any, warnings: string[] }}
@@ -74,8 +74,6 @@ export function applyBaseModel(wb, additionalParams = {}, aiModel) {
     }
   } else if (!isEmpty(aiModel)) {
     params[field.name] = toFieldValue(field, aiModel);
-  } else if (!isEmpty(valueOf(field.defaultValue))) {
-    params[field.name] = toFieldValue(field, field.defaultValue);
   }
   return { additionalParams: params, aiModel: undefined, warnings };
 }

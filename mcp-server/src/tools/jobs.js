@@ -89,7 +89,7 @@ export function registerJobTools(server, apiRequest) {
           additionalParams = mapped;
         }
 
-        // 베이스 모델 (#1088) — aiModel 을 판의 베이스 모델 칸에 넣는다 (없으면 칸 기본값).
+        // 베이스 모델 (#1088) — aiModel 을 판의 베이스 모델 칸에 넣는다. 안 주면 아래에서 칸 기본값으로 채운다
         const model = applyBaseModel(wb, additionalParams, params.aiModel);
         // 나머지 칸의 기본값 (#1088) — 웹 화면이 판을 열 때 미리 채우는 것과 같다. 필수 칸 검사보다 먼저 해야
         // 배포 판의 필수 칸(모델·크기·업스케일 등)이 "빠졌다" 로 막히지 않는다
