@@ -92,7 +92,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `upscaleMethod` | string | - | 업스케일 방식 값 |
 | `seed` | number | - | 특정 시드 번호 |
 | `randomSeed` | boolean | - | 랜덤 시드 사용 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 이미지 타입 필드는 `upload_image`로 획득한 imageId 문자열을 전달하면 자동으로 `{ imageId }` 형식으로 변환됨 |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 안 준 칸은 판의 기본값으로 채운다 — 웹 생성 화면이 미리 채우는 것과 같다 (select 는 기본값, 없으면 첫 선택지). 이미지 타입 필드는 `upload_image`로 획득한 imageId 문자열을 전달하면 자동으로 `{ imageId }` 형식으로 변환됨 |
 
 **응답 필드:**
 
@@ -101,6 +101,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `jobId` | 생성된 작업 ID |
 | `status` | 작업 상태 |
 | `message` | 결과 메시지 |
+| `defaultsUsed` | 호출자가 안 줘서 판 기본값으로 채운 칸 이름들 (있을 때만) |
 | `warnings` | 무시된 입력이 있을 때만 (예: `aiModel` 과 다른 모델 칸 값을 함께 보냄) |
 
 ---

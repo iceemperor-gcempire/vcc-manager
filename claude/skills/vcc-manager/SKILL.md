@@ -84,7 +84,7 @@ generate(workboardId, prompt, aiModel?, additionalParams?, ...) → jobId 획득
 | `upscaleMethod` | string | - | 업스케일 방식 이름 |
 | `seed` | number | - | 특정 시드 번호 |
 | `randomSeed` | boolean | - | 랜덤 시드 사용 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 이미지 타입 필드는 `upload_image`로 얻은 imageId 문자열을 전달 |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 (필드명 → 값). 안 준 칸은 판의 기본값으로 채워집니다. 이미지 타입 필드는 `upload_image`로 얻은 imageId 문자열을 전달 |
 
 ### 3단계: 완료 대기
 

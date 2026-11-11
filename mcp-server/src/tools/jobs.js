@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { buildTextInputData } from '../utils/textInput.js';
 import { applyBaseModel, findBaseModelField } from '../utils/baseModel.js';
+import { fillFieldDefaults } from '../utils/fieldDefaults.js';
 
 /**
  * Register job-related tools on the MCP server.
@@ -13,7 +14,7 @@ export function registerJobTools(server, apiRequest) {
   // ── generate ───────────────────────────────────────────────────────
   server.tool(
     'generate',
-    'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Select fields in additionalParams accept the option key (display name) or value — mapping is handled automatically.',
+    'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Fields you omit use the workboard defaults (like the web form), so usually only the prompt and any image fields are needed. Select fields in additionalParams accept the option key (display name) or value — mapping is handled automatically.',
     {
       workboardId: z.string().describe('Workboard ID (get from list_workboards)'),
       prompt: z.string().describe('Generation prompt text'),
@@ -88,10 +89,12 @@ export function registerJobTools(server, apiRequest) {
           additionalParams = mapped;
         }
 
-        // 베이스 모델 (#1088) — aiModel 을 판의 베이스 모델 칸에 넣는다 (없으면 칸 기본값). 필수 칸 검사보다 먼저 해야
-        // 모든 배포 판의 필수 칸 base_model 이 "빠졌다" 로 막히지 않는다
+        // 베이스 모델 (#1088) — aiModel 을 판의 베이스 모델 칸에 넣는다 (없으면 칸 기본값).
         const model = applyBaseModel(wb, additionalParams, params.aiModel);
-        additionalParams = model.additionalParams;
+        // 나머지 칸의 기본값 (#1088) — 웹 화면이 판을 열 때 미리 채우는 것과 같다. 필수 칸 검사보다 먼저 해야
+        // 배포 판의 필수 칸(모델·크기·업스케일 등)이 "빠졌다" 로 막히지 않는다
+        const defaults = fillFieldDefaults(wb, model.additionalParams);
+        additionalParams = defaults.additionalParams;
 
         // Validate required additionalFields (#136)
         if (wb.additionalInputFields) {
@@ -141,6 +144,8 @@ export function registerJobTools(server, apiRequest) {
               jobId: data.job.id,
               status: data.job.status,
               message: data.message,
+              // 호출자가 안 준 칸 중 판 기본값으로 채운 것 (#1088)
+              ...(defaults.filled.length > 0 ? { defaultsUsed: defaults.filled } : {}),
               ...(model.warnings.length > 0 ? { warnings: model.warnings } : {}),
             }, null, 2),
           }],
@@ -327,7 +332,8 @@ export function registerJobTools(server, apiRequest) {
           additionalParams,
           params.aiModel ?? (modelField || isCrossWorkboard ? undefined : inputData.aiModel),
         );
-        Object.assign(additionalParams, model.additionalParams);
+        // 원래 작업에 없던 칸(다른 판으로 이어 갈 때 등)은 그 판의 기본값으로 채운다 — generate 와 같다
+        Object.assign(additionalParams, fillFieldDefaults(wb, model.additionalParams).additionalParams);
 
         // Validate required additionalFields (#136)
         if (wb.additionalInputFields) {
