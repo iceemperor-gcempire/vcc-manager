@@ -130,6 +130,8 @@ function renderMcpConstants() {
 
 export const SERVER_TYPES = ${json(SERVER_TYPES)};
 export const OUTPUT_FORMATS = ${json(ALL_OUTPUT_FORMATS)};
+// 파일을 첨부받는 필드 타입 — 백엔드 constants/mediaTypes 가 단일 소스. 기본값 채우기에서 뺀다 (#1088)
+export const ATTACHMENT_FIELD_TYPES = ${json([...ATTACHMENT_FIELD_TYPES])};
 `;
 }
 
