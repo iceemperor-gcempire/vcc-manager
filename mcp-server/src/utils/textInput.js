@@ -6,7 +6,7 @@
  * 이미지는 imageId 문자열 배열로 이미지 필드에 넣는다 (생성 경로의 { imageId } 와 형식이 다르다).
  */
 
-const isModelField = (f) => f.type === 'baseModel' || f.name === 'base_model';
+import { findBaseModelField } from './baseModel.js';
 
 /**
  * @param {{ additionalInputFields?: object[] }} workboard
@@ -31,7 +31,7 @@ export function buildTextInputData(workboard, { prompt, imageIds = [], model, ad
   }
 
   if (model) {
-    const modelField = fields.find(isModelField);
+    const modelField = findBaseModelField(workboard);
     if (!modelField) throw new Error('이 작업판에는 모델을 고르는 칸이 없습니다. model 을 빼고 다시 호출하세요.');
     inputData[modelField.name] = model;
   }

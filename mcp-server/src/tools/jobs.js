@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { buildTextInputData } from '../utils/textInput.js';
+import { applyBaseModel, findBaseModelField } from '../utils/baseModel.js';
+import { fillFieldDefaults } from '../utils/fieldDefaults.js';
 
 /**
  * Register job-related tools on the MCP server.
@@ -12,13 +14,13 @@ export function registerJobTools(server, apiRequest) {
   // ── generate ───────────────────────────────────────────────────────
   server.tool(
     'generate',
-    'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Select fields (aiModel, imageSize, etc.) use the display name (key) — mapping is handled automatically.',
+    'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Fields you omit use the workboard defaults (like the web form), so usually only the prompt and any image fields are needed. Select fields in additionalParams accept the option key (display name) or value — mapping is handled automatically.',
     {
       workboardId: z.string().describe('Workboard ID (get from list_workboards)'),
       prompt: z.string().describe('Generation prompt text'),
-      aiModel: z.string().describe('AI model name (from get_workboard aiModel options)'),
+      aiModel: z.string().optional().describe('Base model file path, exactly as get_workboard baseModel shows it (default / options). Omit to use the workboard default. Must be inside baseModel.allowedFolders when set'),
       negativePrompt: z.string().optional().describe('Negative prompt'),
-      imageSize: z.string().optional().describe('Image size name (from get_workboard imageSizes options)'),
+      imageSize: z.string().optional().describe('Legacy top-level image size. Prefer the size field in additionalParams (see get_workboard additionalFields)'),
       stylePreset: z.string().optional().describe('Style preset name'),
       upscaleMethod: z.string().optional().describe('Upscale method name'),
       seed: z.coerce.number().int().optional().describe('Specific seed number'),
@@ -40,13 +42,6 @@ export function registerJobTools(server, apiRequest) {
           if (!options || !input) return null;
           return options.find((o) => o.key === input) || options.find((o) => o.value === input);
         };
-
-        // Map aiModel
-        let aiModel = params.aiModel;
-        const modelOption = matchOption(wb.baseInputFields?.aiModel, params.aiModel);
-        if (modelOption) {
-          aiModel = { key: modelOption.key, value: modelOption.value };
-        }
 
         // Map imageSize
         let imageSize = params.imageSize;
@@ -94,17 +89,29 @@ export function registerJobTools(server, apiRequest) {
           additionalParams = mapped;
         }
 
+        // 베이스 모델 (#1088) — aiModel 을 판의 베이스 모델 칸에 넣는다. 안 주면 아래에서 칸 기본값으로 채운다
+        const model = applyBaseModel(wb, additionalParams, params.aiModel);
+        // 나머지 칸의 기본값 (#1088) — 웹 화면이 판을 열 때 미리 채우는 것과 같다. 필수 칸 검사보다 먼저 해야
+        // 배포 판의 필수 칸(모델·크기·업스케일 등)이 "빠졌다" 로 막히지 않는다
+        const defaults = fillFieldDefaults(wb, model.additionalParams);
+        additionalParams = defaults.additionalParams;
+
         // Validate required additionalFields (#136)
         if (wb.additionalInputFields) {
-          const missing = wb.additionalInputFields
-            .filter((field) => field.required && (additionalParams[field.name] === undefined || additionalParams[field.name] === ''))
-            .map((field) => `${field.name} ("${field.label}")`);
-          if (missing.length > 0) {
+          const missingFields = wb.additionalInputFields
+            .filter((field) => field.required && (additionalParams[field.name] === undefined || additionalParams[field.name] === ''));
+          if (missingFields.length > 0) {
+            const missing = missingFields.map((field) => `${field.name} ("${field.label}")`);
+            // 모델 칸이 비는 건 기본값 없는 판에서 aiModel 을 안 줬을 때뿐이다 — aiModel 로 넣으라고 알린다
+            const modelField = findBaseModelField(wb);
+            const modelHint = modelField && missingFields.some((f) => f.name === modelField.name)
+              ? ` This workboard has no default base model — pass aiModel (see get_workboard baseModel).`
+              : '';
             return {
               content: [{
                 type: 'text',
                 text: JSON.stringify({
-                  error: `Missing required additional parameters: ${missing.join(', ')}. Use additionalParams to provide them. Check get_workboard for available options.`,
+                  error: `Missing required additional parameters: ${missing.join(', ')}. Use additionalParams to provide them. Check get_workboard for available options.${modelHint}`,
                 }, null, 2),
               }],
               isError: true,
@@ -115,7 +122,7 @@ export function registerJobTools(server, apiRequest) {
         const payload = {
           workboardId: params.workboardId,
           prompt: params.prompt,
-          aiModel,
+          aiModel: model.aiModel,
           negativePrompt: params.negativePrompt,
           imageSize,
           stylePreset,
@@ -137,6 +144,9 @@ export function registerJobTools(server, apiRequest) {
               jobId: data.job.id,
               status: data.job.status,
               message: data.message,
+              // 호출자가 안 준 칸 중 판 기본값으로 채운 것 (#1088)
+              ...(defaults.filled.length > 0 ? { defaultsUsed: defaults.filled } : {}),
+              ...(model.warnings.length > 0 ? { warnings: model.warnings } : {}),
             }, null, 2),
           }],
         };
@@ -203,7 +213,7 @@ export function registerJobTools(server, apiRequest) {
       targetWorkboardId: z.string().optional().describe('Target workboard ID. If omitted, uses the original workboard.'),
       prompt: z.string().optional().describe('Override prompt (uses original if omitted)'),
       negativePrompt: z.string().optional().describe('Override negative prompt'),
-      aiModel: z.string().optional().describe('Override AI model name'),
+      aiModel: z.string().optional().describe('Override the base model file path (see get_workboard baseModel of the target workboard). Omit to keep the original job\'s model'),
       imageSize: z.string().optional().describe('Override image size name'),
       seed: z.coerce.number().int().optional().describe('Override seed value'),
       randomSeed: z.boolean().optional().describe('Use random seed (default true)'),
@@ -243,18 +253,6 @@ export function registerJobTools(server, apiRequest) {
         };
 
         // 3. Smart field matching
-
-        // AI Model
-        const rawAiModel = params.aiModel || inputData.aiModel;
-        let aiModel;
-        if (rawAiModel && wb.baseInputFields?.aiModel) {
-          aiModel = matchSelectValue(wb.baseInputFields.aiModel, rawAiModel);
-          if (!aiModel) {
-            // Fallback to first option
-            const first = wb.baseInputFields.aiModel[0];
-            if (first) aiModel = { key: first.key, value: first.value };
-          }
-        }
 
         // Image Size
         const rawImageSize = params.imageSize || inputData.imageSize;
@@ -321,6 +319,22 @@ export function registerJobTools(server, apiRequest) {
           }
         }
 
+        // 베이스 모델 (#1088) — aiModel 을 주면 원래 작업의 모델 대신 그 값을 칸에 넣는다. 칸 값을 additionalParams 로
+        // 직접 덮었으면 그쪽이 우선. 예전에는 없어진 baseInputFields 를 보느라 aiModel 덮어쓰기가 그냥 버려졌다
+        const isCrossWorkboard = targetWorkboardId !== originalWorkboardId;
+        const modelField = findBaseModelField(wb);
+        if (modelField && params.aiModel && overrideAdditional[modelField.name] === undefined) {
+          delete additionalParams[modelField.name];
+        }
+        // 칸이 없는 판(d-ice-all 등)은 top-level aiModel 을 읽는다 — 같은 판으로 이어 갈 때만 원래 값을 넘긴다
+        const model = applyBaseModel(
+          wb,
+          additionalParams,
+          params.aiModel ?? (modelField || isCrossWorkboard ? undefined : inputData.aiModel),
+        );
+        // 원래 작업에 없던 칸(다른 판으로 이어 갈 때 등)은 그 판의 기본값으로 채운다 — generate 와 같다
+        Object.assign(additionalParams, fillFieldDefaults(wb, model.additionalParams).additionalParams);
+
         // Validate required additionalFields (#136)
         if (wb.additionalInputFields) {
           const missing = wb.additionalInputFields
@@ -347,7 +361,7 @@ export function registerJobTools(server, apiRequest) {
         const payload = {
           workboardId: targetWorkboardId,
           prompt,
-          aiModel,
+          aiModel: model.aiModel,
           negativePrompt,
           imageSize,
           stylePreset,
@@ -365,7 +379,6 @@ export function registerJobTools(server, apiRequest) {
         });
 
         // 6. Build matching report
-        const isCrossWorkboard = targetWorkboardId !== originalWorkboardId;
         const matchReport = {
           sourceJob: params.jobId,
           sourceWorkboard: job.workboardId?.name || originalWorkboardId,
@@ -374,7 +387,7 @@ export function registerJobTools(server, apiRequest) {
           matchedFields: [],
         };
 
-        if (aiModel) matchReport.matchedFields.push(`aiModel: ${aiModel.key}`);
+        if (model.aiModel) matchReport.matchedFields.push(`aiModel: ${model.aiModel}`);
         if (imageSize) matchReport.matchedFields.push(`imageSize: ${imageSize.key}`);
         if (stylePreset) matchReport.matchedFields.push(`stylePreset: ${stylePreset.key}`);
         if (upscaleMethod) matchReport.matchedFields.push(`upscaleMethod: ${upscaleMethod.key}`);
@@ -391,6 +404,7 @@ export function registerJobTools(server, apiRequest) {
               status: data.job.status,
               message: data.message,
               matching: matchReport,
+              ...(model.warnings.length > 0 ? { warnings: model.warnings } : {}),
             }, null, 2),
           }],
         };

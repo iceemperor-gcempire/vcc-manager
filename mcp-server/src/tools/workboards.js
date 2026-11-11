@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { SERVER_TYPES, OUTPUT_FORMATS } from '../constants/serverTypes.js';
+import { describeBaseModel } from '../utils/baseModel.js';
 
 /**
  * Register workboard-related tools on the MCP server.
@@ -34,8 +35,8 @@ export function registerWorkboardTools(server, apiRequest) {
         server: wb.serverId?.name || 'Unknown',
         // 텍스트 작업판은 generate_text 로 실행한다 (#1015)
         runWith: wb.outputFormat === 'text' ? 'generate_text' : 'generate',
-        models: (wb.baseInputFields?.aiModel || []).map((m) => m.key).join(', '),
-        sizes: (wb.baseInputFields?.imageSizes || []).map((s) => s.key).join(', '),
+        // 베이스 모델 칸의 기본값 (#1088). 칸이 없는 판은 null — 고를 수 있는 범위는 get_workboard
+        defaultModel: describeBaseModel(wb)?.default ?? null,
         usageCount: wb.usageCount,
       }));
 
@@ -54,7 +55,7 @@ export function registerWorkboardTools(server, apiRequest) {
   // ── get_workboard ──────────────────────────────────────────────────
   server.tool(
     'get_workboard',
-    'Get workboard details including available models, sizes, and input fields. Call this before generate to understand required parameters.',
+    'Get workboard details: the base model (default, allowed folders, and the selectable list when the workboard restricts models to a whitelist) and every input field with its options. Call this before generate to understand required parameters.',
     {
       workboardId: z.string().describe('Workboard ID'),
     },
@@ -72,23 +73,10 @@ export function registerWorkboardTools(server, apiRequest) {
         // 텍스트 작업판은 generate_text 로 실행한다 (#1015)
         runWith: wb.outputFormat === 'text' ? 'generate_text' : 'generate',
 
-        // Base input fields guide (use these values in generate parameters)
-        aiModel: {
-          required: true,
-          options: (wb.baseInputFields?.aiModel || []).map((m) => m.key),
-        },
-        imageSizes: {
-          required: false,
-          options: (wb.baseInputFields?.imageSizes || []).map((s) => s.key),
-        },
-        stylePresets: {
-          available: (wb.baseInputFields?.stylePresets || []).length > 0,
-          options: (wb.baseInputFields?.stylePresets || []).map((p) => p.key),
-        },
-        upscaleMethods: {
-          available: (wb.baseInputFields?.upscaleMethods || []).length > 0,
-          options: (wb.baseInputFields?.upscaleMethods || []).map((u) => u.key),
-        },
+        // 베이스 모델 (#1088) — generate 의 aiModel 로 넘긴다 (생략하면 default). 칸이 없는 판은 null.
+        // 예전에는 v2 에서 없어진 baseInputFields 를 읽어 모델·크기·스타일·업스케일 목록이 늘 비어 있었다.
+        // 크기 같은 선택 칸은 아래 additionalFields 의 options 에 있다.
+        baseModel: describeBaseModel(wb),
 
         // Additional custom fields
         additionalFields: (wb.additionalInputFields || []).map((f) => ({
