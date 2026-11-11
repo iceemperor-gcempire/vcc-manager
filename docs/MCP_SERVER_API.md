@@ -28,8 +28,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `workboards[].serverType` | 서버 타입 (ComfyUI / OpenAI / OpenAI Compatible / Gemini) |
 | `workboards[].outputFormat` | 출력 포맷 (image / video / text) |
 | `workboards[].server` | 연결된 서버 이름 |
-| `workboards[].models` | 사용 가능한 모델 목록 |
-| `workboards[].sizes` | 사용 가능한 크기 목록 |
+| `workboards[].defaultModel` | 베이스 모델 칸의 기본값 (칸이 없는 판은 `null`). 고를 수 있는 범위는 `get_workboard` 의 `baseModel` |
 | `workboards[].usageCount` | 사용 횟수 |
 | `pagination` | 페이지네이션 정보 |
 
@@ -53,14 +52,26 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `serverType` | 서버 타입 |
 | `outputFormat` | 출력 포맷 |
 | `server` | 연결된 서버 이름 |
-| `aiModel` | AI 모델 옵션 (`required: true`, `options: string[]` — 표시 이름 배열) |
-| `imageSizes` | 이미지 크기 옵션 (`options: string[]`) |
-| `stylePresets` | 스타일 프리셋 옵션 (`options: string[]`) |
-| `upscaleMethods` | 업스케일 방식 옵션 (`options: string[]`) |
-| `additionalFields[]` | 추가 입력 필드 (`name`, `label`, `type`, `required`, `defaultValue` 등, select 타입은 `options: string[]`) |
+| `baseModel` | 베이스 모델 칸 안내 — 칸이 없는 판(유틸리티 판 등)은 `null`. 아래 표 참고 |
+| `additionalFields[]` | 입력 필드 전부 (`name`, `label`, `type`, `required`, `defaultValue` 등, select 타입은 `options: string[]`). 이미지 크기 같은 선택 칸도 여기 있다 |
 | `promptRequired` | 프롬프트 필수 여부 (true) |
 | `negativePromptSupported` | 네거티브 프롬프트 지원 여부 (true) |
 | `seedSupported` | 시드 지원 여부 (true) |
+
+**`baseModel` 필드** (#1088):
+
+| 필드 | 설명 |
+|------|------|
+| `field` | 모델 칸 이름 (배포 판은 `base_model`). `generate` 의 `aiModel` 은 이 칸에 들어간다 |
+| `required` | 필수 여부 |
+| `default` | 기본 모델 — 서버가 보여 주는 파일 경로 그대로 (예: `minimax\…safetensors`). `aiModel` 을 생략하면 이 값 |
+| `options` | 고를 수 있는 값이 정해진 판만 — 모델 노출 정책이 화이트리스트인 판은 그 목록, 모델 칸이 select 인 판은 그 선택지 값 |
+| `allowedFolders` | 모델 폴더 제한 (#1086). 비어 있지 않으면 이 폴더(하위 포함) 밖의 모델은 서버가 400 으로 거절한다 |
+| `allowedModelTypes` | 모델 종류 제한 (Civitai 기준 이름). 안내용 — 실행할 때 검사하지는 않는다 |
+
+폴더 안의 전체 모델 목록은 MCP 로 조회할 수 없다 (서버 모델 목록 API 는 MCP 키 허용 범위 밖). 모르면 `aiModel` 을 생략해 기본 모델을 쓴다.
+
+> v4.20 까지의 `aiModel` / `imageSizes` / `stylePresets` / `upscaleMethods` 응답 필드는 v2 에서 없어진 입력 형식을 읽어 늘 비어 있었다. 지금은 `baseModel` 과 `additionalFields` 로 대신한다.
 
 ---
 
@@ -68,15 +79,15 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `generate`
 
-이미지/비디오/오디오 생성 (텍스트 작업판은 [`generate_text`](#generate_text)). 사전에 `get_workboard`로 옵션 확인 필요. Select 필드(aiModel, imageSize 등)는 옵션 배열의 문자열을 그대로 전달하면 key-value 매핑은 자동 처리.
+이미지/비디오/오디오 생성 (텍스트 작업판은 [`generate_text`](#generate_text)). 사전에 `get_workboard`로 옵션 확인 필요. `additionalParams` 의 select 필드는 옵션 배열의 문자열(표시 이름)이나 값을 그대로 전달하면 key-value 매핑은 자동 처리.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
 | `workboardId` | string | **필수** | 작업판 ID (`list_workboards`에서 확인) |
 | `prompt` | string | **필수** | 생성 프롬프트 |
-| `aiModel` | string | **필수** | AI 모델 이름 (`get_workboard` aiModel options 배열에서 확인) |
+| `aiModel` | string | - | 베이스 모델 파일 경로 — `get_workboard` 의 `baseModel.default`·`options` 와 같은 형식. 생략하면 판의 기본 모델. 판의 모델 칸(`baseModel.field`)에 들어간다. `additionalParams` 로 그 칸을 직접 넣었으면 그 값이 우선하고 응답 `warnings` 에 알린다 |
 | `negativePrompt` | string | - | 네거티브 프롬프트 |
-| `imageSize` | string | - | 이미지 크기 값 (`get_workboard` imageSizes options에서 확인) |
+| `imageSize` | string | - | (옛 형식) 이미지 크기. 크기 칸이 있는 판은 `additionalParams` 에 그 칸 이름으로 넣는다 |
 | `stylePreset` | string | - | 스타일 프리셋 값 |
 | `upscaleMethod` | string | - | 업스케일 방식 값 |
 | `seed` | number | - | 특정 시드 번호 |
@@ -90,6 +101,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `jobId` | 생성된 작업 ID |
 | `status` | 작업 상태 |
 | `message` | 결과 메시지 |
+| `warnings` | 무시된 입력이 있을 때만 (예: `aiModel` 과 다른 모델 칸 값을 함께 보냄) |
 
 ---
 
@@ -131,7 +143,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `targetWorkboardId` | string | - | 대상 작업판 ID (생략 시 원본과 동일) |
 | `prompt` | string | - | 프롬프트 오버라이드 (생략 시 원본 사용) |
 | `negativePrompt` | string | - | 네거티브 프롬프트 오버라이드 |
-| `aiModel` | string | - | AI 모델 오버라이드 |
+| `aiModel` | string | - | 베이스 모델 오버라이드 — 대상 판의 `get_workboard` `baseModel` 기준. 생략하면 원본 작업의 모델 칸 값을 그대로 쓴다 (다른 판으로 이어 갈 때 대상 판의 폴더 제한 밖이면 서버가 거절) |
 | `imageSize` | string | - | 이미지 크기 오버라이드 |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
@@ -299,7 +311,7 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 
 ```
 1. upload_image(data: "iVBOR...") → imageId: "abc123"
-2. generate(workboardId, prompt, aiModel, additionalParams: { "referenceImage": "abc123" })
+2. generate(workboardId, prompt, additionalParams: { "referenceImage": "abc123" })
    또는 텍스트 작업판: generate_text(workboardId, prompt, imageIds: ["abc123"])
    → 이미지 타입 필드가 자동으로 { imageId: "abc123" } 형식으로 변환됨
 ```
