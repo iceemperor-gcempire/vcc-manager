@@ -187,6 +187,7 @@
 - [ ] 문서(`docs/MCP_SERVER.md` 3-4) **기본 경로**대로 **MCP 키 + `claude mcp add --header`** 로 등록 → `list_workboards` 실호출
 - [ ] (고급) **헬퍼 + `claude mcp add-json`** 으로 등록 → 신뢰한 폴더에서 연결됨. 신뢰하지 않은 새 폴더에서는 `Dynamic Client Registration rejected (HTTP 404)` — 문서의 문제 해결 안내와 맞는지
 - [ ] MCP 키로 MCP 밖 요청(예: `GET /api/admin/stats`) → `403 이 키는 MCP 용이라…`
+- [ ] MCP 통합 테스트 (`mcp-server/README.md` "통합 테스트") 를 MCP 키로, `MCP_TEST_RUN_GENERATE=1` 까지 — 전부 통과 (#1178)
 - [ ] **세션 도중 키를 폐기하면** 그 호출은 도구 오류, **다음 요청은 401 로 세션이 닫힘** → 새 키로 Reconnect 후 정상
 
 ---
@@ -198,3 +199,4 @@
 | 1.0 | 2026-02-02 | 초기 작성 - Issue #29, #32~#38 기반 |
 | 1.1 | 2026-10-03 | 페이즈 구분 머리말, 10장 API 키·MCP 신설, 회귀에 MCP·작업판 동기화 추가 (#994, #997) |
 | 1.2 | 2026-10-03 | MCP 연결: 기본 경로(MCP 키 + 헤더) 주 항목, 헬퍼는 고급 (#1008) |
+| 1.3 | 2026-11-12 | 10.5 에 MCP 통합 테스트 (#1178) |

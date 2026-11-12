@@ -30,10 +30,12 @@ VCC Manager는 ComfyUI 워크플로우 기반 이미지/비디오 생성 관리 
 2. **오픈소스 라이선스 고지 갱신** (#1063) — `pnpm run licenses:update` 로 `docs/THIRD_PARTY_LICENSES.md` 를 다시 만들어 commit. 허용형 목록 밖 라이선스가 새로 들어왔으면 실패하니, 조건을 확인해 `scripts/third-party-license-review.json` 에 판단을 남기고 다시 돌린다. 알파를 `--no-cache` 로 빌드한 뒤 웹 `/third-party-licenses.txt` 와 백엔드·MCP 컨테이너의 `/app/THIRD_PARTY_LICENSES.txt` 가 비어 있지 않은지 확인하고, 구성별 패키지 수·검토 항목을 `dev` → `main` PR 에 붙인다
    - 고지 원문은 빌드할 때 만들어진다 (세 Dockerfile). 저장소의 목록 문서는 사람이 읽는 사본이다
    - **고지는 빌드 도구가 알아서 만들어 주는 것에 기대지 않고 이 단계에서 확인한다.** 예전에는 고지 작성이 절차에 없었고 CRA 가 설정 없이 만들던 `*.js.LICENSE.txt` 에 기대고 있었다. 그래서 #526 Vite 전환 때 빠졌는데 넉 달 동안 아무도 몰랐다 (#1063)
-3. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
-4. `dev` → `main` PR 생성 및 머지
-5. `main` 브랜치에서 버전 태그 생성
-6. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
+3. **MCP 통합 테스트** (#1178) — 알파 MCP 에 **MCP 용 키(`vccm_`)** 로 `pnpm --dir mcp-server test:integration` 을 `MCP_TEST_RUN_GENERATE=1` 까지 돌리고 결과(통과 수, 고른 판, 기본값·목록 없는 판)를 `dev` → `main` PR 에 붙인다. 실행법은 `mcp-server/README.md` "통합 테스트". 만든 시험 작업은 알파 정리 목록에 넣는다
+   - MCP `generate` 가 배포 판에서 첫 호출에 막혀 있었는데 (#1088), 이 테스트가 작업판·생성 도구를 부르지 않았고 릴리스 절차에도 없어서 몇 달 동안 아무도 몰랐다
+4. 업데이트 로그 작성 (`docs/updatelogs/v{major}.md`) 및 commit.
+5. `dev` → `main` PR 생성 및 머지
+6. `main` 브랜치에서 버전 태그 생성
+7. GitHub Release 작성 (태그 기준, 본문은 해당 버전의 업데이트 로그 발췌)
 
 **사용자 비가시 변경 시** (CLAUDE.md, `docs/`, `e2e/`, 내부 스크립트, CI 설정 등 배포 산출물에 영향 없는 변경):
 1. 일반 개발 작업과 동일하게 issue → feature/fix 브랜치 → PR → `dev` 머지
@@ -133,6 +135,7 @@ docker-compose logs -f backend
 | **QA** | 알파 (dev 반영 후, 릴리스 전) | **웹 UI·문서에 적힌 경로 그대로.** `docs/TEST_CHECKLIST.md`, e2e. 문서대로 안 되면 문서나 구현의 결함 → 이슈 | 문서대로 발급한 계정·키 |
 | **실사용·리그레션** | 알파(dev 직결)·프로덕션(main) | 각 세션의 **상시 MCP 연결**과 작업판 동기화. 알파 반영 직후·프로덕션 배포 직후에 확인 | `secrets.env` 상시 키 + headersHelper (매뉴얼에 있는 구성만) |
 
+- **MCP 도구(`mcp-server/src/tools/*`)를 고친 PR 은 머지 전에 알파에서 실호출로 확인하고 결과를 PR 본문에 적는다** (#1178). 그 브랜치로 일회용 MCP 컨테이너를 띄워 알파 백엔드에 붙이고 통합 테스트를 돌린다. 단위 테스트만으로는 부족하다 — #1088 은 단위 테스트가 다 통과한 상태에서 알파 실호출로 남은 결함이 드러났다
 - **MCP 도구는 실사용 경로다.** 개발 테스트에 쓰지 않는다. user 스코프는 프로덕션을 가리키고, 이 저장소 세션은
   local 스코프로 알파(`alpha-vccm-mcp.gcempire.net`)에 붙어 있다 — 쓰기 전에 어느 인스턴스인지 확인한다
 - **실사용 키를 바꾸면 MCP 를 재연결하고 실제 호출로 확인한다.** MCP 서버는 세션을 연 키를 세션 내내 쓰고,
