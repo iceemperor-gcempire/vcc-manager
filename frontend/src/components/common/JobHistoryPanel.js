@@ -675,15 +675,18 @@ export function JobDetailDialog({ job, open, onClose, onImageView }) {
   const tags = job.inputData?.tags || [];
   const populatedTags = tags.filter(t => typeof t === 'object' && t.name);
 
+  // 결과를 기다려 알린다 (#1187) — JSON 이 아니면 받은 문자열 그대로 복사
   const handleCopyWorkflow = () => {
+    let text = job.resolvedWorkflowData;
+    let done = '워크플로우 데이터가 클립보드에 복사되었습니다';
     try {
-      const parsed = JSON.parse(job.resolvedWorkflowData);
-      copyToClipboard(JSON.stringify(parsed, null, 2));
-      toast.success('워크플로우 JSON이 클립보드에 복사되었습니다');
-    } catch {
-      copyToClipboard(job.resolvedWorkflowData);
-      toast.success('워크플로우 데이터가 클립보드에 복사되었습니다');
-    }
+      text = JSON.stringify(JSON.parse(job.resolvedWorkflowData), null, 2);
+      done = '워크플로우 JSON이 클립보드에 복사되었습니다';
+    } catch { /* 원문 그대로 */ }
+    copyToClipboard(text).then(
+      () => toast.success(done),
+      () => toast.error('자동 복사가 안 되는 환경입니다. 직접 선택해 복사하세요.')
+    );
   };
 
   let formattedWorkflow = null;

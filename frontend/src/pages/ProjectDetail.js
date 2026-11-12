@@ -497,9 +497,12 @@ function PromptDataTab({ projectId }) {
     setWorkboardSelectOpen(false);
   };
 
+  // 결과를 기다려 알린다 (#1187)
   const handleCopyPrompt = (promptData) => {
-    copyToClipboard(promptData.prompt);
-    toast.success('프롬프트가 클립보드에 복사되었습니다');
+    copyToClipboard(promptData.prompt).then(
+      () => toast.success('프롬프트가 클립보드에 복사되었습니다'),
+      () => toast.error('자동 복사가 안 되는 환경입니다. 직접 선택해 복사하세요.')
+    );
   };
 
   return (

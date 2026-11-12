@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { copyToClipboard } from '../utils/clipboard';
 import {
   Container,
@@ -310,6 +310,7 @@ function SecuritySettings() {
   const [newKeyScope, setNewKeyScope] = useState(DEFAULT_NEW_KEY_SCOPE);
   const [createdKey, setCreatedKey] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
+  const keyInputRef = useRef(null);
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
 
@@ -355,10 +356,17 @@ function SecuritySettings() {
     createKeyMutation.mutate({ name: newKeyName.trim(), scope: newKeyScope });
   };
 
-  const handleCopyKey = () => {
-    if (createdKey?.key) {
-      copyToClipboard(createdKey.key);
+  // 복사가 끝난 뒤에 결과대로 알린다 (#1187) — 예전에는 기다리지 않고 성공 알림부터 띄워
+  // 실제로는 복사되지 않았는데도 "복사되었습니다"가 나왔다.
+  const handleCopyKey = async () => {
+    if (!createdKey?.key) return;
+    try {
+      await copyToClipboard(createdKey.key);
       toast.success('API Key가 클립보드에 복사되었습니다');
+    } catch {
+      // 자동 복사가 막힌 환경 — 키 칸을 선택해 두어 직접 복사할 수 있게 한다
+      keyInputRef.current?.select();
+      toast.error('자동 복사가 안 되는 환경입니다. 선택된 키를 직접 복사하세요.');
     }
   };
 
@@ -572,6 +580,7 @@ function SecuritySettings() {
             <TextField
               fullWidth
               value={createdKey.key}
+              inputRef={keyInputRef}
               InputProps={{
                 readOnly: true,
                 endAdornment: (
