@@ -41,7 +41,8 @@ describe('ImageUploadField 갤러리에서 선택 (#1182)', () => {
     expect(p.maxImages).toBe(2);
     expect(p.multiple).toBe(true);
     expect(p.initialSelected).toEqual([{ imageId: 'x', image: { _id: 'x', url: '/api/files/x' } }]);
-    expect(p.title).toBe('참고 이미지 선택');
+    // 칸 이름과 무관한 고정 제목 — "이미지 (선택)" 칸이면 "이미지 (선택) 선택" 이 됐다 (#1184)
+    expect(p.title).toBe('첨부할 이미지 선택');
   });
 
   test('남은 자리가 하나면 단일 선택으로 연다', () => {
