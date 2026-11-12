@@ -286,7 +286,7 @@ function StepDots({ statuses }) {
 }
 
 // ---- 한 행 --------------------------------------------------------------
-function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
+function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onTextDelete, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
   const subStr = buildHistorySubtitle(item);
   const selectable = selectMode && isSelectable(item);
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
@@ -412,6 +412,14 @@ function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, on
               전문 보기 →
             </Typography>
           )}
+          {/* 대화 삭제 (#1188) — 응답 중인 대화는 끝난 뒤에 지운다 */}
+          {item.type === 'text' && !selectMode && item.status !== 'running' && (
+            <Tooltip title="대화 삭제">
+              <IconButton aria-label="대화 삭제" size="small" onClick={() => onTextDelete(item)}>
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
           {MEDIA_ITEM_TYPES.includes(item.type) && (
             <Box sx={{ display: 'flex', gap: 0.25 }}>
               <Tooltip title={item.memo ? '메모 수정' : '메모 추가'}>
@@ -432,7 +440,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, on
 
 // ---- 페이지 -------------------------------------------------------------
 // 큰 썸네일(그리드) 카드 — 리스트(HistoryRow)와 동일 핸들러 재사용 (#675)
-function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
+function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, onTextContinue, onTextDetail, onTextDelete, onPipelineDetail, selectMode = false, selected = false, onToggleSelect }) {
   const selectable = selectMode && isSelectable(item);
   const clickable = MEDIA_ITEM_TYPES.includes(item.type);
   const handleClick = selectable ? () => onToggleSelect(item.id) : (clickable && !selectMode ? () => onOpenMedia(item) : undefined);
@@ -528,6 +536,10 @@ function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, o
                 <Button variant="outlined" startIcon={<PlayArrow />} onClick={() => onTextContinue(item)}>이어가기</Button>
               )}
               <Button variant="text" onClick={() => onTextDetail(item)}>전문 보기</Button>
+              {/* 대화 삭제 (#1188) */}
+              {!selectMode && item.status !== 'running' && (
+                <IconButton aria-label="대화 삭제" size="small" onClick={() => onTextDelete(item)}><Delete fontSize="small" /></IconButton>
+              )}
             </>
           )}
           {item.type === 'pipeline' && item.projectId && (
@@ -624,7 +636,7 @@ function JobHistory() {
   // ---- mutations ----
   // 재시도/취소/삭제는 프로젝트 상세 패널(JobHistoryPanel)과 동작을 공유한다 (#728).
   // 예전에는 각자 구현이라 이 화면에만 재시도가 빠져 있었다.
-  const jobActions = useJobActions({ invalidateKeys: ['historyJobs'] });
+  const jobActions = useJobActions({ invalidateKeys: ['historyJobs', 'historyConvs'] });
   const { continueSameWorkboard, continueCrossWorkboard } = useContinueJob();   // #808
   const savePromptMutation = useMutation({ mutationFn: promptDataAPI.create,
     onSuccess: () => { toast.success('프롬프트 데이터가 저장되었습니다'); setSaveJob(null); },
@@ -658,10 +670,14 @@ function JobHistory() {
   const handleToggleSelect = (id) => setSelected((prev) => toggleId(prev, id));
   const handleToggleAll = () => setSelected((prev) => toggleAll(prev, visible));
   const handleBulkDelete = async () => {
-    const jobs = visible.filter((i) => selected.has(i.id)).map((i) => i.raw);
-    const done = await jobActions.removeMany(jobs);
+    const picked = visible.filter((i) => selected.has(i.id));
+    // 작업과 대화는 삭제 API 가 다르다 — 갈라서 넘기고 확인은 한 번만 받는다 (#1188)
+    const jobs = picked.filter((i) => i.kind === 'job').map((i) => i.raw);
+    const convs = picked.filter((i) => i.kind === 'conv').map((i) => i.raw);
+    const done = await jobActions.removeMany(jobs, convs);
     if (done) exitSelectMode();
   };
+  const handleTextDelete = (item) => jobActions.removeConversation(item.raw);
   const selectableCount = selectableIds(visible).length;
   const handleMemoSave = async (memo) => { await jobActions.saveMemo(memoJob, memo); setMemoJob(null); };
   const handleRetry = (job) => { closeMenu(); jobActions.retry(job); };
@@ -759,6 +775,7 @@ function JobHistory() {
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
               onTextDetail={(it) => setTextDetail(it)}
+              onTextDelete={handleTextDelete}
               onPipelineDetail={(it) => navigate(`/projects/${it.projectId}`)}
             />
           ))}
@@ -779,6 +796,7 @@ function JobHistory() {
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
               onTextDetail={(it) => setTextDetail(it)}
+              onTextDelete={handleTextDelete}
               onPipelineDetail={(it) => navigate(`/projects/${it.projectId}`)}
             />
           ))}
