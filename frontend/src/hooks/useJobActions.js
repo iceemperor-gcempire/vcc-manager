@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { jobAPI, userAPI } from '../services/api';
+import { conversationAPI, jobAPI, userAPI } from '../services/api';
 import { useConfirm } from '../components/common/ConfirmDialog';
 
 // 작업(job) 공통 액션 — 재시도 / 취소 / 삭제 (#728).
@@ -122,19 +122,62 @@ export function useJobActions({ invalidateKeys }) {
     if (ok) deleteMutation.mutate({ id: job._id, deleteContent: withContent });
   };
 
-  /** 여러 작업 삭제 — 확인 후 실행. 성공/취소 여부를 돌려준다 (화면이 선택 상태를 정리하도록) */
-  const removeMany = async (jobs) => {
+  // 대화(텍스트 생성) 삭제 (#1188) — 작업이 아니라 conversations API 로 지운다.
+  // 대화에서 저장한 텍스트(내 텍스트)는 남는다. AI 프롬프트 생성 화면의 대화 기록 패널과 같은 동작이다.
+  const invalidateConversations = () => {
+    invalidate();
+    queryClient.invalidateQueries({ queryKey: ['conversations'] });
+  };
+  const convDeleteMutation = useMutation({
+    mutationFn: (id) => conversationAPI.delete(id),
+    onSuccess: () => { toast.success('대화를 삭제했습니다'); invalidateConversations(); },
+    onError: (error) => toast.error('삭제 실패: ' + (error.response?.data?.message || error.message)),
+  });
+  const removeConversation = async (conv) => {
+    const ok = await confirm({
+      title: '이 대화를 삭제하시겠습니까?',
+      description: '대화에서 저장한 텍스트는 보존됩니다.',
+      confirmLabel: '삭제',
+    });
+    if (ok) convDeleteMutation.mutate(conv._id);
+  };
+  // 대화는 일괄 API 가 없어 한 건씩 보낸다. 선택한 것만큼이라 수가 적다.
+  const deleteConversations = async (convs) => {
+    const results = await Promise.allSettled(convs.map((c) => conversationAPI.delete(c._id)));
+    const failed = results.filter((r) => r.status === 'rejected').length;
+    const deleted = results.length - failed;
+    if (deleted > 0) toast.success(`${deleted}개 대화 삭제${failed ? ` · ${failed}개 실패` : ''}`);
+    else toast.error(`대화 ${failed}개를 삭제하지 못했습니다`);
+    invalidateConversations();
+  };
+
+  /**
+   * 여러 항목 삭제 — 확인 후 실행. 성공/취소 여부를 돌려준다 (화면이 선택 상태를 정리하도록).
+   * conversations: 함께 지울 대화 (#1188). 작업과 한 번에 확인받는다.
+   */
+  const removeMany = async (jobs, conversations = []) => {
     const list = (jobs || []).filter(Boolean);
-    if (list.length === 0) return false;
+    const convs = (conversations || []).filter(Boolean);
+    if (list.length === 0 && convs.length === 0) return false;
     const contentCount = list.reduce((n, j) => n + (j.resultImages?.length || 0) + (j.resultVideos?.length || 0) + (j.resultAudios?.length || 0), 0);
     const withContent = !!preferences.deleteContentWithHistory && contentCount > 0;
-    const ok = await confirm(
-      withContent
+    const ok = await confirm(convs.length === 0
+      ? (withContent
         ? { title: `${list.length}개 작업과 콘텐츠를 함께 삭제하시겠습니까?`, description: `연관된 ${contentCount}개의 콘텐츠(이미지/동영상/오디오)도 같이 삭제됩니다.`, danger: true, confirmLabel: '모두 삭제' }
-        : { title: `${list.length}개 작업 히스토리를 삭제하시겠습니까?`, description: '생성된 콘텐츠는 보존됩니다.', confirmLabel: '삭제' }
+        : { title: `${list.length}개 작업 히스토리를 삭제하시겠습니까?`, description: '생성된 콘텐츠는 보존됩니다.', confirmLabel: '삭제' })
+      : {
+          title: `${[list.length && `작업 ${list.length}개`, `대화 ${convs.length}개`].filter(Boolean).join('와 ')}를 삭제하시겠습니까?`,
+          description: [
+            withContent ? `작업에 연관된 ${contentCount}개의 콘텐츠(이미지/동영상/오디오)도 같이 삭제됩니다.` : (list.length ? '생성된 콘텐츠는 보존됩니다.' : ''),
+            '대화에서 저장한 텍스트는 보존됩니다.',
+          ].filter(Boolean).join(' '),
+          danger: withContent,
+          confirmLabel: withContent ? '모두 삭제' : '삭제',
+        }
     );
     if (!ok) return false;
-    await bulkDeleteMutation.mutateAsync({ ids: list.map((j) => j._id), deleteContent: withContent });
+    if (list.length) await bulkDeleteMutation.mutateAsync({ ids: list.map((j) => j._id), deleteContent: withContent });
+    if (convs.length) await deleteConversations(convs);
     return true;
   };
 
@@ -143,10 +186,11 @@ export function useJobActions({ invalidateKeys }) {
     cancel,
     remove,
     removeMany,
+    removeConversation,
     saveMemo,
     isSavingMemo: memoMutation.isPending,
     preferences,
-    isPending: retryMutation.isPending || cancelMutation.isPending || deleteMutation.isPending || bulkDeleteMutation.isPending,
+    isPending: retryMutation.isPending || cancelMutation.isPending || deleteMutation.isPending || bulkDeleteMutation.isPending || convDeleteMutation.isPending,
   };
 }
 

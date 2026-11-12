@@ -5,13 +5,14 @@ const items = [
   { id: 'a', kind: 'job', type: 'image', status: 'done' },
   { id: 'b', kind: 'job', type: 'video', status: 'error' },
   { id: 'c', kind: 'job', type: 'audio', status: 'running' },   // 처리 중 — 제외
-  { id: 'd', kind: 'conv', type: 'text', status: 'done' },      // 대화 — 제외
+  { id: 'd', kind: 'conv', type: 'text', status: 'done' },      // 대화 — 포함 (#1188)
   { id: 'e', kind: 'run', type: 'pipeline', status: 'done' },   // 파이프라인 — 제외
+  { id: 'f', kind: 'conv', type: 'text', status: 'running' },   // 응답 중인 대화 — 제외
 ];
 
-describe('historySelection (#902)', () => {
-  test('선택 가능: 처리 중이 아닌 미디어 job 만', () => {
-    expect(selectableIds(items)).toEqual(['a', 'b']);
+describe('historySelection (#902, #1188)', () => {
+  test('선택 가능: 처리 중이 아닌 미디어 job 과 대화', () => {
+    expect(selectableIds(items)).toEqual(['a', 'b', 'd']);
     expect(isSelectable(null)).toBe(false);
   });
 
@@ -22,9 +23,9 @@ describe('historySelection (#902)', () => {
   });
 
   test('toggleAll: 일부/없음 → 전부, 전부 → 없음', () => {
-    expect([...toggleAll(new Set(), items)]).toEqual(['a', 'b']);
-    expect([...toggleAll(new Set(['a']), items)]).toEqual(['a', 'b']);
-    expect(toggleAll(new Set(['a', 'b']), items).size).toBe(0);
+    expect([...toggleAll(new Set(), items)]).toEqual(['a', 'b', 'd']);
+    expect([...toggleAll(new Set(['a']), items)]).toEqual(['a', 'b', 'd']);
+    expect(toggleAll(new Set(['a', 'b', 'd']), items).size).toBe(0);
   });
 
   test('pruneSelection: 사라진 항목 제거, 변화 없으면 같은 Set', () => {
