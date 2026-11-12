@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { copyToClipboard } from '../utils/clipboard';
 import {
   Paper,
@@ -13,128 +13,23 @@ import {
   Box,
   Alert,
   CircularProgress,
-  Card,
-  CardMedia,
   IconButton,
   LinearProgress
 } from '@mui/material';
 import {
   Send,
-  Delete,
-  Add,
   Chat,
   ContentCopy
 } from '@mui/icons-material';
 import { useQuery } from '@tanstack/react-query';
 import { useForm, Controller } from 'react-hook-form';
-import { useDropzone } from 'react-dropzone';
 import toast from 'react-hot-toast';
 import { workboardAPI, imageAPI } from '../services/api';
 import { useStreamingPrompt } from '../hooks/useStreamingPrompt';
 import PromptGuideBadge from './common/PromptGuideBadge';
 import CustomFieldControl from './common/CustomFieldControl';
+import ImageUploadField from './common/ImageUploadField';
 import { MONO } from '../theme';
-
-function ImageUploadField({ label, description, images, onImagesChange, maxImages = 1 }) {
-  const onDrop = useCallback((acceptedFiles) => {
-    if (images.length >= maxImages) {
-      toast.error(`최대 ${maxImages}개의 이미지만 업로드할 수 있습니다.`);
-      return;
-    }
-    
-    const remainingSlots = maxImages - images.length;
-    const filesToAdd = acceptedFiles.slice(0, remainingSlots);
-    
-    const newImages = filesToAdd.map(file => ({
-      file,
-      preview: URL.createObjectURL(file)
-    }));
-    
-    onImagesChange([...images, ...newImages]);
-  }, [images, maxImages, onImagesChange]);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: { 'image/*': ['.jpeg', '.jpg', '.png', '.webp'] },
-    maxSize: 10 * 1024 * 1024,
-    disabled: images.length >= maxImages
-  });
-
-  const removeImage = (index) => {
-    const newImages = [...images];
-    if (newImages[index].preview) {
-      URL.revokeObjectURL(newImages[index].preview);
-    }
-    newImages.splice(index, 1);
-    onImagesChange(newImages);
-  };
-
-  return (
-    <Box>
-      <Typography variant="subtitle2" gutterBottom>
-        {label}
-      </Typography>
-      {description && (
-        <Typography variant="caption" color="text.secondary" display="block" mb={1}>
-          {description}
-        </Typography>
-      )}
-      
-      <Box display="flex" gap={1} flexWrap="wrap" mb={1}>
-        {images.map((img, index) => (
-          <Box key={index} position="relative">
-            <Card sx={{ width: 80, height: 80 }}>
-              <CardMedia
-                component="img"
-                image={img.preview || img.url}
-                sx={{ width: 80, height: 80, objectFit: 'cover' }}
-              />
-            </Card>
-            <IconButton
-              aria-label="첨부 이미지 제거"
-              size="small"
-              onClick={() => removeImage(index)}
-              sx={{
-                position: 'absolute',
-                top: -8,
-                right: -8,
-                bgcolor: 'error.main',
-                color: 'white',
-                '&:hover': { bgcolor: 'error.dark' },
-                width: 20,
-                height: 20
-              }}
-            >
-              <Delete sx={{ fontSize: 14 }} />
-            </IconButton>
-          </Box>
-        ))}
-        
-        {images.length < maxImages && (
-          <Box
-            {...getRootProps()}
-            sx={{
-              width: 80,
-              height: 80,
-              border: '2px dashed',
-              borderColor: isDragActive ? 'secondary.main' : 'grey.300',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              bgcolor: isDragActive ? 'action.hover' : 'transparent',
-              '&:hover': { borderColor: 'secondary.main', bgcolor: 'action.hover' }
-            }}
-          >
-            <input {...getInputProps()} />
-            <Add color="action" />
-          </Box>
-        )}
-      </Box>
-    </Box>
-  );
-}
 
 function PromptGeneratorPanel({
   workboardId,
@@ -251,8 +146,11 @@ function PromptGeneratorPanel({
 
   const handleCopyResult = () => {
     if (generatedResult?.result) {
-      copyToClipboard(generatedResult.result);
-      toast.success('클립보드에 복사되었습니다');
+      // 결과를 기다려 알린다 (#1187)
+      copyToClipboard(generatedResult.result).then(
+        () => toast.success('클립보드에 복사되었습니다'),
+        () => toast.error('자동 복사가 안 되는 환경입니다. 직접 선택해 복사하세요.')
+      );
     }
   };
 

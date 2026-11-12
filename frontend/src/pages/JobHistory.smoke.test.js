@@ -55,15 +55,25 @@ describe('JobHistory 페이지 렌더 스모크 (#902)', () => {
     expect(screen.getByText('GPT')).toBeInTheDocument();
   });
 
-  test('선택 모드: 미디어 작업만 체크 가능, 선택 삭제 버튼에 개수', async () => {
+  test('대화 행에 삭제 버튼이 있다 (#1188)', async () => {
+    renderPage();
+    await screen.findByText('GPT');
+    expect(screen.getByRole('button', { name: '대화 삭제' })).toBeInTheDocument();
+  });
+
+  test('선택 모드: 미디어 작업과 대화를 체크할 수 있고, 선택 삭제 버튼에 개수', async () => {
     renderPage();
     await screen.findByText('Text to Image - Z-Image');
     fireEvent.click(screen.getByRole('button', { name: '선택' }));
     const cb = screen.getByLabelText('Text to Image - Z-Image 선택');
     expect(cb).not.toBeDisabled();
-    expect(screen.getByLabelText('GPT 선택')).toBeDisabled();          // 대화는 선택 불가
+    const convCb = screen.getByLabelText('GPT 선택');
+    expect(convCb).not.toBeDisabled();                                  // 대화도 선택 가능 (#1188)
+    expect(screen.queryByRole('button', { name: '대화 삭제' })).not.toBeInTheDocument();   // 선택 모드에선 행 삭제 숨김
     fireEvent.click(cb);
     expect(screen.getByRole('button', { name: /선택 삭제 \(1\)/ })).toBeInTheDocument();
+    fireEvent.click(convCb);
+    expect(screen.getByRole('button', { name: /선택 삭제 \(2\)/ })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByLabelText('전체 선택')).not.toBeInTheDocument());
   });
