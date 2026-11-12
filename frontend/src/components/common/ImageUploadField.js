@@ -112,7 +112,8 @@ function ImageUploadField({ label, description, images, onImagesChange, maxImage
           open={galleryOpen}
           onClose={() => setGalleryOpen(false)}
           onSelect={handleGallerySelect}
-          title={`${label || '첨부 이미지'} 선택`}
+          // 칸 이름을 붙이지 않는다 — 이미지 칸 이름은 보통 "이미지 (선택)" 이라 "이미지 (선택) 선택" 이 됐다 (#1184)
+          title="첨부할 이미지 선택"
           multiple={slots > 1}
           maxImages={slots}
           initialSelected={galleryInitialSelection(images)}
