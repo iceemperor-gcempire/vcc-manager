@@ -18,8 +18,8 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
-const { getFieldValueByRole } = require('../utils/customFieldHelpers');
-const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { getFieldValueByRole, getModelValue } = require('../utils/customFieldHelpers');
+const { FIELD_ROLES, WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 const { decryptSecret } = require('../utils/secretCrypto');
 
 let imageGenerationQueue;
@@ -166,7 +166,7 @@ async function handleGeminiImage({ workboardData, inputData, job, signal }) {
     workboardData.apiKey,   // 키는 서버 설정에 at-rest 암호화 저장 (#594). env 폴백 제거 (#813)
     buildGeminiPrompt(inputData, workboardData),
     {
-      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      model: getModelValue(workboardData, inputData),
       aspectRatio: deriveAspectRatio(extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE))),
       resolution: extractOptionValue(inputData.additionalParams?.resolution),
       images: geminiImages,
@@ -206,7 +206,7 @@ async function handleDIceAllImage({ workboardData, inputData, job, signal }) {
     workboardData.apiKey,
     buildGeminiPrompt(inputData, workboardData),
     {
-      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      model: getModelValue(workboardData, inputData),
       size: extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE)),
       n: extractOptionValue(inputData.additionalParams?.n || inputData.n) || 1,
       timeout: workboardData.timeout,
@@ -235,7 +235,7 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
     workboardData.apiKey,   // 위와 동일 (#813)
     buildGeminiPrompt(inputData, workboardData),
     {
-      model: getFieldValueByRole(workboardData, inputData, FIELD_ROLES.MODEL),
+      model: getModelValue(workboardData, inputData),
       size: extractOptionValue(paramOrDefault('image_size', getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE))),
       quality: extractOptionValue(paramOrDefault('quality',
         inputData.additionalParams?.quality || inputData.quality
@@ -884,7 +884,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
 
   const promptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT) || '';
   const negativePromptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT) || '';
-  const modelValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL);
+  const modelValue = getModelValue(workboard, inputData);
 
   // placeholder 키 정의는 src/constants/workflowVariables.js 와 frontend mirror 에 등록.
   // 신규 placeholder 추가 시 세 곳 모두 갱신 필요.
@@ -900,6 +900,17 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   
   console.log('🔧 Built replacements object:', JSON.stringify(replacements, null, 2));
 
+  // 칸이 비었을 때 요청의 내장 칸 값 (#1174) — REST 의 top-level `aiModel`·`imageSize` 는 판의 모델 칸·크기 칸으로 받는다.
+  // 위 {{##base_model##}}·{{##width##}}/{{##height##}} 는 이미 이 값으로 채워졌다. 칸 반복이 같은 자리를 칸 기본값으로
+  // 다시 써서 보낸 모델·크기가 무시되던 것을 막는다. 칸 값이 따로 오면 위에서 그 값이 먼저 잡힌다.
+  const builtInSlotValue = (field) => {
+    if (field.type === 'baseModel') return modelValue;
+    if (WELL_KNOWN_FIELD_NAME_TO_ROLE[field.name] === FIELD_ROLES.IMAGE_SIZE) {
+      return getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE);
+    }
+    return undefined;
+  };
+
   // 추가 입력 필드들의 커스톰 형식 문자열 처리
   if (workboard && workboard.additionalInputFields) {
     workboard.additionalInputFields.forEach(field => {
@@ -911,7 +922,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
       if (inputData.additionalParams && inputData.additionalParams[fieldName] !== undefined) {
         rawValue = inputData.additionalParams[fieldName];
       } else {
-        rawValue = inputData[fieldName] || field.defaultValue || '';
+        rawValue = inputData[fieldName] || builtInSlotValue(field) || field.defaultValue || '';
       }
       
       // 키-값 객체에서 값 추출
@@ -1247,7 +1258,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         generationParams: {
           prompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT),
           negativePrompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT),
-          model: getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL),
+          model: getModelValue(workboard, inputData),
           seed: getFieldValueByRole(workboard, inputData, FIELD_ROLES.SEED),
           imageSize: getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE),
           stylePreset: getFieldValueByRole(workboard, inputData, FIELD_ROLES.STYLE_PRESET),

@@ -94,6 +94,40 @@ describe('POST /api/jobs/generate — 모델 폴더 (#1086)', () => {
   });
 });
 
+describe('POST /api/jobs/generate — top-level aiModel·imageSize (#1174)', () => {
+  const recorded = () => addImageGenerationJob.mock.calls[0][2];
+
+  test('top-level aiModel 이 폴더 밖이면 400', async () => {
+    const res = await generate({ aiModel: 'Z-Image\\z.safetensors', additionalParams: {} });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('Z-Image');
+    expect(addImageGenerationJob).not.toHaveBeenCalled();
+  });
+
+  test('top-level aiModel 만 보내면 그 모델을 기록한다', async () => {
+    const res = await generate({ aiModel: { key: 'q', value: 'qwen\\picked.safetensors' }, additionalParams: {} });
+    expect(res.status).toBe(201);
+    expect(recorded().aiModel).toEqual({ key: 'q', value: 'qwen\\picked.safetensors' });
+  });
+
+  test('칸 값과 함께 오면 칸 값을 검사하고 기록한다 — 실행하는 모델과 같게', async () => {
+    const res = await generate({
+      aiModel: 'Z-Image\\z.safetensors',
+      imageSize: '1344x768',
+      additionalParams: { base_model: 'qwen\\field.safetensors', image_size: '768x1344' },
+    });
+    expect(res.status).toBe(201);
+    expect(recorded().aiModel).toBe('qwen\\field.safetensors');
+    expect(recorded().imageSize).toBe('768x1344');
+  });
+
+  test('top-level imageSize 만 보내면 그 크기를 기록한다', async () => {
+    const res = await generate({ imageSize: '1344x768', additionalParams: { base_model: 'qwen\\ok.safetensors' } });
+    expect(res.status).toBe(201);
+    expect(recorded().imageSize).toBe('1344x768');
+  });
+});
+
 describe('POST /api/jobs/:id/retry — 모델 폴더 (#1086)', () => {
   const failedJob = (inputData) => ({
     _id: 'job-1',

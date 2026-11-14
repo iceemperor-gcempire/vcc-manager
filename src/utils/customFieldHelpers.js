@@ -70,6 +70,27 @@ function getFieldValueByRole(workboard, inputData, role) {
   return undefined;
 }
 
+const isBlank = (v) => v === undefined || v === null || v === '';
+
+/**
+ * 이 작업이 실행할 베이스 모델 (#1174). 모델 칸 값이 먼저이고, 비었으면 요청의 top-level `aiModel`.
+ *
+ * `getFieldValueByRole` 은 `aiModel` 을 칸 이름으로 인식하지 않는다 (0d72b24 snake_case 단일화). 그것과 별개로
+ * `POST /jobs/generate` 의 top-level `aiModel` 은 그 판의 모델 칸 값으로 받는다 (docs/API.md). 그동안 폴더 검사만
+ * `aiModel` 을 보고 워크플로 주입은 칸 기본값을 써서, 검사한 모델과 실행한 모델이 달랐다.
+ * 폴더 검사·워크플로 주입·작업 기록이 모두 이 함수를 쓴다.
+ *
+ * @param {Object} workboard
+ * @param {Object} inputData — 작업 입력 (top-level 또는 additionalParams)
+ * @returns {*} 값 ({key, value} 객체일 수 있음) 또는 undefined
+ */
+function getModelValue(workboard, inputData) {
+  const fromField = getFieldValueByRole(workboard, inputData, FIELD_ROLES.MODEL);
+  if (!isBlank(fromField)) return fromField;
+  const fromTopLevel = inputData ? inputData.aiModel : undefined;
+  return isBlank(fromTopLevel) ? fromField : fromTopLevel;
+}
+
 /**
  * 작업판의 customFields 를 role 별로 인덱싱한 맵 반환.
  * 같은 role 의 중복 필드가 있으면 첫 번째만 채택 (마지막 매치 무시).
@@ -92,5 +113,6 @@ function indexFieldsByRole(workboard) {
 module.exports = {
   getFieldByRole,
   getFieldValueByRole,
+  getModelValue,
   indexFieldsByRole
 };
