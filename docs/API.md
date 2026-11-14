@@ -142,6 +142,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 }
 ```
 
+- 작업판의 입력 칸은 `additionalParams` 에 **칸 이름**으로 넣는다 (`GET /workboards/:id` 의 `additionalInputFields[].name`, 배포 판의 모델 칸은 `base_model`, 크기 칸은 `image_size`)
+- top-level `aiModel` 은 그 판의 모델 칸(`type: baseModel`) 값으로, `imageSize` 는 크기 칸(`image_size`) 값으로 받는다 (#1174). 같은 칸을 `additionalParams` 로도 보내면 **칸 값이 먼저**다. 모델 폴더 검사·실행·작업 기록이 같은 값을 쓴다
+- 문자열과 `{ key, value }` 형태 둘 다 받는다 (`value` 를 쓴다)
+
 `workboardId` 의 `serverId.serverType` 와 `outputFormat` 으로 백엔드의 `SERVICE_MAP` 이 dispatch 한다 (v1.8.0).
 
 ### `POST /jobs/generate-prompt` — 대상 작업판 지침
