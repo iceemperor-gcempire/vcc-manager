@@ -145,3 +145,25 @@ describe('MiniMax-H3-Image — 보강에 넘기는 비율 (#1204)', () => {
     expect(fmt.inputs['values.c']).toEqual(cond.height);
   });
 });
+
+describe('Text to Image - MiniMax-H3-Image — AI 프롬프트 생성 경로 (#1207)', () => {
+  const [, t2i] = BOARDS[0];
+  const [, edit] = BOARDS[1];
+  const upsampler = (wb) => wb.additionalInputFields.find((f) => f.name === 'prompt_upsampler');
+
+  test('판 안 보강은 T2I 에서 기본 끔 — AI 프롬프트 생성으로 받은 캡션을 다시 고쳐 쓰지 않게', () => {
+    expect(upsampler(t2i).defaultValue).toBe(false);
+    // 편집 판은 AI 프롬프트 경로를 아직 시험 중이라 기본 켬 그대로
+    expect(upsampler(edit).defaultValue).toBe(true);
+  });
+
+  test('AI 프롬프트 지침은 공식 T2I 보강 지시문에서 비율 고르기와 JSON 출력을 뺀 것', () => {
+    const pgi = t2i.promptGeneratorInstructions;
+    expect(pgi).toContain('Universal hard rules:'); // 공식 지시문 본문
+    expect(pgi).toContain('vcc 출력 규칙');
+    expect(pgi).not.toContain('Aspect-ratio decision policy'); // 남겨 두면 세로 구도를 골랐다
+    expect(pgi).not.toContain('Final output contract');
+    expect(pgi).not.toMatch(/expanded_caption/);
+  });
+});
+
