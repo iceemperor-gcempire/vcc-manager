@@ -88,6 +88,8 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
 | `comfyui/text-to-image-p-h3-image.json` | Text to Image - P-H3-Image | 이미지 ×1 · 800만/400만 화소 · 비율 7가지 · **프롬프트 늘려 쓰기**(기본 켬) · 프롬프트 속 글씨 | H3 FL2VA 본체(`minimax/minimax_h3_fl2va_int8_convrot`) + P-H3-Image LoRA·텍스트 인코더·보강 모듈·VAE (아래 「P-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.44.0 에서 확인. 800만 화소 약 19초 |
 | `comfyui/image-edit-p-h3-image.json` | Image Edit - P-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 400만/800만 화소 · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 400만 화소 참조 1장 약 27초 |
+| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 25초 |
+| `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 39초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
@@ -583,6 +585,65 @@ models/
   본체를 다시 준비한다. 어느 단계가 몇 초인지는 나눠 재지 않았다
 - 본체 4개 모두 400만 화소에서 정상 결과를 확인했다 (각 1회). 본체를 바꾸면 처음 한 번은 본체를 올리느라 느리다
 - Qwen-Image 2.1 판(이미지 서버)은 100만 화소(1024²) 25스텝 4.3초다. 해상도가 8배라 직접 비교는 안 된다
+
+### MiniMax-H3-Image — 공식 이미지 판 2개 (영상 서버에 연결)
+
+MiniMax 가 11-03 에 낸 공식 이미지 생성·편집 모델 [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image) 의 판이다.
+위 P-H3-Image 와 이름이 비슷하지만 **다른 모델이다.** P-H3-Image 는 H3 영상 본체에 LoRA 를 거는 커뮤니티 방식이고,
+MiniMax-H3-Image 는 H3 구조(오디오 층을 뺀 33.1B DiT)로 이미지만 따로 학습해 6스텝으로 증류한 본체와 전용 VAE 를 쓴다.
+텍스트 인코더는 H3 영상 판과 같은 파일이다 (모델 카드). 워크플로는 ComfyUI 공식 템플릿(`image_minimax_h3_image_t2i` ·
+`image_minimax_h3_image_edit`)을 그대로 옮겼다.
+
+**H3 영상 판과 같은 ComfyUI 서버에 연결한다.** 이미지 서버와 영상 서버가 GPU 하나를 함께 쓰는 구성에서, 이미지 서버에 붙이면
+두 프로세스가 텍스트 인코더(15.7 GB)와 본체를 따로 올려 VRAM 을 넘길 수 있다. 영상 서버 한 곳이면 ComfyUI 가 본체를 갈아 끼우고
+텍스트 인코더는 같이 쓴다.
+
+필요한 파일 ([🤗 Comfy-Org/MiniMax-H3-Image](https://huggingface.co/Comfy-Org/MiniMax-H3-Image)):
+
+```
+models/
+├── diffusion_models/minimax/minimax_h3_image_pruned_int8_convrot.safetensors   (21.0 GB)  ← 새로
+├── vae/minimax/minimax_h3_image_vae_fp16.safetensors                           (1.2 GB)   ← 새로
+├── text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors                  (15.7 GB)  H3 영상 판과 같은 파일
+└── text_encoders/openmoss/qwen3.5_9b_w4a8_gptq.safetensors                     (7.3 GB)   MOSS-Image 판과 같은 파일 (프롬프트 보강)
+```
+
+- 공식 템플릿은 텍스트 인코더로 `qwen3vl_32b_minimax_h3_int8_convrot` (27.1 GB)를 쓴다. 이 판은 H3 영상 판이 쓰는 nvfp4 판을 쓴다
+- 노드는 전부 ComfyUI 기본 노드다 (`MiniMaxH3ImageConditioning` · `TextGenerateV2` · `JsonExtractString` · `ResolutionSelector` 등, **0.45.0 이상**)
+
+| | Text to Image - MiniMax-H3-Image | Image Edit - MiniMax-H3-Image |
+|---|---|---|
+| 입력 | 프롬프트 · 비율 8가지 · 4/8/16MP | 고칠 이미지(필수) + 참조 이미지 최대 3장 · 결과 4/8/16MP |
+| 기본 크기 | 4MP — 1:1 이면 2048×2048 | 4MP, 고칠 이미지의 비율 그대로 |
+
+- 샘플링은 공식 템플릿 그대로다 — KSampler 6스텝 · CFG 1 · euler · simple, 부정 조건은 긍정 조건을 비운 것(부정 프롬프트 없음)
+- **화소 수** — 모델 카드는 4~20MP 를 쓸 수 있는 범위로, 16MP 근처를 가장 좋은 크기로 든다. 공식 템플릿의 기본값 4MP 를 기본으로 두었다.
+  16MP 는 세부가 더 살지만 PNG 한 장이 22~26 MB 다 (4MP 는 약 8 MB)
+- **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문 그대로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
+  늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다
+- **편집 판의 그림 번호** — P-H3-Image 편집 판과 같다. 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 이고,
+  참조는 1번 칸부터 차례로 채운다 (앞 칸이 비면 뒤 칸은 빠진다)
+- 모델 선택 목록은 H3-Image 본체 하나로 좁혀 두었다
+
+실측 (RTX PRO 6000 · ComfyUI 0.45.0 · ComfyUI 실행 시간):
+
+| 구성 | 시간 | 비고 |
+|---|---|---|
+| T2I 4MP · 늘려 쓰기 켬 | **25.1초** | 3회 중앙값 (24.1 · 25.1 · 26.1) |
+| T2I 8MP · 늘려 쓰기 켬 | 29.8초 | 1회 |
+| T2I 16MP · 늘려 쓰기 켬 | **35.2초** | 3회 중앙값 (33.0 · 35.2 · 39.8) |
+| T2I 4MP · 늘려 쓰기 끔 | 4.7초 | 1회 |
+| T2I 16MP · 늘려 쓰기 끔 | 20.0초 | 1회 |
+| 편집 4MP · 늘려 쓰기 켬 | **38.9초** | 3회 중앙값 (38.8 · 38.9 · 49.0) |
+| 편집 4MP · 참조 1장 · 늘려 쓰기 켬 | 46.8초 | 1회 |
+| 편집 4MP · 늘려 쓰기 끔 | 14.0초 | 1회 |
+
+- **시간 대부분이 프롬프트 보강이다.** 보강이 생각(thinking) 단계를 거쳐 JSON 을 쓰는 데 T2I 약 17~20초, 편집 약 25초가 든다.
+  같은 요청 · 같은 시드로 화소 수만 바꾸면 보강 결과를 재사용한다
+- 같은 요청·시드를 그대로 다시 보내면 ComfyUI 가 앞 결과를 그대로 돌려준다 (0초). 위 측정은 매번 시드를 바꿨다
+- 장치 전체 GPU 메모리 최고점은 16MP 에서 46.6 GiB 였다
+- 결과: 수채화 그림책 · 사진풍 요청 모두 깨끗하게 나왔다. 편집은 인물의 얼굴·옷·자세를 유지한 채 배경을 바꾸고, 참조 이미지의
+  대상(다른 화풍의 그림)을 옮겨 왔다. 사진풍 서울 골목 시험에서 간판의 한글은 실제 글자가 아닌 모양만 비슷한 글자로 나왔다
 
 ---
 
