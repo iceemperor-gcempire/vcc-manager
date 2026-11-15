@@ -38,7 +38,11 @@ describe.each(BOARDS)('MiniMax-H3-Image %s 판 (#1177)', (_, wb) => {
 
   test('H3-Image 전용 본체·VAE 에, 텍스트 인코더는 H3 영상 판과 같은 파일', () => {
     expect(wb.modelWhitelist).toEqual([DIT]);
-    expect(wb.additionalInputFields.find((f) => f.name === 'base_model').defaultValue).toBe(DIT);
+    const baseModel = wb.additionalInputFields.find((f) => f.name === 'base_model');
+    expect(baseModel.defaultValue).toBe(DIT);
+    // P-H3-Image 판에서 칸을 복사해 와 설명이 "FL2VA 에 P-H3-Image LoRA 를 겁니다" 로 남았던 적이 있다 (#1197)
+    expect(baseModel.description).toContain('MiniMax-H3-Image');
+    expect(baseModel.description).not.toMatch(/P-H3|FL2VA/);
     expect(wf[byClass(wf, 'VAELoader')[0]].inputs.vae_name).toBe('minimax\\minimax_h3_image_vae_fp16.safetensors');
     const clips = byClass(wf, 'CLIPLoader').map((id) => wf[id].inputs.clip_name);
     expect(clips).toContain('qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors');
