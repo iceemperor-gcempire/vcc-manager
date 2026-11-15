@@ -48,19 +48,40 @@ describe.each(BOARDS)('MiniMax-H3-Image %s 판 (#1177)', (_, wb) => {
     expect(clips).toContain('qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors');
   });
 
-  test('프롬프트 보강 — 템플릿 지시문의 {input text} 에 요청을 넣고, 끄면 요청을 그대로 쓴다', () => {
+  test('프롬프트 보강 — 템플릿 지시문의 {input text} 에 요청(+비율)을 넣고, 끄면 요청을 그대로 쓴다', () => {
     const [rep] = byClass(wf, 'StringReplace');
     expect(wf[rep].inputs.find).toBe('{input text}');
     const task = wf[wf[rep].inputs.string[0]].inputs.value;
     expect(task.split('{input text}')).toHaveLength(2);
-    const raw = wf[rep].inputs.replace[0];
+    // 요청 뒤에 비율을 붙인 글이 들어간다 (#1204)
+    const fmt = wf[wf[rep].inputs.replace[0]];
+    expect(fmt.class_type).toBe('StringFormat');
+    const raw = fmt.inputs['values.a'][0];
     expect(wf[raw].inputs.value).toBe('{{##prompt##}}');
-    const [sw] = byClass(wf, 'ComfySwitchNode');
-    expect(wf[sw].inputs.switch).toBe('{{##prompt_upsampler##}}');
+    const [sw] = byClass(wf, 'ComfySwitchNode').filter((id) => wf[id].inputs.switch === '{{##prompt_upsampler##}}');
     expect(wf[sw].inputs.on_false).toEqual([raw, 0]);
-    expect(wf[wf[sw].inputs.on_true[0]].inputs.key).toBe('expanded_caption');
-    // 조건화가 받는 프롬프트는 스위치 출력이다
+    // 조건화가 받는 프롬프트는 늘려 쓰기 스위치 출력이다
     expect(wf[byClass(wf, 'MiniMaxH3ImageConditioning')[0]].inputs.prompt).toEqual([sw, 0]);
+  });
+
+  test('보강은 생각 단계를 끈다 (#1204) — 켜면 생각만 하다 출력 한도에 걸려 빈 글을 냈다', () => {
+    expect(wf[byClass(wf, 'TextGenerateV2')[0]].inputs.thinking).toBe(false);
+  });
+
+  test('늘려 쓴 캡션이 비면 원래 요청을 쓴다 (#1204)', () => {
+    const [sw] = byClass(wf, 'ComfySwitchNode').filter((id) => wf[id].inputs.switch === '{{##prompt_upsampler##}}');
+    const fallback = wf[wf[sw].inputs.on_true[0]];
+    expect(fallback.class_type).toBe('ComfySwitchNode');
+    const caption = fallback.inputs.on_false;
+    expect(wf[caption[0]].class_type).toBe('JsonExtractString');
+    expect(wf[caption[0]].inputs.key).toBe('expanded_caption');
+    expect(fallback.inputs.on_true).toEqual(wf[sw].inputs.on_false); // 원래 요청
+    const cmp = wf[fallback.inputs.switch[0]];
+    expect(cmp.class_type).toBe('StringCompare');
+    expect(cmp.inputs).toMatchObject({ string_b: '', mode: 'Equal' });
+    const trim = wf[cmp.inputs.string_a[0]];
+    expect(trim.class_type).toBe('StringTrim');
+    expect(trim.inputs.string).toEqual(caption);
   });
 
   test('라이선스 고지 — "Powered by MiniMax-H3-Image" 와 H3 고지가 함께 있다', () => {
@@ -97,5 +118,30 @@ describe('Image Edit - MiniMax-H3-Image — 그림 번호 (#1177)', () => {
     expect(cond.height).toEqual([cond.width[0], 1]);
     expect(size.inputs.image).toEqual(cond['images.image_1']);
     expect(wf[cond['images.image_1'][0]].inputs.megapixels).toBe('{{##edit_megapixels##}}');
+  });
+});
+
+describe('MiniMax-H3-Image — 보강에 넘기는 비율 (#1204)', () => {
+  const fmtOf = (wb) => {
+    const wf = JSON.parse(wb.workflowData);
+    const [rep] = byClass(wf, 'StringReplace');
+    return { wf, fmt: wf[wf[rep].inputs.replace[0]] };
+  };
+
+  test('T2I — 고른 비율(괄호 설명을 뺀 W:H)을 최종 캔버스 비율로 알린다', () => {
+    const { wf, fmt } = fmtOf(BOARDS[0][1]);
+    expect(fmt.inputs.f_string).toContain('Final output canvas aspect ratio: {b}');
+    const ratio = wf[fmt.inputs['values.b'][0]];
+    expect(ratio.class_type).toBe('RegexReplace');
+    expect(ratio.inputs.string).toBe('{{##aspect_ratio##}}');
+    expect('16:9 (Widescreen)'.replace(new RegExp(ratio.inputs.regex_pattern), ratio.inputs.replace)).toBe('16:9');
+  });
+
+  test('편집 — 결과 크기의 가로:세로를 User Aspect Ratio Selection 으로 알린다', () => {
+    const { wf, fmt } = fmtOf(BOARDS[1][1]);
+    expect(fmt.inputs.f_string).toContain('User Aspect Ratio Selection: {b}:{c}');
+    const cond = wf[byClass(wf, 'MiniMaxH3ImageConditioning')[0]].inputs;
+    expect(fmt.inputs['values.b']).toEqual(cond.width);
+    expect(fmt.inputs['values.c']).toEqual(cond.height);
   });
 });
