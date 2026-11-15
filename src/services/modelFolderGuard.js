@@ -5,8 +5,7 @@
 // Z-Image 모델이 들어가 normalized_shape 오류). 판단은 파일 경로만으로 한다 — 모델 종류 제한은
 // Civitai 정보가 없으면 판단할 수 없어 여기서 막지 않는다.
 
-const { getFieldValueByRole } = require('../utils/customFieldHelpers');
-const { FIELD_ROLES } = require('../constants/fieldRoles');
+const { getModelValue } = require('../utils/customFieldHelpers');
 const { isInModelFolders } = require('../utils/modelFolders');
 
 const valueOf = (v) => (v && typeof v === 'object' && v.value !== undefined ? v.value : v);
@@ -20,9 +19,8 @@ function findModelFolderViolation(workboard, inputLike) {
   const folders = workboard && workboard.allowedModelFolders;
   if (!Array.isArray(folders) || folders.length === 0) return null;
   if (!(workboard.additionalInputFields || []).some((f) => f.type === 'baseModel')) return null;
-  // 워크플로에 실제로 들어갈 값 — queueService 도 같은 조회로 {{##base_model##}} 을 채운다
-  const input = inputLike || {};
-  const model = valueOf(getFieldValueByRole(workboard, input, FIELD_ROLES.MODEL)) || valueOf(input.aiModel);
+  // 워크플로에 실제로 들어갈 값 — queueService 도 같은 함수로 모델 칸을 채운다 (#1174)
+  const model = valueOf(getModelValue(workboard, inputLike || {}));
   if (!model || typeof model !== 'string') return null; // 비었으면 필수값 검사가 막는다
   if (isInModelFolders(model, folders)) return null;
   return `이 작업판은 ${folders.join(', ')} 폴더의 모델만 쓸 수 있습니다 (받은 모델: ${model}). 모델 선택 목록에서 다시 골라 주세요.`;
