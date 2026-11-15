@@ -86,7 +86,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
-| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
+| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · **AI 프롬프트 생성 권장** (판 안 늘려 쓰기는 기본 끔) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
@@ -561,7 +561,13 @@ models/
 - 샘플링은 공식 템플릿 그대로다 — KSampler 6스텝 · CFG 1 · euler · simple, 부정 조건은 긍정 조건을 비운 것(부정 프롬프트 없음)
 - **화소 수** — 모델 카드는 4~20MP 를 쓸 수 있는 범위로, 16MP 근처를 가장 좋은 크기로 든다. 공식 템플릿의 기본값 4MP 를 기본으로 두었다.
   16MP 는 세부가 더 살지만 PNG 한 장이 22~26 MB 다 (4MP 는 약 8 MB)
-- **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문으로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
+- **AI 프롬프트 생성 권장 (T2I, #1207)** — T2I 판의 「AI 프롬프트 작성 지침」에 MiniMax 공식 T2I 보강 지시문(`MiniMaxAI/MiniMax-H3-Image-PE`)을
+  넣었다. 비율 고르기 절과 JSON 출력은 빼고 "캡션 한 문단만, 캔버스 비율은 도구가 정하며 말이 없으면 1:1" 규칙을 붙였다.
+  AI 프롬프트 생성에서 텍스트 판(Qwen3.8 Flash Next 권장)을 골라 캡션을 받고, 판 안 늘려 쓰기는 끈 채 생성한다.
+  같은 요청 8개 비교에서 판 안 9B 는 4개에서 요청에 없는 것을 넣거나 바꿨고(흑백 선화 고양이, 우동 → Ramen, 안경 누락, 청재킷),
+  Flash Next 는 모두 요청을 지켰다. 캡션은 중앙값 8.2초. 늘려 쓴 글이 화면과 작업 기록에 남는다
+  - 공식 지시문을 비율 절까지 그대로 넣으면 8개 중 2개 캡션이 "vertical composition" 으로 쓰였다 — 그래서 뺐다
+- **프롬프트 늘려 쓰기**(판 안 보강, T2I 기본 끔 · 편집 기본 켬) — 공식 템플릿의 보강 지시문으로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
   늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다. 공식 템플릿과 다르게 둔 것 셋 (#1204):
   - **생각(thinking) 단계를 끈다.** 템플릿대로 켜 두면 4번에 1번꼴로 생각만 되풀이하다 출력 한도(8192 토큰)를 다 쓰고 빈 글을 냈고,
     그러면 그림 모델에 빈 프롬프트가 들어가 요청과 상관없는 그림이 나왔다 (같은 시드의 빈 프롬프트 결과와 픽셀까지 같았다).
