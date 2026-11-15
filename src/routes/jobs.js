@@ -17,7 +17,7 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
 const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
-const { getFieldValueByRole } = require('../utils/customFieldHelpers');
+const { getFieldValueByRole, getModelValue } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const Project = require('../models/Project');
@@ -150,8 +150,9 @@ router.post('/generate', requireAuth, async (req, res) => {
     // name 으로 inputData (top-level 또는 additionalParams) 에서 값 조회.
     const ap = additionalParams || {};
     const lookupInput = { ...req.body, additionalParams: ap };
-    const aiModel = req.body.aiModel || getFieldValueByRole(wb, lookupInput, FIELD_ROLES.MODEL);
-    const imageSize = req.body.imageSize || getFieldValueByRole(wb, lookupInput, FIELD_ROLES.IMAGE_SIZE);
+    // 칸 값이 먼저, 비었으면 top-level aiModel·imageSize (#1174) — 실행(queueService)·폴더 검사와 같은 값을 기록한다
+    const aiModel = getModelValue(wb, lookupInput);
+    const imageSize = getFieldValueByRole(wb, lookupInput, FIELD_ROLES.IMAGE_SIZE);
 
     console.log('🔍 Extracted fields:', {
       workboardId,
