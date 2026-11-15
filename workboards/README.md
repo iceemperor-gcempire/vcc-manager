@@ -30,10 +30,10 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
-| MiniMax H3 판 10개(FL2V·R2V·키프레임) · P-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
+| MiniMax H3 판 13개(FL2V·R2V·키프레임·긴 영상) · MiniMax-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
 H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
-P-H3-Image 판은 모델 선택 목록을 FL2VA 본체 4개로 좁혀 두었다 (허용 목록 — 아래 「P-H3-Image」).
+MiniMax-H3-Image 판은 모델 선택 목록을 H3-Image 본체 하나로 좁혀 두었다 (허용 목록 — 아래 「MiniMax-H3-Image」).
 R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 모델 하나로 좁혀 두었다 (허용 목록 — 아래 「PRISM 병합 모델」).
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
@@ -86,8 +86,6 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
-| `comfyui/text-to-image-p-h3-image.json` | Text to Image - P-H3-Image | 이미지 ×1 · 800만/400만 화소 · 비율 7가지 · **프롬프트 늘려 쓰기**(기본 켬) · 프롬프트 속 글씨 | H3 FL2VA 본체(`minimax/minimax_h3_fl2va_int8_convrot`) + P-H3-Image LoRA·텍스트 인코더·보강 모듈·VAE (아래 「P-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.44.0 에서 확인. 800만 화소 약 19초 |
-| `comfyui/image-edit-p-h3-image.json` | Image Edit - P-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 400만/800만 화소 · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 400만 화소 참조 1장 약 27초 |
 | `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 25초 |
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 39초 |
 
@@ -530,67 +528,11 @@ MiniMax 공식 API·SGLang·diffusers 는 영상에 소리가 있으면 자동�
 매긴다. ComfyUI 는 입력 칸이 종류별이라 이미지 → 영상(켠 소리가 먼저) → 참조 오디오 순서로 고정이다. 그쪽 도구에서
 만든 R2V 프롬프트를 가져올 때는 영상 소리를 켜고 `<Audio N>` 이 같은 소리를 가리키는지 확인한다.
 
-### P-H3-Image — 이미지 판 2개 (영상 서버에 연결)
-
-PrunaAI 의 [P-H3-Image](https://huggingface.co/PrunaAI/P-H3-Image-Comfy) 는 H3 로 이미지를 만드는 LoRA 와 전용 텍스트 인코더·VAE·프롬프트
-보강 모듈이다. 8스텝·CFG 없이 800만 화소 이미지를 만들고, 고칠 이미지에 참조 이미지를 더해 편집한다. 전용 본체(bf16 40.5 GB 등)도
-있지만 이 판들은 이미 있는 H3 FL2VA 본체에 LoRA 를 거는 방법을 쓴다.
-
-**이미지 판이지만 H3 영상 판과 같은 ComfyUI 서버에 연결한다.** 본체가 FL2V 판과 같은 `minimax_h3_fl2va_*` 파일이라, 이미지 서버에
-붙이면 같은 본체가 두 벌 필요하다. 대신 이미지 작업이 영상 작업과 같은 대기열에 선다. 가져올 때 서버를 영상 서버로 고른다
-(`scripts/sync-workboards.js` 는 `--server-id`).
-
-FL2VA 본체 외에 필요한 파일 ([🤗 PrunaAI/P-H3-Image-Comfy](https://huggingface.co/PrunaAI/P-H3-Image-Comfy)):
-
-```
-models/
-├── loras/optimizer/minimax/p-h3-image_lora_bf16.safetensors        (1.96 GB)
-├── text_encoders/minimax/
-│   ├── p-h3-image_text_encoder_bf16.safetensors                     (9.14 GB)
-│   └── p-h3-image_prompt_upsampler_bf16.safetensors                 (19.31 GB)
-└── vae/minimax/p-h3-image_vae_bf16.safetensors                      (5.56 GB)
-```
-
-노드는 전부 ComfyUI 기본 노드다 (`PH3ImageConditioning` · `MiniMaxH3SigmaShift` · `TextGenerate` · `LoraLoaderBypassModelOnly` 등, 0.44.0 에서 확인).
-
-| | Text to Image - P-H3-Image | Image Edit - P-H3-Image |
-|---|---|---|
-| 입력 | 프롬프트 · 비율 7가지 · 800만/400만 화소 | 고칠 이미지(필수) + 참조 이미지 최대 3장 · 결과 400만/800만 화소 |
-| 기본 크기 | 800만 화소 — 1:1 이면 2912×2912, 16:9 면 3872×2176 | 400만 화소, 고칠 이미지의 비율 그대로 |
-
-- 샘플링은 공식 워크플로 그대로다 — 고정 시그마 8단계 + euler, CFG·부정 프롬프트 없음, LoRA 강도 1.0. 시프트는 1.0(영상·오디오 둘 다)으로
-  고정해 시그마를 그대로 쓴다
-- **프롬프트 늘려 쓰기**(기본 켬) — 워크플로 안의 보강 모듈이 짧은 요청을 자세한 프롬프트로 바꾼다. 모델 카드가 켜 두기를 권한다.
-  끄면 쓴 프롬프트가 그대로 들어간다. 같은 프롬프트로 시드만 바꿔 다시 돌리면 보강 결과를 재사용해 끈 것과 비슷하게 빨라진다
-- 모델 선택 목록은 FL2VA 본체 4개(`int8_convrot` 기본 · `bf16` · `pruned_w6a8` · `pruned_nvfp4_all`)로 좁혀 두었다
-- 따옴표로 감싼 글씨는 그대로 그리는 편이다 (시험한 간판·머그·메모 글씨가 모두 맞았다)
-
-**편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
-**놓인 순서대로** 번호를 매기므로, 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면
-3은 빠진다). 채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다. 프롬프트가 `Edit <Picture` 로 시작하지 않으면 앞에 `Edit <Picture 1>.`
-이 붙는다 (ComfyUI 노드 동작).
-
-실측 (RTX PRO 6000 · ComfyUI 0.44.0 · `int8_convrot` · 매번 다른 프롬프트 · vcc 작업 시간 3회 중앙값):
-
-| 구성 | 시간 |
-|---|---|
-| T2I 800만 화소 · 늘려 쓰기 켬 | 19.2초 |
-| T2I 800만 화소(16:9) · 늘려 쓰기 끔 | 15.0초 |
-| T2I 400만 화소 · 늘려 쓰기 켬 | 11.5초 |
-| 편집 400만 화소 · 참조 1장 · 늘려 쓰기 켬 | 26.9초 |
-
-- **H3 영상 판과 번갈아 돌리면 양쪽 다 느려진다** (3회 중앙값, 처음 돌릴 때도 이미지 쪽은 비슷하다) — 영상 작업 바로 뒤의 T2I 800만 화소는 36.3초(이어서 돌리면 19.2초),
-  그 뒤의 영상 작업(FL2V Turbo · 1024×768 · 3초)은 42.8초(이어서 돌리면 32.5초)다. 로그로 보면 본체 파일은 다시 읽지 않고, 상대편의
-  텍스트 인코더·VAE(이미지 쪽은 보강 모듈까지)를 다시 올린다. 본체에 거는 LoRA 방식도 달라(터보 LoRA 는 가중치 패치, P-H3 는 Bypass)
-  본체를 다시 준비한다. 어느 단계가 몇 초인지는 나눠 재지 않았다
-- 본체 4개 모두 400만 화소에서 정상 결과를 확인했다 (각 1회). 본체를 바꾸면 처음 한 번은 본체를 올리느라 느리다
-- Qwen-Image 2.1 판(이미지 서버)은 100만 화소(1024²) 25스텝 4.3초다. 해상도가 8배라 직접 비교는 안 된다
-
 ### MiniMax-H3-Image — 공식 이미지 판 2개 (영상 서버에 연결)
 
 MiniMax 가 11-03 에 낸 공식 이미지 생성·편집 모델 [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image) 의 판이다.
-위 P-H3-Image 와 이름이 비슷하지만 **다른 모델이다.** P-H3-Image 는 H3 영상 본체에 LoRA 를 거는 커뮤니티 방식이고,
-MiniMax-H3-Image 는 H3 구조(오디오 층을 뺀 33.1B DiT)로 이미지만 따로 학습해 6스텝으로 증류한 본체와 전용 VAE 를 쓴다.
+PrunaAI 의 커뮤니티 모델 P-H3-Image(H3 영상 본체에 LoRA 를 거는 방식 — 그 판 2개는 #1121 에서 들어왔다가 #1197 에서 퇴역)와
+이름이 비슷하지만 **다른 모델이다.** MiniMax-H3-Image 는 H3 구조(오디오 층을 뺀 33.1B DiT)로 이미지만 따로 학습해 6스텝으로 증류한 본체와 전용 VAE 를 쓴다.
 텍스트 인코더는 H3 영상 판과 같은 파일이다 (모델 카드). 워크플로는 ComfyUI 공식 템플릿(`image_minimax_h3_image_t2i` ·
 `image_minimax_h3_image_edit`)을 그대로 옮겼다.
 
@@ -621,8 +563,9 @@ models/
   16MP 는 세부가 더 살지만 PNG 한 장이 22~26 MB 다 (4MP 는 약 8 MB)
 - **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문 그대로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
   늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다
-- **편집 판의 그림 번호** — P-H3-Image 편집 판과 같다. 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 이고,
-  참조는 1번 칸부터 차례로 채운다 (앞 칸이 비면 뒤 칸은 빠진다)
+- **편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
+  놓인 순서대로 번호를 매기므로 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면 3은 빠진다).
+  채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다
 - 모델 선택 목록은 H3-Image 본체 하나로 좁혀 두었다
 
 실측 (RTX PRO 6000 · ComfyUI 0.45.0 · ComfyUI 실행 시간):
