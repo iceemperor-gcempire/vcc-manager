@@ -65,6 +65,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-av1.json` | MiniMax H3 - R2V (AV1) | 〃 | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/ltx-2.5-fl2v-av1.json` | LTX-2.5 - FL2V (AV1) | 〃 | LTX-2.5 모델 6종 + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/minimax-h3-i2v-long-context.json` | MiniMax H3 - I2V 긴 영상 (Context Windows) | 영상 + 오디오 · **20~60초** (5초 창 이어 붙이기) · 첫 프레임 필수 · 구간 프롬프트 최대 4개 · 실험 판 | FL2V (AV1) 판과 같다 + ComfyUI **0.44 이상** (아래 「긴 영상 — I2V Context Windows 판」) |
+| `comfyui/minimax-h3-i2v-long-context-turbo.json` | MiniMax H3 - I2V 긴 영상 (Context Windows · Turbo) | 〃 · **터보 LoRA 8스텝 가속** (1344x768 · 20초 약 6분) | 위 판 + Turbo LoRA⁴ (아래 「Turbo 판」) |
 
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
@@ -410,6 +411,27 @@ H3 가 한 번에 학습한 길이는 약 5~15초라, ComfyUI 정식 노드 `Min
 - 결과: 60초 끝까지 인물·옷·장소가 유지됐다. 머리 모양 같은 세부는 뒤쪽 창에서 조금 달라진다.
   소리는 5초마다 −13~−15 dB 로 고르게 이어졌다. 구간 프롬프트 2개로 돌린 시험(832×448 · 20초)에서는
   약 11초부터 구간 2 의 동작으로 넘어갔다
+
+#### Turbo 판 — `MiniMax H3 - I2V 긴 영상 (Context Windows · Turbo)`
+
+긴 영상 판에 FL2V (Turbo) 판의 가속을 얹은 **별도 판**이다. 모델은 UNET → 터보 LoRA → SigmaShift (6/3) → Sol-Attn →
+Context Windows 순서로 지나고, 샘플러는 euler, 기본 8스텝이다. 구간 프롬프트 · 창 설정 · AI 프롬프트 생성 지침은 위 판과 같다.
+터보 LoRA 선택지는 8step v1.0 (기본) · 4step v1.1 둘이다. FL2V (Turbo) 판에 있는 Pika Flex 합본은 아래 실측에서
+8step 보다 느리고 움직임도 줄어 이 판에서는 뺐다.
+
+실측 (위와 같은 장비 · ComfyUI 실행 시간):
+
+| 크기 · 길이 | 터보 LoRA · 스텝 | 생성 시간 | 비고 |
+|---|---|---|---|
+| 1344×768 · 20초 | 8step v1.0 · 8 | **353.8초** (약 6분) | 3회 중앙값 (353.1 · 353.8 · 471.7초). 원본 판 808.0초의 약 44% |
+| 832×448 · 20초 | 8step v1.0 · 8 | 98.8초 | 1회 |
+| 〃 | 4step v1.1 · 4 | 66.0초 | 1회 · 움직임이 8step 의 절반 정도 |
+| 〃 | Pika Flex 합본 4step · 4 | 129.6초 | 1회 · 움직임이 8step 의 절반 정도 (판에서 뺌) |
+
+- 1344×768 첫 회(471.7초)만 느렸다. 앞선 작업과 터보 LoRA 가 달라 다시 올린 시간이 섞인 것으로 보이지만 확인하지는 않았다. 뒤의 두 번은 같은 판으로 연달아 돌렸다
+- 결과: 모두 첫 프레임이 원본 그림과 같았고 20초 내내 인물 · 옷 · 장소가 유지됐다. 창 경계에서 프레임 간 변화량이
+  튀지 않았다 (창이 끝나는 지점 근처 최대값 ÷ 전체 중앙값 0.5~1.6)
+- GPU 메모리는 장치 전체 사용량 최고점이 1344×768 · 20초에서 59.4 GiB 였다
 
 ### 길이 · 해상도 제약
 
