@@ -66,6 +66,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/ltx-2.5-fl2v-av1.json` | LTX-2.5 - FL2V (AV1) | 〃 | LTX-2.5 모델 6종 + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/minimax-h3-i2v-long-context.json` | MiniMax H3 - I2V 긴 영상 (Context Windows) | 영상 + 오디오 · **20~60초** (5초 창 이어 붙이기) · 첫 프레임 필수 · 구간 프롬프트 최대 4개 · 실험 판 | FL2V (AV1) 판과 같다 + ComfyUI **0.44 이상** (아래 「긴 영상 — I2V Context Windows 판」) |
 | `comfyui/minimax-h3-i2v-long-context-turbo.json` | MiniMax H3 - I2V 긴 영상 (Context Windows · Turbo) | 〃 · **터보 LoRA 8스텝 가속** (1344x768 · 20초 약 6분) | 위 판 + Turbo LoRA⁴ (아래 「Turbo 판」) |
+| `comfyui/minimax-h3-r2v-long-context-turbo.json` | MiniMax H3 - R2V 긴 영상 (Context Windows · Turbo) | 영상 + 오디오 · **20~60초** · 참조 이미지·영상·소리 (모든 창에 들어감) · 구간 프롬프트 최대 4개 · 터보 LoRA 8스텝 · 실험 판 | R2V (Turbo) 판과 같다 + ComfyUI **0.44 이상** (아래 「R2V 긴 영상 Turbo 판」) |
 
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
@@ -348,9 +349,9 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
   표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
 
-### 스타일 LoRA — 판 8개의 선택 칸
+### 스타일 LoRA — 판 9개의 선택 칸
 
-FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)
+FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)·R2V 긴 영상 (Turbo)
 판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
 
 - **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
@@ -360,7 +361,7 @@ FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (P
   | 둘 곳 (`loras/`) | 쓰는 판 |
   |---|---|
   | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) |
-  | `style/Minimax/ref2va/` | R2V 판 5개 |
+  | `style/Minimax/ref2va/` | R2V 판 6개 (R2V 긴 영상 Turbo 포함) |
 
   파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다
 - 걸리는 자리: 가속 LoRA(터보·Pika 합본)가 있는 판은 그 뒤, 없는 판(PRISM·FastH3)은 본체 바로 뒤다. 시그마 시프트보다 앞이다.
@@ -394,7 +395,7 @@ H3 가 한 번에 학습한 길이는 약 5~15초라, ComfyUI 정식 노드 `Min
 - 창마다 프롬프트 전체를 다시 읽는다. 그래서 한 프롬프트에 사건을 시간 순서로 적으면 창마다 처음부터 다시 하려 한다.
   **한 동작이 이어지는 장면**(춤·걷기·연주·풍경)은 프롬프트 하나로 되고, 순서가 있는 장면은 구간 프롬프트로 나눈다.
   판의 AI 프롬프트 생성 지침도 이렇게 쓴다 (컷·시각 없이 `[Shot 1]` 하나)
-- 나머지 칸(모델 · 크기 · 스텝 · Sol-Attn · 코덱 · 업스케일)은 FL2V (AV1) 판과 같다
+- 나머지 칸(모델 · 크기 · 스텝 · Sol-Attn · 코덱)은 FL2V (AV1) 판과 같다. **업스케일 칸은 없다** (아래 「긴 영상 판에 업스케일이 없는 이유」)
 
 실측 (RTX PRO 6000 Blackwell · ComfyUI 0.45.0 · 20스텝 · Sol-Attn 켬 · ComfyUI 실행 시간):
 
@@ -432,6 +433,47 @@ Context Windows 순서로 지나고, 샘플러는 euler, 기본 8스텝이다. �
 - 결과: 모두 첫 프레임이 원본 그림과 같았고 20초 내내 인물 · 옷 · 장소가 유지됐다. 창 경계에서 프레임 간 변화량이
   튀지 않았다 (창이 끝나는 지점 근처 최대값 ÷ 전체 중앙값 0.5~1.6)
 - GPU 메모리는 장치 전체 사용량 최고점이 1344×768 · 20초에서 59.4 GiB 였다
+
+#### R2V 긴 영상 Turbo 판 — `MiniMax H3 - R2V 긴 영상 (Context Windows · Turbo)`
+
+R2V (Turbo) 판에 Context Windows (노드 기본값 124/39)를 얹은 별도 판이다. 참조 이미지 · 영상 · 소리로 인물 · 장소 · 화풍 ·
+목소리를 이어받아 20~60초를 만든다. 모델 경로는 R2V (Turbo) 판 그대로(터보 LoRA → 스타일 LoRA → SigmaShift 12/3 →
+Sol-Attn)이고 그 뒤에 창을 붙였다.
+
+- **참조는 모든 창에 들어간다.** ComfyUI 는 참조 latent 를 조건화에 실어 창마다 그대로 넘긴다. I2V 의 첫 프레임이 첫 창에만
+  고정되는 것과 다르다. 대신 참조 토큰이 모든 창의 모든 스텝에 붙으므로, 참조 해상도 `max` 는 창 수만큼 더 느려진다
+- **구간 프롬프트** — I2V 긴 영상 판과 같다. 구간마다 같은 참조로 R2V 조건화 노드를 하나씩 두고 묶는다. 비운 칸의 노드는
+  요청에서 빠진다. 채운 구간마다 참조를 다시 인코딩하므로 참조 영상이 있으면 그만큼 시간이 는다
+- 길이 · 크기 선택지와 AI 프롬프트 생성 규칙(`[Shot 1]` 하나, 컷 · 시각 없음, 끝나는 장면 없음)은 I2V 긴 영상 판과 같고,
+  프롬프트 형식은 R2V 판의 여섯 섹션이다
+- R2V (Turbo) 판의 업스케일 칸 둘(H3 업샘플러 · 인코딩 전 업스케일)은 뺐다 (아래)
+
+실측 (위와 같은 장비 · ComfyUI 실행 시간 · 20초 · 6창, 참조 이미지 1장 · match):
+
+| 크기 | 생성 시간 | 비고 |
+|---|---|---|
+| 832×448 | 132.8초 · 133.5초 | 시드 둘. 공용 서버라 앞에 다른 작업이 있었다 |
+| 1344×768 | 395.3초 | 1회 |
+
+- 셋 다 20초 내내 인물 · 옷 · 장소가 유지됐고 창 경계에서 프레임 간 변화량이 튀지 않았다
+- 1344×768 한 번에서 약 7.5초에 카메라가 한 번 끊겨 다른 각도로 넘어갔다. 창 2 · 3 이 겹치는 구간 안이다.
+  창을 이어 붙여서 생긴 것인지 모델이 넣은 컷인지는 1회로는 알 수 없다
+- 장치 전체 GPU 메모리 최고점 56.3~59.3 GiB
+
+#### 긴 영상 판에 업스케일이 없는 이유
+
+다른 H3 판의 "업스케일 (인코딩 전)" 은 디코드한 프레임 전체를 한 번에 키우고, 2배 출력 전체를 float32 로 **시스템 RAM** 에
+잡는다 (RAM ≈ 프레임 × 가로 × 세로 × 배율² × 12 B). 2026-08-31 영상 서버가 멈춘 사고가 이 경로였다.
+
+| 길이 (1344×768) | 프레임 | 2배 업스케일 출력 |
+|---|---|---|
+| 20초 | 481 | 23.8 GB |
+| 30초 | 719 | 35.6 GB |
+| 45초 | 1076 | 53.3 GB |
+| 60초 | 1450 | 71.8 GB |
+
+판은 길이에 따라 칸을 막을 수 없어서 긴 영상 판 셋 모두에서 업스케일 칸을 뺐다. R2V 판의 H3 업샘플러도 프레임 전체를
+다시 그리는 방식이라 함께 뺐다.
 
 ### 길이 · 해상도 제약
 
