@@ -30,10 +30,10 @@
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
 | Sketch to Image - Krea2 | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
-| MiniMax H3 판 10개(FL2V·R2V·키프레임) · P-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
+| MiniMax H3 판 13개(FL2V·R2V·키프레임·긴 영상) · MiniMax-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
 H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
-P-H3-Image 판은 모델 선택 목록을 FL2VA 본체 4개로 좁혀 두었다 (허용 목록 — 아래 「P-H3-Image」).
+MiniMax-H3-Image 판은 모델 선택 목록을 H3-Image 본체 하나로 좁혀 두었다 (허용 목록 — 아래 「MiniMax-H3-Image」).
 R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 모델 하나로 좁혀 두었다 (허용 목록 — 아래 「PRISM 병합 모델」).
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
@@ -64,6 +64,9 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-fl2v-av1.json` | MiniMax H3 - FL2V (AV1) | 영상 + 오디오 · **코덱 선택** · 업스케일 옵션⁵ | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-av1.json` | MiniMax H3 - R2V (AV1) | 〃 | H3 모델 4종 + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/ltx-2.5-fl2v-av1.json` | LTX-2.5 - FL2V (AV1) | 〃 | LTX-2.5 모델 6종 + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/minimax-h3-i2v-long-context.json` | MiniMax H3 - I2V 긴 영상 (Context Windows) | 영상 + 오디오 · **20~60초** (5초 창 이어 붙이기) · 첫 프레임 필수 · 구간 프롬프트 최대 4개 · 실험 판 | FL2V (AV1) 판과 같다 + ComfyUI **0.44 이상** (아래 「긴 영상 — I2V Context Windows 판」) |
+| `comfyui/minimax-h3-i2v-long-context-turbo.json` | MiniMax H3 - I2V 긴 영상 (Context Windows · Turbo) | 〃 · **터보 LoRA 8스텝 가속** (1344x768 · 20초 약 6분) | 위 판 + Turbo LoRA⁴ (아래 「Turbo 판」) |
+| `comfyui/minimax-h3-r2v-long-context-turbo.json` | MiniMax H3 - R2V 긴 영상 (Context Windows · Turbo) | 영상 + 오디오 · **20~60초** · 참조 이미지·영상·소리 (모든 창에 들어감) · 구간 프롬프트 최대 4개 · 터보 LoRA 8스텝 · 실험 판 | R2V (Turbo) 판과 같다 + ComfyUI **0.44 이상** (아래 「R2V 긴 영상 Turbo 판」) |
 
 | `comfyui/sketch-to-image-sdxl.json` | Sketch to Image - SDXL | 이미지 ×2 (원본+업스케일) | SDXL 계열 ckpt + XL ControlNet + 업스케일 모델² |
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
@@ -83,8 +86,8 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
-| `comfyui/text-to-image-p-h3-image.json` | Text to Image - P-H3-Image | 이미지 ×1 · 800만/400만 화소 · 비율 7가지 · **프롬프트 늘려 쓰기**(기본 켬) · 프롬프트 속 글씨 | H3 FL2VA 본체(`minimax/minimax_h3_fl2va_int8_convrot`) + P-H3-Image LoRA·텍스트 인코더·보강 모듈·VAE (아래 「P-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.44.0 에서 확인. 800만 화소 약 19초 |
-| `comfyui/image-edit-p-h3-image.json` | Image Edit - P-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 400만/800만 화소 · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 400만 화소 참조 1장 약 27초 |
+| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 25초 |
+| `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 39초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
@@ -346,9 +349,9 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
   표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
 
-### 스타일 LoRA — 판 8개의 선택 칸
+### 스타일 LoRA — 판 9개의 선택 칸
 
-FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)
+FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)·R2V 긴 영상 (Turbo)
 판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
 
 - **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
@@ -358,7 +361,7 @@ FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (P
   | 둘 곳 (`loras/`) | 쓰는 판 |
   |---|---|
   | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) |
-  | `style/Minimax/ref2va/` | R2V 판 5개 |
+  | `style/Minimax/ref2va/` | R2V 판 6개 (R2V 긴 영상 Turbo 포함) |
 
   파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다
 - 걸리는 자리: 가속 LoRA(터보·Pika 합본)가 있는 판은 그 뒤, 없는 판(PRISM·FastH3)은 본체 바로 뒤다. 시그마 시프트보다 앞이다.
@@ -369,6 +372,108 @@ FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (P
   증류 본체 판(PRISM·PRISM+Pika·FastH3 Omni)은 8 그대로다 — PRISM 에 12 를 주면 화면 전체에 격자 무늬가 생긴다 (#1161)
 - 프롬프트에 `<lora:이름:가중치>` 태그를 적어도 H3 판에서는 걸리지 않는다. 이 판들의 워크플로에는 태그를 읽는 LoRA 태그 로더가 없고,
   그래서 생성 화면에 "LoRA 추가" 칸도 뜨지 않는다 (#1155). LoRA 는 이 선택 칸으로 건다
+
+### 긴 영상 — I2V Context Windows 판 (실험)
+
+`MiniMax H3 - I2V 긴 영상 (Context Windows)` 은 첫 프레임에서 시작하는 **20 · 30 · 45 · 60초** 영상을 만든다.
+H3 가 한 번에 학습한 길이는 약 5~15초라, ComfyUI 정식 노드 `MiniMaxH3ContextWindows` (ComfyUI **0.44 이상**)로
+124프레임(약 5초) 창을 39프레임씩 겹쳐 가며 이어 붙인다. 창 설정은 노드 기본값 그대로이고 판에서 바꾸지 않는다.
+업스트림 노드 설명대로 학습 범위를 넘는 길이라 **실험 판**이다.
+
+| 길이 | 프레임 | 창 수 (노드 기본값) |
+|---|---|---|
+| 20초 | 481 | 6 |
+| 30초 | 719 | 8 |
+| 45초 | 1076 | 13 |
+| 60초 | 1450 | 17 |
+
+- **첫 프레임은 필수다.** 첫 창에만 이미지로 고정되고, 나머지 창은 텍스트 인코더가 본 그림(프롬프트에 함께 들어간
+  `<Picture 1>`)으로 인물·옷·장소를 이어 간다
+- **구간 프롬프트** — 메인 프롬프트가 구간 1이고, "구간 2~4 프롬프트" 칸을 채우면 영상을 채운 수만큼 똑같이 나눠
+  구간마다 그 프롬프트를 쓴다 (노드의 `split_conds_to_windows`, 창 중심이 속한 구간). 칸 수가 창 수와 같을 필요는 없다.
+  비운 칸은 건너뛰고 그 구간의 조건화 노드는 요청에서 빠진다 (`_vcc.bypassUnless`)
+- 창마다 프롬프트 전체를 다시 읽는다. 그래서 한 프롬프트에 사건을 시간 순서로 적으면 창마다 처음부터 다시 하려 한다.
+  **한 동작이 이어지는 장면**(춤·걷기·연주·풍경)은 프롬프트 하나로 되고, 순서가 있는 장면은 구간 프롬프트로 나눈다.
+  판의 AI 프롬프트 생성 지침도 이렇게 쓴다 (컷·시각 없이 `[Shot 1]` 하나)
+- 나머지 칸(모델 · 크기 · 스텝 · Sol-Attn · 코덱)은 FL2V (AV1) 판과 같다. **업스케일 칸은 없다** (아래 「긴 영상 판에 업스케일이 없는 이유」)
+
+실측 (RTX PRO 6000 Blackwell · ComfyUI 0.45.0 · 20스텝 · Sol-Attn 켬 · ComfyUI 실행 시간):
+
+| 크기 · 길이 | 생성 시간 | 비고 |
+|---|---|---|
+| 1344×768 · 20초 (6창) | **808.0초** (약 13분 30초) | 3회 중앙값 (793.4 · 808.0 · 808.5초) |
+| 1344×768 · 60초 (17창) | 2250.6초 (약 37분 30초) | 1회 — 끝까지 도는지 본 것이라 속도 수치로 쓰지 않는다 |
+
+- 시간은 창 수에 거의 비례한다 (20초 808.0초 ÷ 6창 ≈ 135초, 60초 2250.6초 ÷ 17창 ≈ 132초). 창 하나가
+  5초 영상 한 번(위 「가속 — Sol-Attn」 표의 136.0초)과 비슷하다 — 나눗셈으로 낸 계산값이다
+- GPU 메모리는 장치 전체 사용량 최고점이 20초 84.9~85.2 GiB, 60초 86.0 GiB 였다. 길이가 세 배가 돼도
+  약 1 GiB 만 늘었다. ComfyUI 가 잡아 둔 캐시까지 든 값이라 이 판에 꼭 필요한 양은 아니다.
+  60초(1450프레임)도 타일 없는 VAE 디코드로 끝났다 (96 GiB GPU)
+- 결과: 60초 끝까지 인물·옷·장소가 유지됐다. 머리 모양 같은 세부는 뒤쪽 창에서 조금 달라진다.
+  소리는 5초마다 −13~−15 dB 로 고르게 이어졌다. 구간 프롬프트 2개로 돌린 시험(832×448 · 20초)에서는
+  약 11초부터 구간 2 의 동작으로 넘어갔다
+
+#### Turbo 판 — `MiniMax H3 - I2V 긴 영상 (Context Windows · Turbo)`
+
+긴 영상 판에 FL2V (Turbo) 판의 가속을 얹은 **별도 판**이다. 모델은 UNET → 터보 LoRA → SigmaShift (6/3) → Sol-Attn →
+Context Windows 순서로 지나고, 샘플러는 euler, 기본 8스텝이다. 구간 프롬프트 · 창 설정 · AI 프롬프트 생성 지침은 위 판과 같다.
+터보 LoRA 선택지는 8step v1.0 (기본) · 4step v1.1 둘이다. FL2V (Turbo) 판에 있는 Pika Flex 합본은 아래 실측에서
+8step 보다 느리고 움직임도 줄어 이 판에서는 뺐다.
+
+실측 (위와 같은 장비 · ComfyUI 실행 시간):
+
+| 크기 · 길이 | 터보 LoRA · 스텝 | 생성 시간 | 비고 |
+|---|---|---|---|
+| 1344×768 · 20초 | 8step v1.0 · 8 | **353.8초** (약 6분) | 3회 중앙값 (353.1 · 353.8 · 471.7초). 원본 판 808.0초의 약 44% |
+| 832×448 · 20초 | 8step v1.0 · 8 | 98.8초 | 1회 |
+| 〃 | 4step v1.1 · 4 | 66.0초 | 1회 · 움직임이 8step 의 절반 정도 |
+| 〃 | Pika Flex 합본 4step · 4 | 129.6초 | 1회 · 움직임이 8step 의 절반 정도 (판에서 뺌) |
+
+- 1344×768 첫 회(471.7초)만 느렸다. 앞선 작업과 터보 LoRA 가 달라 다시 올린 시간이 섞인 것으로 보이지만 확인하지는 않았다. 뒤의 두 번은 같은 판으로 연달아 돌렸다
+- 결과: 모두 첫 프레임이 원본 그림과 같았고 20초 내내 인물 · 옷 · 장소가 유지됐다. 창 경계에서 프레임 간 변화량이
+  튀지 않았다 (창이 끝나는 지점 근처 최대값 ÷ 전체 중앙값 0.5~1.6)
+- GPU 메모리는 장치 전체 사용량 최고점이 1344×768 · 20초에서 59.4 GiB 였다
+
+#### R2V 긴 영상 Turbo 판 — `MiniMax H3 - R2V 긴 영상 (Context Windows · Turbo)`
+
+R2V (Turbo) 판에 Context Windows (노드 기본값 124/39)를 얹은 별도 판이다. 참조 이미지 · 영상 · 소리로 인물 · 장소 · 화풍 ·
+목소리를 이어받아 20~60초를 만든다. 모델 경로는 R2V (Turbo) 판 그대로(터보 LoRA → 스타일 LoRA → SigmaShift 12/3 →
+Sol-Attn)이고 그 뒤에 창을 붙였다.
+
+- **참조는 모든 창에 들어간다.** ComfyUI 는 참조 latent 를 조건화에 실어 창마다 그대로 넘긴다. I2V 의 첫 프레임이 첫 창에만
+  고정되는 것과 다르다. 대신 참조 토큰이 모든 창의 모든 스텝에 붙으므로, 참조 해상도 `max` 는 창 수만큼 더 느려진다
+- **구간 프롬프트** — I2V 긴 영상 판과 같다. 구간마다 같은 참조로 R2V 조건화 노드를 하나씩 두고 묶는다. 비운 칸의 노드는
+  요청에서 빠진다. 채운 구간마다 참조를 다시 인코딩하므로 참조 영상이 있으면 그만큼 시간이 는다
+- 길이 · 크기 선택지와 AI 프롬프트 생성 규칙(`[Shot 1]` 하나, 컷 · 시각 없음, 끝나는 장면 없음)은 I2V 긴 영상 판과 같고,
+  프롬프트 형식은 R2V 판의 여섯 섹션이다
+- R2V (Turbo) 판의 업스케일 칸 둘(H3 업샘플러 · 인코딩 전 업스케일)은 뺐다 (아래)
+
+실측 (위와 같은 장비 · ComfyUI 실행 시간 · 20초 · 6창, 참조 이미지 1장 · match):
+
+| 크기 | 생성 시간 | 비고 |
+|---|---|---|
+| 832×448 | 132.8초 · 133.5초 | 시드 둘. 공용 서버라 앞에 다른 작업이 있었다 |
+| 1344×768 | 395.3초 | 1회 |
+
+- 셋 다 20초 내내 인물 · 옷 · 장소가 유지됐고 창 경계에서 프레임 간 변화량이 튀지 않았다
+- 1344×768 한 번에서 약 7.5초에 카메라가 한 번 끊겨 다른 각도로 넘어갔다. 창 2 · 3 이 겹치는 구간 안이다.
+  창을 이어 붙여서 생긴 것인지 모델이 넣은 컷인지는 1회로는 알 수 없다
+- 장치 전체 GPU 메모리 최고점 56.3~59.3 GiB
+
+#### 긴 영상 판에 업스케일이 없는 이유
+
+다른 H3 판의 "업스케일 (인코딩 전)" 은 디코드한 프레임 전체를 한 번에 키우고, 2배 출력 전체를 float32 로 **시스템 RAM** 에
+잡는다 (RAM ≈ 프레임 × 가로 × 세로 × 배율² × 12 B). 2026-08-31 영상 서버가 멈춘 사고가 이 경로였다.
+
+| 길이 (1344×768) | 프레임 | 2배 업스케일 출력 |
+|---|---|---|
+| 20초 | 481 | 23.8 GB |
+| 30초 | 719 | 35.6 GB |
+| 45초 | 1076 | 53.3 GB |
+| 60초 | 1450 | 71.8 GB |
+
+판은 길이에 따라 칸을 막을 수 없어서 긴 영상 판 셋 모두에서 업스케일 칸을 뺐다. R2V 판의 H3 업샘플러도 프레임 전체를
+다시 그리는 방식이라 함께 뺐다.
 
 ### 길이 · 해상도 제약
 
@@ -423,61 +528,65 @@ MiniMax 공식 API·SGLang·diffusers 는 영상에 소리가 있으면 자동�
 매긴다. ComfyUI 는 입력 칸이 종류별이라 이미지 → 영상(켠 소리가 먼저) → 참조 오디오 순서로 고정이다. 그쪽 도구에서
 만든 R2V 프롬프트를 가져올 때는 영상 소리를 켜고 `<Audio N>` 이 같은 소리를 가리키는지 확인한다.
 
-### P-H3-Image — 이미지 판 2개 (영상 서버에 연결)
+### MiniMax-H3-Image — 공식 이미지 판 2개 (영상 서버에 연결)
 
-PrunaAI 의 [P-H3-Image](https://huggingface.co/PrunaAI/P-H3-Image-Comfy) 는 H3 로 이미지를 만드는 LoRA 와 전용 텍스트 인코더·VAE·프롬프트
-보강 모듈이다. 8스텝·CFG 없이 800만 화소 이미지를 만들고, 고칠 이미지에 참조 이미지를 더해 편집한다. 전용 본체(bf16 40.5 GB 등)도
-있지만 이 판들은 이미 있는 H3 FL2VA 본체에 LoRA 를 거는 방법을 쓴다.
+MiniMax 가 11-03 에 낸 공식 이미지 생성·편집 모델 [MiniMax-H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image) 의 판이다.
+PrunaAI 의 커뮤니티 모델 P-H3-Image(H3 영상 본체에 LoRA 를 거는 방식 — 그 판 2개는 #1121 에서 들어왔다가 #1197 에서 퇴역)와
+이름이 비슷하지만 **다른 모델이다.** MiniMax-H3-Image 는 H3 구조(오디오 층을 뺀 33.1B DiT)로 이미지만 따로 학습해 6스텝으로 증류한 본체와 전용 VAE 를 쓴다.
+텍스트 인코더는 H3 영상 판과 같은 파일이다 (모델 카드). 워크플로는 ComfyUI 공식 템플릿(`image_minimax_h3_image_t2i` ·
+`image_minimax_h3_image_edit`)을 그대로 옮겼다.
 
-**이미지 판이지만 H3 영상 판과 같은 ComfyUI 서버에 연결한다.** 본체가 FL2V 판과 같은 `minimax_h3_fl2va_*` 파일이라, 이미지 서버에
-붙이면 같은 본체가 두 벌 필요하다. 대신 이미지 작업이 영상 작업과 같은 대기열에 선다. 가져올 때 서버를 영상 서버로 고른다
-(`scripts/sync-workboards.js` 는 `--server-id`).
+**H3 영상 판과 같은 ComfyUI 서버에 연결한다.** 이미지 서버와 영상 서버가 GPU 하나를 함께 쓰는 구성에서, 이미지 서버에 붙이면
+두 프로세스가 텍스트 인코더(15.7 GB)와 본체를 따로 올려 VRAM 을 넘길 수 있다. 영상 서버 한 곳이면 ComfyUI 가 본체를 갈아 끼우고
+텍스트 인코더는 같이 쓴다.
 
-FL2VA 본체 외에 필요한 파일 ([🤗 PrunaAI/P-H3-Image-Comfy](https://huggingface.co/PrunaAI/P-H3-Image-Comfy)):
+필요한 파일 ([🤗 Comfy-Org/MiniMax-H3-Image](https://huggingface.co/Comfy-Org/MiniMax-H3-Image)):
 
 ```
 models/
-├── loras/optimizer/minimax/p-h3-image_lora_bf16.safetensors        (1.96 GB)
-├── text_encoders/minimax/
-│   ├── p-h3-image_text_encoder_bf16.safetensors                     (9.14 GB)
-│   └── p-h3-image_prompt_upsampler_bf16.safetensors                 (19.31 GB)
-└── vae/minimax/p-h3-image_vae_bf16.safetensors                      (5.56 GB)
+├── diffusion_models/minimax/minimax_h3_image_pruned_int8_convrot.safetensors   (21.0 GB)  ← 새로
+├── vae/minimax/minimax_h3_image_vae_fp16.safetensors                           (1.2 GB)   ← 새로
+├── text_encoders/qwen3vl_32b_minimax_h3_nvfp4_awq.safetensors                  (15.7 GB)  H3 영상 판과 같은 파일
+└── text_encoders/openmoss/qwen3.5_9b_w4a8_gptq.safetensors                     (7.3 GB)   MOSS-Image 판과 같은 파일 (프롬프트 보강)
 ```
 
-노드는 전부 ComfyUI 기본 노드다 (`PH3ImageConditioning` · `MiniMaxH3SigmaShift` · `TextGenerate` · `LoraLoaderBypassModelOnly` 등, 0.44.0 에서 확인).
+- 공식 템플릿은 텍스트 인코더로 `qwen3vl_32b_minimax_h3_int8_convrot` (27.1 GB)를 쓴다. 이 판은 H3 영상 판이 쓰는 nvfp4 판을 쓴다
+- 노드는 전부 ComfyUI 기본 노드다 (`MiniMaxH3ImageConditioning` · `TextGenerateV2` · `JsonExtractString` · `ResolutionSelector` 등, **0.45.0 이상**)
 
-| | Text to Image - P-H3-Image | Image Edit - P-H3-Image |
+| | Text to Image - MiniMax-H3-Image | Image Edit - MiniMax-H3-Image |
 |---|---|---|
-| 입력 | 프롬프트 · 비율 7가지 · 800만/400만 화소 | 고칠 이미지(필수) + 참조 이미지 최대 3장 · 결과 400만/800만 화소 |
-| 기본 크기 | 800만 화소 — 1:1 이면 2912×2912, 16:9 면 3872×2176 | 400만 화소, 고칠 이미지의 비율 그대로 |
+| 입력 | 프롬프트 · 비율 8가지 · 4/8/16MP | 고칠 이미지(필수) + 참조 이미지 최대 3장 · 결과 4/8/16MP |
+| 기본 크기 | 4MP — 1:1 이면 2048×2048 | 4MP, 고칠 이미지의 비율 그대로 |
 
-- 샘플링은 공식 워크플로 그대로다 — 고정 시그마 8단계 + euler, CFG·부정 프롬프트 없음, LoRA 강도 1.0. 시프트는 1.0(영상·오디오 둘 다)으로
-  고정해 시그마를 그대로 쓴다
-- **프롬프트 늘려 쓰기**(기본 켬) — 워크플로 안의 보강 모듈이 짧은 요청을 자세한 프롬프트로 바꾼다. 모델 카드가 켜 두기를 권한다.
-  끄면 쓴 프롬프트가 그대로 들어간다. 같은 프롬프트로 시드만 바꿔 다시 돌리면 보강 결과를 재사용해 끈 것과 비슷하게 빨라진다
-- 모델 선택 목록은 FL2VA 본체 4개(`int8_convrot` 기본 · `bf16` · `pruned_w6a8` · `pruned_nvfp4_all`)로 좁혀 두었다
-- 따옴표로 감싼 글씨는 그대로 그리는 편이다 (시험한 간판·머그·메모 글씨가 모두 맞았다)
+- 샘플링은 공식 템플릿 그대로다 — KSampler 6스텝 · CFG 1 · euler · simple, 부정 조건은 긍정 조건을 비운 것(부정 프롬프트 없음)
+- **화소 수** — 모델 카드는 4~20MP 를 쓸 수 있는 범위로, 16MP 근처를 가장 좋은 크기로 든다. 공식 템플릿의 기본값 4MP 를 기본으로 두었다.
+  16MP 는 세부가 더 살지만 PNG 한 장이 22~26 MB 다 (4MP 는 약 8 MB)
+- **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문 그대로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
+  늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다
+- **편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
+  놓인 순서대로 번호를 매기므로 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면 3은 빠진다).
+  채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다
+- 모델 선택 목록은 H3-Image 본체 하나로 좁혀 두었다
 
-**편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
-**놓인 순서대로** 번호를 매기므로, 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면
-3은 빠진다). 채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다. 프롬프트가 `Edit <Picture` 로 시작하지 않으면 앞에 `Edit <Picture 1>.`
-이 붙는다 (ComfyUI 노드 동작).
+실측 (RTX PRO 6000 · ComfyUI 0.45.0 · ComfyUI 실행 시간):
 
-실측 (RTX PRO 6000 · ComfyUI 0.44.0 · `int8_convrot` · 매번 다른 프롬프트 · vcc 작업 시간 3회 중앙값):
+| 구성 | 시간 | 비고 |
+|---|---|---|
+| T2I 4MP · 늘려 쓰기 켬 | **25.1초** | 3회 중앙값 (24.1 · 25.1 · 26.1) |
+| T2I 8MP · 늘려 쓰기 켬 | 29.8초 | 1회 |
+| T2I 16MP · 늘려 쓰기 켬 | **35.2초** | 3회 중앙값 (33.0 · 35.2 · 39.8) |
+| T2I 4MP · 늘려 쓰기 끔 | 4.7초 | 1회 |
+| T2I 16MP · 늘려 쓰기 끔 | 20.0초 | 1회 |
+| 편집 4MP · 늘려 쓰기 켬 | **38.9초** | 3회 중앙값 (38.8 · 38.9 · 49.0) |
+| 편집 4MP · 참조 1장 · 늘려 쓰기 켬 | 46.8초 | 1회 |
+| 편집 4MP · 늘려 쓰기 끔 | 14.0초 | 1회 |
 
-| 구성 | 시간 |
-|---|---|
-| T2I 800만 화소 · 늘려 쓰기 켬 | 19.2초 |
-| T2I 800만 화소(16:9) · 늘려 쓰기 끔 | 15.0초 |
-| T2I 400만 화소 · 늘려 쓰기 켬 | 11.5초 |
-| 편집 400만 화소 · 참조 1장 · 늘려 쓰기 켬 | 26.9초 |
-
-- **H3 영상 판과 번갈아 돌리면 양쪽 다 느려진다** (3회 중앙값, 처음 돌릴 때도 이미지 쪽은 비슷하다) — 영상 작업 바로 뒤의 T2I 800만 화소는 36.3초(이어서 돌리면 19.2초),
-  그 뒤의 영상 작업(FL2V Turbo · 1024×768 · 3초)은 42.8초(이어서 돌리면 32.5초)다. 로그로 보면 본체 파일은 다시 읽지 않고, 상대편의
-  텍스트 인코더·VAE(이미지 쪽은 보강 모듈까지)를 다시 올린다. 본체에 거는 LoRA 방식도 달라(터보 LoRA 는 가중치 패치, P-H3 는 Bypass)
-  본체를 다시 준비한다. 어느 단계가 몇 초인지는 나눠 재지 않았다
-- 본체 4개 모두 400만 화소에서 정상 결과를 확인했다 (각 1회). 본체를 바꾸면 처음 한 번은 본체를 올리느라 느리다
-- Qwen-Image 2.1 판(이미지 서버)은 100만 화소(1024²) 25스텝 4.3초다. 해상도가 8배라 직접 비교는 안 된다
+- **시간 대부분이 프롬프트 보강이다.** 보강이 생각(thinking) 단계를 거쳐 JSON 을 쓰는 데 T2I 약 17~20초, 편집 약 25초가 든다.
+  같은 요청 · 같은 시드로 화소 수만 바꾸면 보강 결과를 재사용한다
+- 같은 요청·시드를 그대로 다시 보내면 ComfyUI 가 앞 결과를 그대로 돌려준다 (0초). 위 측정은 매번 시드를 바꿨다
+- 장치 전체 GPU 메모리 최고점은 16MP 에서 46.6 GiB 였다
+- 결과: 수채화 그림책 · 사진풍 요청 모두 깨끗하게 나왔다. 편집은 인물의 얼굴·옷·자세를 유지한 채 배경을 바꾸고, 참조 이미지의
+  대상(다른 화풍의 그림)을 옮겨 왔다. 사진풍 서울 골목 시험에서 간판의 한글은 실제 글자가 아닌 모양만 비슷한 글자로 나왔다
 
 ---
 
