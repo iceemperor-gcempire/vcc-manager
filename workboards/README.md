@@ -86,8 +86,8 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
-| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 25초 |
-| `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 39초 |
+| `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · 프롬프트 늘려 쓰기(기본 켬) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
+| `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
 | `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
@@ -561,8 +561,15 @@ models/
 - 샘플링은 공식 템플릿 그대로다 — KSampler 6스텝 · CFG 1 · euler · simple, 부정 조건은 긍정 조건을 비운 것(부정 프롬프트 없음)
 - **화소 수** — 모델 카드는 4~20MP 를 쓸 수 있는 범위로, 16MP 근처를 가장 좋은 크기로 든다. 공식 템플릿의 기본값 4MP 를 기본으로 두었다.
   16MP 는 세부가 더 살지만 PNG 한 장이 22~26 MB 다 (4MP 는 약 8 MB)
-- **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문 그대로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
-  늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다
+- **프롬프트 늘려 쓰기**(기본 켬) — 공식 템플릿의 보강 지시문으로 Qwen3.5 9B 가 요청을 영어 캡션(JSON 의 `expanded_caption`)으로
+  늘려 쓴다. 한국어 요청도 된다. 시드가 바뀌면 늘려 쓴 글도 달라진다. 끄면 요청을 그대로 쓴다. 공식 템플릿과 다르게 둔 것 셋 (#1204):
+  - **생각(thinking) 단계를 끈다.** 템플릿대로 켜 두면 4번에 1번꼴로 생각만 되풀이하다 출력 한도(8192 토큰)를 다 쓰고 빈 글을 냈고,
+    그러면 그림 모델에 빈 프롬프트가 들어가 요청과 상관없는 그림이 나왔다 (같은 시드의 빈 프롬프트 결과와 픽셀까지 같았다).
+    끄면 시드 8개 모두 캡션을 냈고 한 번에 약 3초다 (켰을 때 18~34초)
+  - **늘려 쓴 글을 얻지 못하면 요청을 그대로 쓴다** (꺼낸 캡션이 비었는지 보고 고른다)
+  - **고른 비율을 보강에 넘긴다.** 보강 지시문은 캡션과 함께 비율도 스스로 고르는데, 템플릿은 사용자가 고른 비율을 넘기지 않아
+    캔버스는 1:1 인데 캡션은 세로 구도로 쓰이곤 했다. T2I 는 고른 비율을 "Final output canvas aspect ratio", 편집은 결과 크기의
+    가로:세로를 "User Aspect Ratio Selection" 으로 요청 뒤에 붙인다. 보강이 고른 비율은 쓰지 않고 캔버스는 판의 칸이 정한다
 - **편집 판의 그림 번호** — 고칠 이미지가 `<Picture 1>`, 참조 이미지 1~3 이 `<Picture 2>`~`<Picture 4>` 다. 모델은 넣은 이미지를
   놓인 순서대로 번호를 매기므로 참조는 **1번 칸부터 차례로** 채운다. 앞 칸이 비면 그 뒤 칸은 쓰지 않는다 (참조 1·3 만 넣으면 3은 빠진다).
   채운 칸만 순서대로 번호를 매기는 R2V 판과 다르다
@@ -572,17 +579,16 @@ models/
 
 | 구성 | 시간 | 비고 |
 |---|---|---|
-| T2I 4MP · 늘려 쓰기 켬 | **25.1초** | 3회 중앙값 (24.1 · 25.1 · 26.1) |
-| T2I 8MP · 늘려 쓰기 켬 | 29.8초 | 1회 |
-| T2I 16MP · 늘려 쓰기 켬 | **35.2초** | 3회 중앙값 (33.0 · 35.2 · 39.8) |
+| T2I 4MP · 늘려 쓰기 켬 | **6.8초** | 3회 중앙값 (6.7 · 6.8 · 7.2) |
+| T2I 16MP · 늘려 쓰기 켬 | **22.2초** | 3회 중앙값 (22.0 · 22.2 · 22.6) |
 | T2I 4MP · 늘려 쓰기 끔 | 4.7초 | 1회 |
 | T2I 16MP · 늘려 쓰기 끔 | 20.0초 | 1회 |
-| 편집 4MP · 늘려 쓰기 켬 | **38.9초** | 3회 중앙값 (38.8 · 38.9 · 49.0) |
-| 편집 4MP · 참조 1장 · 늘려 쓰기 켬 | 46.8초 | 1회 |
+| 편집 4MP · 늘려 쓰기 켬 | **21.0초** | 3회 중앙값 (20.9 · 21.0 · 21.0) |
+| 편집 4MP · 참조 1장 · 늘려 쓰기 켬 | 32.8초 | 1회 |
 | 편집 4MP · 늘려 쓰기 끔 | 14.0초 | 1회 |
 
-- **시간 대부분이 프롬프트 보강이다.** 보강이 생각(thinking) 단계를 거쳐 JSON 을 쓰는 데 T2I 약 17~20초, 편집 약 25초가 든다.
-  같은 요청 · 같은 시드로 화소 수만 바꾸면 보강 결과를 재사용한다
+- 처음 판(#1201, 보강의 생각 단계 켬)은 T2I 4MP 25.1초 · 16MP 35.2초 · 편집 38.9초였다 (각 3회 중앙값)
+- 편집 판의 보강은 그림을 함께 읽어 T2I 보다 오래 걸린다 (약 7초)
 - 같은 요청·시드를 그대로 다시 보내면 ComfyUI 가 앞 결과를 그대로 돌려준다 (0초). 위 측정은 매번 시드를 바꿨다
 - 장치 전체 GPU 메모리 최고점은 16MP 에서 46.6 GiB 였다
 - 결과: 수채화 그림책 · 사진풍 요청 모두 깨끗하게 나왔다. 편집은 인물의 얼굴·옷·자세를 유지한 채 배경을 바꾸고, 참조 이미지의
