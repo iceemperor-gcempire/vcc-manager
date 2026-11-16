@@ -17,7 +17,7 @@ import {
   CloudUpload,
   Autorenew,
   FolderOpen,
-  Image as ImageIcon,
+  Star,
   Dns,
   NewReleases,
   TrendingUp,
@@ -27,7 +27,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   dashboardAPI,
   projectAPI,
-  imageAPI,
   serverAPI,
 } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -36,6 +35,10 @@ import UpdateLogDialog from '../components/common/UpdateLogDialog';
 import { MONO } from '../theme';
 import { gradientForId } from '../utils/brandGradients';
 import { relativeTime } from '../utils/relativeTime';
+import { useWorkboardFavorites } from '../hooks/useWorkboardFavorites';
+import { workboardRunPath } from '../utils/workboardFavorites';
+import WorkboardFavoriteButton from '../components/common/WorkboardFavoriteButton';
+import { KIND_META, deriveKind } from '../components/common/WorkboardCatalog';
 
 
 function dateHeroLine() {
@@ -149,7 +152,7 @@ function Dashboard() {
 
   const { data: activeRunsRes } = useQuery({ queryKey: ['dashboardActiveRuns'], queryFn: dashboardAPI.getActivePipelineRuns, refetchInterval: config.monitoring.recentJobsInterval });
   const { data: projectsRes, isLoading: projectsLoading } = useQuery({ queryKey: ['dashboardProjects'], queryFn: () => projectAPI.getAll() });
-  const { data: imagesRes, isLoading: imagesLoading } = useQuery({ queryKey: ['dashboardRecentImages'], queryFn: () => imageAPI.getGenerated({ limit: 12 }) });
+  const favorites = useWorkboardFavorites();
   const { data: trendRes } = useQuery({ queryKey: ['dashboardMediaTrend'], queryFn: () =>
     dashboardAPI.getMediaTrend(7) });
   const { data: serversRes } = useQuery({ queryKey: ['dashboardServers'], queryFn: () => serverAPI.getServers(), refetchInterval: config.monitoring.queueStatusInterval });
@@ -158,7 +161,6 @@ function Dashboard() {
 
   const activeRuns = activeRunsRes?.data?.data?.runs || [];
   const projects = (projectsRes?.data?.data?.projects || []).slice(0, 4);
-  const images = imagesRes?.data?.images || [];
   const trend = trendRes?.data?.data?.trend || [];
   const trendToday = trendRes?.data?.data?.today ?? 0;
   const trendAverage = trendRes?.data?.data?.average ?? 0;
@@ -260,47 +262,36 @@ function Dashboard() {
       >
         {/* Left column */}
         <Stack spacing={4}>
-          {/* Recent generations */}
+          {/* 즐겨찾기 작업판 (#1216) — 예전 "최근 생성 이미지" 자리. 사용자 말: 생성한 이미지보다
+              자주 여는 작업판이 훨씬 쓸모 있다. 이미지는 "내 콘텐츠" 에서 본다 */}
           <SectionCard
-            icon={<ImageIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
-            title="최근 생성 이미지"
-            action="내 콘텐츠 →"
-            onAction={() => navigate('/content')}
+            icon={<Star fontSize="small" sx={{ color: 'warning.main' }} />}
+            title="즐겨찾기 작업판"
+            count={favorites.isLoading ? null : favorites.workboards.length}
+            action="작업판 목록 →"
+            onAction={() => navigate('/workboards')}
           >
-            {imagesLoading ? (
-              <GridSkeleton n={6} cols={{ xs: 3, sm: 6 }} height={0} aspect />
-            ) : images.length === 0 ? (
-              <EmptyHint text="아직 생성된 이미지가 없습니다." />
+            {favorites.isLoading ? (
+              <GridSkeleton n={4} cols={{ xs: 1, sm: 2 }} height={64} />
+            ) : favorites.workboards.length === 0 ? (
+              <EmptyHint text="즐겨찾기한 작업판이 없습니다. 작업판 목록이나 생성 화면에서 ☆ 를 누르면 여기에 모입니다." />
             ) : (
               <Box
                 sx={{
                   p: 3,
                   display: 'grid',
-                  gridTemplateColumns: { xs: 'repeat(3,1fr)', sm: 'repeat(6,1fr)' },
-                  gap: 1.5,
+                  gridTemplateColumns: { xs: '1fr', sm: 'repeat(2,1fr)' },
+                  gap: 2,
                 }}
               >
-                {images.slice(0, 12).map((img) => (
-                  <Box
-                    key={img._id}
-                    onClick={() => navigate('/content')}
-                    sx={{
-                      position: 'relative',
-                      aspectRatio: '1 / 1',
-                      borderRadius: 1,
-                      overflow: 'hidden',
-                      cursor: 'pointer',
-                      bgcolor: 'grey.100',
-                    }}
-                  >
-                    <Box
-                      component="img"
-                      src={img.url}
-                      alt=""
-                      loading="lazy"
-                      sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                    />
-                  </Box>
+                {favorites.workboards.map((wb) => (
+                  <FavoriteWorkboardTile
+                    key={wb._id}
+                    wb={wb}
+                    onOpen={() => navigate(workboardRunPath(wb))}
+                    onToggle={() => favorites.toggle(wb._id)}
+                    pending={favorites.isPending(wb._id)}
+                  />
                 ))}
               </Box>
             )}
@@ -588,6 +579,60 @@ function Dashboard() {
         onClose={() => setUpdateLogOpen(false)}
         majorVersion={config.version.major}
       />
+    </Box>
+  );
+}
+
+// 즐겨찾기 작업판 한 칸 (#1216) — 종류 아이콘 + 이름 + 종류·서버. 누르면 그 판을 연다
+function FavoriteWorkboardTile({ wb, onOpen, onToggle, pending }) {
+  const kind = KIND_META[deriveKind(wb)] || KIND_META['gpt-image'];
+  const KindIcon = kind.icon;
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={onOpen}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen(); } }}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        minWidth: 0,
+        cursor: 'pointer',
+        borderRadius: 2,
+        pl: 2.5,
+        pr: 1,
+        py: 2,
+        border: '1px solid',
+        borderColor: 'divider',
+        transition: 'all 120ms',
+        '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' },
+        '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+      }}
+    >
+      <Box
+        sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 1.5,
+          bgcolor: kind.tint,
+          color: kind.color,
+          display: 'grid',
+          placeItems: 'center',
+          flex: '0 0 auto',
+        }}
+      >
+        <KindIcon sx={{ fontSize: 18 }} />
+      </Box>
+      <Box sx={{ flex: 1, minWidth: 0 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }} noWrap title={wb.name}>
+          {wb.name}
+        </Typography>
+        <Typography sx={{ fontSize: 11, color: 'text.secondary', fontFamily: MONO, mt: 0.25 }} noWrap>
+          {kind.label} · {wb.serverId?.name || '서버 미설정'}
+        </Typography>
+      </Box>
+      <WorkboardFavoriteButton active onToggle={onToggle} disabled={pending} />
     </Box>
   );
 }

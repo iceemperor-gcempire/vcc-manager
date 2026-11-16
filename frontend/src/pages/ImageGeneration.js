@@ -64,6 +64,8 @@ import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
 import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
 import { useAlert } from '../components/common/ConfirmDialog';
+import WorkboardFavoriteButton from '../components/common/WorkboardFavoriteButton';
+import { useWorkboardFavorites } from '../hooks/useWorkboardFavorites';
 
 function PromptDataSelectDialog({ open, onClose, onSelect }) {
   const [page, setPage] = useState(1);
@@ -727,6 +729,7 @@ function ImageGeneration() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const favorites = useWorkboardFavorites();   // 헤더의 즐겨찾기 별 (#1216)
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const [generating, setGenerating] = useState(false);
@@ -1197,6 +1200,13 @@ function ImageGeneration() {
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Typography variant="h1">{workboardData?.name}</Typography>
+            {workboardData?._id && (
+              <WorkboardFavoriteButton
+                active={favorites.isFavorite(workboardData._id)}
+                onToggle={() => favorites.toggle(workboardData._id)}
+                disabled={favorites.isPending(workboardData._id)}
+              />
+            )}
             {projectContext && (
               <Chip label={`프로젝트: ${projectContext.name}`} color="primary" variant="outlined" />
             )}

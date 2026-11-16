@@ -105,6 +105,9 @@ export const workboardAPI = {
   analyzeWorkflow: (workflow, serverId) => api.post('/workboards/analyze-workflow', { workflow, serverId }),
   draftFromWorkflow: (workflow, serverId) => api.post('/workboards/draft-from-workflow', { workflow, serverId }),
   resolveNodes: (serverId, nodes) => api.post('/workboards/resolve-nodes', { serverId, nodes }),
+  // 즐겨찾기 (#1216) — 대시보드 "즐겨찾기 작업판"
+  getFavorites: () => api.get('/workboards/favorites'),
+  toggleFavorite: (id) => api.post(`/workboards/${id}/favorite`),
 };
 
 export const jobAPI = {
