@@ -79,6 +79,50 @@ describe('크기 칸 (#1174)', () => {
   test('아무것도 안 보내면 칸 기본값', async () => {
     const wf = await run({ additionalParams: {} });
     expect(wf[3].inputs.size).toBe('1024x1024');
+    // #1221 — width/height 도 칸 기본값이다. 전에는 512x512 로 떨어져 {{##image_size##}} 와 어긋났다
+    expect(wf[2].inputs).toEqual({ width: 1024, height: 1024 });
+  });
+});
+
+describe('크기를 빼고 부르면 판의 기본 크기 (#1221)', () => {
+  const sizeTemplate = JSON.stringify({
+    2: { class_type: 'EmptyLatentImage', inputs: { width: '{{##width##}}', height: '{{##height##}}' } },
+  });
+  const runWith = async (wb, inputData) => (await injectInputsIntoWorkflow(sizeTemplate, inputData, wb)).workflowJson;
+
+  test('H3 영상 판처럼 기본이 1344x768 이면 그 크기 — 512x512 가 아니다', async () => {
+    const wb = { additionalInputFields: [{ name: 'image_size', type: 'select', defaultValue: '1344x768' }] };
+    const wf = await runWith(wb, { additionalParams: {} });
+    expect(wf[2].inputs).toEqual({ width: 1344, height: 768 });
+  });
+
+  test('기본값이 {key, value} 형태여도 값을 꺼내 쓴다', async () => {
+    const wb = { additionalInputFields: [{ name: 'image_size', type: 'select', defaultValue: { key: '세로', value: '768x1344' } }] };
+    const wf = await runWith(wb, { additionalParams: {} });
+    expect(wf[2].inputs).toEqual({ width: 768, height: 1344 });
+  });
+
+  test('빈 문자열로 보내도 판 기본값', async () => {
+    const wb = { additionalInputFields: [{ name: 'image_size', type: 'select', defaultValue: '1344x768' }] };
+    const wf = await runWith(wb, { additionalParams: { image_size: '' } });
+    expect(wf[2].inputs).toEqual({ width: 1344, height: 768 });
+  });
+
+  test('판에 크기 칸이 없으면 1024x1024', async () => {
+    const wf = await runWith({ additionalInputFields: [] }, { additionalParams: {} });
+    expect(wf[2].inputs).toEqual({ width: 1024, height: 1024 });
+  });
+
+  test('크기 칸은 있는데 기본값이 없으면 1024x1024', async () => {
+    const wb = { additionalInputFields: [{ name: 'image_size', type: 'select' }] };
+    const wf = await runWith(wb, { additionalParams: {} });
+    expect(wf[2].inputs).toEqual({ width: 1024, height: 1024 });
+  });
+
+  test('보낸 크기가 있으면 판 기본값보다 먼저다 — 예전과 같다', async () => {
+    const wb = { additionalInputFields: [{ name: 'image_size', type: 'select', defaultValue: '1344x768' }] };
+    const wf = await runWith(wb, { additionalParams: { image_size: '832x480' } });
+    expect(wf[2].inputs).toEqual({ width: 832, height: 480 });
   });
 });
 
