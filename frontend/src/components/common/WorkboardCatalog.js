@@ -26,7 +26,8 @@ import {
 export const KIND_META = {
   'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',      tint: 'info.light' },
   'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: 'secondary.main', tint: 'secondary.light' },
-  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',   tint: 'primary.light' },
+  // ComfyUI 이미지 판 — 예전 키·라벨은 'sdxl'/'SDXL' 이었다. 모델과 관계없이 전부 SDXL 로 보여 바꿨다 (#1223)
+  'comfy-image': { icon: Hexagon, label: '이미지 (ComfyUI)', color: 'primary.main', tint: 'primary.light' },
   'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
   'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
   'music':     { icon: MusicNote,   label: '오디오 생성',  color: 'error.main',     tint: 'error.light' },   // #805
@@ -48,7 +49,7 @@ export function deriveKind(wb) {
   if (out === 'video') return 'i2v';
   if (out === 'audio') return 'music';   // #805
   const svc = deriveSvc(wb);
-  return svc === 'comfy' ? 'sdxl' : 'gpt-image';
+  return svc === 'comfy' ? 'comfy-image' : 'gpt-image';
 }
 
 export const OUTPUT_AXIS = [
