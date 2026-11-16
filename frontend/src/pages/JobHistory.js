@@ -70,7 +70,7 @@ import { MONO } from '../theme';
 import { relativeTime } from '../utils/relativeTime';
 import { formatDuration } from '../utils/formatDuration';   // #879
 import JobMemoDialog from '../components/common/JobMemoDialog';   // #879
-import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from '../utils/historyItems';
+import { buildHistorySubtitle, canContinueHistoryItem, MEDIA_ITEM_TYPES } from '../utils/historyItems';
 import { isSelectable, selectableIds, toggleId, toggleAll, pruneSelection } from '../utils/historySelection';   // #902
 import {
   buildWorkboardPickerContinue,
@@ -371,7 +371,7 @@ function HistoryRow({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, on
 
           {/* 액션 */}
           <Box sx={{ display: 'flex', gap: 0.75, mt: 1.25, flexWrap: 'wrap' }} onClick={(e) => e.stopPropagation()}>
-            {MEDIA_ITEM_TYPES.includes(item.type) && item.status !== 'error' && (
+            {canContinueHistoryItem(item) && (
               <>
                 <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>
                   계속하기
@@ -518,7 +518,7 @@ function HistoryCard({ item, onOpenMedia, onMenu, onMemo, onContinue, onCross, o
           </Typography>
         )}
         <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 'auto', pt: 0.5 }} onClick={(e) => e.stopPropagation()}>
-          {MEDIA_ITEM_TYPES.includes(item.type) && item.status !== 'error' && (
+          {canContinueHistoryItem(item) && (
             <>
               <Button variant="outlined" startIcon={<Refresh />} onClick={() => onContinue(item.raw)}>계속</Button>
               <Button variant="outlined" startIcon={<ArrowForward />} onClick={() => onCross(item.raw)}>다른작업</Button>
