@@ -7,9 +7,10 @@
 const express = require('express');
 const request = require('supertest');
 
+let mockIsAdmin = false;
 jest.mock('../middleware/auth', () => ({
   requireNonApiKeyAuth: jest.requireActual('../middleware/auth').requireNonApiKeyAuth,
-  requireAuth: (req, res, next) => { req.user = { _id: 'u1', isAdmin: false }; next(); },
+  requireAuth: (req, res, next) => { req.user = { _id: 'u1', isAdmin: mockIsAdmin }; next(); },
   requireAdmin: (req, res) => res.status(403).json({ success: false }),
   userHasWorkboardAccess: jest.fn().mockReturnValue(true),
 }));
@@ -39,6 +40,7 @@ function app() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockIsAdmin = false;
   Server.findById.mockResolvedValue({ _id: SERVER, serverType: 'ComfyUI' });
   ModelLicense.find.mockReturnValue({ lean: async () => [] });
   modelMetadataService.searchServerModels.mockResolvedValue({ models: [], pagination: { current: 1, pages: 0, total: 0 } });
@@ -101,4 +103,49 @@ test('LoRA 목록: 노출 목록과 함께 넘기고, 제한이 없는 판은 �
   expect(opts.allowedFolders).toEqual([]);
   expect(opts.whitelist).toEqual(['style\\openmoss\\a.safetensors']);
   expect(res.body.data.restrictions).toEqual({ folders: [], whitelist: true });
+});
+
+// 작업판 편집의 기본값 선택기 (#1172) — 판을 저장하기 전에도 편집 중인 허용 폴더로 거른다
+test('판 없이 폴더를 보내면 저장 규칙으로 정규화해 모델 목록을 거른다', async () => {
+  const res = await request(app()).get(`/api/servers/${SERVER}/models`)
+    .query({ detailed: 'true', allowedFolders: ['Qwen\\', 'qwen/', 'krea2'] });
+  expect(res.status).toBe(200);
+  const opts = modelMetadataService.searchServerModels.mock.calls[0][1];
+  expect(opts.allowedFolders).toEqual(['Qwen/', 'krea2/']);
+  expect(res.body.data.restrictions.folders).toEqual(['Qwen/', 'krea2/']);
+});
+
+test('폴더 하나만 보내도(배열 아님) 거른다', async () => {
+  await request(app()).get(`/api/servers/${SERVER}/models`).query({ detailed: 'true', allowedFolders: 'minimax' });
+  expect(modelMetadataService.searchServerModels.mock.calls[0][1].allowedFolders).toEqual(['minimax/']);
+});
+
+test('판이 있으면 쿼리 폴더는 무시하고 판의 저장값을 쓴다', async () => {
+  Workboard.findById.mockResolvedValue({
+    _id: WB, outputFormat: 'image', workflowData: '{}', additionalInputFields: [],
+    allowedModelTypes: [], allowedModelFolders: ['Krea2/'], modelExposurePolicy: 'full',
+  });
+  await request(app()).get(`/api/servers/${SERVER}/models`)
+    .query({ detailed: 'true', workboardId: WB, allowedFolders: 'qwen' });
+  expect(modelMetadataService.searchServerModels.mock.calls[0][1].allowedFolders).toEqual(['Krea2/']);
+});
+
+test('형식이 틀린 폴더만 보내면 제한 없이 돌려준다', async () => {
+  await request(app()).get(`/api/servers/${SERVER}/models`).query({ detailed: 'true', allowedFolders: '../x' });
+  expect(modelMetadataService.searchServerModels.mock.calls[0][1].allowedFolders).toBeUndefined();
+});
+
+test('LoRA 목록: 관리자가 판 없이 폴더를 보내면 그 폴더로 거른다', async () => {
+  mockIsAdmin = true;
+  const res = await request(app()).get(`/api/servers/${SERVER}/loras`)
+    .query({ allowedFolders: ['style/Minimax/ref2va'] });
+  expect(res.status).toBe(200);
+  expect(loraMetadataService.searchServerLoras.mock.calls[0][1].allowedFolders).toEqual(['style/Minimax/ref2va/']);
+  expect(res.body.data.restrictions).toEqual({ folders: ['style/Minimax/ref2va/'], whitelist: false });
+});
+
+test('LoRA 목록: 일반 사용자는 폴더를 보내도 판 없이는 볼 수 없다', async () => {
+  const res = await request(app()).get(`/api/servers/${SERVER}/loras`).query({ allowedFolders: 'style' });
+  expect(res.status).toBe(403);
+  expect(loraMetadataService.searchServerLoras).not.toHaveBeenCalled();
 });
