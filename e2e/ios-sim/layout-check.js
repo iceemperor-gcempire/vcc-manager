@@ -2,10 +2,12 @@
 /**
  * iOS 시뮬레이터 레이아웃 검사 (#1057) — 실제 iOS Safari(WebKit)에서 화면마다 가로 넘침·제목 줄 수를 재고 스크린샷을 남긴다.
  *
- *   pnpm run test:ios-sim [-- --public] [--out <dir>] [--settle <ms>] [--keep-dialogs] [/route ...]
+ *   pnpm run test:ios-sim [-- --public] [--udid <UDID>] [--out <dir>] [--settle <ms>] [--keep-dialogs] [/route ...]
  *
  * 사전 조건 (절차는 e2e/ios-sim/README.md):
  *   - 부팅된 iOS 시뮬레이터가 **정확히 하나**이고, 그 Safari 에서 앱(기본 http://localhost:8136)을 열어 둔 상태
+ *   - 다른 세션이 켠 기기가 있으면 끄지 말고 --udid (또는 IOS_SIM_UDID)로 검사할 기기를 고른다 (#1228).
+ *     브리지는 켜진 모든 기기의 탭을 함께 보여 주므로, 앱을 연 보이는 탭은 그 기기 하나에만 있어야 한다
  *   - 기본은 로그인한 상태에서 로그인 뒤 화면을, --public 은 로그아웃한 상태에서 로그인 전 화면을 잰다
  *   - Web Inspector → CDP 브리지(inspect-webkit). 포트(기본 9322)가 비어 있으면 이 스크립트가 띄우고 끝날 때 끈다
  *
@@ -39,7 +41,7 @@ const NOT_MEASURABLE = {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function parseArgs(argv) {
-  const o = { public: false, out: null, settle: 3000, keepDialogs: false, only: [],
+  const o = { public: false, out: null, settle: 3000, keepDialogs: false, only: [], udid: process.env.IOS_SIM_UDID || null,
     app: process.env.IOS_SIM_APP_URL || 'http://localhost:8136', cdpPort: Number(process.env.IOS_SIM_CDP_PORT || 9322) };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -50,6 +52,7 @@ function parseArgs(argv) {
     else if (a === '--settle') o.settle = Number(argv[++i]);
     else if (a === '--app') o.app = argv[++i];
     else if (a === '--cdp-port') o.cdpPort = Number(argv[++i]);
+    else if (a === '--udid') o.udid = argv[++i];
     else if (a === '--help' || a === '-h') { console.log(fs.readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
     else if (a.startsWith('/')) o.only.push(a);
     else throw new Error(`알 수 없는 인자: ${a}`);
@@ -71,15 +74,34 @@ function appRoutes() {
   });
 }
 
-function bootedDevice() {
+// udid 를 주면 켜진 기기 중 그것을 고른다 — 다른 세션이 켠 기기는 끄지 않는다 (#1228)
+function bootedDevice(udid) {
   const json = JSON.parse(execFileSync('xcrun', ['simctl', 'list', 'devices', 'booted', '-j'], { encoding: 'utf8' }));
   const booted = Object.entries(json.devices).flatMap(([runtime, list]) => list
     .filter((d) => d.state === 'Booted')
     .map((d) => ({ ...d, runtime: runtime.replace(/^.*SimRuntime\./, '').replace(/-(\d+)-(\d+)$/, ' $1.$2') })));
-  if (booted.length !== 1) {
-    throw new Error(`부팅된 시뮬레이터가 ${booted.length}개입니다 — 하나만 켜 두세요${booted.length ? ': ' + booted.map((d) => d.name).join(', ') : ''}`);
+  const names = booted.map((d) => `${d.name} (${d.udid})`).join(', ');
+  if (udid) {
+    const picked = booted.find((d) => d.udid === udid);
+    if (!picked) throw new Error(`--udid ${udid} 기기가 켜져 있지 않습니다 — 켜진 기기: ${names || '없음'}`);
+    return { ...picked, others: booted.length - 1 };
   }
-  return booted[0];
+  if (booted.length !== 1) {
+    throw new Error(`부팅된 시뮬레이터가 ${booted.length}개입니다 — 하나만 켜 두거나, 다른 세션이 켠 기기라면 끄지 말고 --udid 로 검사할 기기를 고르세요${booted.length ? ': ' + names : ''}`);
+  }
+  return { ...booted[0], others: 0 };
+}
+
+// 브리지는 켜진 모든 시뮬레이터의 탭을 함께 보여 준다. 앱을 연 보이는 탭이 둘 이상이면 어느 기기를 재는지 알 수 없다
+async function countVisibleAppTabs(cdp, app) {
+  const targets = (await (await fetch(`${cdp}/json/list`)).json()).filter((t) => t.type === 'page' && t.url.startsWith(app));
+  let visible = 0;
+  for (const t of targets) {
+    const c = await openTarget(t);
+    try { if ((await c.evaluate('document.visibilityState', 3000)) === 'visible') visible += 1; } catch { /* 응답 없는 탭은 세지 않는다 */ }
+    c.close();
+  }
+  return { tabs: targets.length, visible };
 }
 
 async function reachable(cdp) {
@@ -212,9 +234,16 @@ function fileName(route) { return `${route.replace(/\W+/g, '_').replace(/^_|_$/g
 
 async function main() {
   const opt = parseArgs(process.argv.slice(2));
-  const device = bootedDevice();
+  const device = bootedDevice(opt.udid);
   const cdp = `http://127.0.0.1:${opt.cdpPort}`;
   const stopBridge = await ensureBridge(cdp, opt.cdpPort);
+  if (device.others > 0) {
+    // 앱 탭이 아직 안 떴을 수 있으니 하나가 보일 때까지는 기다리고, 그다음에 센다
+    (await waitVisible(cdp, opt.app, 15000)).close();
+    const seen = await countVisibleAppTabs(cdp, opt.app);
+    console.log(`기기: ${device.name} (${device.udid}) — 다른 켜진 기기 ${device.others}대 · 앱 탭 ${seen.tabs}개 중 보이는 탭 ${seen.visible}개`);
+    if (seen.visible !== 1) throw new Error(`앱(${opt.app})을 연 보이는 탭이 ${seen.visible}개입니다 — 다른 기기의 Safari 에서 앱 탭을 닫아야 ${device.name} 를 잰다고 확신할 수 있습니다`);
+  }
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15);
   const outDir = opt.out || path.join(ROOT, 'test-results/ios-sim', `${stamp}-${device.name.replace(/\W+/g, '-')}${opt.public ? '-public' : ''}`);
   fs.mkdirSync(outDir, { recursive: true });
