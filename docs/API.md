@@ -98,6 +98,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
 | `GET` | `/workboards` | 활성 작업판 목록 (페이징·검색) | Yes |
+| `GET` | `/workboards/favorites` | 내 즐겨찾기 작업판 (#1216) | Yes |
+| `POST` | `/workboards/:id/favorite` | 작업판 즐겨찾기 토글 (#1216) | Yes |
 | `GET` | `/workboards/:id` | 작업판 상세 | Yes |
 | `GET` | `/workboards/admin/:id` | 작업판 상세 (workflowData 포함) | **Admin** |
 | `POST` | `/workboards` | 작업판 생성 (`serverId`, `outputFormat`) | **Admin** |
@@ -111,6 +113,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `GET` | `/workboards/:id/stats` | 작업판 사용 통계 | **Admin** |
 | `GET` | `/workboards/:id/lora-models` | 작업판 LoRA 모델 | Yes |
 | `POST` | `/workboards/:id/lora-models/refresh` | LoRA 캐시 갱신 | Yes |
+
+**작업판 즐겨찾기** (#1216) — 대시보드의 "즐겨찾기 작업판" 칸과 목록·생성 화면의 별 버튼이 쓴다. 프로젝트 즐겨찾기와 같은 `{ success, data }` 형식이다.
+- `GET /workboards/favorites` → `data.workboards`(즐겨찾기한 순서), `data.favoriteIds`. 생성 화면을 열 수 있는 판만 싣는다 — 활성 판이고 접근 권한이 있어야 한다(관리자도 비활성 판은 빠진다). 비활성이 되거나 권한이 회수된 판은 감추기만 하고 저장해 둔다. 다시 켜지면 그대로 보인다. 지워진 판은 이때 저장 목록에서도 빠진다(판을 지울 때도 모든 사용자의 즐겨찾기에서 빠진다).
+- `POST /workboards/:id/favorite` → `data.isFavorite`, `data.favoriteCount`. 이미 즐겨찾기한 판이면 판 상태와 관계없이 뺀다. 새로 넣을 때는 활성 판이고 접근 권한이 있어야 하며, 아니면 `404` 다. 지금 보이는 즐겨찾기가 12개면 `400`("즐겨찾기는 최대 12개까지 가능합니다")이다.
 
 **허용 모델 폴더** (`allowedModelFolders`, ComfyUI 작업판, #1086) — 이 폴더(하위 포함) 안의 베이스 모델만 모델 선택 목록에 나오고, 밖의 모델로 들어온 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다(메시지에 허용 폴더가 나온다). 저장 형태는 `qwen/` — `qwen\`·`Qwen` 처럼 보내도 그렇게 정규화되고, 비교할 때 구분자와 대소문자는 가리지 않는다. 빈 배열이면 제한 없음. 허용 모델 타입은 Civitai 분류라 Civitai 정보가 없는 파일을 판단하지 못한다 — 타입 제한이 있으면 그런 파일은 목록에서 빠지고, 실행 거절은 하지 않는다.
 

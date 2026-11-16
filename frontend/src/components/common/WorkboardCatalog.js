@@ -4,6 +4,7 @@ import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mu
 import { MONO } from '../../theme';
 import { ToneChip } from './ToneChip';
 import { relativeTime } from '../../utils/relativeTime';
+import WorkboardFavoriteButton from './WorkboardFavoriteButton';
 import {
   Search,
   Close,
@@ -192,7 +193,8 @@ function WbStatusBadge({ isActive }) {
 }
 
 // ── 공유 카드 ───────────────────────────────────────────────
-export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, groupNames }) {
+// favorite (#1216): { active, onToggle, disabled } — 사용자 목록에서만 넘긴다 (관리 화면에는 별이 없다)
+export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, groupNames, favorite }) {
   const kind = KIND_META[deriveKind(wb)] || KIND_META['gpt-image'];
   const KindIcon = kind.icon;
   const out = deriveOut(wb);
@@ -286,6 +288,9 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>
+          {favorite && (
+            <WorkboardFavoriteButton active={favorite.active} onToggle={favorite.onToggle} disabled={favorite.disabled} />
+          )}
           {onInfo && (
             <Button variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
               상세정보

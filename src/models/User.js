@@ -117,6 +117,13 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project'
   }],
+  // 즐겨찾기 작업판 (#1216) — 대시보드 "즐겨찾기 작업판" 칸. 배열 순서 = 즐겨찾기한 순서.
+  // 지워진 판의 id 는 판 삭제·목록 조회 때 빠진다. 비활성·권한 회수된 판은 남겨 두고 목록에서만 감춘다
+  // (다시 켜지거나 권한이 돌아오면 그대로 보인다).
+  favoriteWorkboards: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Workboard'
+  }],
   // 사용자 그룹 (#198) — 작업판 단위 접근 권한 매핑.
   // admin 은 implicit all-access (이 필드 무관). 일반 사용자는 신규 가입 시 isDefault 그룹 자동 추가.
   groupIds: [{
