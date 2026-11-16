@@ -91,6 +91,29 @@ function getModelValue(workboard, inputData) {
   return isBlank(fromTopLevel) ? fromField : fromTopLevel;
 }
 
+/** 크기를 보내지 않았고 판에도 크기 기본값이 없을 때 쓰는 크기 (#1221) */
+const DEFAULT_IMAGE_SIZE = '1024x1024';
+
+/**
+ * 이 작업의 이미지·영상 크기 (#1221). 요청에 온 크기 칸 값이 먼저이고, 비었으면 판의 크기 칸 기본값이다.
+ *
+ * `getFieldValueByRole` 은 요청에 들어온 값만 본다. 웹 화면은 모든 칸을 보내고 MCP 도 빈 칸을 판 기본값으로
+ * 채워 보내지만, REST 를 직접 부르면 크기가 빠질 수 있다. 그때 ComfyUI 경로가 512x512 로 떨어져
+ * 크기 기본이 1344x768 인 H3 영상 판도 512x512 로 만들었다. 둘 다 없으면 undefined —
+ * 호출부가 자기 경로의 기본값(ComfyUI 는 DEFAULT_IMAGE_SIZE)을 정한다.
+ *
+ * @param {Object} workboard
+ * @param {Object} inputData — 작업 입력 (top-level 또는 additionalParams)
+ * @returns {*} 값 ({key, value} 객체일 수 있음) 또는 undefined
+ */
+function getImageSizeValue(workboard, inputData) {
+  const sent = getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE);
+  if (!isBlank(sent)) return sent;
+  const fields = (workboard && workboard.additionalInputFields) || [];
+  const field = fields.find((f) => f && WELL_KNOWN_FIELD_NAME_TO_ROLE[f.name] === FIELD_ROLES.IMAGE_SIZE);
+  return field && !isBlank(field.defaultValue) ? field.defaultValue : undefined;
+}
+
 /**
  * 작업판의 customFields 를 role 별로 인덱싱한 맵 반환.
  * 같은 role 의 중복 필드가 있으면 첫 번째만 채택 (마지막 매치 무시).
@@ -111,8 +134,10 @@ function indexFieldsByRole(workboard) {
 }
 
 module.exports = {
+  DEFAULT_IMAGE_SIZE,
   getFieldByRole,
   getFieldValueByRole,
+  getImageSizeValue,
   getModelValue,
   indexFieldsByRole
 };
