@@ -28,7 +28,9 @@ export const KIND_META = {
   'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: 'secondary.main', tint: 'secondary.light' },
   // ComfyUI 이미지 판 — 예전 키·라벨은 'sdxl'/'SDXL' 이었다. 모델과 관계없이 전부 SDXL 로 보여 바꿨다 (#1223)
   'comfy-image': { icon: Hexagon, label: '이미지 (ComfyUI)', color: 'primary.main', tint: 'primary.light' },
-  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
+  // 영상 판 — 예전 키·라벨은 'i2v'/'영상 (I2V)' 였다. R2V·T2V·FL2V 판도 I2V 로 보여 바꿨다 (#1223).
+  // 영상은 ComfyUI 만 만들어 텍스트·오디오처럼 "생성" 으로 둔다
+  'video':     { icon: Movie,       label: '영상 생성',   color: 'warning.main',   tint: 'warning.light' },
   'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
   'music':     { icon: MusicNote,   label: '오디오 생성',  color: 'error.main',     tint: 'error.light' },   // #805
 };
@@ -46,7 +48,7 @@ export function deriveSvc(wb) {
 export function deriveKind(wb) {
   const out = deriveOut(wb);
   if (out === 'text') return 'gpt-chat';
-  if (out === 'video') return 'i2v';
+  if (out === 'video') return 'video';
   if (out === 'audio') return 'music';   // #805
   const svc = deriveSvc(wb);
   return svc === 'comfy' ? 'comfy-image' : 'gpt-image';
