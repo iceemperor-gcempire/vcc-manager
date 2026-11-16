@@ -16,6 +16,7 @@ const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 const { escapeRegex } = require('../utils/escapeRegex');
 const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../utils/validation');
 const { WORKBOARD_EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
+const { normalizePromptEnhance } = require('../utils/promptEnhance');
 const router = express.Router();
 
 // GET /favorites - 즐겨찾기 프로젝트 목록 (대시보드용) - 구체적 경로를 /:id 위에 배치
@@ -624,6 +625,8 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
     for (const pl of pipelines) {
       for (const step of pl.steps || []) {
         if (step.workboardId) workboardIdSet.add(String(step.workboardId));
+        // AI 프롬프트 늘려 쓰기의 텍스트 판도 함께 내보낸다 (#1212) — 빠지면 가져온 쪽에서 설정이 끊긴다
+        if (step.promptEnhance?.workboardId) workboardIdSet.add(String(step.promptEnhance.workboardId));
       }
     }
     const workboardIds = [...workboardIdSet];
@@ -668,6 +671,14 @@ router.get('/:id/export', requireAdmin, async (req, res) => {
           .filter((i) => i !== undefined),
         systemPromptDocIndex: step.systemPromptDocId !== undefined && docIndexById.has(String(step.systemPromptDocId))
           ? docIndexById.get(String(step.systemPromptDocId))
+          : null,
+        promptEnhance: step.promptEnhance?.workboardId && wbIndexById.has(String(step.promptEnhance.workboardId))
+          ? {
+            enabled: step.promptEnhance.enabled === true,
+            workboardIndex: wbIndexById.get(String(step.promptEnhance.workboardId)),
+            inputs: step.promptEnhance.inputs || {},
+            includeImages: step.promptEnhance.includeImages !== false,
+          }
           : null,
         note: step.note || '',
       })),
@@ -853,6 +864,14 @@ router.post('/import', requireAdmin, async (req, res) => {
             .filter(Boolean),
           systemPromptDocId: st.systemPromptDocIndex !== null && created.docs[st.systemPromptDocIndex]
             ? created.docs[st.systemPromptDocIndex]._id
+            : undefined,
+          // 옛 파일(칸 없음)·텍스트 판을 못 찾은 경우는 설정 없이 가져온다 (#1212)
+          promptEnhance: st.promptEnhance && Number.isInteger(st.promptEnhance.workboardIndex)
+            && created.workboards[st.promptEnhance.workboardIndex]
+            ? normalizePromptEnhance({
+              ...st.promptEnhance,
+              workboardId: created.workboards[st.promptEnhance.workboardIndex]._id,
+            })
             : undefined,
           note: st.note || '',
         }));

@@ -168,6 +168,7 @@ export function registerJobTools(server, apiRequest) {
       imageIds: z.array(z.string()).optional().describe('Image IDs from upload_image (vision models; up to the workboard image field limit)'),
       model: z.string().optional().describe('Model ID to use instead of the workboard default'),
       conversationId: z.string().optional().describe('Continue this conversation (from a previous generate_text result)'),
+      targetWorkboardId: z.string().optional().describe('Image/video workboard the text will be used as a prompt for. Its AI prompt instructions (promptGeneratorInstructions) are added to the system prompt, same as the web "AI 프롬프트 생성" — use this to write a prompt in the format that workboard expects. Ignored when continuing a conversation.'),
       additionalParams: z.record(z.union([z.string(), z.number(), z.boolean()])).optional()
         .describe('Other workboard fields (field name → value), e.g. system_prompt, temperature'),
     },
@@ -187,7 +188,8 @@ export function registerJobTools(server, apiRequest) {
 
       const data = await apiRequest('/jobs/generate-prompt', {
         method: 'POST',
-        body: { workboardId: params.workboardId, inputData, conversationId: params.conversationId },
+        // 대상 판 지침 (#1109, #1212) — 백엔드가 접근 검사 후 [대상 작업판 지침] 층으로 넣는다. 이어가기에는 쓰이지 않는다
+        body: { workboardId: params.workboardId, inputData, conversationId: params.conversationId, targetWorkboardId: params.targetWorkboardId },
       });
 
       return {

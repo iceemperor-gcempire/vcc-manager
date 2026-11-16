@@ -117,6 +117,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `imageIds` | string[] | - | `upload_image` 로 받은 imageId 들. 작업판에 이미지 칸이 있어야 하고 그 칸의 최대 장수(`get_workboard` 의 `maxImages`)까지. 모델이 이미지 입력(vision)을 지원해야 한다 |
 | `model` | string | - | 작업판 기본 모델 대신 쓸 모델 ID |
 | `conversationId` | string | - | 이전 결과의 `conversationId` — 같은 대화로 이어간다 (모델은 대화를 시작한 모델 유지) |
+| `targetWorkboardId` | string | - | 결과를 프롬프트로 쓸 이미지·영상 작업판 ID. 그 판의 AI 프롬프트 생성 지침이 시스템 프롬프트에 함께 들어간다 — 웹의 "AI 프롬프트 생성" 과 같다. 그 판의 형식(예: H3 의 세 필드 구조)으로 프롬프트를 쓰게 할 때. 이어가기(`conversationId`)에는 쓰이지 않는다 |
 | `additionalParams` | Record<string, string\|number\|boolean> | - | 그 밖의 작업판 필드 (예: `system_prompt`, `temperature`) |
 
 작업판 필드의 기본값(모델 등)은 자동으로 채워진다 — 기본값이 있는 칸은 다시 적지 않아도 된다.
@@ -366,7 +367,7 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 
 ### `get_pipeline`
 
-파이프라인 상세 — 단계 구성, 자동 주입 여부, 사전 입력, 연결 문서.
+파이프라인 상세 — 단계 구성, 자동 주입 여부, 사전 입력, 연결 문서, AI 프롬프트 늘려 쓰기.
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -384,6 +385,7 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 | `steps[].inputs` | 사전 입력 (customField name → value 매핑) |
 | `steps[].contextDocIds` | 컨텍스트 문서 ID 들 |
 | `steps[].systemPromptDocId` | 시스템 프롬프트 문서 ID |
+| `steps[].promptEnhance` | 이미지·영상 단계가 생성 전에 텍스트 판으로 프롬프트를 늘려 쓰는 설정 (#1212). `{ enabled, workboardId, workboardName, inputs, includeImages }`, 설정이 없으면 `null` |
 | `steps[].note` | 사용자 메모 |
 
 ---
@@ -429,10 +431,13 @@ base64 인코딩된 이미지를 VCC 서버에 업로드. 반환된 `imageId`를
 | `steps[].index` | 단계 순서 |
 | `steps[].workboardName` / `outputFormat` | 단계의 작업판 |
 | `steps[].status` | 단계 상태 |
+| `steps[].errorMessage` | 실패한 단계의 사유 |
 | `steps[].imageGenerationJobId` | 이미지 step 의 job ID (`download_result` 인자) |
-| `steps[].conversationJobId` | 텍스트 step 의 conversation ID |
+| `steps[].conversationJobId` | 텍스트 step 의 conversation ID. AI 프롬프트로 늘려 쓴 이미지·영상 step 이면 늘려 쓴 대화 |
 | `steps[].textOutput` | 텍스트 step 의 직접 출력 |
 | `steps[].imageIds` | 이미지 step 의 결과 image ID 들 |
+| `steps[].enhancedPrompt` | AI 프롬프트로 늘려 쓴 step 만 — 생성에 실제로 쓴 프롬프트 |
+| `steps[].promptEnhanceFallback` | 늘려 쓴 결과가 비어 원래 프롬프트로 생성했으면 `true` |
 
 **사용 패턴:**
 ```
