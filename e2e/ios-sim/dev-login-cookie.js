@@ -2,12 +2,14 @@
 /**
  * 개발 중 테스트 전용 (#1057) — 시뮬레이터 Safari 에 개발용 로그인 쿠키를 심는 루프백 서버.
  *
- *   node e2e/ios-sim/dev-login-cookie.js --email <계정 이메일> [--port 18999] [--to /dashboard] [--no-open]
+ *   node e2e/ios-sim/dev-login-cookie.js --email <계정 이메일> [--udid <UDID>] [--port 18999] [--to /dashboard] [--no-open]
  *
  * 로컬 docker-compose 백엔드 컨테이너에서 그 계정의 JWT 를 발급해 **메모리에만** 들고 있다 (파일·출력에 남기지 않는다).
  * 프런트는 토큰을 JS 쿠키 `token` 으로 쓰고 쿠키는 포트를 가리지 않으므로, localhost:<port> 에서 심은 쿠키가
  * localhost:8136 에도 간다. 그래서 앱 주소가 localhost 가 아니면 거부한다 — 외부에 열린 인스턴스에는 쓰지 않는다.
  * 쿠키는 1시간 뒤 만료된다. Ctrl+C 로 끄면 부팅된 시뮬레이터에서 /clear 를 열어 쿠키를 지운 뒤 종료한다.
+ *
+ * 다른 세션이 켠 시뮬레이터가 있으면 --udid (또는 IOS_SIM_UDID)로 쿠키를 심을 기기를 고른다 (#1228). 없으면 simctl 의 booted 다.
  *
  * QA 는 이 도구가 아니라 시뮬레이터에서 직접 로그인해서 한다 (e2e/ios-sim/README.md).
  */
@@ -18,11 +20,12 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '../..');
 
 function parseArgs(argv) {
-  const o = { email: process.env.IOS_SIM_DEV_EMAIL, port: 18999, to: '/dashboard', open: true, app: process.env.IOS_SIM_APP_URL || 'http://localhost:8136' };
+  const o = { email: process.env.IOS_SIM_DEV_EMAIL, udid: process.env.IOS_SIM_UDID || 'booted', port: 18999, to: '/dashboard', open: true, app: process.env.IOS_SIM_APP_URL || 'http://localhost:8136' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--email') o.email = argv[++i];
     else if (a === '--port') o.port = Number(argv[++i]);
+    else if (a === '--udid') o.udid = argv[++i];
     else if (a === '--to') o.to = argv[++i];
     else if (a === '--no-open') o.open = false;
     else if (a === '--help' || a === '-h') { console.log(require('fs').readFileSync(__filename, 'utf8').split('*/')[0]); process.exit(0); }
@@ -52,8 +55,8 @@ if(!u)process.exit(3);process.stdout.write(generateJWT(u));await mongoose.discon
   return token;
 }
 
-function simOpen(url) {
-  try { execFileSync('xcrun', ['simctl', 'openurl', 'booted', url], { stdio: 'ignore' }); return true; } catch { return false; }
+function simOpen(url, udid) {
+  try { execFileSync('xcrun', ['simctl', 'openurl', udid, url], { stdio: 'ignore' }); return true; } catch { return false; }
 }
 
 function main() {
@@ -77,15 +80,15 @@ function main() {
   server.listen(opt.port, '127.0.0.1', () => {
     console.log(`개발용 로그인 쿠키 서버: 127.0.0.1:${opt.port} (토큰은 메모리에만, 쿠키는 1시간 뒤 만료)`);
     const setUrl = `${self}/set?to=${encodeURIComponent(opt.to)}`;
-    if (opt.open && simOpen(setUrl)) console.log(`시뮬레이터에서 열었습니다: ${opt.app}${opt.to}`);
-    else console.log(`시뮬레이터에서 여세요: xcrun simctl openurl booted '${setUrl}'`);
+    if (opt.open && simOpen(setUrl, opt.udid)) console.log(`시뮬레이터에서 열었습니다: ${opt.app}${opt.to}`);
+    else console.log(`시뮬레이터에서 여세요: xcrun simctl openurl ${opt.udid} '${setUrl}'`);
     console.log('끝나면 Ctrl+C — 쿠키를 지우고 종료합니다.');
   });
 
   let closing = false;
   const shutdown = async () => {
     if (closing) return; closing = true;
-    const cleared = simOpen(`${self}/clear`);
+    const cleared = simOpen(`${self}/clear`, opt.udid);
     if (cleared) await new Promise((r) => setTimeout(r, 4000)); // 시뮬레이터가 /clear 를 받아갈 때까지 서버를 살려 둔다
     console.log(cleared ? '\n시뮬레이터에서 쿠키 삭제 페이지를 열었습니다 (결과는 그 화면에 보입니다).' : '\n부팅된 시뮬레이터가 없어 쿠키를 지우지 못했습니다 — 심은 지 1시간이 지나면 만료됩니다.');
     server.close(() => process.exit(0));

@@ -46,6 +46,8 @@ import { WorkboardImportDialog } from '../components/admin/WorkboardManagement';
 import WorkflowImportDialog from '../components/admin/WorkflowImportDialog';
 import { copyToClipboard } from '../utils/clipboard';
 import { invalidateWorkboardQueries } from '../utils/queryInvalidation';
+import { workboardRunPath } from '../utils/workboardFavorites';
+import { useWorkboardFavorites } from '../hooks/useWorkboardFavorites';
 import { usePersistedState } from '../hooks/usePersistedState';
 import { MONO } from '../theme';
 import PageHeader from '../components/common/PageHeader';
@@ -69,12 +71,7 @@ function selectWorkboard(workboard, projectId, navigate) {
       }
     } catch (e) { console.warn('Failed to parse continue job data:', e); }
   }
-  const projectQuery = projectId ? `?projectId=${projectId}` : '';
-  if ((workboard.outputFormat || 'image') === 'text') {
-    navigate(`/prompt-generate/${workboard._id}${projectQuery}`);
-  } else {
-    navigate(`/generate/${workboard._id}${projectQuery}`);
-  }
+  navigate(workboardRunPath(workboard, projectId));
 }
 
 function WorkboardDetailDialog({ workboard, open, onClose, onSelect }) {
@@ -119,6 +116,8 @@ function WorkboardCatalogPage({ admin = false }) {
   const confirm = useConfirm();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  // 즐겨찾기 별 (#1216) — 사용자 목록에서만. 관리 화면은 조회하지 않는다
+  const favorites = useWorkboardFavorites({ enabled: !admin });
   const [searchParams] = useSearchParams();
   const projectId = admin ? null : searchParams.get('projectId');
 
@@ -269,7 +268,9 @@ function WorkboardCatalogPage({ admin = false }) {
           action={admin ? <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button> : undefined}
         />
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
+        // 좁은 화면 한 칸은 minmax(0, 1fr) — 1fr(=minmax(auto, 1fr))은 제목이 가장 긴 카드의 최소 폭까지 칸을 넓혀
+        // 모든 카드가 화면 밖으로 넘친다 (#1230)
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
           {filtered.map((wb) => (
             <WorkboardCard
               key={wb._id}
@@ -280,6 +281,11 @@ function WorkboardCatalogPage({ admin = false }) {
               onEdit={admin ? handleEdit : undefined}
               onMenu={admin ? (e, w) => { setMenuAnchor(e.currentTarget); setMenuWb(w); } : undefined}
               groupNames={admin ? (wb.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g.name : null)).filter(Boolean) : undefined}
+              favorite={admin ? undefined : {
+                active: favorites.isFavorite(wb._id),
+                onToggle: () => favorites.toggle(wb._id),
+                disabled: favorites.isPending(wb._id),
+              }}
             />
           ))}
         </Box>

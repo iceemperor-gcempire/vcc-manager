@@ -53,6 +53,10 @@ import toast from 'react-hot-toast';
 import { pipelineAPI, pipelineRunAPI, projectAPI, jobAPI, tagAPI, textAPI, workboardAPI, promptDataAPI } from '../../services/api';
 import { MONO } from '../../theme';
 import { useConfirm } from './ConfirmDialog';
+import TargetInstructionsNotice from './TargetInstructionsNotice';
+import {
+  isImageOrVideoStep, stepUsesLlm, fromLoadedPromptEnhance, toPromptEnhancePayload, stepsMissingEnhancer,
+} from '../../utils/pipelinePromptEnhance';
 
 // 파이프라인 step 의 이미지 결과 — 썸네일 그리드 + 클릭 시 큰 보기 (#409).
 // runStep.imageGenerationJobId 가 populate 되어 있어야 함 (백엔드 단일 GET 만 populate).
@@ -100,6 +104,31 @@ export function StepImageThumbnails({ runStep, viewerTitle = '파이프라인 �
         title={viewerTitle}
       />
     </>
+  );
+}
+
+// 이미지·영상 단계가 AI 프롬프트로 늘려 쓴 프롬프트 (#1212). 원래 프롬프트로 대신했으면 그렇게 알린다.
+export function StepEnhancedPrompt({ output }) {
+  const [open, setOpen] = useState(false);
+  if (!output?.enhancedPrompt) return null;
+  return (
+    <Box sx={{ mt: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+        <Typography variant="caption" color="text.secondary">
+          {output.promptEnhanceFallback
+            ? 'AI 프롬프트 결과가 비어 원래 프롬프트로 생성했습니다'
+            : 'AI 프롬프트로 늘려 쓴 프롬프트로 생성했습니다'}
+        </Typography>
+        <Button size="small" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+          {open ? '접기' : '프롬프트 보기'}
+        </Button>
+      </Box>
+      {open && (
+        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 200, overflow: 'auto', lineHeight: 1.65 }}>
+          {output.enhancedPrompt}
+        </Typography>
+      )}
+    </Box>
   );
 }
 
@@ -406,6 +435,11 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
               next[idx] = { ...steps[idx], autoInject: checked };
               setSteps(next);
             }}
+            onChangePromptEnhance={(promptEnhance) => {
+              const next = [...steps];
+              next[idx] = { ...steps[idx], promptEnhance };
+              setSteps(next);
+            }}
           />
         </React.Fragment>
       ))}
@@ -414,7 +448,7 @@ function PipelineLane({ steps, setSteps, moveStep, removeStep, onOpenInputs, onO
   );
 }
 
-function StepLaneCard({
+export function StepLaneCard({
   step,
   index,
   isLast,
@@ -429,17 +463,20 @@ function StepLaneCard({
   onChangeNote,
   onChangeInputs,
   onToggleAutoInject,
+  onChangePromptEnhance,
   projectId,
 }) {
   const inputsCount = Object.keys(step.inputs || {}).filter((k) => step.inputs[k] !== '' && step.inputs[k] != null).length;
   const docsCount = (step.contextDocIds?.length || 0) + (step.systemPromptDocId ? 1 : 0);
   const customFieldCount = (step.workboard?.additionalInputFields || []).filter((f) => f.name !== 'conversation_mode').length;
-  const isImageOrVideoStep = step.workboard?.outputFormat === 'image' || step.workboard?.outputFormat === 'video';
-  // 컨텍스트 / 시스템 프롬프트 문서는 실행 시 LLM(텍스트) 단계에만 주입됨 (runTextStep).
-  // 이미지/영상 단계는 문서를 읽지 않으므로 문서 연결 UI 자체를 숨긴다 (#586).
-  const isLlmStep = step.workboard?.outputFormat === 'text';
+  // 이름을 isImageOrVideoStep 으로 두면 같은 이름의 helper 를 가려 카드를 펼칠 때 화면이 죽는다 (#1212 알파에서 발견)
+  const isMediaStep = isImageOrVideoStep(step);
+  // 컨텍스트 / 시스템 프롬프트 문서는 실행 시 LLM 을 부르는 단계에만 주입됨 (#586) —
+  // 텍스트 단계, 그리고 AI 프롬프트 늘려 쓰기를 켠 이미지·영상 단계 (#1212). 그 밖에는 문서 연결 UI 를 숨긴다.
+  const isLlmStep = stepUsesLlm(step);
+  const enhance = step.promptEnhance?.enabled ? step.promptEnhance : null;
   // image/video step 은 customField 가 없더라도 explicit prompt/negativePrompt/seed 폼을 보여줘야 함 (#431)
-  const inputFieldCount = customFieldCount + (isImageOrVideoStep ? 3 : 0);
+  const inputFieldCount = customFieldCount + (isMediaStep ? 3 : 0);
   return (
     <Paper
       variant="outlined"
@@ -517,6 +554,14 @@ function StepLaneCard({
             {step.workboard.description}
           </Typography>
         )}
+        {enhance && (
+          <Chip
+            label={`AI 프롬프트: ${enhance.workboard?.name || (enhance.workboardId ? '텍스트 판' : '판을 고르세요')}`}
+            color={enhance.workboardId ? 'secondary' : 'warning'}
+            variant="outlined"
+            sx={{ mt: 1, maxWidth: '100%' }}
+          />
+        )}
 
         {index > 0 && (
           <FormControlLabel
@@ -571,6 +616,9 @@ function StepLaneCard({
             <Typography variant="caption" color="text.secondary">
               이 단계는 사전 입력 필드가 없습니다.
             </Typography>
+          )}
+          {isMediaStep && (
+            <StepPromptEnhanceSection step={step} onChange={onChangePromptEnhance} />
           )}
           {isLlmStep && (
             <>
@@ -641,6 +689,123 @@ function StepLaneCard({
         </IconButton>
       </Box>
     </Paper>
+  );
+}
+
+// AI 프롬프트로 먼저 늘려 쓰기 (#1212) — 이미지·영상 단계 카드의 펼친 패널.
+// 생성 화면의 "AI 프롬프트 생성" 과 같은 합성이다: 고른 텍스트 판이 어느 LLM 으로, 이 단계 판의 지침이
+// 어떤 형식으로 쓸지를 정한다 (#1109). 저장 모양의 정리·검사는 백엔드가 한다.
+function StepPromptEnhanceSection({ step, onChange }) {
+  const pe = step.promptEnhance || {};
+  const enabled = pe.enabled === true;
+  const enhancerId = (pe.workboardId && typeof pe.workboardId === 'object' ? pe.workboardId._id : pe.workboardId) || '';
+
+  // 생성 화면의 텍스트 판 선택과 같은 목록 (PromptWorkboardSelectDialog 와 캐시를 함께 쓴다)
+  const { data: listData } = useQuery({
+    queryKey: ['promptWorkboards'],
+    queryFn: () => workboardAPI.getAll({ outputFormat: 'text', limit: 50 }),
+    enabled,
+    staleTime: 60_000,
+  });
+  const textBoards = listData?.data?.workboards || [];
+  // 고른 텍스트 판의 입력 필드 (모델 등)
+  const { data: enhancerData } = useQuery({
+    queryKey: ['workboard', enhancerId],
+    queryFn: () => workboardAPI.getById(enhancerId),
+    enabled: enabled && !!enhancerId,
+    staleTime: 60_000,
+  });
+  const enhancer = enhancerData?.data?.workboard || pe.workboard || null;
+  // 텍스트 판 자신의 이미지 칸은 쓰지 않는다 — 이미지는 이 단계의 것을 넘긴다
+  const enhancerForInputs = enhancer
+    ? { ...enhancer, additionalInputFields: (enhancer.additionalInputFields || []).filter((f) => f.type !== 'image') }
+    : null;
+  // 이 단계 판의 AI 프롬프트 지침 — 단계 추가 목록에는 실려 있지 않을 수 있어 없으면 상세로 읽는다
+  const stepInstructionsKnown = step.workboard?.promptGeneratorInstructions !== undefined;
+  const { data: stepWbData } = useQuery({
+    queryKey: ['workboard', step.workboardId],
+    queryFn: () => workboardAPI.getById(step.workboardId),
+    enabled: enabled && !stepInstructionsKnown && !!step.workboardId,
+    staleTime: 60_000,
+  });
+  const instructions = (stepInstructionsKnown
+    ? step.workboard.promptGeneratorInstructions
+    : stepWbData?.data?.workboard?.promptGeneratorInstructions) || '';
+  const hasImageField = (step.workboard?.additionalInputFields || []).some((f) => f.type === 'image');
+
+  const update = (patch) => onChange({ inputs: {}, includeImages: true, ...pe, ...patch });
+
+  return (
+    <Box sx={{ mt: 2.5 }}>
+      <Typography variant="caption" sx={{ display: 'block', fontWeight: 600, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        AI 프롬프트
+      </Typography>
+      <FormControlLabel
+        sx={{ ml: 0, mt: 0.5 }}
+        control={<Switch size="small" checked={enabled} onChange={(e) => update({ enabled: e.target.checked })} />}
+        label={<Typography variant="body2">AI 프롬프트로 먼저 늘려 쓰기</Typography>}
+      />
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        생성하기 전에 고른 텍스트 판이 이 단계의 프롬프트를 이 작업판의 지침에 맞게 늘려 씁니다. 생성 화면의 "AI 프롬프트 생성"과 같습니다.
+      </Typography>
+      {enabled && (
+        <Stack spacing={2} sx={{ mt: 1.5 }}>
+          <TextField
+            select
+            fullWidth
+            label="텍스트 판"
+            value={enhancerId}
+            onChange={(e) => update({ workboardId: e.target.value || undefined, workboard: undefined, inputs: {} })}
+            SelectProps={{ native: true }}
+            InputLabelProps={{ shrink: true }}
+            error={!enhancerId}
+            helperText={!enhancerId
+              ? (textBoards.length === 0 ? '사용할 수 있는 텍스트 판이 없습니다' : '프롬프트를 쓸 텍스트 판을 고르세요')
+              : undefined}
+          >
+            <option value="">— 선택 —</option>
+            {/* 목록에 없는 판(권한이 바뀌었거나 50개 밖)도 지금 값으로 보이게 둔다 */}
+            {enhancerId && !textBoards.some((b) => b._id === enhancerId) && (
+              <option value={enhancerId}>{enhancer?.name || enhancerId}</option>
+            )}
+            {textBoards.map((b) => (
+              <option key={b._id} value={b._id}>{b.name}</option>
+            ))}
+          </TextField>
+          {enhancerForInputs && (enhancerForInputs.additionalInputFields || []).some((f) => f.name !== 'conversation_mode') && (
+            <StepInputsForm
+              workboard={enhancerForInputs}
+              values={pe.inputs || {}}
+              onChange={(inputs) => update({ inputs })}
+            />
+          )}
+          {hasImageField && (
+            <Box>
+              <FormControlLabel
+                sx={{ ml: 0 }}
+                control={<Switch size="small" checked={pe.includeImages !== false} onChange={(e) => update({ includeImages: e.target.checked })} />}
+                label={<Typography variant="body2">이 단계의 이미지도 LLM 에 보여 주기</Typography>}
+              />
+              {pe.includeImages !== false && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                  첫 프레임·참조 이미지를 함께 보냅니다. 이미지를 읽을 수 있는 모델이어야 하고, 로컬 LLM 은 몇 분 걸릴 수 있습니다.
+                </Typography>
+              )}
+            </Box>
+          )}
+          {instructions.trim() ? (
+            <TargetInstructionsNotice instructions={instructions} />
+          ) : (
+            <Typography variant="caption" color="text.secondary">
+              이 작업판에는 AI 프롬프트 지침이 없습니다. 텍스트 판의 지시만으로 늘려 씁니다.
+            </Typography>
+          )}
+          <Typography variant="caption" color="text.secondary">
+            이 단계에 연결한 문서(세계관·시스템 프롬프트)도 이 LLM 호출에 들어갑니다.
+          </Typography>
+        </Stack>
+      )}
+    </Box>
   );
 }
 
@@ -726,13 +891,13 @@ function ContextDocPalette({ projectId, selectedStepIdx, selectedStep, onAddDoc 
 
   const ctxIds = new Set(selectedStep?.contextDocIds || []);
   const spId = selectedStep?.systemPromptDocId;
-  // 문서는 LLM(텍스트) 단계에만 주입됨 — 이미지/영상 단계 선택 시 추가 비활성 (#586)
-  const selectedIsLlm = selectedStep?.workboard?.outputFormat === 'text';
+  // 문서는 LLM 을 부르는 단계에만 주입됨 (#586) — 텍스트 단계, 또는 AI 프롬프트 늘려 쓰기를 켠 이미지·영상 단계 (#1212)
+  const selectedIsLlm = stepUsesLlm(selectedStep);
   const docsDisabled = selectedStepIdx < 0 || !selectedIsLlm;
   const helpText = selectedStepIdx < 0
     ? '단계 카드를 클릭해 선택한 뒤 문서를 추가하세요.'
     : !selectedIsLlm
-      ? '이미지 / 영상 단계에는 문서가 적용되지 않습니다. 문서 연결은 LLM(텍스트) 단계 전용입니다.'
+      ? '이 단계에는 문서가 적용되지 않습니다. 문서는 LLM(텍스트) 단계와, AI 프롬프트 늘려 쓰기를 켠 이미지·영상 단계에 들어갑니다.'
       : '클릭하면 선택 단계에 추가/해제.';
 
   return (
@@ -835,6 +1000,8 @@ function PipelineDiagnosticStrip({ steps }) {
   const total = steps.length;
   const inactiveCount = steps.filter((s) => s.workboard?.isActive === false).length;
   const autoOffCount = steps.slice(1).filter((s) => s.autoInject === false).length;
+  const missingEnhancer = stepsMissingEnhancer(steps);
+  const enhanceCount = steps.filter((s) => isImageOrVideoStep(s) && s.promptEnhance?.enabled).length;
   const flow = steps
     .map((s) => s.workboard?.outputFormat || '?')
     .filter(Boolean);
@@ -844,7 +1011,11 @@ function PipelineDiagnosticStrip({ steps }) {
   let icon = <CheckCircleIcon fontSize="small" />;
   let parts = [];
 
-  if (inactiveCount > 0) {
+  if (missingEnhancer.length > 0) {
+    severity = 'warning';
+    icon = <ErrorIcon fontSize="small" />;
+    parts.push(<><strong>{missingEnhancer.join(', ')}</strong>단계 — AI 프롬프트에 쓸 텍스트 판을 고르세요</>);
+  } else if (inactiveCount > 0) {
     severity = 'warning';
     icon = <ErrorIcon fontSize="small" />;
     parts.push(<><strong>{inactiveCount}</strong>개 단계가 비활성 작업판</>);
@@ -853,6 +1024,10 @@ function PipelineDiagnosticStrip({ steps }) {
     parts.push(<><strong>{autoOffCount}</strong>개 단계는 자동 주입 꺼짐 — 사전 입력 / 메모 확인 필요</>);
   } else {
     parts.push(<><strong>{total}개 단계</strong> · 모두 자동 주입 활성</>);
+  }
+
+  if (enhanceCount > 0 && missingEnhancer.length === 0) {
+    parts.push(<><strong>{enhanceCount}</strong>개 단계는 AI 프롬프트로 먼저 늘려 씀</>);
   }
 
   const palette = severity === 'warning' ? 'warning' : 'info';
@@ -936,6 +1111,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
         inputs: s.inputs || {},
         contextDocIds: Array.isArray(s.contextDocIds) ? s.contextDocIds.map((d) => d._id || d) : [],
         systemPromptDocId: s.systemPromptDocId?._id || s.systemPromptDocId || null,
+        promptEnhance: fromLoadedPromptEnhance(s.promptEnhance),
         note: s.note || '',
       })));
     }
@@ -964,6 +1140,11 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
       toast.error('최소 하나 이상의 단계가 필요합니다.');
       return;
     }
+    const missingEnhancer = stepsMissingEnhancer(steps);
+    if (missingEnhancer.length > 0) {
+      toast.error(`${missingEnhancer.join(', ')}단계: AI 프롬프트에 쓸 텍스트 판을 고르세요.`);
+      return;
+    }
     saveMutation.mutate({
       name: name.trim(),
       description: description.trim(),
@@ -973,6 +1154,7 @@ function PipelineBuilder({ projectId, pipelineId, onClose }) {
         inputs: s.inputs || {},
         contextDocIds: s.contextDocIds || [],
         systemPromptDocId: s.systemPromptDocId || undefined,
+        promptEnhance: toPromptEnhancePayload(s),
         note: s.note,
       })),
     });
@@ -1494,7 +1676,7 @@ function StepDocsDialog({ open, projectId, step, onClose, onSave }) {
 
   if (!step) return null;
 
-  const isLlmStep = step.workboard?.outputFormat === 'text';
+  const isLlmStep = stepUsesLlm(step);
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -1865,6 +2047,7 @@ function PipelineRunner({ projectId, pipelineId, onClose }) {
                           {runStep.output.type === 'image' && (
                             <StepImageThumbnails runStep={runStep} />
                           )}
+                          <StepEnhancedPrompt output={runStep.output} />
                         </Box>
                       </Paper>
                     )}
@@ -2109,6 +2292,7 @@ export function PipelineHistoryPanel({ projectId }) {
                     {runStep.output.type === 'image' && (
                       <StepImageThumbnails runStep={runStep} />
                     )}
+                    <StepEnhancedPrompt output={runStep.output} />
                   </Paper>
                 )}
                 {runStep.status === 'failed' && (

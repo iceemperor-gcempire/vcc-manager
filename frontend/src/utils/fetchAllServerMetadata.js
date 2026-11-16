@@ -42,5 +42,7 @@ export async function fetchAllServerMetadata(fetcher, serverId, params = {}) {
   }
 
   const total = Number.isFinite(Number(pagination?.total)) ? Number(pagination.total) : items.length;
-  return { items, total, truncated: pages > lastPage || items.length < total };
+  // 서버가 적용한 제한 (#1086·#1172) — 폴더로 걸렀는지 선택기가 보여 준다
+  const restrictions = first?.data?.data?.restrictions;
+  return { items, total, truncated: pages > lastPage || items.length < total, ...(restrictions ? { restrictions } : {}) };
 }

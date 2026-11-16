@@ -19,6 +19,7 @@ const WORKBOARD_QUERY_ROOTS = [
   'promptWorkboards',          // 레거시 프롬프트 작업판
   'projectWorkboards',         // 프로젝트별 작업판 연결
   'dashboardWorkboardUsage',   // 대시보드 "자주 쓰는 작업판" 위젯
+  'workboardFavorites',        // 즐겨찾기 작업판 (#1216) — 판을 끄거나 지우면 대시보드에서 빠져야 한다
   'adminDefaultValueMetadata', // 편집기 baseModel/lora 기본값 autocomplete 의 모델 목록
 ];
 

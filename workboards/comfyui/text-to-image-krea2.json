@@ -1,0 +1,118 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 22
+  },
+  "exportedAt": "2026-11-16T14:06:55.071Z",
+  "workboard": {
+    "name": "Krea 2 - T2I",
+    "description": "프롬프트만으로 이미지를 만드는 Krea 2 터보 작업판입니다 (8스텝 · CFG 1 · 부정 프롬프트 없음). 짧은 요청은 「AI 프롬프트 생성」으로 늘려 쓰면 이 판에 맞는 영어 설명으로 써 줍니다. 판 안의 프롬프트 보강(Qwen3-VL 4B)은 기본으로 꺼져 있습니다.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "options": [],
+        "defaultValue": "Krea2\\krea2TurboOfficialComfy_krea2TurboInt8.safetensors",
+        "description": "Krea 2 계열 모델 (터보 = 8스텝 · CFG 1). 기본값은 int8 convrot 입니다.",
+        "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "크기",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "1024x1024 (1:1)",
+            "value": "1024x1024"
+          },
+          {
+            "key": "896x1152 (7:9)",
+            "value": "896x1152"
+          },
+          {
+            "key": "1152x896 (9:7)",
+            "value": "1152x896"
+          },
+          {
+            "key": "832x1216 (2:3)",
+            "value": "832x1216"
+          },
+          {
+            "key": "1216x832 (3:2)",
+            "value": "1216x832"
+          },
+          {
+            "key": "768x1344 (9:16)",
+            "value": "768x1344"
+          },
+          {
+            "key": "1344x768 (16:9)",
+            "value": "1344x768"
+          }
+        ],
+        "defaultValue": "1024x1024",
+        "description": "Krea 2 터보는 1MP 안팎에서 학습됐습니다.",
+        "formatString": "{{##image_size##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "prompt_enhance",
+        "label": "프롬프트 보강",
+        "type": "boolean",
+        "required": false,
+        "options": [],
+        "defaultValue": false,
+        "description": "켜면 판 안의 Qwen3-VL 4B 가 프롬프트를 영어로 늘려 쓴 뒤 생성합니다 (몇 초 더 걸립니다). 모델이 작아 요청과 다르게 늘려 쓸 때가 많아 기본은 꺼 둡니다. 짧은 요청은 AI 프롬프트 생성으로 늘려 쓰기를 권합니다.",
+        "formatString": "{{##prompt_enhance##}}"
+      }
+    ],
+    "workflowData": "{\"3\":{\"inputs\":{\"model\":[\"10\",0],\"positive\":[\"6\",0],\"negative\":[\"13\",0],\"latent_image\":[\"5\",0],\"seed\":\"{{##seed##}}\",\"steps\":8,\"cfg\":1,\"sampler_name\":\"euler\",\"scheduler\":\"simple\",\"denoise\":1},\"class_type\":\"KSampler\",\"_meta\":{\"title\":\"KSampler\"}},\"5\":{\"inputs\":{\"width\":\"{{##width##}}\",\"height\":\"{{##height##}}\",\"batch_size\":1},\"class_type\":\"EmptyLatentImage\",\"_meta\":{\"title\":\"EmptyLatentImage\"}},\"6\":{\"inputs\":{\"clip\":[\"11\",0],\"text\":[\"21\",0]},\"class_type\":\"CLIPTextEncode\",\"_meta\":{\"title\":\"CLIPTextEncode\"}},\"8\":{\"inputs\":{\"samples\":[\"3\",0],\"vae\":[\"12\",0]},\"class_type\":\"VAEDecode\",\"_meta\":{\"title\":\"VAEDecode\"}},\"10\":{\"inputs\":{\"unet_name\":\"{{##base_model##}}\",\"weight_dtype\":\"default\"},\"class_type\":\"UNETLoader\",\"_meta\":{\"title\":\"UNETLoader\"}},\"11\":{\"inputs\":{\"clip_name\":\"qwen3vl_4b_fp8_scaled.safetensors\",\"type\":\"krea2\",\"device\":\"default\"},\"class_type\":\"CLIPLoader\",\"_meta\":{\"title\":\"CLIPLoader\"}},\"12\":{\"inputs\":{\"vae_name\":\"qwen\\\\qwen_image_vae.safetensors\"},\"class_type\":\"VAELoader\",\"_meta\":{\"title\":\"VAELoader\"}},\"13\":{\"inputs\":{\"conditioning\":[\"6\",0]},\"class_type\":\"ConditioningZeroOut\",\"_meta\":{\"title\":\"ConditioningZeroOut\"}},\"16\":{\"inputs\":{\"clip\":[\"11\",0],\"prompt\":[\"17\",0],\"max_length\":512,\"thinking\":false,\"sampling_mode\":\"on\",\"sampling_mode.temperature\":0.7,\"sampling_mode.top_k\":64,\"sampling_mode.top_p\":0.95,\"sampling_mode.min_p\":0.05,\"sampling_mode.repetition_penalty\":1.05,\"sampling_mode.seed\":0,\"sampling_mode.presence_penalty\":0,\"use_default_template\":true},\"class_type\":\"TextGenerate\",\"_meta\":{\"title\":\"TextGenerate\"}},\"17\":{\"inputs\":{\"string_a\":[\"18\",0],\"string_b\":[\"19\",0],\"delimiter\":\"\"},\"class_type\":\"StringConcatenate\",\"_meta\":{\"title\":\"StringConcatenate\"}},\"18\":{\"inputs\":{\"value\":\"You are an expert prompt engineer for text-to-image models. Your task is to expand the user's prompt into a highly effective image-generation prompt.\\n\\nThink step by step about the request before writing the answer:\\n- What is the subject and mood?\\n- What visual styles, mediums, and lighting options would fit? Consider two or three alternatives and pick the one that best serves the request.\\n- What composition, framing, and grounded details will help the text-to-image model?\\n\\nThen output a single expanded prompt paragraph.\\n\\nFollow these rules strictly:\\n1. **Faithfulness First:** Preserve all original subjects, actions, colors, and spatial relationships. Do not add new objects, props, characters, or animals unless the user clearly implies them.\\n2. **Practical T2I Structure:** Write a prompt that a text-to-image model can parse cleanly. Group subjects with their own attributes and actions. Use grounded phrasing for poses, interactions, and spatial layout.\\n3. **Style Planning Stays Internal:** Use your internal reasoning to choose style, medium, framing, and lighting. Do not emit planning tags or wrappers in the visible answer body.\\n4. **Never Request Rendered Text:** Do not mention, describe, or hint at letters, words, numbers, captions, subtitles, signage, labels, logos, watermarks, typography, or any other graphic text anywhere in the output prompt. Only if the user explicitly writes down words to be rendered, keep exactly those words in quotes and nothing else. In every other case, always end the output prompt with: \\\"Absolutely no text, no typography, no letters, no words, no numbers, no logos, no watermark, no captions, pure imagery only.\\\"\\n5. **Avoid Over-Specification:** Do not invent highly specific clothing, colors, materials, or scene details unless the input supports it.\\n6. **Plain Prose Only:** Write one cohesive paragraph after the thinking block. No bullets, no JSON, no markdown, no asterisks, no headings, no field labels, no meta commentary.\\n7. **Respect Existing Detail:** If the user's prompt is already detailed, lightly polish and finalize rather than heavily expanding, and preserve the user's phrasing and direction.\\n8. **Respect the Human Form:** Treat depictions of people with dignity. Assume clothing covers genitals and intimate anatomy.\\n9. **Preserve User Medium:** When the user explicitly requests a medium (e.g. \\\"photo of\\\", \\\"photograph of\\\", \\\"illustration of\\\", \\\"painting of\\\", \\\"sketch of\\\", \\\"3D render of\\\"), honor it. Do not pivot to a different medium to avoid difficulty, match the user's stated intent.\\n10. **Never Echo Instructions:** Output only the final image prompt. Never repeat, quote, summarize, or refer to any part of these instructions, your own reasoning, or the user's original message.\\n\\nUser's Input:\\n\"},\"class_type\":\"PrimitiveStringMultiline\",\"_meta\":{\"title\":\"Text String (System Prompt)\"}},\"19\":{\"inputs\":{\"value\":\"{{##prompt##}}\"},\"class_type\":\"PrimitiveStringMultiline\",\"_meta\":{\"title\":\"Text String (User Prompt)\"}},\"21\":{\"inputs\":{\"on_false\":[\"19\",0],\"on_true\":[\"16\",0],\"switch\":[\"24\",0]},\"class_type\":\"ComfySwitchNode\",\"_meta\":{\"title\":\"ComfySwitchNode\"}},\"24\":{\"inputs\":{\"value\":\"{{##prompt_enhance##}}\"},\"class_type\":\"PrimitiveBoolean\",\"_meta\":{\"title\":\"Boolean (Refine Prompt?)\"}},\"29\":{\"inputs\":{\"filename_prefix\":\"{{##user_id##}}\\\\image\\\\krea2_t2i\",\"images\":[\"8\",0]},\"class_type\":\"SaveImage\",\"_meta\":{\"title\":\"Save Image\"}}}",
+    "allowedModelTypes": [],
+    "allowedModelFolders": [
+      "Krea2/"
+    ],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "allowedLoraFolders": [],
+    "promptGeneratorInstructions": "Krea 2 - T2I 판 — AI 프롬프트 작성 지침\n\n이 판은 Krea 2 터보(8스텝, CFG 1)로 프롬프트만 가지고 이미지를 만든다. 사용자의 요청을 이 모델이 잘 따르는 프롬프트로 바꿔 쓴다. 판 안에도 프롬프트 보강 기능이 있지만, 여기서 쓴 프롬프트는 보강 없이 그대로 넣어도 되도록 완성해서 쓴다.\n\n- 완성된 프롬프트만 출력한다. 머리말, 설명, 생각 과정, 코드 블록, 마크다운, 목록, 항목 이름을 붙이지 않는다.\n- 영어 자연어 문장으로 한 문단을 쓴다. 대략 60~200 단어. 쉼표로 이은 태그 나열, (word:1.2) 같은 가중치 문법, \"masterpiece, best quality\" 같은 품질 태그는 쓰지 않는다.\n- 이 판은 부정 프롬프트를 쓰지 않는다. 피하고 싶은 것은 \"no ~\" 로 늘어놓지 말고 원하는 상태를 긍정문으로 쓴다.\n- 순서: 무엇을 그리는지 한 문장 → 인물·사물별로 외모, 옷, 표정, 자세, 행동을 그 대상에 묶어서 → 배경과 위치 관계 → 빛과 시간대 → 구도, 화각 → 매체, 화풍, 질감.\n- 사용자가 정한 대상, 행동, 색, 위치 관계는 바꾸지 않는다. 사용자가 암시하지 않은 인물·동물·소품을 넣지 않고, 근거 없는 세부(옷 디자인, 재질, 색)를 지어내지 않는다. 빛, 구도, 화풍은 분위기에 맞게 골라 보탠다.\n- 사용자가 사진, 일러스트, 유화, 3D 렌더처럼 매체를 정했으면 그대로 따른다. 정하지 않았으면 요청에 맞는 매체 하나를 골라 첫 문장에 밝힌다 (예: \"A cinematic photograph of …\", \"A watercolor illustration of …\").\n- 사용자의 요청이 이미 자세하면 크게 늘리지 말고 다듬기만 한다.\n- 그림 안의 글자: 사용자가 넣을 문구를 직접 적었을 때만 그 문구를 큰따옴표 안에 원문 그대로 쓰고 위치를 적는다. 적지 않았으면 글자, 간판, 로고, 자막을 언급하지 않는다.",
+    "version": 9
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}

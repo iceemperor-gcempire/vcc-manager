@@ -5,6 +5,7 @@ const { getOmitConditionedFieldNames, getSupportedBuiltinInputs } = require('../
 const Workboard = require('../models/Workboard');
 const Server = require('../models/Server');
 const Group = require('../models/Group');
+const User = require('../models/User');
 const ServerLoraCache = require('../models/ServerLoraCache');
 const loraMetadataService = require('../services/loraMetadataService');
 const comfyUIService = require('../services/comfyUIService');
@@ -97,6 +98,96 @@ router.get('/', requireAuth, async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+});
+
+// ── 작업판 즐겨찾기 (#1216) ─────────────────────────────────
+// 대시보드 "즐겨찾기 작업판" 칸과 목록·생성 화면의 별 버튼. 프로젝트 즐겨찾기(User.favoriteProjects,
+// POST /api/projects/:id/favorite)와 같은 모양이다. 응답 형식도 그쪽을 따라 { success, data } 로 둔다.
+const MAX_WORKBOARD_FAVORITES = 12;
+const FAVORITE_WORKBOARD_FIELDS = 'name description outputFormat workboardType serverId version usageCount isActive allowedGroupIds updatedAt';
+
+// 지금 이 사용자에게 보여 줄 수 있는 판인가 — 생성 화면(GET /:id)과 같은 조건: 활성 + 접근 권한
+function isFavoriteVisible(user, workboard) {
+  return !!workboard && workboard.isActive && userHasWorkboardAccess(user, workboard);
+}
+
+// GET /favorites — /:id 보다 위에 둔다
+router.get('/favorites', requireAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('favoriteWorkboards');
+    const ids = (user?.favoriteWorkboards || []).map(String);
+    if (ids.length === 0) {
+      return res.json({ success: true, data: { workboards: [], favoriteIds: [] } });
+    }
+
+    const found = await Workboard.find({ _id: { $in: ids } })
+      .populate('serverId', 'name serverType isActive')
+      .select(FAVORITE_WORKBOARD_FIELDS);
+    const byId = new Map(found.map((wb) => [String(wb._id), wb]));
+
+    // 지워진 판은 저장 목록에서도 뺀다 — 남겨 두면 개수 제한을 보이지 않는 칸이 차지한다
+    const missing = ids.filter((id) => !byId.has(id));
+    if (missing.length > 0) {
+      await User.updateOne({ _id: req.user._id }, { $pull: { favoriteWorkboards: { $in: missing } } });
+      console.log(`⭐ 즐겨찾기 작업판 정리 (#1216): 저장 ${ids.length} · 지워진 판 ${missing.length} 뺌`);
+    }
+
+    // 즐겨찾기한 순서를 지킨다. 비활성·권한 없는 판은 감추기만 한다
+    const workboards = ids.map((id) => byId.get(id)).filter((wb) => isFavoriteVisible(req.user, wb));
+    res.json({
+      success: true,
+      data: {
+        workboards,
+        favoriteIds: workboards.map((wb) => String(wb._id)),
+      },
+    });
+  } catch (error) {
+    console.error('Get favorite workboards error:', error);
+    res.status(500).json({ success: false, message: '즐겨찾기 작업판 목록 조회 실패' });
+  }
+});
+
+// POST /:id/favorite — 즐겨찾기 토글
+router.post('/:id/favorite', requireAuth, async (req, res) => {
+  try {
+    const workboardId = String(req.params.id);
+    if (!mongoose.isValidObjectId(workboardId)) {
+      return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다' });
+    }
+
+    const user = await User.findById(req.user._id).select('favoriteWorkboards');
+    if (!user) return res.status(404).json({ success: false, message: '사용자를 찾을 수 없습니다' });
+    const ids = (user.favoriteWorkboards || []).map(String);
+
+    if (ids.includes(workboardId)) {
+      // 빼기는 판 상태와 상관없이 된다 — 비활성·권한 회수된 판도 지울 수 있어야 한다
+      await User.updateOne({ _id: req.user._id }, { $pull: { favoriteWorkboards: workboardId } });
+      return res.json({ success: true, data: { isFavorite: false, favoriteCount: ids.length - 1 } });
+    }
+
+    const workboard = await Workboard.findById(workboardId).select('isActive allowedGroupIds');
+    if (!isFavoriteVisible(req.user, workboard)) {
+      return res.status(404).json({ success: false, message: '작업판을 찾을 수 없습니다' });
+    }
+
+    // 개수 제한은 지금 보이는 즐겨찾기로 센다 — 감춰진 판이 칸을 막아 더 못 넣는 일이 없게
+    if (ids.length >= MAX_WORKBOARD_FAVORITES) {
+      const saved = await Workboard.find({ _id: { $in: ids } }).select('isActive allowedGroupIds');
+      const visibleCount = saved.filter((wb) => isFavoriteVisible(req.user, wb)).length;
+      if (visibleCount >= MAX_WORKBOARD_FAVORITES) {
+        return res.status(400).json({
+          success: false,
+          message: `즐겨찾기는 최대 ${MAX_WORKBOARD_FAVORITES}개까지 가능합니다`,
+        });
+      }
+    }
+
+    await User.updateOne({ _id: req.user._id }, { $addToSet: { favoriteWorkboards: workboard._id } });
+    res.json({ success: true, data: { isFavorite: true, favoriteCount: ids.length + 1 } });
+  } catch (error) {
+    console.error('Toggle favorite workboard error:', error);
+    res.status(500).json({ success: false, message: '즐겨찾기 토글 실패' });
   }
 });
 
@@ -933,6 +1024,12 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     });
 
     await Workboard.findByIdAndDelete(req.params.id);
+
+    // 즐겨찾기에서도 뺀다 (#1216) — 프로젝트 삭제가 favoriteProjects 를 비우는 것과 같다
+    await User.updateMany(
+      { favoriteWorkboards: workboard._id },
+      { $pull: { favoriteWorkboards: workboard._id } }
+    );
 
     res.json({
       message: 'Workboard deleted permanently',

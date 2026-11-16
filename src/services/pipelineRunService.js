@@ -23,6 +23,7 @@ const { findDefinitionMismatch } = require('../utils/runSteps');
 const { MEDIA_FIELD_TYPES } = require('../utils/sequenceSteps');
 const { findUnusableAttachments, describeUnusableAttachments } = require('./attachmentOwnership');
 const { findModelFolderViolation } = require('./modelFolderGuard');
+const { IMAGE_ONLY_REQUEST, isPromptEnhanceOn, findPromptEnhanceProblem } = require('../utils/promptEnhance');
 const { findLoraFolderViolation, findLoraFieldViolation } = require('./loraFolderGuard');
 const { buildSequenceStepInput } = require('../utils/sequenceInputs');
 const queueService = require('./queueService');
@@ -155,13 +156,16 @@ function collectImageIds(inputData, imageFieldNames) {
 const { composeSystemPrompt, joinDocs } = require('../utils/promptComposition');
 const { loadGuidesForWorkboard } = require('./promptGuideService');
 
-// 텍스트 단계 실행 — prompt-generate 로직 직접 호출 (HTTP 우회)
+// 텍스트 판으로 LLM 을 한 번 부르고 대화 기록을 남긴다 — prompt-generate 로직 직접 호출 (HTTP 우회).
+// 텍스트 단계와 AI 프롬프트 늘려 쓰기(#1212)가 이 함수 하나를 쓴다. 합성·문서·비용 기록을 한쪽만 고치는
+// 사고(#766)를 막기 위해서다.
+// args.inputData     텍스트 판 필드 값 (모델·온도·시스템 프롬프트를 role 로 찾는다)
+// args.targetWorkboard 프롬프트를 받을 이미지·영상 판 — 있으면 그 판의 AI 프롬프트 생성 지침이 [대상 작업판 지침] 층으로 (#1109)
 // ctx: { runner, project, destProject, docs, jobMarker } — 문서 주입·결과 귀속 (#923, #952)
-async function runTextStep(userId, run, step, definitionStep, inputData, prevOutput, ctx = {}) {
+async function callTextWorkboard({ userId, run, textWorkboard, inputData, definitionStep, targetWorkboard, userContent, images, ctx = {} }) {
   const viewer = ctx.runner || { _id: userId };
   const docs = ctx.docs || createProjectDocSource({ viewer, project: ctx.project });
-  const workboard = await Workboard.findById(step.workboardId).populate('serverId');
-  if (!workboard) throw new Error('작업판이 삭제됨');
+  const workboard = textWorkboard;
   const server = workboard.serverId;
   if (!server || !server.isActive) throw new Error('서버가 비활성');
 
@@ -176,18 +180,20 @@ async function runTextStep(userId, run, step, definitionStep, inputData, prevOut
   // 독자가 실행해도 소유자의 문서가 주입된다), 작업 절차는 소유자 없는 작업 절차 문서 (#952).
   let resolvedSystem = systemPrompt;
   const spDoc = await docs.loadSystemPrompt({
-    docId: definitionStep.systemPromptDocId, label: `step${step.workboardId} systemPromptDoc`,
+    docId: definitionStep.systemPromptDocId, label: `step${workboard._id} systemPromptDoc`,
   });
   if (spDoc) {
     resolvedSystem = spDoc.title ? `## ${spDoc.title}\n${spDoc.content || ''}` : (spDoc.content || '');
   }
   const worldviewTexts = await docs.loadContext({
-    docIds: definitionStep.contextDocIds, label: `step${step.workboardId} contextDocs`,
+    docIds: definitionStep.contextDocIds, label: `step${workboard._id} contextDocs`,
   });
   // 작업판에 연결된 프롬프트 가이드 (#766) — jobs.js 의 단발 경로와 동일하게 적용.
   const guides = await loadGuidesForWorkboard(workboard);
+  const targetInstructions = (targetWorkboard?.promptGeneratorInstructions || '').trim();
   const composedSystem = composeSystemPrompt({
     guides,
+    targetInstructions,
     systemPrompt: resolvedSystem,
     worldviewTexts,
   });
@@ -195,19 +201,10 @@ async function runTextStep(userId, run, step, definitionStep, inputData, prevOut
     ? joinDocs(worldviewTexts)
     : '';
 
-  // 이미지 입력(vision) — image 타입 필드 값(앞 이미지 단계 산출물 또는 사전 첨부)을 LLM 에 전달.
-  // buildStepInput 은 {imageId} 객체 배열로, 프론트 사전입력은 id 배열일 수 있어 둘 다 유연 파싱.
-  const imageFieldNames = (workboard.additionalInputFields || []).filter((f) => f.type === 'image').map((f) => f.name);
-  const collectedImageIds = collectImageIds(inputData, imageFieldNames);
-  let stepImages = [];
-  if (collectedImageIds.length > 0) {
-    const loaded = await docs.loadVisionImages({ imageIds: collectedImageIds });
-    stepImages = loaded.map((im) => ({ base64: im.base64, mimeType: im.mimeType }));
-  }
-
+  const stepImages = images || [];
   const messages = [];
   if (composedSystem) messages.push({ role: 'system', content: composedSystem });
-  messages.push({ role: 'user', content: inputData.userPrompt, ...(stepImages.length ? { images: stepImages } : {}) });
+  messages.push({ role: 'user', content: userContent, ...(stepImages.length ? { images: stepImages } : {}) });
 
   // 결과 귀속 프로젝트 태그 (#923) — targetProjectId 가 있으면 그쪽, 없으면 파이프라인의 프로젝트.
   const destProject = ctx.destProject || ctx.project || null;
@@ -223,6 +220,9 @@ async function runTextStep(userId, run, step, definitionStep, inputData, prevOut
     serverType: server.serverType,
     model: resolvedModel,
     workboardSystemPrompt: resolvedSystem || undefined,
+    // 생성 화면의 AI 프롬프트 생성과 같은 기록 (#1109) — 어느 판의 지침으로 썼는지 남긴다
+    targetWorkboardId: targetWorkboard?._id,
+    targetWorkboardInstructions: targetInstructions || undefined,
     worldviewContext: worldviewContext || undefined,
     messages: messages.map((m) => ({ ...m, createdAt: new Date() })),
     status: 'processing',
@@ -256,10 +256,125 @@ async function runTextStep(userId, run, step, definitionStep, inputData, prevOut
 
   await workboard.incrementUsage();
 
+  return { conversationJobId: conversation._id, content: result };
+}
+
+// 이미지 필드 값 → LLM 비전 입력. buildStepInput 은 {imageId} 객체 배열로, 프론트 사전입력은 id 배열일 수 있어 둘 다 유연 파싱.
+async function loadStepVisionImages(workboard, inputData, docs) {
+  const imageFieldNames = (workboard.additionalInputFields || []).filter((f) => f.type === 'image').map((f) => f.name);
+  const collectedImageIds = collectImageIds(inputData, imageFieldNames);
+  if (collectedImageIds.length === 0) return [];
+  const loaded = await docs.loadVisionImages({ imageIds: collectedImageIds });
+  return loaded.map((im) => ({ base64: im.base64, mimeType: im.mimeType }));
+}
+
+// 텍스트 단계 실행
+async function runTextStep(userId, run, step, definitionStep, inputData, prevOutput, ctx = {}) {
+  const viewer = ctx.runner || { _id: userId };
+  const docs = ctx.docs || createProjectDocSource({ viewer, project: ctx.project });
+  const workboard = await Workboard.findById(step.workboardId).populate('serverId');
+  if (!workboard) throw new Error('작업판이 삭제됨');
+
+  // 이미지 입력(vision) — image 타입 필드 값(앞 이미지 단계 산출물 또는 사전 첨부)을 LLM 에 전달.
+  const stepImages = await loadStepVisionImages(workboard, inputData, docs);
+  const { conversationJobId, content } = await callTextWorkboard({
+    userId, run, textWorkboard: workboard, inputData, definitionStep,
+    userContent: inputData.userPrompt, images: stepImages, ctx,
+  });
+
   return {
-    conversationJobId: conversation._id,
-    output: { type: 'text', value: result },
+    conversationJobId,
+    output: { type: 'text', value: content },
   };
+}
+
+// 단계 이미지 칸 안내 (#1212). 판 지침은 사용자가 "첫 프레임", "참조 이미지 1" 처럼 칸을 말한다고 보고
+// 모드를 정한다 (H3 FL2V 는 프레임 언급이 없으면 T2VA). 이미지만 보내면 LLM 은 어느 칸의 이미지인지 모르고,
+// 첫 프레임을 끝 프레임처럼 다뤘다 (알파 확인). 그래서 칸 이름을 요청에 붙인다 — 이미지를 보내지 않을 때도.
+// @returns {{ note: string, orderedIds: string[] }} orderedIds 는 그림 번호 순서 (칸 순서 → 칸 안 순서)
+function describeStepImages(workboard, inputData) {
+  const entries = [];
+  for (const field of (workboard.additionalInputFields || []).filter((f) => f.type === 'image')) {
+    const ids = collectImageIds(inputData, [field.name]);
+    const label = String(field.label || field.name).replace(/\s*\((선택|optional)\)\s*$/i, '').trim() || field.name;
+    ids.forEach((id, k) => entries.push({ id, label: ids.length > 1 ? `${label} ${k + 1}` : label }));
+  }
+  return { entries, orderedIds: entries.map((e) => e.id) };
+}
+
+function buildImageNote(entries, sentIds) {
+  if (entries.length === 0) return '';
+  const sent = new Set((sentIds || []).map(String));
+  if (sent.size === 0) {
+    return `[이 단계에 들어가는 이미지 — 이미지는 보내지 않았다]\n${entries.map((e) => `- ${e.label}`).join('\n')}`;
+  }
+  let n = 0;
+  const lines = entries.map((e) => (sent.has(String(e.id)) ? `- 그림 ${++n}: ${e.label}` : `- ${e.label} (불러오지 못해 보내지 않았다)`));
+  return `[이 단계에 들어가는 이미지 — 첨부한 순서]\n${lines.join('\n')}`;
+}
+
+// 이미지·영상 단계가 생성에 쓸 프롬프트 — runImageStep 의 jobInput.prompt 와 같은 우선순위
+function resolveStepPrompt(inputData) {
+  return (inputData?.prompt || inputData?.userPrompt || '').toString();
+}
+
+// 늘려 쓴 프롬프트를 단계 입력에 넣는다 — buildStepInput 이 프롬프트를 넣는 자리와 같다
+function applyStepPrompt(workboard, inputData, prompt) {
+  inputData.userPrompt = prompt;
+  if (inputData.prompt !== undefined && inputData.prompt !== null) inputData.prompt = prompt;
+  const promptField = (workboard.additionalInputFields || []).find(
+    (f) => f.name === 'prompt' || f.name === 'userPrompt'
+  );
+  if (promptField) inputData[promptField.name] = prompt;
+  return inputData;
+}
+
+// AI 프롬프트로 먼저 늘려 쓰기 (#1212) — 이미지·영상 단계가 생성 전에 텍스트 판으로 프롬프트를 쓴다.
+// 정의 단계의 promptEnhance 만 읽는다. 작업 절차(#952)도 같은 루프라, 정의에 칸이 생기면 그대로 따라온다.
+// @returns {{ conversationJobId, prompt: string, fallback: boolean }}
+async function enhanceStepPrompt({ userId, run, stepWorkboard, definitionStep, inputData, stepIndex, ctx = {} }) {
+  const viewer = ctx.runner || { _id: userId };
+  const docs = ctx.docs || createProjectDocSource({ viewer, project: ctx.project });
+  const pe = definitionStep.promptEnhance || {};
+  const enhancer = await Workboard.findById(pe.workboardId).populate('serverId');
+  const problem = findPromptEnhanceProblem({ stepWorkboard, enhancerWorkboard: enhancer, stepNumber: stepIndex + 1 });
+  if (problem) throw new Error(problem);
+  // 실행 직전 접근 검사 (#802) — 단계 판과 같은 최종 방어선. 저장 이후 그룹·판 권한이 바뀔 수 있다.
+  if (!ctx.runner || !userHasWorkboardAccess(ctx.runner, enhancer)) {
+    throw new Error(`AI 프롬프트 판 접근 권한이 없습니다: ${enhancer.name}`);
+  }
+
+  const original = resolveStepPrompt(inputData);
+  const { entries, orderedIds } = describeStepImages(stepWorkboard, inputData);
+  let images = [];
+  let sentIds = [];
+  if (pe.includeImages !== false && orderedIds.length > 0) {
+    // 칸 순서대로 보내고, 못 읽은 이미지는 번호에서 뺀다 — 그림 번호와 첨부 순서가 어긋나지 않게
+    const loaded = await docs.loadVisionImages({ imageIds: orderedIds });
+    const byId = new Map(loaded.map((im) => [String(im.imageId), im]));
+    sentIds = orderedIds.filter((id) => byId.has(String(id)));
+    images = sentIds.map((id) => ({ base64: byId.get(String(id)).base64, mimeType: byId.get(String(id)).mimeType }));
+  }
+  if (!original.trim() && images.length === 0) {
+    throw new Error('AI 프롬프트에 넘길 요청이 없습니다 — 프롬프트를 입력하거나 이미지를 넣으세요');
+  }
+  const imageNote = buildImageNote(entries, sentIds);
+  const request = original.trim() || IMAGE_ONLY_REQUEST;
+
+  // 텍스트 판의 비운 칸은 판 기본값으로 (#952 — 모델을 안 고르면 "모델이 선택되지 않음" 으로 실패했다)
+  const enhancerInputs = applyStepFieldDefaults(enhancer, pe.inputs);
+  const { conversationJobId, content } = await callTextWorkboard({
+    userId, run, textWorkboard: enhancer, inputData: enhancerInputs, definitionStep,
+    targetWorkboard: stepWorkboard,
+    userContent: imageNote ? `${request}\n\n${imageNote}` : request,
+    images, ctx,
+  });
+
+  const enhanced = (content || '').trim();
+  // 빈 결과는 오류 없이 다음 단계로 흘러간다 (#1204) — 원래 프롬프트로 대신하고 남긴다.
+  const fallback = !enhanced;
+  console.log(`[${ctx.logLabel || 'Run'}] step ${stepIndex} prompt enhance: board="${enhancer.name}" requestChars=${original.trim().length} imageFields=${entries.length} images=${images.length} resultChars=${enhanced.length} fallback=${fallback}`);
+  return { conversationJobId, prompt: fallback ? original : enhanced, fallback };
 }
 
 // 이미지 단계 실행 — ImageGenerationJob 생성 후 폴링
@@ -415,8 +530,21 @@ async function executeRunSteps({ run, definition, fromStep = 0, ctx }) {
         stepResult = await runTextStep(run.userId, run, runStep, definitionStep, inputData, prevOutput, ctx);
         runStep.conversationJobId = stepResult.conversationJobId;
       } else {
+        // AI 프롬프트로 먼저 늘려 쓰기 (#1212). 대화는 생성 전에 기록해 둔다 — 생성이 실패해도 무엇으로 늘려 썼는지 남는다.
+        let enhancement = null;
+        if (isPromptEnhanceOn(definitionStep)) {
+          const enh = await enhanceStepPrompt({
+            userId: run.userId, run, stepWorkboard: workboard, definitionStep, inputData, stepIndex: i, ctx,
+          });
+          runStep.conversationJobId = enh.conversationJobId;
+          run.markModified('steps');
+          await run.save();
+          applyStepPrompt(workboard, inputData, enh.prompt);
+          enhancement = { enhancedPrompt: enh.prompt, ...(enh.fallback ? { promptEnhanceFallback: true } : {}) };
+        }
         stepResult = await runImageStep(run.userId, run, runStep, inputData, ctx);
         runStep.imageGenerationJobId = stepResult.imageGenerationJobId;
+        if (enhancement) stepResult.output = { ...stepResult.output, ...enhancement };
       }
 
       runStep.output = stepResult.output;
@@ -554,6 +682,8 @@ module.exports = {
   // 테스트용 내부 헬퍼
   collectImageIds,
   applyStepFieldDefaults,
+  resolveStepPrompt,
+  applyStepPrompt,
   processPipelineRun,
   processSequenceRun,
 };

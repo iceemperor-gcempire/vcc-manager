@@ -1,6 +1,8 @@
 const {
+  DEFAULT_IMAGE_SIZE,
   getFieldByRole,
   getFieldValueByRole,
+  getImageSizeValue,
   indexFieldsByRole
 } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
@@ -148,5 +150,29 @@ describe('customFieldHelpers (#199 Phase F4)', () => {
       expect(indexFieldsByRole(null)).toEqual({});
       expect(indexFieldsByRole({})).toEqual({});
     });
+  });
+});
+
+describe('getImageSizeValue (#1221)', () => {
+  const wb = { additionalInputFields: [{ name: 'image_size', type: 'select', defaultValue: '1344x768' }] };
+
+  test('보낸 칸 값이 먼저', () => {
+    expect(getImageSizeValue(wb, { additionalParams: { image_size: '832x480' } })).toBe('832x480');
+  });
+
+  test('top-level imageSize (legacy) 도 보낸 값으로 본다', () => {
+    expect(getImageSizeValue(wb, { imageSize: '768x1344', additionalParams: {} })).toBe('768x1344');
+  });
+
+  test('안 보냈거나 빈 값이면 판의 크기 칸 기본값', () => {
+    expect(getImageSizeValue(wb, { additionalParams: {} })).toBe('1344x768');
+    expect(getImageSizeValue(wb, { additionalParams: { image_size: '' } })).toBe('1344x768');
+    expect(getImageSizeValue(wb, { additionalParams: { image_size: null } })).toBe('1344x768');
+  });
+
+  test('판에 크기 칸·기본값이 없으면 undefined — 경로마다 자기 기본값을 쓴다', () => {
+    expect(getImageSizeValue({ additionalInputFields: [] }, { additionalParams: {} })).toBeUndefined();
+    expect(getImageSizeValue({ additionalInputFields: [{ name: 'image_size', type: 'select' }] }, {})).toBeUndefined();
+    expect(DEFAULT_IMAGE_SIZE).toBe('1024x1024');
   });
 });

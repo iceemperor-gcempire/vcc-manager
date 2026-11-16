@@ -67,6 +67,12 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 `GET /servers/:id/loras` 도 `workboardId` 를 주면 그 작업판의 허용 LoRA 폴더(`allowedLoraFolders`, #1099)와 노출 목록(`loraWhitelist`)을 겹쳐 적용한다. 응답 `data.restrictions` 는 `{ folders, whitelist }`, `data.availableFolders` 는 LoRA 폴더 후보다. `GET /workboards/:id/lora-models` 응답에도 같은 `restrictions` 가 실린다.
 
+`workboardId` 없이 `allowedFolders` 를 주면 그 폴더(하위 포함)로만 거른다 (#1172). 두 목록 모두 받는다. 작업판 편집의 기본값 선택기가 아직 저장하지 않은 허용 폴더로 거를 때 쓴다.
+- 판 저장과 같은 규칙으로 정규화한다(`qwen\`·`Qwen` → `qwen/`). 형식이 틀린 항목은 빼고, 남는 게 없으면 거르지 않는다.
+- 응답 `data.restrictions.folders` 에 실제로 적용한 폴더가 실린다.
+- `workboardId` 를 함께 주면 판의 저장값이 우선이다.
+- LoRA 목록을 판 없이 볼 수 있는 것은 여전히 관리자뿐이다.
+
 ## 모델 라이선스 (Model Licenses, #1073)
 
 관리자가 라이선스를 등록하고 모델 **폴더나 파일**에 붙인다. 모델 선택기와 생성 화면에 표시된다. 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 원문을 확인한 관리자가 적는다.
@@ -92,6 +98,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
 | `GET` | `/workboards` | 활성 작업판 목록 (페이징·검색) | Yes |
+| `GET` | `/workboards/favorites` | 내 즐겨찾기 작업판 (#1216) | Yes |
+| `POST` | `/workboards/:id/favorite` | 작업판 즐겨찾기 토글 (#1216) | Yes |
 | `GET` | `/workboards/:id` | 작업판 상세 | Yes |
 | `GET` | `/workboards/admin/:id` | 작업판 상세 (workflowData 포함) | **Admin** |
 | `POST` | `/workboards` | 작업판 생성 (`serverId`, `outputFormat`) | **Admin** |
@@ -105,6 +113,10 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `GET` | `/workboards/:id/stats` | 작업판 사용 통계 | **Admin** |
 | `GET` | `/workboards/:id/lora-models` | 작업판 LoRA 모델 | Yes |
 | `POST` | `/workboards/:id/lora-models/refresh` | LoRA 캐시 갱신 | Yes |
+
+**작업판 즐겨찾기** (#1216) — 대시보드의 "즐겨찾기 작업판" 칸과 목록·생성 화면의 별 버튼이 쓴다. 프로젝트 즐겨찾기와 같은 `{ success, data }` 형식이다.
+- `GET /workboards/favorites` → `data.workboards`(즐겨찾기한 순서), `data.favoriteIds`. 생성 화면을 열 수 있는 판만 싣는다 — 활성 판이고 접근 권한이 있어야 한다(관리자도 비활성 판은 빠진다). 비활성이 되거나 권한이 회수된 판은 감추기만 하고 저장해 둔다. 다시 켜지면 그대로 보인다. 지워진 판은 이때 저장 목록에서도 빠진다(판을 지울 때도 모든 사용자의 즐겨찾기에서 빠진다).
+- `POST /workboards/:id/favorite` → `data.isFavorite`, `data.favoriteCount`. 이미 즐겨찾기한 판이면 판 상태와 관계없이 뺀다. 새로 넣을 때는 활성 판이고 접근 권한이 있어야 하며, 아니면 `404` 다. 지금 보이는 즐겨찾기가 12개면 `400`("즐겨찾기는 최대 12개까지 가능합니다")이다.
 
 **허용 모델 폴더** (`allowedModelFolders`, ComfyUI 작업판, #1086) — 이 폴더(하위 포함) 안의 베이스 모델만 모델 선택 목록에 나오고, 밖의 모델로 들어온 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다(메시지에 허용 폴더가 나온다). 저장 형태는 `qwen/` — `qwen\`·`Qwen` 처럼 보내도 그렇게 정규화되고, 비교할 때 구분자와 대소문자는 가리지 않는다. 빈 배열이면 제한 없음. 허용 모델 타입은 Civitai 분류라 Civitai 정보가 없는 파일을 판단하지 못한다 — 타입 제한이 있으면 그런 파일은 목록에서 빠지고, 실행 거절은 하지 않는다.
 
@@ -144,6 +156,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 - 작업판의 입력 칸은 `additionalParams` 에 **칸 이름**으로 넣는다 (`GET /workboards/:id` 의 `additionalInputFields[].name`, 배포 판의 모델 칸은 `base_model`, 크기 칸은 `image_size`)
 - top-level `aiModel` 은 그 판의 모델 칸(`type: baseModel`) 값으로, `imageSize` 는 크기 칸(`image_size`) 값으로 받는다 (#1174). 같은 칸을 `additionalParams` 로도 보내면 **칸 값이 먼저**다. 모델 폴더 검사·실행·작업 기록이 같은 값을 쓴다
+- 크기를 보내지 않으면(빈 값 포함) **판의 크기 칸 기본값**으로 생성한다. 판에 크기 칸이나 기본값이 없으면 ComfyUI 판은 `1024x1024` 다 (#1221 — 전에는 `512x512` 로 떨어졌다). 작업 기록의 `imageSize` 도 실제로 쓴 값이다
 - 문자열과 `{ key, value }` 형태 둘 다 받는다 (`value` 를 쓴다)
 
 `workboardId` 의 `serverId.serverType` 와 `outputFormat` 으로 백엔드의 `SERVICE_MAP` 이 dispatch 한다 (v1.8.0).
@@ -224,6 +237,31 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 - `targetProjectId` (선택): 결과물(생성 이미지·대화 기록)에 붙을 프로젝트. 생략하면 파이프라인의 프로젝트. 실행자가 읽을 수 있는 프로젝트여야 하며 아니면 400 (존재 여부는 노출하지 않음).
 - 공유 프로젝트(#802)의 파이프라인을 독자가 실행하면 단계의 시스템 프롬프트·컨텍스트 문서·사전 첨부 이미지는 **프로젝트 소유자 기준**으로 주입된다 (#923). 문서 자체의 열람 권한은 열리지 않는다 — 실행 시 주입 전용.
+
+### 단계의 AI 프롬프트 늘려 쓰기 (#1212)
+
+파이프라인(`POST|PATCH /api/projects/:projectId/pipelines`)의 이미지·영상 단계에 `promptEnhance` 를 주면, 그 단계는 생성 전에 텍스트 판으로 프롬프트를 늘려 쓴다. 생성 화면의 AI 프롬프트 생성과 같은 합성이다 — 시스템 프롬프트에 그 단계 판의 AI 프롬프트 생성 지침이 `[대상 작업판 지침]` 으로 들어간다 (위 `POST /jobs/generate-prompt` 의 `targetWorkboardId` 와 같다).
+
+```json
+{
+  "workboardId": "<이미지·영상 작업판 id>",
+  "promptEnhance": {
+    "enabled": true,
+    "workboardId": "<텍스트 작업판 id>",
+    "inputs": { "base_model": "<모델>" },
+    "includeImages": true
+  }
+}
+```
+
+- `inputs`: 텍스트 판의 필드 값. 비운 칸은 실행 때 판 기본값으로 채운다
+- `includeImages` (기본 `true`): 그 단계의 이미지 필드 값(첫 프레임·참조 등)을 LLM 에 함께 보낸다
+- 켜면 단계의 `contextDocIds` · `systemPromptDocId` 도 이 LLM 호출에 들어간다 (텍스트 단계와 같은 자리)
+- 요청은 그 단계가 생성에 쓸 프롬프트다 (첫 단계는 `initialPrompt`, 이후는 사전 입력·앞 단계 결과). 요청이 비고 이미지만 있으면 "이미지를 보고 지침대로 써라" 는 고정 요청을 보낸다. 둘 다 없으면 그 단계가 실패한다
+- 결과가 비면 원래 프롬프트로 생성한다
+- 저장 검사(400): 켰는데 텍스트 판이 없음, 고른 판이 텍스트 판이 아님, 텍스트 단계에 켬, 접근할 수 없는 판(꺼져 있어도 고른 판은 검사한다). 실행 직전에도 텍스트 판 접근을 다시 본다
+- 실행 기록(`GET .../pipeline-runs/:runId`)의 그 단계에는 늘려 쓴 대화가 `conversationJobId`, 이미지 작업이 `imageGenerationJobId` 로 함께 남고, `output.enhancedPrompt` 에 생성에 쓴 프롬프트, 원래 프롬프트로 대신했으면 `output.promptEnhanceFallback: true` 가 붙는다
+- 프로젝트 내보내기·가져오기는 텍스트 판을 작업판 목록에 함께 넣고 `promptEnhance.workboardIndex` 로 잇는다
 
 ### 공용(서버 범위) 프로젝트 (v4.1.0+, #924)
 

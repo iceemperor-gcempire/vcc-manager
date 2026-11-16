@@ -130,6 +130,33 @@ describe('프로젝트 export (#404 P0)', () => {
     expect(steps[1].systemPromptDocIndex).toBeNull();
   });
 
+  test('AI 프롬프트 늘려 쓰기의 텍스트 판도 내보내고 index 로 잇는다 (#1212)', async () => {
+    Pipeline.find.mockReturnValue(chainable([{
+      name: '늘려 쓰기',
+      description: '',
+      steps: [
+        {
+          workboardId: 'wb-2', autoInject: true, inputs: {}, contextDocIds: [], note: '',
+          promptEnhance: { enabled: true, workboardId: 'wb-3', inputs: { model: 'm1' }, includeImages: false },
+        },
+        { workboardId: 'wb-2', autoInject: true, inputs: {}, contextDocIds: [], note: '' },
+      ],
+    }]));
+    Workboard.find.mockReturnValue(chainable([
+      { _id: 'wb-1', name: '장면 LLM', outputFormat: 'text', serverId: 'srv-1', additionalInputFields: [] },
+      { _id: 'wb-2', name: '이미지 생성', outputFormat: 'image', serverId: 'srv-1', additionalInputFields: [] },
+      { _id: 'wb-3', name: '프롬프트 LLM', outputFormat: 'text', serverId: 'srv-1', additionalInputFields: [] },
+    ]));
+
+    const res = await request(app).get('/api/projects/proj-1/export');
+    expect(res.status).toBe(200);
+    const names = res.body.workboards.map((w) => w.workboard.name);
+    expect(names).toEqual(['장면 LLM', '이미지 생성', '프롬프트 LLM']);
+    const [first, second] = res.body.pipelines[0].steps;
+    expect(first.promptEnhance).toEqual({ enabled: true, workboardIndex: 2, inputs: { model: 'm1' }, includeImages: false });
+    expect(second.promptEnhance).toBeNull();
+  });
+
   test('타인 프로젝트/없는 프로젝트는 404', async () => {
     Project.findOne.mockReturnValue(chainable(null));
     const res = await request(app).get('/api/projects/other/export');

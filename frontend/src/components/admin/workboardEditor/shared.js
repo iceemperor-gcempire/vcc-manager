@@ -9,26 +9,37 @@ import MetadataPickerModal from '../../common/MetadataPickerModal';
 import { fetchAllServerMetadata } from '../../../utils/fetchAllServerMetadata';
 
 // 기본값 입력기 도움말 — 목록이 잘렸거나 못 받았으면 그렇다고 보인다 (#1167, 조용히 일부만 보여 주지 않는다)
-function defaultValueHelperText({ serverId, isLoading, isError, data }) {
+function defaultValueHelperText({ serverId, isLoading, isError, data, folders, outsideFolders }) {
   if (!serverId) return '서버 선택 후 사용 가능';
   if (isLoading) return '목록 불러오는 중...';
   if (isError) return '목록을 불러오지 못했습니다. 저장된 값은 그대로 둡니다.';
+  // 허용 폴더 밖의 기본값은 생성 화면 목록에 없고, 그대로 실행하면 폴더 검사에 걸린다 (#1172)
+  if (outsideFolders) return `지금 기본값은 허용 폴더(${folders.join(', ')}) 밖입니다. 폴더 안에서 다시 고르세요.`;
   const shown = data?.items?.length || 0;
-  if (data?.truncated) return `전체 ${data.total}개 중 ${shown}개만 불러왔습니다`;
-  return `${shown}개 중 선택`;
+  const scope = folders.length > 0 ? ` · 허용 폴더 ${folders.join(', ')} 안` : '';
+  if (data?.truncated) return `전체 ${data.total}개 중 ${shown}개만 불러왔습니다${scope}`;
+  return `${shown}개 중 선택${scope}`;
 }
 
 // admin 의 customField 기본값 입력기 — type=baseModel/lora 일 때 서버 모델 목록 Autocomplete (#391)
-export function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label }) {
+// allowedFolders: 편집 중인 판의 허용 모델·LoRA 폴더 (#1172). 저장 전 값이라 판 id 대신 폴더를 보내고,
+// 폴더 대조·정규화는 서버가 판 저장과 같은 규칙으로 한다 — 프런트에 같은 규칙을 두지 않는다.
+export function ServerMetadataDefaultValueInput({ serverId, type, value, onChange, label, allowedFolders }) {
   const fetcher = type === 'baseModel' ? serverAPI.getDetailedModels : serverAPI.getLoras;
+  const folders = (Array.isArray(allowedFolders) ? allowedFolders : []).map((f) => String(f || '').trim()).filter(Boolean);
   // 모든 페이지를 받는다 (#1167) — 첫 페이지(200개)만 받으면 그 뒤 LoRA·모델은 기본값으로 고를 수 없었다
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['adminDefaultValueMetadata', type, serverId],
-    queryFn: () => fetchAllServerMetadata(fetcher, serverId, { detailed: true }),
+    queryKey: ['adminDefaultValueMetadata', type, serverId, folders],
+    queryFn: () => fetchAllServerMetadata(fetcher, serverId, {
+      detailed: true,
+      ...(folders.length > 0 ? { allowedFolders: folders } : {}),
+    }),
     enabled: !!serverId,
     staleTime: 60_000,
   });
   const items = data?.items || [];
+  // 서버가 실제로 적용한 폴더 (정규화된 값). 응답에 없으면 보낸 값
+  const appliedFolders = data?.restrictions?.folders?.length ? data.restrictions.folders : folders;
 
   const keyOf = (m) => (typeof m === 'string' ? m : (m?.filename || m?.fileName || m?.name || ''));
 
@@ -36,9 +47,10 @@ export function ServerMetadataDefaultValueInput({ serverId, type, value, onChang
   // 선택값이 비어 보이지 않도록, 목록에 없으면 합성 옵션을 만들어 value/options 를 객체로 일치시킨다.
   const matched = typeof value === 'string' ? items.find((m) => keyOf(m) === value) : value;
   const selectedValue = matched || (typeof value === 'string' && value ? { filename: value } : (value || null));
-  const options = (selectedValue && !items.some((m) => keyOf(m) === keyOf(selectedValue)))
-    ? [selectedValue, ...items]
-    : items;
+  const valueMissing = !!(selectedValue && !items.some((m) => keyOf(m) === keyOf(selectedValue)));
+  const options = valueMissing ? [selectedValue, ...items] : items;
+  // 목록을 다 받았고(잘리지 않음) 폴더로 걸렀는데 기본값이 없으면 폴더 밖이다
+  const outsideFolders = valueMissing && !isLoading && !isError && !!data && !data.truncated && appliedFolders.length > 0;
 
   return (
     <Autocomplete
@@ -65,7 +77,8 @@ export function ServerMetadataDefaultValueInput({ serverId, type, value, onChang
           fullWidth
           label={label}
           error={isError}
-          helperText={defaultValueHelperText({ serverId, isLoading, isError, data })}
+          helperText={defaultValueHelperText({ serverId, isLoading, isError, data, folders: appliedFolders, outsideFolders })}
+          FormHelperTextProps={outsideFolders ? { sx: { color: 'warning.main' } } : undefined}
         />
       )}
       size="small"
@@ -102,7 +115,8 @@ export function WhitelistField({ name, control, kind, serverId, outputFormat, pl
                 options={[]}
                 value={value}
                 onChange={(_, newValue) => field.onChange(newValue)}
-                sx={{ flex: 1 }}
+                // minWidth 0 — 없으면 긴 파일 경로 칩만큼 칸이 늘어나 좁은 화면 밖으로 삐져나온다. 칩은 MUI 가 말줄임한다 (#1230)
+                sx={{ flex: 1, minWidth: 0 }}
                 renderTags={(values, getTagProps) =>
                   values.map((option, index) => (
                     <Chip

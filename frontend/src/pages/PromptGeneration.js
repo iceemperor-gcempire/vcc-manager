@@ -26,10 +26,13 @@ import toast from 'react-hot-toast';
 import { MONO } from '../theme';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import { ToneChip } from '../components/common/ToneChip';
+import WorkboardFavoriteButton from '../components/common/WorkboardFavoriteButton';
+import { useWorkboardFavorites } from '../hooks/useWorkboardFavorites';
 
 function PromptGeneration() {
   const { workboardId } = useParams();
   const navigate = useNavigate();
+  const favorites = useWorkboardFavorites();   // 헤더의 즐겨찾기 별 (#1216)
   const [searchParams] = useSearchParams();
   const conversationId = searchParams.get('conversationId');
   const initialProjectId = searchParams.get('projectId') || '';
@@ -107,6 +110,11 @@ function PromptGeneration() {
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
             <Typography variant="h1">{workboard.name}</Typography>
+            <WorkboardFavoriteButton
+              active={favorites.isFavorite(workboard._id)}
+              onToggle={() => favorites.toggle(workboard._id)}
+              disabled={favorites.isPending(workboard._id)}
+            />
             <ToneChip tone="info" label={conversationId ? '대화 이어가기' : '텍스트 생성'} />
           </Box>
           {workboard.description && !conversationId && (

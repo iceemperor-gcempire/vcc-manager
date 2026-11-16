@@ -1,7 +1,7 @@
 const config = {
   version: {
     major: 4,
-    minor: 21
+    minor: 22
   },
   monitoring: {
     // 작업 목록 모니터링 주기 (기본 3초)

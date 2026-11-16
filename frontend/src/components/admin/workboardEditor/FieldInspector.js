@@ -223,6 +223,8 @@ function InspectorForm({ control, watch, selectedIdx, serverId, onRemove }) {
                   type={fieldType}
                   value={f.value || ''}
                   onChange={f.onChange}
+                  // 편집 중인 허용 폴더로 거른다 (#1172) — 저장 전 값이라 판 id 가 아니라 폴더를 넘긴다
+                  allowedFolders={watch(fieldType === 'baseModel' ? 'allowedModelFolders' : 'allowedLoraFolders')}
                   label={fieldType === 'baseModel' ? '기본값 (베이스 모델)' : '기본값 (LoRA)'}
                 />
               );

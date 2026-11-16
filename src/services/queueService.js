@@ -18,7 +18,7 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
-const { getFieldValueByRole, getModelValue } = require('../utils/customFieldHelpers');
+const { DEFAULT_IMAGE_SIZE, getFieldValueByRole, getImageSizeValue, getModelValue } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES, WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 const { decryptSecret } = require('../utils/secretCrypto');
 
@@ -167,7 +167,7 @@ async function handleGeminiImage({ workboardData, inputData, job, signal }) {
     buildGeminiPrompt(inputData, workboardData),
     {
       model: getModelValue(workboardData, inputData),
-      aspectRatio: deriveAspectRatio(extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE))),
+      aspectRatio: deriveAspectRatio(extractOptionValue(getImageSizeValue(workboardData, inputData))),   // 빠지면 판 기본값 (#1221)
       resolution: extractOptionValue(inputData.additionalParams?.resolution),
       images: geminiImages,
       timeout: workboardData.timeout,
@@ -207,7 +207,7 @@ async function handleDIceAllImage({ workboardData, inputData, job, signal }) {
     buildGeminiPrompt(inputData, workboardData),
     {
       model: getModelValue(workboardData, inputData),
-      size: extractOptionValue(getFieldValueByRole(workboardData, inputData, FIELD_ROLES.IMAGE_SIZE)),
+      size: extractOptionValue(getImageSizeValue(workboardData, inputData)),   // 빠지면 판 기본값 (#1221)
       n: extractOptionValue(inputData.additionalParams?.n || inputData.n) || 1,
       timeout: workboardData.timeout,
       signal,
@@ -863,19 +863,23 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   
   console.log('🎲 Processed seed value:', seedValue);
   
-  // 이미지 크기 추출 (예: "512x768" 또는 {key: "512x768", value: "512x768"})
-  const extractedImageSize = extractValue(getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE)) || '512x512';
+  // 이미지 크기 추출 (예: "512x768" 또는 {key: "512x768", value: "512x768"}).
+  // 요청에 없으면 판의 크기 칸 기본값, 그것도 없으면 1024x1024 (#1221 — 전에는 512x512 로 떨어졌다)
+  const extractedImageSize = extractValue(getImageSizeValue(workboard, inputData)) || DEFAULT_IMAGE_SIZE;
   console.log('📐 Extracted image size:', extractedImageSize);
-  
-  let width = 512, height = 512;
+
+  const [defaultWidth, defaultHeight] = DEFAULT_IMAGE_SIZE.split('x').map(Number);
+  let width = defaultWidth, height = defaultHeight;
   try {
-    if (extractedImageSize && extractedImageSize.includes('x')) {
-      [width, height] = extractedImageSize.split('x').map(s => parseInt(s) || 512);
+    if (typeof extractedImageSize === 'string' && extractedImageSize.includes('x')) {
+      const [w, h] = extractedImageSize.split('x').map((v) => parseInt(v, 10));
+      width = w || defaultWidth;
+      height = h || defaultHeight;
     }
   } catch (error) {
     console.warn('⚠️ Error parsing image size, using defaults:', error.message);
-    width = 512;
-    height = 512;
+    width = defaultWidth;
+    height = defaultHeight;
   }
   console.log('📏 Parsed dimensions:', { width, height });
   

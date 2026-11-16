@@ -4,6 +4,7 @@ import { Box, Paper, Typography, Chip, IconButton, Button, InputBase } from '@mu
 import { MONO } from '../../theme';
 import { ToneChip } from './ToneChip';
 import { relativeTime } from '../../utils/relativeTime';
+import WorkboardFavoriteButton from './WorkboardFavoriteButton';
 import {
   Search,
   Close,
@@ -25,8 +26,11 @@ import {
 export const KIND_META = {
   'gpt-chat':  { icon: SmartToy,    label: '텍스트 생성', color: 'info.main',      tint: 'info.light' },
   'gpt-image': { icon: ImageIcon,   label: '이미지 (API)', color: 'secondary.main', tint: 'secondary.light' },
-  'sdxl':      { icon: Hexagon,     label: 'SDXL',        color: 'primary.main',   tint: 'primary.light' },
-  'i2v':       { icon: Movie,       label: '영상 (I2V)',  color: 'warning.main',   tint: 'warning.light' },
+  // ComfyUI 이미지 판 — 예전 키·라벨은 'sdxl'/'SDXL' 이었다. 모델과 관계없이 전부 SDXL 로 보여 바꿨다 (#1223)
+  'comfy-image': { icon: Hexagon, label: '이미지 (ComfyUI)', color: 'primary.main', tint: 'primary.light' },
+  // 영상 판 — 예전 키·라벨은 'i2v'/'영상 (I2V)' 였다. R2V·T2V·FL2V 판도 I2V 로 보여 바꿨다 (#1223).
+  // 영상은 ComfyUI 만 만들어 텍스트·오디오처럼 "생성" 으로 둔다
+  'video':     { icon: Movie,       label: '영상 생성',   color: 'warning.main',   tint: 'warning.light' },
   'lora':      { icon: AutoFixHigh, label: 'LoRA 학습',    color: 'success.main',   tint: 'success.light' },
   'music':     { icon: MusicNote,   label: '오디오 생성',  color: 'error.main',     tint: 'error.light' },   // #805
 };
@@ -44,10 +48,10 @@ export function deriveSvc(wb) {
 export function deriveKind(wb) {
   const out = deriveOut(wb);
   if (out === 'text') return 'gpt-chat';
-  if (out === 'video') return 'i2v';
+  if (out === 'video') return 'video';
   if (out === 'audio') return 'music';   // #805
   const svc = deriveSvc(wb);
-  return svc === 'comfy' ? 'sdxl' : 'gpt-image';
+  return svc === 'comfy' ? 'comfy-image' : 'gpt-image';
 }
 
 export const OUTPUT_AXIS = [
@@ -192,7 +196,8 @@ function WbStatusBadge({ isActive }) {
 }
 
 // ── 공유 카드 ───────────────────────────────────────────────
-export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, groupNames }) {
+// favorite (#1216): { active, onToggle, disabled } — 사용자 목록에서만 넘긴다 (관리 화면에는 별이 없다)
+export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, groupNames, favorite }) {
   const kind = KIND_META[deriveKind(wb)] || KIND_META['gpt-image'];
   const KindIcon = kind.icon;
   const out = deriveOut(wb);
@@ -286,6 +291,9 @@ export function WorkboardCard({ wb, admin, onClick, onEdit, onMenu, onInfo, grou
         </Box>
       ) : (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: -0.5 }}>
+          {favorite && (
+            <WorkboardFavoriteButton active={favorite.active} onToggle={favorite.onToggle} disabled={favorite.disabled} />
+          )}
           {onInfo && (
             <Button variant="text" startIcon={<Info />} onClick={(e) => { e.stopPropagation(); onInfo(wb); }} sx={{ color: 'text.secondary' }}>
               상세정보

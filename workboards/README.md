@@ -28,7 +28,7 @@
 |---|---|
 | Text to Image - Qwen-Image 2.1 · Sketch to Image - Qwen-Image 2.1 | `qwen/` |
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `openmoss/` |
-| Sketch to Image - Krea2 | `Krea2/` |
+| Sketch to Image - Krea2 · Krea 2 - T2I | `Krea2/` |
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
 | MiniMax H3 판 13개(FL2V·R2V·키프레임·긴 영상) · MiniMax-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
@@ -72,6 +72,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/sketch-to-image-anima.json` | Sketch to Image - Anima | 〃 | Anima 모델 + **Comfy-Org/Anima-LLLite 패치**³ + 업스케일 모델² |
 | `comfyui/sketch-to-image-qwen-image-21.json` | Sketch to Image - Qwen-Image 2.1 | 이미지 ×1 · 스케치(스크리블) 또는 사진(Canny) 구도로 생성 · 한글 글씨 | Qwen-Image 2.1 판과 같은 모델 + 공식 컨트롤넷 `model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot` ([🤗 Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/tree/main/model_patches)) — ComfyUI 0.38 이상. 1024² 약 9초, Turbo 8스텝 약 4초. 제어 강도 0.8~1.0 |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 Turbo 모델 + qwen3vl_4b TE + 업스케일 모델². 기본 모델 `Krea2\krea2TurboOfficialComfy_krea2TurboInt8` 은 Civitai 배포본으로, [🤗 Comfy-Org/Krea-2](https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models) 의 `krea2_turbo_int8_convrot` 과 같은 파일이다(SHA256 일치). 공식 이름으로 받았다면 판의 베이스 모델 기본값을 그 이름으로 바꾼다 (허용 모델 폴더 `Krea2/` 안이면 모델 선택 목록에 나온다) |
+| `comfyui/text-to-image-krea2.json` | Krea 2 - T2I | 이미지 ×1 · **프롬프트만** | Krea 2 터보 int8 convrot (`Krea2/krea2TurboOfficialComfy_krea2TurboInt8` — 위 Sketch 판과 같은 파일) + `qwen3vl_4b_fp8_scaled` TE + `qwen/qwen_image_vae` VAE. ComfyUI 공식 템플릿 `image_krea2_turbo_t2i_int8` 을 옮겼다. 판 안의 프롬프트 보강(Qwen3-VL 4B 가 영어로 늘려 씀)은 「프롬프트 보강」 칸으로 켜고 끈다. 공식 템플릿은 기본 켬이지만 이 판은 **기본 꺼짐**이다 — 모델이 작아 요청과 다르게 늘려 쓰는 일이 잦았다. 늘려 쓰기는 실행 화면의 AI 프롬프트 생성을 권한다 (판의 작성 지침이 형식을 정한다). 템플릿의 LoRA 분기는 넣지 않았다 |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
