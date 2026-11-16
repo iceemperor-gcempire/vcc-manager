@@ -9,6 +9,18 @@
 /** 클릭 시 뷰어가 열리는 미디어 항목 타입 */
 export const MEDIA_ITEM_TYPES = ['image', 'video', 'audio'];
 
+/**
+ * 계속하기 · 다른 작업 버튼을 보일지 (#1215).
+ *
+ * 미디어 작업이면 상태와 관계없이 보인다. 실패한 작업도 입력값(프롬프트·이미지·설정)을
+ * 불러와 고쳐 다시 돌리거나 다른 작업판으로 옮길 수 있어야 한다. 이어가기 흐름
+ * (`useContinueJob`)은 결과 미디어가 없는 작업도 받는다. 작업판 화면의 히스토리 패널은
+ * 이미 완료·실패 둘 다 보여 주고 있었다.
+ */
+export function canContinueHistoryItem(item) {
+  return !!item && MEDIA_ITEM_TYPES.includes(item.type);
+}
+
 const seconds = (v) => (v != null ? `${Math.round(v)}초` : '');
 
 /**

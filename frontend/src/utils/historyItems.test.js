@@ -7,7 +7,7 @@
  *
  * 새 미디어 타입이 늘어도 죽지 않는다는 것을 여기서 고정한다.
  */
-import { buildHistorySubtitle, MEDIA_ITEM_TYPES } from './historyItems';
+import { buildHistorySubtitle, canContinueHistoryItem, MEDIA_ITEM_TYPES } from './historyItems';
 
 describe('부제 계산 — 타입별 (#805)', () => {
   test('이미지: 장수 표시', () => {
@@ -67,5 +67,24 @@ describe('미디어 항목 타입 (#805)', () => {
   test('텍스트·파이프라인은 미디어가 아니다 — 뷰어를 열면 안 된다', () => {
     expect(MEDIA_ITEM_TYPES).not.toContain('text');
     expect(MEDIA_ITEM_TYPES).not.toContain('pipeline');
+  });
+});
+
+describe('계속하기 · 다른 작업 버튼 (#1215)', () => {
+  test.each(['done', 'error', 'running', 'queued', 'cancelled'])('미디어 작업은 상태와 관계없이 보인다 — %s', (status) => {
+    for (const type of MEDIA_ITEM_TYPES) {
+      expect(canContinueHistoryItem({ type, status })).toBe(true);
+    }
+  });
+
+  test('실패한 영상 작업도 이어갈 수 있다 — 입력값을 불러와 고쳐 다시 돌린다', () => {
+    expect(canContinueHistoryItem({ type: 'video', status: 'error', raw: { status: 'failed' } })).toBe(true);
+  });
+
+  test('텍스트·파이프라인·빈 값은 이 버튼을 쓰지 않는다', () => {
+    expect(canContinueHistoryItem({ type: 'text', status: 'done' })).toBe(false);
+    expect(canContinueHistoryItem({ type: 'pipeline', status: 'done' })).toBe(false);
+    expect(canContinueHistoryItem(null)).toBe(false);
+    expect(canContinueHistoryItem({})).toBe(false);
   });
 });
