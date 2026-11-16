@@ -34,6 +34,9 @@ xcrun simctl openurl <UDID> http://localhost:8136/login   # Safari 에서 앱을
 - 390px: iPhone 17e · 16e. 440px: iPhone 17 Pro Max · 16 Pro Max
 - 기기 이름은 iOS 런타임마다 겹치니 UDID 로 고른다
 - **부팅된 시뮬레이터가 둘 이상이면 검사가 멈춘다.** Orca 의 `attach` 는 새 기기를 켜면서 이전 기기를 끈다
+- **다른 세션이 켠 기기는 끄지 않는다.** 그 세션 작업이 깨진다. 자기 기기를 따로 켜고 두 스크립트에 `--udid <UDID>`(또는 `IOS_SIM_UDID=<UDID>`)를 준다 (#1228)
+  - 브리지는 켜진 모든 기기의 Safari 탭을 함께 보여 준다. 앱을 연 보이는 탭이 자기 기기 하나에만 있어야 하고, 둘 이상이면 검사가 멈춘다
+  - 탭을 어느 기기에서 열었는지는 브리지가 알려 주지 않는다. 결과의 화면 폭(`vw`)이 고른 기기 폭과 같은지, 스크린샷이 앱 화면인지 함께 본다
 - Orca `attach` 로 켠 기기에서 SpringBoard 가 계속 죽으면 (2026-10-17, 화면 초기화 `FBSDisplayMonitor` 에서 충돌) `xcrun simctl boot <UDID>` 로만 켠다. Simulator 창이 없어도 Safari·브리지·스크린샷은 된다
 
 ### 2. 로그인 — 테스트 페이즈에 따라 다르다
