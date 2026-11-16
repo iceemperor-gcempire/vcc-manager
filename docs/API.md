@@ -225,6 +225,31 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 - `targetProjectId` (선택): 결과물(생성 이미지·대화 기록)에 붙을 프로젝트. 생략하면 파이프라인의 프로젝트. 실행자가 읽을 수 있는 프로젝트여야 하며 아니면 400 (존재 여부는 노출하지 않음).
 - 공유 프로젝트(#802)의 파이프라인을 독자가 실행하면 단계의 시스템 프롬프트·컨텍스트 문서·사전 첨부 이미지는 **프로젝트 소유자 기준**으로 주입된다 (#923). 문서 자체의 열람 권한은 열리지 않는다 — 실행 시 주입 전용.
 
+### 단계의 AI 프롬프트 늘려 쓰기 (#1212)
+
+파이프라인(`POST|PATCH /api/projects/:projectId/pipelines`)의 이미지·영상 단계에 `promptEnhance` 를 주면, 그 단계는 생성 전에 텍스트 판으로 프롬프트를 늘려 쓴다. 생성 화면의 AI 프롬프트 생성과 같은 합성이다 — 시스템 프롬프트에 그 단계 판의 AI 프롬프트 생성 지침이 `[대상 작업판 지침]` 으로 들어간다 (위 `POST /jobs/generate-prompt` 의 `targetWorkboardId` 와 같다).
+
+```json
+{
+  "workboardId": "<이미지·영상 작업판 id>",
+  "promptEnhance": {
+    "enabled": true,
+    "workboardId": "<텍스트 작업판 id>",
+    "inputs": { "base_model": "<모델>" },
+    "includeImages": true
+  }
+}
+```
+
+- `inputs`: 텍스트 판의 필드 값. 비운 칸은 실행 때 판 기본값으로 채운다
+- `includeImages` (기본 `true`): 그 단계의 이미지 필드 값(첫 프레임·참조 등)을 LLM 에 함께 보낸다
+- 켜면 단계의 `contextDocIds` · `systemPromptDocId` 도 이 LLM 호출에 들어간다 (텍스트 단계와 같은 자리)
+- 요청은 그 단계가 생성에 쓸 프롬프트다 (첫 단계는 `initialPrompt`, 이후는 사전 입력·앞 단계 결과). 요청이 비고 이미지만 있으면 "이미지를 보고 지침대로 써라" 는 고정 요청을 보낸다. 둘 다 없으면 그 단계가 실패한다
+- 결과가 비면 원래 프롬프트로 생성한다
+- 저장 검사(400): 켰는데 텍스트 판이 없음, 고른 판이 텍스트 판이 아님, 텍스트 단계에 켬, 접근할 수 없는 판(꺼져 있어도 고른 판은 검사한다). 실행 직전에도 텍스트 판 접근을 다시 본다
+- 실행 기록(`GET .../pipeline-runs/:runId`)의 그 단계에는 늘려 쓴 대화가 `conversationJobId`, 이미지 작업이 `imageGenerationJobId` 로 함께 남고, `output.enhancedPrompt` 에 생성에 쓴 프롬프트, 원래 프롬프트로 대신했으면 `output.promptEnhanceFallback: true` 가 붙는다
+- 프로젝트 내보내기·가져오기는 텍스트 판을 작업판 목록에 함께 넣고 `promptEnhance.workboardIndex` 로 잇는다
+
 ### 공용(서버 범위) 프로젝트 (v4.1.0+, #924)
 
 - `scope`: `personal`(기본) | `server`. `server` 는 서버 전체가 쓰는 공용 프로젝트 — 생성·편집·삭제·설정 변경은 **admin 만**. 일반 사용자가 `scope`/`isPublic` 을 보내면 403.

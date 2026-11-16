@@ -34,6 +34,22 @@ const pipelineStepSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'UploadedText',
   },
+  // AI 프롬프트로 먼저 늘려 쓰기 (#1212) — 이미지·영상 단계 전용.
+  // 생성 화면의 "AI 프롬프트 생성" 과 같은 합성이다: 텍스트 판(workboardId)이 어느 LLM 으로 쓸지,
+  // 이 단계의 판이 가진 promptGeneratorInstructions 가 어떤 형식으로 쓸지를 정한다 (#1109).
+  // 켜면 단계 문서(contextDocIds / systemPromptDocId)도 이 LLM 호출에 들어간다.
+  promptEnhance: {
+    type: new mongoose.Schema({
+      enabled: { type: Boolean, default: false },
+      // 프롬프트를 쓸 텍스트 판 (outputFormat 'text')
+      workboardId: { type: mongoose.Schema.Types.ObjectId, ref: 'Workboard' },
+      // 텍스트 판의 필드 값 (모델·온도 등). 비운 칸은 실행 때 판 기본값으로 채운다
+      inputs: { type: mongoose.Schema.Types.Mixed, default: {} },
+      // 이 단계의 이미지 필드 값(첫 프레임·참조 등)을 LLM 에 함께 보낼지
+      includeImages: { type: Boolean, default: true },
+    }, { _id: false }),
+    default: undefined,
+  },
   // 사용자 메모 (단계 설명) — 선택
   note: String,
 }, { _id: false });

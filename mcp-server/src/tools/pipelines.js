@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { pipelineStepView, runStepView } from '../utils/pipelineView.js';
 
 /**
  * Register pipeline + pipeline-run tools (#448).
@@ -41,7 +42,7 @@ export function registerPipelineTools(server, apiRequest) {
   // ── get_pipeline ───────────────────────────────────────────────────
   server.tool(
     'get_pipeline',
-    'Get pipeline details including step composition (workboards used, autoInject, pre-filled inputs, attached docs). Useful to inspect before running.',
+    'Get pipeline details including step composition (workboards used, autoInject, pre-filled inputs, attached docs, promptEnhance — an image/video step that first rewrites its prompt with a text workboard). Useful to inspect before running.',
     {
       projectId: z.string().describe('Project ID'),
       pipelineId: z.string().describe('Pipeline ID (from list_pipelines)'),
@@ -58,17 +59,7 @@ export function registerPipelineTools(server, apiRequest) {
         id: p._id,
         name: p.name,
         description: p.description || '',
-        steps: (p.steps || []).map((s, idx) => ({
-          index: idx,
-          workboardId: s.workboardId?._id || s.workboardId,
-          workboardName: s.workboardId?.name,
-          outputFormat: s.workboardId?.outputFormat,
-          autoInject: s.autoInject !== false,
-          inputs: s.inputs || {},
-          contextDocIds: s.contextDocIds || [],
-          systemPromptDocId: s.systemPromptDocId || null,
-          note: s.note || '',
-        })),
+        steps: (p.steps || []).map(pipelineStepView),
       };
 
       return {
@@ -137,22 +128,9 @@ export function registerPipelineTools(server, apiRequest) {
         status: run.status,
         startedAt: run.startedAt || run.createdAt,
         completedAt: run.completedAt || null,
-        errorMessage: run.errorMessage || null,
+        errorMessage: run.error?.message || run.errorMessage || null,
         initialPrompt: run.initialPrompt || '',
-        steps: (run.steps || []).map((s, idx) => ({
-          index: idx,
-          workboardName: s.workboardId?.name,
-          outputFormat: s.workboardId?.outputFormat,
-          status: s.status,
-          startedAt: s.startedAt || null,
-          completedAt: s.completedAt || null,
-          errorMessage: s.errorMessage || null,
-          imageGenerationJobId: s.imageGenerationJobId?._id || s.imageGenerationJobId || null,
-          conversationJobId: s.conversationJobId?._id || s.conversationJobId || null,
-          // text step 의 직접 출력 (텍스트). image step 은 imageGenerationJobId 로 download_result 사용.
-          textOutput: s.output?.type === 'text' ? s.output.value : null,
-          imageIds: s.output?.type === 'image' ? (s.output.imageIds || []) : [],
-        })),
+        steps: (run.steps || []).map(runStepView),
       };
 
       return {
