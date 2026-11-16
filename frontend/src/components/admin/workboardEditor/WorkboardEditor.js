@@ -362,7 +362,8 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
             <Typography variant="body2" sx={{ ml: 2 }}>작업판 데이터 로딩 중...</Typography>
           </Box>
         ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '300px 1fr 340px' }, gap: 4, alignItems: 'start' }}>
+          // 가변 칸은 minmax(0, 1fr) — 1fr 은 판 정의 안의 줄바꿈 없는 긴 문자열 폭까지 칸을 넓혀 편집 섹션이 화면 밖으로 넘친다 (#1230)
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: '300px minmax(0, 1fr) 340px' }, gap: 4, alignItems: 'start' }}>
             <SettingsRail
               control={control}
               setValue={setValue}
