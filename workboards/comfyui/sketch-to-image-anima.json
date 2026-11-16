@@ -2,9 +2,9 @@
   "_exportVersion": 1,
   "appVersion": {
     "major": 4,
-    "minor": 12
+    "minor": 22
   },
-  "exportedAt": "2026-10-21T03:53:18.619Z",
+  "exportedAt": "2026-11-16T13:52:43.505Z",
   "workboard": {
     "name": "Sketch to Image - Anima",
     "description": "스케치·러프를 올리면 Anima 가 그 구도를 따라 생성합니다 (ControlNet-LLLite). ⚠️ Comfy-Org/Anima-LLLite 가중치를 ComfyUI models/model_patches/ 에 설치해야 동작합니다. 크기는 스케치 비율 기준 1M 픽셀 자동, 원본과 업스케일본 함께 저장.",
@@ -152,11 +152,14 @@
     "allowedModelTypes": [
       "Anima"
     ],
+    "allowedModelFolders": [],
     "modelExposurePolicy": "full",
     "modelWhitelist": [],
     "loraExposurePolicy": "full",
     "loraWhitelist": [],
-    "version": 5
+    "allowedLoraFolders": [],
+    "promptGeneratorInstructions": "Sketch to Image - Anima 판 — AI 프롬프트 작성 지침\n\n이 판은 사용자가 올린 스케치·선화의 구도를 따라 Anima 로 그린다. Anima 는 애니메이션·일러스트 전용 모델이다. 구도와 윤곽은 스케치가 정하고, 프롬프트는 무엇을 어떤 모습과 화풍으로 완성할지 정한다. 판이 프롬프트 앞에 \"masterpiece, best quality, score_7, safe, anime,\" 를 붙이고, 부정 프롬프트에도 품질 태그를 붙인다.\n\n- 완성된 프롬프트만 출력한다. 머리말, 설명, 코드 블록, 마크다운 강조를 붙이지 않는다.\n- 프롬프트 칸에 들어갈 긍정 프롬프트만 쓴다. 부정 프롬프트는 쓰지 않는다.\n- 판이 붙이는 품질 태그(masterpiece, best quality, score_7), 등급 태그(safe), anime 는 다시 쓰지 않는다.\n- 너는 스케치를 볼 수 없다. 스케치에 무엇이 있는지는 사용자가 말한 만큼만 쓰고, 배치나 자세를 새로 지어내지 않는다.\n- 영어로 쓴다. 앞부분은 Danbooru 식 태그, 뒷부분은 자연어 묘사로 쓴다. 태그는 소문자로, 밑줄 대신 띄어쓰기로 쓴다 (예: long hair, looking at viewer).\n- 태그 순서: 인원(1girl, 1boy, 2girls, no humans 등) → 캐릭터 이름 → 작품 이름(Danbooru 에서 쓰는 이름, 예: sousou no frieren) → 작가 → 외모, 옷, 표정, 자세, 배경, 화풍 같은 그 밖의 태그. 최신 그림체를 원하면 맨 앞에 newest, year 2025 같은 시기 태그를 둘 수 있다.\n- 작가 화풍은 사용자가 작가를 말했을 때만 넣고, 이름 앞에 반드시 @ 를 붙인다 (예: @artist name). @ 가 없으면 효과가 거의 없다.\n- 알려진 캐릭터는 태그에 이름과 작품명을 넣고, 자연어 묘사에서도 이름(영어 대소문자 규칙대로) 뒤에 머리색, 눈 색, 옷 같은 기본 외모를 쓴다. 여러 명이면 인물마다 따로 묘사해야 섞이지 않는다.\n- 태그 뒤에 장면을 자연어 두세 문장으로 묘사한다 (누가 어디서 무엇을 하는지, 빛과 분위기, 화풍). 태그만 쓰고 끝내지 않는다. 묘사가 너무 짧으면 엉뚱한 결과가 나온다. 전체는 대략 50~150 단어.\n- 형식 예 (내용은 따라 하지 않는다): 1girl, solo, short black hair, red scarf, school uniform, standing, snowy street, night. A girl in a red scarf stands alone on a snowy street at night, looking up at the falling snow. Warm light from the shop windows glows behind her, drawn in soft watercolor with pale blue shadows.\n- 가중치 문법은 꼭 필요할 때만 쓰고, 쓰면 (chibi:2) 처럼 높게 준다.\n- 이 모델은 실사에 약하다. 사진처럼 보이게 하라는 표현 대신 일러스트·회화 계열 화풍으로 쓴다.\n- 글자는 한 단어 정도만 그린다. 사용자가 그림 안의 문구를 정했을 때만 큰따옴표 안에 그대로 쓴다.",
+    "version": 8
   },
   "server": {
     "name": "ComfyUI-Image",
