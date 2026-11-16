@@ -14,6 +14,17 @@ const { encryptSecret } = require('../utils/secretCrypto');
 const { validateBody, serverCreateSchema, serverUpdateSchema } = require('../utils/validation');
 const { buildWorkboardModelFilters } = require('../utils/workboardModelFilters');
 const { resolveModelLicense } = require('../constants/modelLicense');
+const { normalizeModelFolders } = require('../utils/modelFolders');
+
+// 쿼리로 받은 허용 폴더 (#1172) — 작업판 편집기가 아직 저장하지 않은 폴더 값으로 기본값 목록을 거를 때 보낸다.
+// 목록을 좁히기만 하므로 권한 문제는 없다. 정규화는 판 저장과 같은 규칙(normalizeModelFolders)이고,
+// 형식이 틀린 항목은 빼고 남은 것만 쓴다. 남는 게 없으면 제한 없음(undefined).
+function foldersFromQuery(raw) {
+  if (raw === undefined || raw === null || raw === '') return undefined;
+  const list = Array.isArray(raw) ? raw : [raw];
+  const { folders } = normalizeModelFolders(list);
+  return folders.length > 0 ? folders : undefined;
+}
 
 // 서버 목록 조회 (일반 사용자도 접근 가능)
 router.get('/', requireAuth, async (req, res) => {
@@ -371,6 +382,9 @@ router.get('/:id/models', requireAuth, async (req, res) => {
         if (!outputFormat && wb.outputFormat) {
           outputFormat = wb.outputFormat;
         }
+      } else {
+        // 판 없이 폴더만 보낸 경우 (#1172) — 작업판 편집의 기본값 선택기. 판이 있으면 판의 저장값이 우선이다
+        allowedFolders = foldersFromQuery(req.query.allowedFolders);
       }
 
       const result = await modelMetadataService.searchServerModels(server._id, {
@@ -500,6 +514,9 @@ router.get('/:id/loras', requireAuth, async (req, res) => {
         success: false,
         message: '작업판을 통해서만 LoRA 목록을 조회할 수 있습니다.'
       });
+    } else {
+      // 작업판 편집의 기본값 선택기가 편집 중인 허용 LoRA 폴더로 거른다 (#1172)
+      allowedFolders = foldersFromQuery(req.query.allowedFolders);
     }
 
     const result = await loraMetadataService.searchServerLoras(server._id, {

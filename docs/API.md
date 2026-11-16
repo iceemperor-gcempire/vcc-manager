@@ -67,6 +67,12 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 `GET /servers/:id/loras` 도 `workboardId` 를 주면 그 작업판의 허용 LoRA 폴더(`allowedLoraFolders`, #1099)와 노출 목록(`loraWhitelist`)을 겹쳐 적용한다. 응답 `data.restrictions` 는 `{ folders, whitelist }`, `data.availableFolders` 는 LoRA 폴더 후보다. `GET /workboards/:id/lora-models` 응답에도 같은 `restrictions` 가 실린다.
 
+`workboardId` 없이 `allowedFolders` 를 주면 그 폴더(하위 포함)로만 거른다 (#1172). 두 목록 모두 받는다. 작업판 편집의 기본값 선택기가 아직 저장하지 않은 허용 폴더로 거를 때 쓴다.
+- 판 저장과 같은 규칙으로 정규화한다(`qwen\`·`Qwen` → `qwen/`). 형식이 틀린 항목은 빼고, 남는 게 없으면 거르지 않는다.
+- 응답 `data.restrictions.folders` 에 실제로 적용한 폴더가 실린다.
+- `workboardId` 를 함께 주면 판의 저장값이 우선이다.
+- LoRA 목록을 판 없이 볼 수 있는 것은 여전히 관리자뿐이다.
+
 ## 모델 라이선스 (Model Licenses, #1073)
 
 관리자가 라이선스를 등록하고 모델 **폴더나 파일**에 붙인다. 모델 선택기와 생성 화면에 표시된다. 라이선스 조건을 제품에 미리 넣어 두지 않는다 — 원문을 확인한 관리자가 적는다.
