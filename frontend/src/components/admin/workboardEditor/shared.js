@@ -115,7 +115,8 @@ export function WhitelistField({ name, control, kind, serverId, outputFormat, pl
                 options={[]}
                 value={value}
                 onChange={(_, newValue) => field.onChange(newValue)}
-                sx={{ flex: 1 }}
+                // minWidth 0 — 없으면 긴 파일 경로 칩만큼 칸이 늘어나 좁은 화면 밖으로 삐져나온다. 칩은 MUI 가 말줄임한다 (#1230)
+                sx={{ flex: 1, minWidth: 0 }}
                 renderTags={(values, getTagProps) =>
                   values.map((option, index) => (
                     <Chip

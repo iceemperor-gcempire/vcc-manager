@@ -268,7 +268,9 @@ function WorkboardCatalogPage({ admin = false }) {
           action={admin ? <Button variant="contained" startIcon={<Add />} onClick={handleCreate}>새 작업판</Button> : undefined}
         />
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
+        // 좁은 화면 한 칸은 minmax(0, 1fr) — 1fr(=minmax(auto, 1fr))은 제목이 가장 긴 카드의 최소 폭까지 칸을 넓혀
+        // 모든 카드가 화면 밖으로 넘친다 (#1230)
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(auto-fill, minmax(300px, 1fr))' }, gap: 3 }}>
           {filtered.map((wb) => (
             <WorkboardCard
               key={wb._id}
