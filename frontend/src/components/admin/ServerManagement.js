@@ -124,6 +124,7 @@ function ServerCard({
     }
   };
 
+  const inactive = !server.isActive;
   const statusKey = server.healthCheck?.status;
   const statusChip = statusKey === 'healthy'
     ? { tone: 'success', label: 'online' }
@@ -133,18 +134,36 @@ function ServerCard({
   const lastSync = modelSyncStatus?.lastMetadataSync || loraSyncStatus?.lastCivitaiSync || server.healthCheck?.lastChecked;
 
   return (
-    <Paper variant="outlined" sx={{ p: '14px 16px', opacity: server.isActive ? 1 : 0.7 }}>
+    <Paper
+      variant="outlined"
+      sx={{
+        p: '14px 16px',
+        // 비활성 서버 (#1173) — 작업판 관리의 보관 카드(#1169, WorkboardCard 의 archived)와 같은 규칙.
+        // 카드 전체를 흐리면(예전 opacity 0.7) 다크에서 활성 카드와 거의 안 갈리고 테두리까지 옅어진다.
+        // 흐림은 안쪽 요소에만 모드별 토큰(라이트 0.5 / 다크 0.4)으로, 면은 낮추고 테두리는 점선
+        // (페이지 대비 3:1 이상 — 라이트 grey.600, 다크 grey.500)
+        ...(inactive && {
+          bgcolor: 'background.default',
+          borderStyle: 'dashed',
+          borderColor: (t) => (t.palette.mode === 'dark' ? t.palette.grey[500] : t.palette.grey[600]),
+          '& > *': { opacity: (t) => t.palette.action.inactiveOpacity },
+        }),
+      }}
+    >
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, flexWrap: 'wrap' }}>
-        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto', bgcolor: typeColor, color: 'common.white',
+        {/* 비활성 서버는 종류 색·상태 색을 뺀다 (#1173) — 흐려도 색이 남으면 활성 서버처럼 읽힌다 */}
+        <Box sx={{ width: 36, height: 36, borderRadius: 1.5, flex: '0 0 auto',
+          bgcolor: inactive ? 'grey.100' : typeColor, color: inactive ? 'text.tertiary' : 'common.white',
           display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 700, fontFamily: MONO }}>
           {abbr}
         </Box>
         <Box sx={{ flex: 1, minWidth: 180 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-            <Typography sx={{ fontWeight: 600, fontSize: 14 }}>{server.name}</Typography>
+            {/* 이름은 1차 글자색 — 흐린 뒤에도 페이지 대비 3:1 이상이라 다시 켤 서버를 이름으로 찾는다 */}
+            <Typography sx={{ fontWeight: 600, fontSize: 14, color: 'text.primary' }}>{server.name}</Typography>
             <TagChip label={getServerTypeApiLabel(server.serverType)} />
-            <ToneChip tone={statusChip.tone} label={statusChip.label} mono />
-            {!server.isActive && <ToneChip tone="neutral" label="비활성" />}
+            <ToneChip tone={inactive ? 'neutral' : statusChip.tone} label={statusChip.label} mono />
+            {inactive && <ToneChip tone="neutral" label="비활성" />}
           </Box>
           <Typography sx={{ fontSize: 12, color: 'text.tertiary', fontFamily: MONO, mt: 0.25 }} noWrap>{server.serverUrl}</Typography>
         </Box>
@@ -230,7 +249,7 @@ function ServerCard({
         {lastSync && <Box component="span" sx={{ ml: 'auto' }}>마지막 동기화 {new Date(lastSync).toLocaleString()}</Box>}
       </Box>
       {server.healthCheck?.errorMessage && (
-        <Typography variant="caption" color="error" sx={{ display: 'block', mt: 0.5 }}>오류: {server.healthCheck.errorMessage}</Typography>
+        <Typography variant="caption" color={inactive ? 'text.secondary' : 'error'} sx={{ display: 'block', mt: 0.5 }}>오류: {server.healthCheck.errorMessage}</Typography>
       )}
     </Paper>
   );
