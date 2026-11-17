@@ -115,10 +115,12 @@ https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
 `optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스 기본값은 non-pruned int8**
-(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판은 **768p 학습 LoRA 2종**만 노출한다 (기본 1344x768 · 시프트 6/3):
+(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 시프트 6/3):
 8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
 FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
+같은 두 판에는 시험용으로 **8step v1.2 768p**(스텝 8, 2026-11 공개)도 있다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
+같은 그래프·시드로 v1.0 과 비교했을 때 빠른 동작의 뭉개짐은 같았다. 단색 배경 영상 4개 모두에서 배경색이 영상 중간에 바뀌어서 기본값은 v1.0 으로 둔다 (#1236).
 R2V 판의 터보 LoRA 는 8step v1.0 768p 하나다 — 예전 4step v0.1 은 544p 혼합 비율 학습(시프트 12/3)이라 1344x768 과 맞지 않고, 빠른 동작 비교에서 가장 심하게 갈라져 뺐다 (#1127). R2V 판은
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 **빠른 동작에는 약하다** (#1127, 2026-11 같은 시드 비교) — 휘두르기·회전 같은 장면에서 R2V 는 머리카락·옷 가장자리가
