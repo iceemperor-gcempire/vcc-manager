@@ -26,3 +26,29 @@ const WORKBOARD_QUERY_ROOTS = [
 export function invalidateWorkboardQueries(queryClient) {
   WORKBOARD_QUERY_ROOTS.forEach((key) => queryClient.invalidateQueries(key));
 }
+
+// 내 콘텐츠·작업 히스토리로 들어올 때 새로 받을 목록 (#829).
+//
+// 바깥(작업판 화면·다른 탭·MCP·API)에서 생긴 결과물은 이 화면들의 캐시가 모른다.
+// 전역 staleTime(5분) 동안 옛 목록을 보여 주지 않도록, 들어올 때 목록 쿼리를 무효화한다.
+// 화면 안에서 올리거나 지운 것은 각 뮤테이션이 따로 무효화한다.
+//
+// 내 콘텐츠에 탭(목록 쿼리 키)을 더하면 이 배열에도 넣는다.
+export const REFRESH_ON_ENTER_PATHS = ['/jobs', '/content'];
+export const REFRESH_ON_ENTER_ROOTS = [
+  'historyJobs',      // 작업 히스토리
+  'generatedImages',  // 내 콘텐츠 — 생성 이미지
+  'uploadedImages',   //            업로드 이미지
+  'generatedVideos',  //            생성 영상
+  'generatedAudios',  //            생성 오디오
+  'uploadedAudios',   //            업로드 오디오
+  'generatedTexts',   //            생성 텍스트
+  'uploadedTexts',    //            업로드 텍스트
+  'contentCount',     //            탭 옆 개수 (staleTime 60초)
+];
+
+export function refreshListsOnEnter(queryClient, pathname) {
+  if (!REFRESH_ON_ENTER_PATHS.includes(pathname)) return false;
+  REFRESH_ON_ENTER_ROOTS.forEach((key) => queryClient.invalidateQueries({ queryKey: [key] }));
+  return true;
+}
