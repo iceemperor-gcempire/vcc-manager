@@ -105,7 +105,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
-| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
+| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 8스텝 lcm · 시프트 12/3 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
 | `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · **AI 프롬프트 생성 권장** (판 안 늘려 쓰기는 기본 끔) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
@@ -366,11 +366,11 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 | 판 | 파일 (`diffusion_models/minimax/`) | 샘플링 |
 |---|---|---|
 | **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · beta57 · 시프트 12/3, 터보 LoRA 없음 |
-| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | R2V (Pika Flex) 판과 같은 6스텝 고정 시그마 · lcm, Pika LoRA 없음 |
-| **FL2V (PRISM+Pika)** | 위와 같은 파일 | 8스텝 · lcm · simple · 시프트 12/3, Pika LoRA 없음 — R2V (PRISM+Pika) 와 **일부러 다르다** (아래) |
+| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | 8스텝 · lcm · simple · 시프트 12/3, Pika LoRA 없음 |
+| **FL2V (PRISM+Pika)** | 위와 같은 파일 | R2V (PRISM+Pika) 와 같다 |
 
 - 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
-- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V 두 판은 R2V (Turbo)·(Pika Flex) 판에서 가속 LoRA 노드만 뺀 구성이고, FL2V (PRISM+Pika) 는 FL2V (Pika Flex) 판에서 Pika LoRA 를 빼고 샘플링을 바꿨다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
+- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V (PRISM) 은 R2V (Turbo) 판에서 터보 LoRA 노드만 뺀 구성이고, PRISM+Pika 두 판은 (Pika Flex) 판에서 Pika LoRA 를 빼고 샘플링을 바꿨다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
   둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
 - 스케줄러는 모델 카드 권장 beta57 이다. beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다
   (기본값 0.6·0.6). 판은 ComfyUI 기본 노드 `BetaSamplingScheduler` 에 이 두 값을 넣어 같은 시그마를 만든다 — 노드팩이 필요 없다
@@ -394,8 +394,13 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
     마지막 구성은 터보 원본 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max) 카드가 권하는 값(시프트 12/3, "LCM/simple 6-8 steps — best turbo audio")이다.
     병합본 카드에는 이 파일의 권장 설정이 없다. 화면(원본 크롭·흐림 지표)과 첫·끝 프레임은 구성 사이에 뚜렷한 차이가 없었다
   - **남은 약점:** 판 구성에서도 효과음 구간에 음정 있는 울림이 몇 줄 남고, 효과음 사이 무음이 공식 구성의 절반쯤이다. 소리가 중요하면 FL2V (Pika Flex) 판을 쓴다
-  - R2V (PRISM+Pika) 판은 아직 Pika 6스텝 고정 시그마다. R2V 에서는 이 비교를 하지 않아 바꾸지 않았다
   - **FL2V (Turbo) 판에서 이 병합본을 고르면 안 된다** — 터보가 두 번 걸려 소리 전 대역에 울림이 생긴다. 그래서 Turbo 판 허용 목록에는 없다
+- **R2V (PRISM+Pika) 도 같은 샘플링으로 맞췄다** (#1247). 처음에는 R2V (Pika Flex) 판처럼 Pika 6스텝 고정 시그마였다.
+  참조 이미지 3장(새로 생성한 애니·실사·회화 그림)을 같은 시드로 공식 R2V (Pika Flex) · 계단 · lcm 8 세 구성에 각 1회 돌렸다
+  - 대사 장면은 세 구성 모두 대사를 그대로 받아 적었다 (음성 인식). 고역은 lcm 8 이 공식과 같았다 (−42.6 · −64.4 dB, 공식 −42.2 · −64.4, 계단 −39.6 · −59.6)
+  - 효과음 장면은 lcm 8 의 저역이 공식에 가까웠다 (−36.8 dB, 공식 −37.7, 계단 −28.0). 잡음 바닥 −71 dB (계단 −62, 공식 −87)
+  - 바람이 계속 부는 장면은 계단과 비슷했다 (lcm 8 이 1.6 dB 더 컸다)
+  - 화면과 참조 유지는 셋 다 비슷했다. FL2V 만큼 큰 차이는 아니지만 나빠진 장면이 없어 FL2V (PRISM+Pika) 와 같은 설정으로 맞췄다
 - 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
   표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
 
