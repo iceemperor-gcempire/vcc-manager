@@ -33,6 +33,54 @@ function loadExports() {
 
 const EXPORTS = loadExports();
 
+// 조건화 노드별 베이스 모델 계열 토큰 (#825). FastH3 Omni 는 ref2va 증류본이고 파일명에 'omniref' 를 쓴다 (#1093)
+const FAMILY_BY_NODE = {
+  MiniMaxH3ImageToVideo: ['fl2v'],
+  MiniMaxH3ReferenceToVideo: ['ref2v', 'omniref'],
+};
+
+// 이름에 계열 토큰이 없는 커뮤니티 병합본은 파일 헤더가 밝힌 원본 계열로 따로 적는다
+// (#1148 — PRISM 병합본 헤더의 source_a 가 Singularity ref2va v2)
+const FAMILY_BY_FILE = {
+  'prism_dmad_pdmd_int8.safetensors': 'ref2v',
+  '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors': 'ref2v',
+};
+
+const baseName = (model) => String(model).split('\\').pop().toLowerCase();
+/** 계열 판정용 이름 — 병합본은 헤더의 원본 계열, 나머지는 파일명 그대로 */
+const familyOf = (model) => FAMILY_BY_FILE[baseName(model)] || baseName(model);
+
+// 다른 계열 모델을 시험한 뒤 그 판에만 들인 경우 — 계열 규칙의 예외는 판 파일마다 여기 적는다
+// #1242 — PRISM+Pika 병합본(원본 한쪽이 ref2va)을 FL2V 에서 시험: 첫·끝 프레임과 화질은 FL2V (Pika Flex) 와 비슷, 소리는 약간 못하다
+//         (샘플링을 lcm · 8스텝 · 시프트 12/3 으로 바꿔 Pika 계단의 험·클리핑은 없앴다).
+//         FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다 (11-20 사용자 결정)
+const CROSS_FAMILY_TESTED = {
+  'minimax-h3-fl2v-prism-pika.json': ['10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors'],
+};
+const crossFamilyTested = (file, model) => (CROSS_FAMILY_TESTED[file] || []).includes(baseName(model));
+
+// 가속이 이미 들어 있는 모델 (#1245). 이 모델에 터보·Pika LoRA 를 더하면 가속이 두 번 걸린다 —
+// 11-20 PRISM+Pika 병합본을 FL2V Turbo 판에서 돌려 줄무늬 울림, R2V Pika 판에서 돌려 Pika 가 두 번 걸렸다.
+// 파일 이름으로는 가릴 수 없어(공식 접두가 없는 원본형 파인튜닝도 있다) 하나씩 적는다.
+const BAKED_ACCELERATION = new Set([
+  'prism_dmad_pdmd_int8.safetensors',                                  // 10Eros 8step turbo 병합 (#1148)
+  '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors',  // 위 + Pika 0.85 (#1148, #1242)
+  'fasth3_omniref_8step_pruned_int8_convrot.safetensors',              // FastH3 Omni 8스텝 증류 (#1093)
+]);
+
+/** 가속 LoRA(터보·Pika, `optimizer/minimax/`)를 거는 판인가 — 값이 칸에서 오면 그 칸의 선택지로 본다 */
+function addsAcceleration(workflow, fields) {
+  const isAccel = (name) => /^optimizer\\minimax\\/i.test(String(name));
+  return Object.values(workflow).some((n) => {
+    if (n.class_type !== 'LoraLoaderModelOnly') return false;
+    const v = n.inputs && n.inputs.lora_name;
+    const m = typeof v === 'string' && v.match(/^\{\{##(.+?)##\}\}$/);
+    if (!m) return isAccel(v);
+    const field = fields.find((f) => f.name === m[1]);
+    return !!field && (field.options || []).some((o) => isAccel(o.value));
+  });
+}
+
 describe('workboards/ 배포 산출물', () => {
   it('검사 대상이 실제로 존재한다', () => {
     // 0건이면 위 테스트들이 전부 조용히 통과한다 — 디렉토리가 비거나 옮겨진 것을 이 한 줄로 잡는다
@@ -91,11 +139,6 @@ describe('workboards/ 배포 산출물', () => {
     it('베이스 모델이 워크플로의 조건부 경로와 같은 계열이다', () => {
       // 같은 모델 제품군이라도 조건부 방식마다 체크포인트가 갈린다. 값이 서버 목록에 있으면
       // ComfyUI 검증은 통과하므로, 계열 불일치는 여기서만 잡힌다 (#825).
-      // FastH3 Omni 는 ref2va 증류본이고 파일명에 'omniref' 를 쓴다 (#1093)
-      const FAMILY_BY_NODE = {
-        MiniMaxH3ImageToVideo: ['fl2v'],
-        MiniMaxH3ReferenceToVideo: ['ref2v', 'omniref'],
-      };
       const classTypes = new Set(Object.values(workflow).map((n) => n.class_type));
       const conditioning = Object.keys(FAMILY_BY_NODE).filter((n) => classTypes.has(n));
       if (conditioning.length === 0) return; // 계열 규칙이 정의되지 않은 워크플로
@@ -120,14 +163,8 @@ describe('workboards/ 배포 산출물', () => {
       expect(baseModel).toBeDefined();
 
       // 파일명 표기는 fl2va / ref2va 처럼 접미가 붙는다 — 계열 토큰만 확인한다
-      // 이름에 계열 토큰이 없는 커뮤니티 병합본은 파일 헤더가 밝힌 원본 계열로 따로 적는다
-      // (#1148 — PRISM 병합본 헤더의 source_a 가 Singularity ref2va v2)
-      const FAMILY_BY_FILE = {
-        'prism_dmad_pdmd_int8.safetensors': 'ref2v',
-        '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors': 'ref2v',
-      };
-      const filename = String(baseModel.defaultValue).split('\\').pop().toLowerCase();
-      expect(FAMILY_BY_FILE[filename] || filename).toMatch(new RegExp(tokens.join('|')));
+      if (crossFamilyTested(exported.file, baseModel.defaultValue)) return;
+      expect(familyOf(baseModel.defaultValue)).toMatch(new RegExp(tokens.join('|')));
     });
 
     it('AI 프롬프트 생성 지침의 정렬 초가 길이 선택지와 맞는다 (#1111)', () => {
@@ -168,6 +205,63 @@ describe('workboards/ 배포 산출물', () => {
       const usesH3 = /"class_type":\s*"(MiniMaxH3|PH3)|minimax_h3/i.test(source);
       if (!usesH3) return;
       expect(wb.description).toContain('Powered by MiniMax H3');
+    });
+
+    it('MiniMax H3 영상 판은 맞게 도는 모델만 허용 목록으로 둔다 (#1245)', () => {
+      // 폴더 전체를 열면 다른 계열(fl2va↔ref2va)·병합본·이미지·음악 모델까지 선택지에 뜬다.
+      // 규칙 1: 가속 LoRA 를 거는 판에는 가속 든 모델이 없다. 가속 든 모델이 기본인 판은 가속 든 모델만 둔다.
+      // 규칙 2: 허용 모델이 모두 판의 조건화 계열이다.
+      const classTypes = new Set(Object.values(workflow).map((n) => n.class_type));
+      const conditioning = Object.keys(FAMILY_BY_NODE).filter((n) => classTypes.has(n));
+      const baseModel = fields.find((f) => f.name === 'base_model');
+      if (conditioning.length !== 1 || !baseModel) return;
+
+      expect(wb.modelExposurePolicy).toBe('whitelist');
+      const list = wb.modelWhitelist || [];
+      expect(list.length).toBeGreaterThan(0);
+      expect(list).toContain(baseModel.defaultValue);
+
+      const tokens = new RegExp(FAMILY_BY_NODE[conditioning[0]].join('|'));
+      expect(list.filter((m) => !tokens.test(familyOf(m)) && !crossFamilyTested(exported.file, m))).toEqual([]);
+
+      const baked = list.filter((m) => BAKED_ACCELERATION.has(baseName(m)));
+      if (addsAcceleration(workflow, fields)) expect(baked).toEqual([]);
+      if (BAKED_ACCELERATION.has(baseName(baseModel.defaultValue))) expect(baked).toEqual(list);
+    });
+
+    it('계열 예외 목록의 판이 실제로 있고 그 모델을 쓴다 (#1242)', () => {
+      // 판 이름을 바꾸거나 모델을 갈았는데 예외만 남으면, 다른 판이 그 이름으로 예외를 물려받을 수 있다
+      const allowed = CROSS_FAMILY_TESTED[exported.file];
+      if (!allowed) return;
+      expect(allowed).toContain(baseName(fields.find((f) => f.name === 'base_model').defaultValue));
+    });
+
+    it('Turbo 시프트 자동 — 시프트 12 목록이 터보 LoRA 선택지와 맞고 시프트 노드에 연결된다 (#1245)', () => {
+      // 목록 항목이 선택지 값과 한 글자라도 다르면 자동이 조용히 6 을 고른다 (v1.2 는 6 에서 배경색이 흔들린다, #1236)
+      const list = Object.entries(workflow).find(([, n]) =>
+        n.class_type === 'StringContains' && n.inputs && n.inputs.substring === ';{{##turbo_lora##}};');
+      if (!list) return;
+      const [listId, listNode] = list;
+      const turbo = fields.find((f) => f.name === 'turbo_lora');
+      const values = (turbo.options || []).map((o) => o.value);
+      const entries = listNode.inputs.string.split(';').filter(Boolean);
+      expect(entries.filter((e) => !values.includes(e))).toEqual([]);
+      // LightX2V 8스텝 설정이 v1.2 에서 video_flow_shift 12 (ModelTC/LightX2V#1706)
+      expect(entries).toEqual(values.filter((v) => /8step_v1\.2/.test(v)));
+
+      const calc = Object.entries(workflow).find(([, n]) =>
+        n.class_type === 'ComfyMathExpression' && JSON.stringify(n.inputs['values.a']) === JSON.stringify([listId, 0]));
+      expect(calc).toBeDefined();
+      const shiftNodes = Object.values(workflow).filter((n) => n.class_type === 'MiniMaxH3SigmaShift');
+      expect(shiftNodes.map((n) => n.inputs.shift_video)).toEqual([[calc[0], 0]]);
+
+      const shift = fields.find((f) => f.name === 'shift_video');
+      expect(shift.defaultValue).toBe('0');
+      expect((shift.options || []).map((o) => o.value)).toEqual(expect.arrayContaining(['0', '6', '12']));
+
+      // 기본 터보 LoRA 는 8step v1.2 (11-20 사용자 결정, #1236) — 첫 선택지가 기본값과 같아야 목록 맨 위가 기본이다
+      expect(turbo.defaultValue).toMatch(/8step_v1\.2/);
+      expect(turbo.options[0].value).toBe(turbo.defaultValue);
     });
   });
 });
