@@ -51,7 +51,8 @@ const baseName = (model) => String(model).split('\\').pop().toLowerCase();
 const familyOf = (model) => FAMILY_BY_FILE[baseName(model)] || baseName(model);
 
 // 다른 계열 모델을 시험한 뒤 그 판에만 들인 경우 — 계열 규칙의 예외는 판 파일마다 여기 적는다
-// #1242 — PRISM+Pika 병합본(원본 한쪽이 ref2va)을 FL2V 에서 시험: 첫·끝 프레임과 화질은 FL2V (Pika Flex) 와 비슷, 소리는 못하다.
+// #1242 — PRISM+Pika 병합본(원본 한쪽이 ref2va)을 FL2V 에서 시험: 첫·끝 프레임과 화질은 FL2V (Pika Flex) 와 비슷, 소리는 약간 못하다
+//         (샘플링을 lcm · 8스텝 · 시프트 12/3 으로 바꿔 Pika 계단의 험·클리핑은 없앴다).
 //         FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다 (11-20 사용자 결정)
 const CROSS_FAMILY_TESTED = {
   'minimax-h3-fl2v-prism-pika.json': ['10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors'],
