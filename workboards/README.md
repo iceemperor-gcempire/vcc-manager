@@ -32,9 +32,27 @@
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
 | MiniMax H3 판 13개(FL2V·R2V·키프레임·긴 영상) · MiniMax-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
-H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
+H3 영상 판 13개는 모두 모델 선택 목록을 허용 목록으로 좁혀 두었다 (바로 아래 「H3 영상 판의 모델 허용 목록」).
 MiniMax-H3-Image 판은 모델 선택 목록을 H3-Image 본체 하나로 좁혀 두었다 (허용 목록 — 아래 「MiniMax-H3-Image」).
-R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 모델 하나로 좁혀 두었다 (허용 목록 — 아래 「PRISM 병합 모델」).
+Music 3 판은 폴더 제한만 있어 같은 `minimax/` 폴더의 H3 모델도 목록에 보인다. 다른 계열 모델은 나오지 않는다.
+
+**H3 영상 판의 모델 허용 목록** (#1245) — 폴더 전체를 열면 다른 계열·병합본·이미지·음악 모델까지 선택지에 뜬다.
+병합본을 터보·Pika LoRA 를 거는 판에서 고르면 가속이 두 번 걸려 화면에 줄무늬가 생기거나 소리가 망가진다.
+그래서 판마다 그 판에서 맞게 도는 모델만 둔다. 규칙은 둘이다.
+
+1. 가속 LoRA(터보·Pika)를 거는 판에는 가속이 들어 있지 않은 모델만 둔다. 가속이 든 모델(병합본·증류본)은 아무것도 더하지 않는 판에만 둔다
+2. FL2V 계열 판에는 fl2va, R2V 계열 판에는 ref2va 를 둔다. 섞인 모델은 시험한 뒤에만 넣는다
+
+| 판 | 허용 모델 (`diffusion_models/minimax/`) |
+|---|---|
+| FL2V (AV1)·(Pika Flex)·(Turbo), 키프레임 앵커 (Turbo), I2V 긴 영상·(Turbo) | `minimax_h3_fl2va_int8_convrot`·`_bf16`·`_pruned_w6a8` (Comfy-Org), `_pruned_nvfp4_all` (커뮤니티, ⁸) |
+| R2V (AV1)·(Pika Flex)·(Turbo), R2V 긴 영상 (Turbo) | `minimax_h3_ref2va_int8_convrot`·`_pruned_w6a8` (Comfy-Org) |
+| R2V (FastH3 Omni) | `fasth3_omniref_8step_pruned_int8_convrot` |
+| R2V (PRISM)·(PRISM+Pika), FL2V (PRISM+Pika) | 그 판의 병합 모델 하나 (아래 「PRISM 병합 모델」) |
+
+- 허용 목록은 **선택 목록**을 거른다. 실행할 때 막는 것은 폴더 제한뿐이라, API·MCP 로 목록 밖 모델 이름을 넘기면 지나간다
+- 새 모델을 쓰려면 위 규칙에 맞는 판의 허용 목록에 넣는다 (작업판 편집기의 워크플로 설정 → 모델 노출 정책). 서버 파일 이름이 다르면 목록도 그 이름으로 바꾼다
+- 이 저장소의 파일 이름은 영상 서버 기준이다. 목록에 있는 파일이 서버에 없으면 그 항목은 선택지에 나오지 않을 뿐이다
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
@@ -46,7 +64,7 @@ LoRA 선택 칸에 다른 폴더의 LoRA 를 넣으면 실행이 거절된다 (#
 | 판 | 허용 LoRA 폴더 |
 |---|---|
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `style/openmoss/` |
-| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
+| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM+Pika) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
 | MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) · R2V (PRISM+Pika) | `style/Minimax/ref2va/` |
 
 LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
@@ -83,10 +101,11 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-fl2v-prism-pika.json` | MiniMax H3 - FL2V (PRISM+Pika) | 영상 + 오디오 · 첫·끝 프레임 · 커뮤니티 병합 모델, **8스텝 lcm · 시프트 12/3** (가속 LoRA 없음) · 소리는 FL2V (Pika Flex) 보다 약간 못하다 | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
-| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 6스텝 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
+| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 8스텝 lcm · 시프트 12/3 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
 | `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · **AI 프롬프트 생성 권장** (판 안 늘려 쓰기는 기본 끔) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
@@ -115,12 +134,20 @@ https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
 `optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스 기본값은 non-pruned int8**
-(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 시프트 6/3):
-8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
+(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 오디오 시프트 3, 비디오 시프트는 아래 「시프트 자동」):
+FL2V (Turbo)·키프레임 앵커 (Turbo) 판: **8step v1.2 768p(기본)**=스텝 8, 8step v1.0 768p=스텝 8, 4step v1.1 768p=스텝 4.
+긴 영상 (Turbo) 판은 8step v1.0(기본) · 4step v1.1 둘이다. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
-FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
-같은 두 판에는 시험용으로 **8step v1.2 768p**(스텝 8, 2026-11 공개)도 있다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
-같은 그래프·시드로 v1.0 과 비교했을 때 빠른 동작의 뭉개짐은 같았다. 단색 배경 영상 4개 모두에서 배경색이 영상 중간에 바뀌어서 기본값은 v1.0 으로 둔다 (#1236).
+FL2V·키프레임 판에는 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)도 있다 (아래 「Pika H3 Flex」).
+**8step v1.2 768p** 는 2026-11 공개본이다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
+상류 LightX2V 의 8스텝 설정이 v1.2 로 바뀌면서 비디오 시프트도 6 → **12** 로 바뀌었다 (ModelTC/LightX2V#1706). 시프트 6 으로 돌리면
+단색 배경의 색이 영상 중간에 바뀌고, 12 로 돌리면 사라진다. 빠른 동작 장면을 시드 3개로 v1.0·시프트 6 과 비교하면 v1.2·시프트 12 가
+나은 것 2, 비슷한 것 1, 나쁜 것 0 이었고 배경색 안정성은 같았다 — 그래서 2026-11-20 부터 두 판의 기본값이다 (#1236).
+
+**시프트 자동** (#1245) — FL2V (Turbo)·키프레임 앵커 (Turbo) 판의 비디오 시프트 칸 기본값은 「자동」이다. 고른 터보 LoRA 가
+시프트 12 목록에 있으면 12, 아니면 6 을 쓴다. 목록은 지금 8step v1.2 하나다 (8step v1.0·4step v1.1·Pika 합본 4step 은 6).
+그래프 안에서 `StringContains`(목록 대조) → `ComfyMathExpression`(`b if b > 0 else (12 if a else 6)`) → `MiniMaxH3SigmaShift` 로 정한다.
+칸에서 6·12 를 직접 고르면 그 값으로 고정한다. 시프트 12 를 쓰는 LoRA 가 새로 나오면 노드 240 의 목록(`;파일;` 로 감쌈)에 그 선택지 값을 더한다.
 R2V 판의 터보 LoRA 는 8step v1.0 768p 하나다 — 예전 4step v0.1 은 544p 혼합 비율 학습(시프트 12/3)이라 1344x768 과 맞지 않고, 빠른 동작 비교에서 가장 심하게 갈라져 뺐다 (#1127). R2V 판은
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 **빠른 동작에는 약하다** (#1127, 2026-11 같은 시드 비교) — 휘두르기·회전 같은 장면에서 R2V 는 머리카락·옷 가장자리가
@@ -252,8 +279,12 @@ H3 전용 희소 어텐션으로 확산 단계의 어텐션 계산을 줄인다.
 FL2V Turbo 80초 → 65초 (1.23×), R2V Turbo 91초 → 70초 (1.31×). 프레임 비교로 화질 차이 없음.
 
 토큰 수가 클수록 이득이 커진다. 설정값은 tau 1.3, 전체 스텝의 20~90% 구간, 4096 토큰 미만은 그대로.
-근사 연산이라 같은 시드라도 결과가 **미세하게 달라진다** — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
-이전 결과를 시드로 그대로 재현하려면 체크를 끈다. 첫 실행은 커널 컴파일 때문에 느리다.
+근사 연산이라 끈 결과와 세부가 다르다 — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
+**켜 두면 같은 시드로 다시 만들어도 생성할 때마다 세부가 달라진다** (#1248). 토큰 보강(`extra_tokens`, 기본 256)이
+예산을 넘칠 때 남길 토큰을 원자 연산 순서로 고르는 comfy-kitchen 의 알려진 문제다
+([comfy-kitchen 이슈 241](https://github.com/Comfy-Org/comfy-kitchen/issues/241), 수정 PR 대기 — ComfyUI 0.46.0 · comfy-kitchen 0.2.41 에 아직 없다).
+같은 결과가 필요하면 체크를 끈다 (끄면 비트 단위로 같고, 1344×768·5초 R2V 기준 64.8초 → 84.1초, 3회 중앙값).
+`extra_tokens` 0 도 결과가 같아지고 속도도 같지만 근사가 거칠어져 판에는 쓰지 않았다. 첫 실행은 커널 컴파일 때문에 느리다.
 
 **SageAttention 이 없는 서버라면** ComfyUI 기동 인자 `--use-sage-attention` 없이도 같은 속도를 낼 수 있다 —
 ComfyUI 0.38 의 *Model Attention Backend* 노드에서 `comfy kitchen attention`(INT8, Nvidia·AMD)을 고르면 된다.
@@ -330,31 +361,61 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - 끝의 대사 한 줄은 30개 중 29개에서 그대로 들렸고, 소리 크기(−12~−14 LUFS)는 구성 사이에 차이가 없었다
 - 시작·끝 프레임, 키프레임 앵커 ①②③ 을 넣은 경우에도 합본 4step 이 lightx2v 4step 만큼 앵커를 지켰다 (앵커 위치 SSIM 0.97 · 0.93 · 0.97, 대조군과 같음)
 
-### PRISM 병합 모델 — R2V 판 2개 (커뮤니티)
+### PRISM 병합 모델 — R2V 판 2개 · FL2V 판 1개 (커뮤니티)
 
-[🤗 OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM) 의 커뮤니티 병합 모델 두 개로 만든 R2V 판이다.
+[🤗 OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM) 의 커뮤니티 병합 모델 두 개로 만든 판이다.
 원본은 [Singularity](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity)(ref2va v2 미세조정)와 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max)(8step turbo)다.
 저장소에는 변형이 11개 있고, 판은 아래 두 파일만 쓴다.
 
 | 판 | 파일 (`diffusion_models/minimax/`) | 샘플링 |
 |---|---|---|
 | **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · beta57 · 시프트 12/3, 터보 LoRA 없음 |
-| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | R2V (Pika Flex) 판과 같은 6스텝 고정 시그마 · lcm, Pika LoRA 없음 |
+| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | 8스텝 · lcm · simple · 시프트 12/3, Pika LoRA 없음 |
+| **FL2V (PRISM+Pika)** | 위와 같은 파일 | R2V (PRISM+Pika) 와 같다 |
 
 - 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
-- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V (Turbo)·(Pika Flex) 판에서 가속 LoRA 노드만 뺀 구성이다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
+- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V (PRISM) 은 R2V (Turbo) 판에서 터보 LoRA 노드만 뺀 구성이고, PRISM+Pika 두 판은 (Pika Flex) 판에서 Pika LoRA 를 빼고 샘플링을 바꿨다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
   둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
 - 스케줄러는 모델 카드 권장 beta57 이다. beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다
   (기본값 0.6·0.6). 판은 ComfyUI 기본 노드 `BetaSamplingScheduler` 에 이 두 값을 넣어 같은 시그마를 만든다 — 노드팩이 필요 없다
 - **프롬프트에서 참조를 태그로 불러야 한다.** 참조를 `<Picture 1>` 처럼 부르고 이어받을 특징을 글로도 적은 Ref2VA 형식에서는 두 판 모두 참조를 지켰다.
   태그도 설명도 없는 기본 형식 프롬프트에서는 참조를 거의 따르지 않았다 (공식 모델은 지켰다). AI 프롬프트 생성은 이 형식으로 써 준다
-- 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
+- R2V 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
+- **FL2V (PRISM+Pika)** (#1242) — 병합본 원본 한쪽(Singularity)이 ref2va 라 FL2V 는 원래 용도 밖이다. 그래서 시험한 뒤에 넣었다.
+  FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다. 장면 4개(끝 프레임 있음·없음·같음)를 시드 1개씩, 각 1회 돌렸다
+  - 첫·끝 프레임은 FL2V (Pika Flex) 공식 구성과 비슷하게 지켰다 (끝 프레임 PSNR 39.1, 공식 40.7). 세부 묘사도 비슷하다.
+    카메라가 일찍 뒤로 빠져 전신 구도가 되는 경향이 있고, "Static Shot" 같은 고정 지시를 덜 따랐다
+  - **샘플링은 소리로 골랐다.** 같은 시드로 네 구성을 비교했다 (장면 3개, 각 1회, 지표와 스펙트로그램 — 사람이 들은 판정은 아니다)
+
+    | 구성 | 잡음 바닥 (장면 B · B-FL) | 장면 C 피크 · 저역 | 판정 |
+    |---|---|---|---|
+    | FL2V (Pika Flex) 공식 구성 (기준) | −94 · −94 dB | −1.4 dB · −41 dB | 효과음 사이가 진짜 무음 |
+    | Pika 6스텝 고정 시그마 · lcm | −55 · −63 dB | **+1.9 dB (클리핑)** · −20 dB | 처음부터 낮은 험이 깔리고 저음이 부풀었다 |
+    | euler · simple 8스텝 · 시프트 6/3 | −40 · −90 dB | −1.8 dB · −25 dB | 효과음에 음정 있는 울림이 층층이 쌓였다 |
+    | er_sde · sgm_uniform 8스텝 · 시프트 12/3 | −60 · −94 dB | +0.1 dB · −27 dB | 험이 남았다 |
+    | **lcm · simple 8스텝 · 시프트 12/3 (판)** | **−94 · −94 dB** | −0.4 dB · −35 dB | 험이 없어졌다 |
+
+    마지막 구성은 터보 원본 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max) 카드가 권하는 값(시프트 12/3, "LCM/simple 6-8 steps — best turbo audio")이다.
+    병합본 카드에는 이 파일의 권장 설정이 없다. 화면(원본 크롭·흐림 지표)과 첫·끝 프레임은 구성 사이에 뚜렷한 차이가 없었다
+  - **남은 약점:** 판 구성에서도 효과음 구간에 음정 있는 울림이 몇 줄 남고, 효과음 사이 무음이 공식 구성의 절반쯤이다. 소리가 중요하면 FL2V (Pika Flex) 판을 쓴다
+  - **FL2V (Turbo) 판에서 이 병합본을 고르면 안 된다** — 터보가 두 번 걸려 소리 전 대역에 울림이 생긴다. 그래서 Turbo 판 허용 목록에는 없다
+- **R2V (PRISM+Pika) 도 같은 샘플링으로 맞췄다** (#1247). 처음에는 R2V (Pika Flex) 판처럼 Pika 6스텝 고정 시그마였다.
+  참조 이미지 3장(새로 생성한 애니·실사·회화 그림)을 같은 시드로 공식 R2V (Pika Flex) · 계단 · lcm 8 세 구성에 각 1회 돌렸다
+  - 대사 장면은 세 구성 모두 대사를 그대로 받아 적었다 (음성 인식). 고역은 lcm 8 이 공식과 같았다 (−42.6 · −64.4 dB, 공식 −42.2 · −64.4, 계단 −39.6 · −59.6)
+  - 효과음 장면은 lcm 8 의 저역이 공식에 가까웠다 (−36.8 dB, 공식 −37.7, 계단 −28.0). 잡음 바닥 −71 dB (계단 −62, 공식 −87)
+  - 바람이 계속 부는 장면은 lcm 8 이 조금 나빴다 — 더 크고 저역이 공식에서 더 멀었다 (RMS −19.7 dB, 계단 −21.3, 공식 −26.8 · 저역 −24.9, −27.3, −38.2)
+  - 화면과 참조 유지는 셋 다 비슷했다
+  - **같은 페이로드를 다시 돌려도 결과가 달라진다.** 바람 장면 lcm 8 을 그대로 한 번 더 돌리니 영상 PSNR 23.5 dB, 소리 지표는 대역별로 0.2~2.7 dB 움직였다
+    (원인은 Sol-Attn 의 토큰 보강이다 — 위 「가속 — Sol-Attn」, #1248). 그래서 대사·바람 장면 차이는 크지 않다고 본다.
+    효과음 장면의 저역·잡음 바닥 차이(9 dB)와 FL2V 의 잡음 바닥 차이(30~40 dB)·클리핑은 이 편차보다 훨씬 크다
+  - 정리: 효과음 장면은 뚜렷이 나아졌고, 대사 장면은 조금 나아졌고, 바람 장면은 조금 나빠졌다. FL2V (PRISM+Pika) 와 설정을 맞추는 쪽으로 정했다.
+    6스텝에서 8스텝이 돼 조금 더 걸린다 (속도는 3회 중앙값을 재지 않아 적지 않는다)
 - 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
   표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
 
-### 스타일 LoRA — 판 9개의 선택 칸
+### 스타일 LoRA — 판 10개의 선택 칸
 
-FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)·R2V 긴 영상 (Turbo)
+FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM+Pika)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)·R2V 긴 영상 (Turbo)
 판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
 
 - **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
@@ -363,7 +424,7 @@ FL2V (Turbo)·FL2V (Pika Flex)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (P
 
   | 둘 곳 (`loras/`) | 쓰는 판 |
   |---|---|
-  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · 키프레임 앵커 (Turbo) |
+  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM+Pika) · 키프레임 앵커 (Turbo) |
   | `style/Minimax/ref2va/` | R2V 판 6개 (R2V 긴 영상 Turbo 포함) |
 
   파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다

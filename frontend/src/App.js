@@ -16,6 +16,7 @@ import Sidebar from './components/Sidebar';
 import UpdateNoticeDialog from './components/common/UpdateNoticeDialog';
 import CommandPalette from './components/common/CommandPalette';
 import { ConfirmProvider } from './components/common/ConfirmDialog';
+import { refreshListsOnEnter } from './utils/queryInvalidation';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
@@ -113,15 +114,9 @@ function MainLayout() {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  // 특정 메뉴 선택 시 쿼리 무효화 (작업 히스토리, 내 콘텐츠)
+  // 작업 히스토리·내 콘텐츠로 들어올 때 목록을 새로 받는다 (#829)
   useEffect(() => {
-    const refreshPaths = ['/jobs', '/content'];
-    if (refreshPaths.includes(location.pathname)) {
-      queryClient.invalidateQueries({ queryKey: ['historyJobs'] });
-      queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
-      queryClient.invalidateQueries({ queryKey: ['uploadedImages'] });
-      queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
-    }
+    refreshListsOnEnter(queryClient, location.pathname);
   }, [location.pathname, queryClient]);
 
   // ⌘K / Ctrl+K 로 명령 팔레트 열기 (Phase 6)
