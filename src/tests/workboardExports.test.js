@@ -50,6 +50,14 @@ const baseName = (model) => String(model).split('\\').pop().toLowerCase();
 /** 계열 판정용 이름 — 병합본은 헤더의 원본 계열, 나머지는 파일명 그대로 */
 const familyOf = (model) => FAMILY_BY_FILE[baseName(model)] || baseName(model);
 
+// 다른 계열 모델을 시험한 뒤 그 판에만 들인 경우 — 계열 규칙의 예외는 판 파일마다 여기 적는다
+// #1242 — PRISM+Pika 병합본(원본 한쪽이 ref2va)을 FL2V 에서 시험: 첫·끝 프레임과 화질은 FL2V (Pika Flex) 와 비슷, 소리는 못하다.
+//         FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다 (11-20 사용자 결정)
+const CROSS_FAMILY_TESTED = {
+  'minimax-h3-fl2v-prism-pika.json': ['10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors'],
+};
+const crossFamilyTested = (file, model) => (CROSS_FAMILY_TESTED[file] || []).includes(baseName(model));
+
 // 가속이 이미 들어 있는 모델 (#1245). 이 모델에 터보·Pika LoRA 를 더하면 가속이 두 번 걸린다 —
 // 11-20 PRISM+Pika 병합본을 FL2V Turbo 판에서 돌려 줄무늬 울림, R2V Pika 판에서 돌려 Pika 가 두 번 걸렸다.
 // 파일 이름으로는 가릴 수 없어(공식 접두가 없는 원본형 파인튜닝도 있다) 하나씩 적는다.
@@ -154,6 +162,7 @@ describe('workboards/ 배포 산출물', () => {
       expect(baseModel).toBeDefined();
 
       // 파일명 표기는 fl2va / ref2va 처럼 접미가 붙는다 — 계열 토큰만 확인한다
+      if (crossFamilyTested(exported.file, baseModel.defaultValue)) return;
       expect(familyOf(baseModel.defaultValue)).toMatch(new RegExp(tokens.join('|')));
     });
 
@@ -212,11 +221,18 @@ describe('workboards/ 배포 산출물', () => {
       expect(list).toContain(baseModel.defaultValue);
 
       const tokens = new RegExp(FAMILY_BY_NODE[conditioning[0]].join('|'));
-      expect(list.filter((m) => !tokens.test(familyOf(m)))).toEqual([]);
+      expect(list.filter((m) => !tokens.test(familyOf(m)) && !crossFamilyTested(exported.file, m))).toEqual([]);
 
       const baked = list.filter((m) => BAKED_ACCELERATION.has(baseName(m)));
       if (addsAcceleration(workflow, fields)) expect(baked).toEqual([]);
       if (BAKED_ACCELERATION.has(baseName(baseModel.defaultValue))) expect(baked).toEqual(list);
+    });
+
+    it('계열 예외 목록의 판이 실제로 있고 그 모델을 쓴다 (#1242)', () => {
+      // 판 이름을 바꾸거나 모델을 갈았는데 예외만 남으면, 다른 판이 그 이름으로 예외를 물려받을 수 있다
+      const allowed = CROSS_FAMILY_TESTED[exported.file];
+      if (!allowed) return;
+      expect(allowed).toContain(baseName(fields.find((f) => f.name === 'base_model').defaultValue));
     });
 
     it('Turbo 시프트 자동 — 시프트 12 목록이 터보 LoRA 선택지와 맞고 시프트 노드에 연결된다 (#1245)', () => {
