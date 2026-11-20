@@ -32,9 +32,27 @@
 | LTX-2.5 - FL2V · FL2V (AV1) | `LTX-2/` |
 | MiniMax H3 판 13개(FL2V·R2V·키프레임·긴 영상) · MiniMax-H3-Image 판 2개 · MiniMax Music 3 - T2M | `minimax/` |
 
-H3 영상 모델과 Music 3 모델은 같은 `minimax/` 폴더에 있어 서로의 목록에 보인다. 다른 계열 모델은 나오지 않는다.
+H3 영상 판 13개는 모두 모델 선택 목록을 허용 목록으로 좁혀 두었다 (바로 아래 「H3 영상 판의 모델 허용 목록」).
 MiniMax-H3-Image 판은 모델 선택 목록을 H3-Image 본체 하나로 좁혀 두었다 (허용 목록 — 아래 「MiniMax-H3-Image」).
-R2V (PRISM)·R2V (PRISM+Pika) 판은 모델 선택 목록을 그 판의 병합 모델 하나로 좁혀 두었다 (허용 목록 — 아래 「PRISM 병합 모델」).
+Music 3 판은 폴더 제한만 있어 같은 `minimax/` 폴더의 H3 모델도 목록에 보인다. 다른 계열 모델은 나오지 않는다.
+
+**H3 영상 판의 모델 허용 목록** (#1245) — 폴더 전체를 열면 다른 계열·병합본·이미지·음악 모델까지 선택지에 뜬다.
+병합본을 터보·Pika LoRA 를 거는 판에서 고르면 가속이 두 번 걸려 화면에 줄무늬가 생기거나 소리가 망가진다.
+그래서 판마다 그 판에서 맞게 도는 모델만 둔다. 규칙은 둘이다.
+
+1. 가속 LoRA(터보·Pika)를 거는 판에는 가속이 들어 있지 않은 모델만 둔다. 가속이 든 모델(병합본·증류본)은 아무것도 더하지 않는 판에만 둔다
+2. FL2V 계열 판에는 fl2va, R2V 계열 판에는 ref2va 를 둔다. 섞인 모델은 시험한 뒤에만 넣는다
+
+| 판 | 허용 모델 (`diffusion_models/minimax/`) |
+|---|---|
+| FL2V (AV1)·(Pika Flex)·(Turbo), 키프레임 앵커 (Turbo), I2V 긴 영상·(Turbo) | `minimax_h3_fl2va_int8_convrot`·`_bf16`·`_pruned_w6a8` (Comfy-Org), `_pruned_nvfp4_all` (커뮤니티, ⁸) |
+| R2V (AV1)·(Pika Flex)·(Turbo), R2V 긴 영상 (Turbo) | `minimax_h3_ref2va_int8_convrot`·`_pruned_w6a8` (Comfy-Org) |
+| R2V (FastH3 Omni) | `fasth3_omniref_8step_pruned_int8_convrot` |
+| R2V (PRISM)·(PRISM+Pika) | 그 판의 병합 모델 하나 (아래 「PRISM 병합 모델」) |
+
+- 허용 목록은 **선택 목록**을 거른다. 실행할 때 막는 것은 폴더 제한뿐이라, API·MCP 로 목록 밖 모델 이름을 넘기면 지나간다
+- 새 모델을 쓰려면 위 규칙에 맞는 판의 허용 목록에 넣는다 (작업판 편집기의 워크플로 설정 → 모델 노출 정책). 서버 파일 이름이 다르면 목록도 그 이름으로 바꾼다
+- 이 저장소의 파일 이름은 영상 서버 기준이다. 목록에 있는 파일이 서버에 없으면 그 항목은 선택지에 나오지 않을 뿐이다
 
 폴더를 다르게 쓰고 있다면 가져온 뒤 작업판 편집기의 워크플로 설정에서 **허용 모델 폴더**와 기본 모델을 바꾼다.
 허용 모델 타입(Civitai 분류)으로 거르는 판(Anima·SDXL·Z-Image)은 Civitai 정보가 없는 파일이 목록에 나오지 않는다.
@@ -115,12 +133,18 @@ https://huggingface.co/Comfy-Org/Anima-LLLite → `models/model_patches/`.
 LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `models/loras/` 에 두고,
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
 `optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스 기본값은 non-pruned int8**
-(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 시프트 6/3):
+(`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 오디오 시프트 3, 비디오 시프트는 아래 「시프트 자동」):
 8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
 FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
-같은 두 판에는 시험용으로 **8step v1.2 768p**(스텝 8, 2026-11 공개)도 있다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
-같은 그래프·시드로 v1.0 과 비교했을 때 빠른 동작의 뭉개짐은 같았다. 단색 배경 영상 4개 모두에서 배경색이 영상 중간에 바뀌어서 기본값은 v1.0 으로 둔다 (#1236).
+같은 두 판에는 **8step v1.2 768p**(스텝 8, 2026-11 공개)도 있다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
+상류 LightX2V 의 8스텝 설정이 v1.2 로 바뀌면서 비디오 시프트도 6 → **12** 로 바뀌었다 (ModelTC/LightX2V#1706). 시프트 6 으로 돌리면
+단색 배경의 색이 영상 중간에 바뀌고, 12 로 돌리면 사라진다. 빠른 동작 뭉개짐도 v1.0·시프트 6 보다 덜했다 (#1236).
+
+**시프트 자동** (#1245) — FL2V (Turbo)·키프레임 앵커 (Turbo) 판의 비디오 시프트 칸 기본값은 「자동」이다. 고른 터보 LoRA 가
+시프트 12 목록에 있으면 12, 아니면 6 을 쓴다. 목록은 지금 8step v1.2 하나다 (8step v1.0·4step v1.1·Pika 합본 4step 은 6).
+그래프 안에서 `StringContains`(목록 대조) → `ComfyMathExpression`(`b if b > 0 else (12 if a else 6)`) → `MiniMaxH3SigmaShift` 로 정한다.
+칸에서 6·12 를 직접 고르면 그 값으로 고정한다. 시프트 12 를 쓰는 LoRA 가 새로 나오면 노드 240 의 목록(`;파일;` 로 감쌈)에 그 선택지 값을 더한다.
 R2V 판의 터보 LoRA 는 8step v1.0 768p 하나다 — 예전 4step v0.1 은 544p 혼합 비율 학습(시프트 12/3)이라 1344x768 과 맞지 않고, 빠른 동작 비교에서 가장 심하게 갈라져 뺐다 (#1127). R2V 판은
 참조 이미지 해상도 기본값이 base 판과 달리 **match** (터보 증류 학습 조건).
 **빠른 동작에는 약하다** (#1127, 2026-11 같은 시드 비교) — 휘두르기·회전 같은 장면에서 R2V 는 머리카락·옷 가장자리가
