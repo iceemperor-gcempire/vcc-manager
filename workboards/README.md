@@ -134,12 +134,14 @@ LoRA 파일을 https://huggingface.co/lightx2v/Minimax-h3-Turbo 에서 받아 `m
 작업판의 터보 LoRA 경로가 실제 하위 경로와 일치하는지 확인할 것 (export 기본값은
 `optimizer/minimax/` 하위). LoRA 의 base 가 full 모델이라 **베이스 기본값은 non-pruned int8**
 (`minimax_h3_*_int8_convrot.safetensors`). pruned·NVFP4 베이스와의 조합도 동작한다 — 아래 ⁸ 참고. FL2V 판의 lightx2v 선택지는 **768p 학습 LoRA** 만 노출한다 (기본 1344x768 · 오디오 시프트 3, 비디오 시프트는 아래 「시프트 자동」):
-8step v1.0 768p(기본)=스텝 8, 4step v1.1 768p=스텝 4. 예전 8step v1.0(544p mixed) 은 같은 시드
+FL2V (Turbo)·키프레임 앵커 (Turbo) 판: **8step v1.2 768p(기본)**=스텝 8, 8step v1.0 768p=스텝 8, 4step v1.1 768p=스텝 4.
+긴 영상 (Turbo) 판은 8step v1.0(기본) · 4step v1.1 둘이다. 예전 8step v1.0(544p mixed) 은 같은 시드
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
-FL2V·키프레임 판에는 세 번째 선택지로 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)이 있다 (아래 「Pika H3 Flex」).
-같은 두 판에는 **8step v1.2 768p**(스텝 8, 2026-11 공개)도 있다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
+FL2V·키프레임 판에는 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)도 있다 (아래 「Pika H3 Flex」).
+**8step v1.2 768p** 는 2026-11 공개본이다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
 상류 LightX2V 의 8스텝 설정이 v1.2 로 바뀌면서 비디오 시프트도 6 → **12** 로 바뀌었다 (ModelTC/LightX2V#1706). 시프트 6 으로 돌리면
-단색 배경의 색이 영상 중간에 바뀌고, 12 로 돌리면 사라진다. 빠른 동작 뭉개짐도 v1.0·시프트 6 보다 덜했다 (#1236).
+단색 배경의 색이 영상 중간에 바뀌고, 12 로 돌리면 사라진다. 빠른 동작 장면을 시드 3개로 v1.0·시프트 6 과 비교하면 v1.2·시프트 12 가
+나은 것 2, 비슷한 것 1, 나쁜 것 0 이었고 배경색 안정성은 같았다 — 그래서 2026-11-20 부터 두 판의 기본값이다 (#1236).
 
 **시프트 자동** (#1245) — FL2V (Turbo)·키프레임 앵커 (Turbo) 판의 비디오 시프트 칸 기본값은 「자동」이다. 고른 터보 LoRA 가
 시프트 12 목록에 있으면 12, 아니면 6 을 쓴다. 목록은 지금 8step v1.2 하나다 (8step v1.0·4step v1.1·Pika 합본 4step 은 6).

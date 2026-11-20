@@ -241,6 +241,10 @@ describe('workboards/ 배포 산출물', () => {
       const shift = fields.find((f) => f.name === 'shift_video');
       expect(shift.defaultValue).toBe('0');
       expect((shift.options || []).map((o) => o.value)).toEqual(expect.arrayContaining(['0', '6', '12']));
+
+      // 기본 터보 LoRA 는 8step v1.2 (11-20 사용자 결정, #1236) — 첫 선택지가 기본값과 같아야 목록 맨 위가 기본이다
+      expect(turbo.defaultValue).toMatch(/8step_v1\.2/);
+      expect(turbo.options[0].value).toBe(turbo.defaultValue);
     });
   });
 });
