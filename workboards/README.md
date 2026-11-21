@@ -372,8 +372,8 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 
   | 선택 | 구성 | 쓰는 경우 |
   |---|---|---|
-  | euler · beta57 (R2V 기본) | `euler` + `BetaSamplingScheduler` (alpha 0.5 · beta 0.7) | 그림이 또렷한 쪽. 터보만 병합된 모델 |
-  | lcm · simple (FL2V 기본) | `lcm` + `BasicScheduler` (simple) | Pika 가 섞인 병합 모델, 소리를 우선할 때 |
+  | euler · beta57 (R2V 기본) | `euler` + `BetaSamplingScheduler` (alpha 0.5 · beta 0.7) | 터보만 병합된 모델 (배포처 권장 조합) |
+  | lcm · simple (FL2V 기본) | `lcm` + `BasicScheduler` (simple) | Pika 가 섞인 병합 모델 (소리가 더 깨끗했다 — 아래 시험) |
 
   beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다 (기본값 0.6·0.6).
   판은 ComfyUI 기본 노드로 같은 시그마를 만든다 — 노드팩이 필요 없다. 두 구성의 전환도 기본 노드(`StringCompare`·`ComfySwitchNode`)다

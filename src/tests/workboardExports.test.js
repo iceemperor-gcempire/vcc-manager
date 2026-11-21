@@ -123,7 +123,7 @@ describe('workboards/ 배포 산출물', () => {
       const missing = fields
         .filter((f) => f.required && !ATTACHMENT_FIELD_TYPES.includes(f.type))
         // 모델을 고정하지 않는 판은 베이스 모델을 비워 둔다 — 설치자 서버의 모델에서 직접 고른다 (#1252)
-        .filter((f) => f.type !== 'baseModel')
+        .filter((f) => !(f.type === 'baseModel' && wb.modelExposurePolicy === 'full'))
         .filter((f) => f.defaultValue === undefined || f.defaultValue === null || f.defaultValue === '')
         .map((f) => f.name);
       expect(missing).toEqual([]);
