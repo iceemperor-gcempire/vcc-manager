@@ -91,6 +91,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/sketch-to-image-qwen-image-21.json` | Sketch to Image - Qwen-Image 2.1 | 이미지 ×1 · 스케치(스크리블) 또는 사진(Canny) 구도로 생성 · 한글 글씨 | Qwen-Image 2.1 판과 같은 모델 + 공식 컨트롤넷 `model_patches/qwen_image_2.1_fun_controlnet_union_int8_convrot` ([🤗 Comfy-Org/Qwen-Image-2.1](https://huggingface.co/Comfy-Org/Qwen-Image-2.1/tree/main/model_patches)) — ComfyUI 0.38 이상. 1024² 약 9초, Turbo 8스텝 약 4초. 제어 강도 0.8~1.0 |
 | `comfyui/sketch-to-image-krea2.json` | Sketch to Image - Krea2 | 〃 | Krea2 Turbo 모델 + qwen3vl_4b TE + 업스케일 모델². 기본 모델 `Krea2\krea2TurboOfficialComfy_krea2TurboInt8` 은 Civitai 배포본으로, [🤗 Comfy-Org/Krea-2](https://huggingface.co/Comfy-Org/Krea-2/tree/main/diffusion_models) 의 `krea2_turbo_int8_convrot` 과 같은 파일이다(SHA256 일치). 공식 이름으로 받았다면 판의 베이스 모델 기본값을 그 이름으로 바꾼다 (허용 모델 폴더 `Krea2/` 안이면 모델 선택 목록에 나온다) |
 | `comfyui/text-to-image-krea2.json` | Krea 2 - T2I | 이미지 ×1 · **프롬프트만** | Krea 2 터보 int8 convrot (`Krea2/krea2TurboOfficialComfy_krea2TurboInt8` — 위 Sketch 판과 같은 파일) + `qwen3vl_4b_fp8_scaled` TE + `qwen/qwen_image_vae` VAE. ComfyUI 공식 템플릿 `image_krea2_turbo_t2i_int8` 을 옮겼다. 판 안의 프롬프트 보강(Qwen3-VL 4B 가 영어로 늘려 씀)은 「프롬프트 보강」 칸으로 켜고 끈다. 공식 템플릿은 기본 켬이지만 이 판은 **기본 꺼짐**이다 — 모델이 작아 요청과 다르게 늘려 쓰는 일이 잦았다. 늘려 쓰기는 실행 화면의 AI 프롬프트 생성을 권한다 (판의 작성 지침이 형식을 정한다). 템플릿의 LoRA 분기는 넣지 않았다 |
+| `comfyui/text-to-image-anima.json` | Text to Image - Anima | 이미지 ×1 (업스케일본, 기본 AnimeSharp 2x) · **프롬프트만** · 애니메이션·일러스트 전용 · 긍정·부정 프롬프트 · 스텝·CFG·샘플러 선택 (기본 30 · 4 · er_sde, Turbo 모델은 8~12 · 1) | Anima 모델 (`Anima/anima_baseV10`) + `qwen_3_06b_base` TE + `qwen/qwen_image_vae` VAE (+ 업스케일 모델²) |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
 | `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (스텝 8, 1024² 약 1.5초 — 기본 25스텝 4.3초와 같은 수준) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
@@ -122,6 +123,7 @@ H.264 만 쓰면 VHS 동봉 바이너리로 충분해 별도 ffmpeg 설치가 �
 
 ² **Sketch to Image 3종**은 업로드한 스케치의 비율로 **1M 픽셀·32px 버킷** 크기를 자동 계산하고,
 원본 크기와 업스케일본(선택한 모델: AnimeSharp 2x / Remacri 4x / RealESRGAN 4x 등)을 함께 저장한다.
+Anima 판은 업스케일본 한 장만 저장한다 (#1253).
 업스케일 모델은 `models/upscale_models/` 에 있어야 한다.
 
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:
@@ -139,7 +141,7 @@ FL2V (Turbo)·키프레임 앵커 (Turbo) 판: **8step v1.2 768p(기본)**=스�
 A/B 에서 화질·구도 준수가 밀려 뺐다 — 저해상도 출력 자체가 디테일이 떨어져 쓰지 않는다.
 FL2V·키프레임 판에는 커뮤니티 합본 **Pika Flex 합본 4step**(스텝 4)도 있다 (아래 「Pika H3 Flex」).
 **8step v1.2 768p** 는 2026-11 공개본이다. 파일은 `minimax_h3_fl2v_turbo_8step_v1.2_768p_comfyui_bf16.safetensors` 다.
-상류 LightX2V 의 8스텝 설정이 v1.2 로 바뀌면서 비디오 시프트도 6 → **12** 로 바뀌었다 (ModelTC/LightX2V#1706). 시프트 6 으로 돌리면
+LightX2V 공식 8스텝 설정이 v1.2 로 바뀌면서 비디오 시프트도 6 → **12** 로 바뀌었다 (ModelTC/LightX2V#1706). 시프트 6 으로 돌리면
 단색 배경의 색이 영상 중간에 바뀌고, 12 로 돌리면 사라진다. 빠른 동작 장면을 시드 3개로 v1.0·시프트 6 과 비교하면 v1.2·시프트 12 가
 나은 것 2, 비슷한 것 1, 나쁜 것 0 이었고 배경색 안정성은 같았다 — 그래서 2026-11-20 부터 두 판의 기본값이다 (#1236).
 
