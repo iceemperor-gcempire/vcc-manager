@@ -123,6 +123,7 @@ H.264 만 쓰면 VHS 동봉 바이너리로 충분해 별도 ffmpeg 설치가 �
 
 ² **Sketch to Image 3종**은 업로드한 스케치의 비율로 **1M 픽셀·32px 버킷** 크기를 자동 계산하고,
 원본 크기와 업스케일본(선택한 모델: AnimeSharp 2x / Remacri 4x / RealESRGAN 4x 등)을 함께 저장한다.
+Anima 판은 업스케일본 한 장만 저장한다 (#1253).
 업스케일 모델은 `models/upscale_models/` 에 있어야 한다.
 
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:
