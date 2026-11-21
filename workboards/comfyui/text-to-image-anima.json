@@ -1,0 +1,139 @@
+{
+  "_exportVersion": 1,
+  "appVersion": {
+    "major": 4,
+    "minor": 23
+  },
+  "exportedAt": "2026-11-21T06:40:00.000Z",
+  "workboard": {
+    "name": "Text to Image - Anima",
+    "description": "프롬프트만으로 그림을 만드는 Anima 작업판입니다. Anima 는 애니메이션·일러스트 전용 모델입니다. Danbooru 식 태그와 자연어 묘사를 함께 쓰면 잘 맞고, 품질 태그(masterpiece 등)는 판이 붙이므로 쓰지 않아도 됩니다. 부정 프롬프트가 적용됩니다 (30스텝 · CFG 4). 업스케일을 고르면 업스케일본만 저장되고, '없음' 이면 원본 크기로 저장됩니다.",
+    "workboardType": "image",
+    "outputFormat": "image",
+    "additionalInputFields": [
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "base_model",
+        "label": "베이스 모델",
+        "type": "baseModel",
+        "required": true,
+        "options": [],
+        "defaultValue": "Anima\\anima_baseV10.safetensors",
+        "description": "Anima 계열 모델. 파인튜닝판을 골라도 같은 설정으로 동작합니다.",
+        "formatString": "{{##base_model##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "image_size",
+        "label": "크기",
+        "type": "select",
+        "required": true,
+        "options": [
+          {
+            "key": "1024x1024 (1:1)",
+            "value": "1024x1024"
+          },
+          {
+            "key": "1152x896 (가로 9:7)",
+            "value": "1152x896"
+          },
+          {
+            "key": "1216x832 (가로 3:2)",
+            "value": "1216x832"
+          },
+          {
+            "key": "1344x768 (가로 16:9)",
+            "value": "1344x768"
+          },
+          {
+            "key": "896x1152 (세로 7:9)",
+            "value": "896x1152"
+          },
+          {
+            "key": "832x1216 (세로 2:3)",
+            "value": "832x1216"
+          },
+          {
+            "key": "768x1344 (세로 9:16)",
+            "value": "768x1344"
+          }
+        ],
+        "defaultValue": "1024x1024",
+        "description": "Anima 기본 1MP.",
+        "formatString": "{{##image_size##}}"
+      },
+      {
+        "imageConfig": {
+          "maxImages": 1
+        },
+        "videoConfig": {
+          "maxVideos": 1
+        },
+        "audioConfig": {
+          "maxAudios": 1
+        },
+        "name": "upscale_model",
+        "label": "업스케일 모델",
+        "type": "select",
+        "required": false,
+        "options": [
+          {
+            "key": "없음 (원본 크기 저장)",
+            "value": "0"
+          },
+          {
+            "key": "AnimeSharp V4 2x (선명, 애니 전용)",
+            "value": "2x-AnimeSharpV4_RCAN.safetensors"
+          },
+          {
+            "key": "AnimeSharp V4 Fast 2x (빠름)",
+            "value": "2x-AnimeSharpV4_Fast_RCAN_PU.safetensors"
+          },
+          {
+            "key": "Remacri 4x",
+            "value": "4x_foolhardy_Remacri.pth"
+          },
+          {
+            "key": "RealESRGAN Anime 4x",
+            "value": "RealESRGAN_x4plus_anime_6B.pth"
+          }
+        ],
+        "defaultValue": "0",
+        "description": "고르면 생성 직후 업스케일한 결과만 저장합니다.",
+        "formatString": "{{##upscale_model##}}"
+      }
+    ],
+    "workflowData": "{\n  \"1\": {\n    \"inputs\": {\n      \"unet_name\": \"{{##base_model##}}\",\n      \"weight_dtype\": \"default\"\n    },\n    \"class_type\": \"UNETLoader\",\n    \"_meta\": {\n      \"title\": \"Anima 모델\"\n    }\n  },\n  \"2\": {\n    \"inputs\": {\n      \"clip_name\": \"qwen_3_06b_base.safetensors\",\n      \"type\": \"stable_diffusion\",\n      \"device\": \"default\"\n    },\n    \"class_type\": \"CLIPLoader\",\n    \"_meta\": {\n      \"title\": \"텍스트 인코더\"\n    }\n  },\n  \"3\": {\n    \"inputs\": {\n      \"vae_name\": \"qwen\\\\qwen_image_vae.safetensors\"\n    },\n    \"class_type\": \"VAELoader\",\n    \"_meta\": {\n      \"title\": \"VAE\"\n    }\n  },\n  \"4\": {\n    \"inputs\": {\n      \"text\": \"masterpiece, best quality, score_7, safe, anime, {{##prompt##}}\",\n      \"clip\": [\n        \"2\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"긍정\"\n    }\n  },\n  \"5\": {\n    \"inputs\": {\n      \"text\": \"worst quality, low quality, score_1, score_2, score_3, blurry, jpeg artifacts, sepia, mosaic, censored, {{##negative_prompt##}}\",\n      \"clip\": [\n        \"2\",\n        0\n      ]\n    },\n    \"class_type\": \"CLIPTextEncode\",\n    \"_meta\": {\n      \"title\": \"부정\"\n    }\n  },\n  \"6\": {\n    \"inputs\": {\n      \"width\": \"{{##width##}}\",\n      \"height\": \"{{##height##}}\",\n      \"batch_size\": 1\n    },\n    \"class_type\": \"EmptyLatentImage\",\n    \"_meta\": {\n      \"title\": \"빈 latent\"\n    }\n  },\n  \"7\": {\n    \"inputs\": {\n      \"seed\": \"{{##seed##}}\",\n      \"steps\": 30,\n      \"cfg\": 4,\n      \"sampler_name\": \"er_sde\",\n      \"scheduler\": \"simple\",\n      \"denoise\": 1,\n      \"model\": [\n        \"1\",\n        0\n      ],\n      \"positive\": [\n        \"4\",\n        0\n      ],\n      \"negative\": [\n        \"5\",\n        0\n      ],\n      \"latent_image\": [\n        \"6\",\n        0\n      ]\n    },\n    \"class_type\": \"KSampler\",\n    \"_meta\": {\n      \"title\": \"샘플러\"\n    }\n  },\n  \"8\": {\n    \"inputs\": {\n      \"samples\": [\n        \"7\",\n        0\n      ],\n      \"vae\": [\n        \"3\",\n        0\n      ]\n    },\n    \"class_type\": \"VAEDecode\",\n    \"_meta\": {\n      \"title\": \"디코드\"\n    }\n  },\n  \"9\": {\n    \"inputs\": {\n      \"model_name\": \"{{##upscale_model##}}\"\n    },\n    \"class_type\": \"UpscaleModelLoader\",\n    \"_meta\": {\n      \"title\": \"업스케일 모델\"\n    }\n  },\n  \"10\": {\n    \"inputs\": {\n      \"upscale_model\": [\n        \"9\",\n        0\n      ],\n      \"image\": [\n        \"8\",\n        0\n      ]\n    },\n    \"class_type\": \"ImageUpscaleWithModel\",\n    \"_meta\": {\n      \"title\": \"업스케일 (선택)\"\n    },\n    \"_vcc\": {\n      \"bypassUnless\": {\n        \"condition\": \"{{##upscale_model##}}\",\n        \"passthrough\": {\n          \"0\": \"image\"\n        }\n      }\n    }\n  },\n  \"11\": {\n    \"inputs\": {\n      \"filename_prefix\": \"{{##user_id##}}\\\\image\\\\anima_t2i\",\n      \"images\": [\n        \"10\",\n        0\n      ]\n    },\n    \"class_type\": \"SaveImage\",\n    \"_meta\": {\n      \"title\": \"이미지 저장\"\n    }\n  }\n}",
+    "allowedModelTypes": [
+      "Anima"
+    ],
+    "allowedModelFolders": [],
+    "modelExposurePolicy": "full",
+    "modelWhitelist": [],
+    "loraExposurePolicy": "full",
+    "loraWhitelist": [],
+    "allowedLoraFolders": [],
+    "promptGeneratorInstructions": "Text to Image - Anima 판 — AI 프롬프트 작성 지침\n\n이 판은 Anima 로 프롬프트만 가지고 그림을 만든다. Anima 는 애니메이션·일러스트 전용 모델이다. 판이 프롬프트 앞에 \"masterpiece, best quality, score_7, safe, anime,\" 를 붙이고, 부정 프롬프트에도 품질 태그를 붙인다.\n\n- 완성된 프롬프트만 출력한다. 머리말, 설명, 코드 블록, 마크다운 강조를 붙이지 않는다.\n- 프롬프트 칸에 들어갈 긍정 프롬프트만 쓴다. 부정 프롬프트는 쓰지 않는다.\n- 판이 붙이는 품질 태그(masterpiece, best quality, score_7), 등급 태그(safe), anime 는 다시 쓰지 않는다.\n- 영어로 쓴다. 앞부분은 Danbooru 식 태그, 뒷부분은 자연어 묘사로 쓴다. 태그는 소문자로, 밑줄 대신 띄어쓰기로 쓴다 (예: long hair, looking at viewer).\n- 태그 순서: 인원(1girl, 1boy, 2girls, no humans 등) → 캐릭터 이름 → 작품 이름(Danbooru 에서 쓰는 이름, 예: sousou no frieren) → 작가 → 외모, 옷, 표정, 자세, 배경, 화풍 같은 그 밖의 태그. 최신 그림체를 원하면 맨 앞에 newest, year 2025 같은 시기 태그를 둘 수 있다.\n- 작가 화풍은 사용자가 작가를 말했을 때만 넣고, 이름 앞에 반드시 @ 를 붙인다 (예: @artist name). @ 가 없으면 효과가 거의 없다.\n- 알려진 캐릭터는 태그에 이름과 작품명을 넣고, 자연어 묘사에서도 이름(영어 대소문자 규칙대로) 뒤에 머리색, 눈 색, 옷 같은 기본 외모를 쓴다. 여러 명이면 인물마다 따로 묘사해야 섞이지 않는다.\n- 태그 뒤에 장면을 자연어 두세 문장으로 묘사한다 (누가 어디서 무엇을 하는지, 빛과 분위기, 화풍). 태그만 쓰고 끝내지 않는다. 묘사가 너무 짧으면 엉뚱한 결과가 나온다. 전체는 대략 50~150 단어.\n- 형식 예 (내용은 따라 하지 않는다): 1girl, solo, short black hair, red scarf, school uniform, standing, snowy street, night. A girl in a red scarf stands alone on a snowy street at night, looking up at the falling snow. Warm light from the shop windows glows behind her, drawn in soft watercolor with pale blue shadows.\n- 사용자가 말하지 않은 세부는 요청의 분위기에 맞게 보태되, 사용자가 정한 것은 바꾸지 않는다.\n- 가중치 문법은 꼭 필요할 때만 쓰고, 쓰면 (chibi:2) 처럼 높게 준다.\n- 이 모델은 실사에 약하다. 사진처럼 보이게 하라는 표현 대신 일러스트·회화 계열 화풍으로 쓴다.\n- 글자는 한 단어 정도만 그린다. 사용자가 그림 안의 문구를 정했을 때만 큰따옴표 안에 그대로 쓴다.",
+    "version": 1
+  },
+  "server": {
+    "name": "ComfyUI-Image",
+    "serverType": "ComfyUI"
+  }
+}
