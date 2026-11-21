@@ -979,7 +979,10 @@ function ImageGeneration() {
         if (jobInputData.prompt) {
           safeSetValue('prompt', jobInputData.prompt);
         }
-        if (jobInputData.negativePrompt) {
+        // 빈 문자열도 그 작업의 값이다 (#1262) — 칸을 비우고 만든 작업을 이어받을 때 칸을 비운 채로 둔다.
+        // 값을 넣지 않으면 폼이 부정 프롬프트를 아예 보내지 않아 서버가 판의 기본 부정 프롬프트를 쓴다.
+        // 부정 프롬프트 기록이 없는 옛 작업(API 가 생략해 만든 것 등)만 판 기본값으로 돈다.
+        if (typeof jobInputData.negativePrompt === 'string') {
           safeSetValue('negativePrompt', jobInputData.negativePrompt);
         }
         // customField 들은 additionalParams 네임스페이스에서 복원 (jobInputData 도 동일 구조)
@@ -1086,6 +1089,11 @@ function ImageGeneration() {
 
         // F2: baseInputFields 기반 hardcoded 기본값 제거 — customField 의 defaultValue 만 사용
         const defaultValues = {};
+
+        // 판의 기본 프롬프트·기본 부정 프롬프트 (#1262) — 새 작업에만 채운다. 계속하기는 위 분기에서
+        // 그 작업의 값을 복원하므로 여기 오지 않는다. 칸을 비우고 생성하면 빈 값이 그대로 간다.
+        if (workboardData.defaultPrompt) defaultValues.prompt = workboardData.defaultPrompt;
+        if (workboardData.defaultNegativePrompt) defaultValues.negativePrompt = workboardData.defaultNegativePrompt;
 
         // 추가 입력 필드들의 기본값 설정
         if (workboardData.additionalInputFields?.length > 0) {

@@ -3,6 +3,8 @@ const { normalizeModelFolders } = require('../utils/modelFolders');
 
 // AI 프롬프트 생성 지침 상한 (#1109) — 모델별 작성 가이드를 통째로 담을 수 있게 PromptGuide 와 같은 상한
 const PROMPT_GENERATOR_INSTRUCTIONS_MAX = 1_000_000;
+// 기본 프롬프트·기본 부정 프롬프트 상한 (#1262) — 실행 화면의 칸에 채워 넣는 값이라 프롬프트 한 건 분량이면 충분하다
+const DEFAULT_PROMPT_MAX = 20_000;
 
 const selectOptionSchema = new mongoose.Schema({
   key: {
@@ -204,6 +206,21 @@ const workboardSchema = new mongoose.Schema({
     maxlength: PROMPT_GENERATOR_INSTRUCTIONS_MAX,
     default: ''
   },
+  // 기본 프롬프트·기본 부정 프롬프트 (#1262) — 새 작업을 열면 프롬프트·부정 프롬프트 칸에 채워져 나오는 값.
+  // 모델 제공자가 권하는 품질 태그·부정 프롬프트를 워크플로 문자열에 박아 두지 않고 여기 둔다 —
+  // 사용자가 보고 고칠 수 있다. 부정 프롬프트를 보내지 않은 API·MCP 호출은 기본 부정 프롬프트로 돈다.
+  defaultPrompt: {
+    type: String,
+    trim: true,
+    maxlength: DEFAULT_PROMPT_MAX,
+    default: ''
+  },
+  defaultNegativePrompt: {
+    type: String,
+    trim: true,
+    maxlength: DEFAULT_PROMPT_MAX,
+    default: ''
+  },
   workflowData: {
     type: String,
     default: ''
@@ -295,3 +312,4 @@ workboardSchema.methods.validateWorkflowData = function() {
 
 module.exports = mongoose.model('Workboard', workboardSchema);
 module.exports.PROMPT_GENERATOR_INSTRUCTIONS_MAX = PROMPT_GENERATOR_INSTRUCTIONS_MAX;
+module.exports.DEFAULT_PROMPT_MAX = DEFAULT_PROMPT_MAX;
