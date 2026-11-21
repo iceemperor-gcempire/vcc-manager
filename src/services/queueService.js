@@ -18,7 +18,7 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const UploadedImage = require('../models/UploadedImage');
 const UploadedVideo = require('../models/UploadedVideo');
 const UploadedAudio = require('../models/UploadedAudio');
-const { DEFAULT_IMAGE_SIZE, getFieldValueByRole, getImageSizeValue, getModelValue } = require('../utils/customFieldHelpers');
+const { DEFAULT_IMAGE_SIZE, getFieldValueByRole, getImageSizeValue, getModelValue, getNegativePromptValue } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES, WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 const { decryptSecret } = require('../utils/secretCrypto');
 
@@ -512,7 +512,7 @@ const deriveAspectRatio = (imageSize) => {
 
 const buildGeminiPrompt = (inputData, workboard) => {
   const prompt = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT);
-  const negativePrompt = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT);
+  const negativePrompt = getNegativePromptValue(workboard, inputData);   // 안 보냈으면 판 기본값 (#1262)
   const segments = [prompt];
 
   if (negativePrompt) {
@@ -887,7 +887,7 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
   const hashedUserId = hashUserId(inputData.userId);
 
   const promptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT) || '';
-  const negativePromptValue = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT) || '';
+  const negativePromptValue = getNegativePromptValue(workboard, inputData) || '';   // 안 보냈으면 판 기본값 (#1262)
   const modelValue = getModelValue(workboard, inputData);
 
   // placeholder 키 정의는 src/constants/workflowVariables.js 와 frontend mirror 에 등록.
@@ -1261,7 +1261,7 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
         tags: mediaTags,
         generationParams: {
           prompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.PROMPT),
-          negativePrompt: getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT),
+          negativePrompt: getNegativePromptValue(workboard, inputData),
           model: getModelValue(workboard, inputData),
           seed: getFieldValueByRole(workboard, inputData, FIELD_ROLES.SEED),
           imageSize: getFieldValueByRole(workboard, inputData, FIELD_ROLES.IMAGE_SIZE),

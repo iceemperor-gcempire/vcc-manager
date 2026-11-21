@@ -1087,6 +1087,11 @@ function ImageGeneration() {
         // F2: baseInputFields 기반 hardcoded 기본값 제거 — customField 의 defaultValue 만 사용
         const defaultValues = {};
 
+        // 판의 기본 프롬프트·기본 부정 프롬프트 (#1262) — 새 작업에만 채운다. 계속하기는 위 분기에서
+        // 그 작업의 값을 복원하므로 여기 오지 않는다. 칸을 비우고 생성하면 빈 값이 그대로 간다.
+        if (workboardData.defaultPrompt) defaultValues.prompt = workboardData.defaultPrompt;
+        if (workboardData.defaultNegativePrompt) defaultValues.negativePrompt = workboardData.defaultNegativePrompt;
+
         // 추가 입력 필드들의 기본값 설정
         if (workboardData.additionalInputFields?.length > 0) {
           defaultValues.additionalParams = {};

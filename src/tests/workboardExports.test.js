@@ -119,6 +119,20 @@ describe('workboards/ 배포 산출물', () => {
       expect(isInModelFolders(baseModel.defaultValue, folders)).toBe(true);
     });
 
+    it('프롬프트·부정 프롬프트 자리표시자에 글자를 덧붙여 두지 않는다 (#1262)', () => {
+      // 품질 태그·부정 태그를 워크플로 문자열에 박으면 사용자가 무엇이 붙는지 볼 수도 뺄 수도 없다.
+      // 판의 기본 프롬프트·기본 부정 프롬프트(defaultPrompt · defaultNegativePrompt)에 둔다 — 실행 화면 칸에 채워져 나온다.
+      // 프롬프트를 다른 값과 조합하는 판(LoRA 태그 자리 등)이 생기면 그 판을 여기 예외로 적는다.
+      let nodes;
+      try { nodes = Object.values(workflow); } catch { return; }
+      const baked = nodes.flatMap((n) => Object.values(n.inputs || {}))
+        .filter((v) => typeof v === 'string' && /\{\{##(prompt|negative_prompt)##\}\}/.test(v))
+        .filter((v) => v !== '{{##prompt##}}' && v !== '{{##negative_prompt##}}');
+      expect(baked).toEqual([]);
+      expect(typeof (wb.defaultPrompt ?? '')).toBe('string');
+      expect(typeof (wb.defaultNegativePrompt ?? '')).toBe('string');
+    });
+
     it('required 필드에 기본값이 있다', () => {
       const missing = fields
         .filter((f) => f.required && !ATTACHMENT_FIELD_TYPES.includes(f.type))

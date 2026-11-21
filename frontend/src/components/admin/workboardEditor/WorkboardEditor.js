@@ -62,6 +62,8 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       allowedGroupIds: [],
       promptGuideIds: [],
       promptGeneratorInstructions: '',
+      defaultPrompt: '',
+      defaultNegativePrompt: '',
       modelExposurePolicy: 'full',
       modelWhitelist: [],
       loraExposurePolicy: 'full',
@@ -160,6 +162,8 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
           allowedGroupIds: (fullData.allowedGroupIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
           promptGuideIds: (fullData.promptGuideIds || []).map((g) => (typeof g === 'object' ? g._id : g)),
           promptGeneratorInstructions: fullData.promptGeneratorInstructions || '',
+          defaultPrompt: fullData.defaultPrompt || '',
+          defaultNegativePrompt: fullData.defaultNegativePrompt || '',
           modelExposurePolicy: fullData.modelExposurePolicy || 'full',
           modelWhitelist: fullData.modelWhitelist || [],
           loraExposurePolicy: fullData.loraExposurePolicy || 'full',
@@ -307,6 +311,9 @@ export function WorkboardEditor({ workboard, onSave, onCancel }) {
       promptGuideIds: data.promptGuideIds || [],
       // AI 프롬프트 생성 지침 (#1109) — 이미지·영상 판에만 의미가 있다. 텍스트 판은 카드가 없으므로 비운다
       promptGeneratorInstructions: (data.outputFormat || 'image') !== 'text' ? (data.promptGeneratorInstructions || '') : '',
+      // 기본 프롬프트·기본 부정 프롬프트 (#1262) — 텍스트 판은 카드가 없으므로 비운다
+      defaultPrompt: (data.outputFormat || 'image') !== 'text' ? (data.defaultPrompt || '') : '',
+      defaultNegativePrompt: (data.outputFormat || 'image') !== 'text' ? (data.defaultNegativePrompt || '') : '',
       modelExposurePolicy: data.modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(data.modelWhitelist) ? data.modelWhitelist : [],
       loraExposurePolicy: isComfyUIServer && data.loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
