@@ -48,7 +48,7 @@ Music 3 판은 폴더 제한만 있어 같은 `minimax/` 폴더의 H3 모델도 
 | FL2V (AV1)·(Pika Flex)·(Turbo), 키프레임 앵커 (Turbo), I2V 긴 영상·(Turbo) | `minimax_h3_fl2va_int8_convrot`·`_bf16`·`_pruned_w6a8` (Comfy-Org), `_pruned_nvfp4_all` (커뮤니티, ⁸) |
 | R2V (AV1)·(Pika Flex)·(Turbo), R2V 긴 영상 (Turbo) | `minimax_h3_ref2va_int8_convrot`·`_pruned_w6a8` (Comfy-Org) |
 | R2V (FastH3 Omni) | `fasth3_omniref_8step_pruned_int8_convrot` |
-| R2V (PRISM)·(PRISM+Pika), FL2V (PRISM+Pika) | 그 판의 병합 모델 하나 (아래 「PRISM 병합 모델」) |
+| R2V (PRISM), FL2V (PRISM) | 고정하지 않는다 — `minimax/` 폴더의 모델에서 직접 고른다 (아래 「8스텝 병합 모델용 판」) |
 
 - 허용 목록은 **선택 목록**을 거른다. 실행할 때 막는 것은 폴더 제한뿐이라, API·MCP 로 목록 밖 모델 이름을 넘기면 지나간다
 - 새 모델을 쓰려면 위 규칙에 맞는 판의 허용 목록에 넣는다 (작업판 편집기의 워크플로 설정 → 모델 노출 정책). 서버 파일 이름이 다르면 목록도 그 이름으로 바꾼다
@@ -64,8 +64,8 @@ LoRA 선택 칸에 다른 폴더의 LoRA 를 넣으면 실행이 거절된다 (#
 | 판 | 허용 LoRA 폴더 |
 |---|---|
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `style/openmoss/` |
-| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM+Pika) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
-| MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) · R2V (PRISM+Pika) | `style/Minimax/ref2va/` |
+| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
+| MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) | `style/Minimax/ref2va/` |
 
 LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
 
@@ -102,11 +102,10 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
-| `comfyui/minimax-h3-fl2v-prism-pika.json` | MiniMax H3 - FL2V (PRISM+Pika) | 영상 + 오디오 · 첫·끝 프레임 · 커뮤니티 병합 모델, **8스텝 lcm · 시프트 12/3** (가속 LoRA 없음) · 소리는 FL2V (Pika Flex) 보다 약간 못하다 | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-fl2v-prism.json` | MiniMax H3 - FL2V (PRISM) | 영상 + 오디오 · 첫·끝 프레임 · 8스텝 가속이 병합된 커뮤니티 모델용, **8스텝 · 시프트 12/3** (가속 LoRA 없음) · 샘플링 선택 (기본 lcm · simple) | 8스텝 가속이 병합된 H3 모델 (직접 준비, 아래 「8스텝 병합 모델용 판」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
-| `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 커뮤니티 병합 모델, 터보 LoRA 없이 8스텝 · **프롬프트에 참조 태그 필요** | `minimax/PRISM_DMAD_PDMD_int8` (20.3 GB, 아래 「PRISM 병합 모델」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
-| `comfyui/minimax-h3-r2v-prism-pika.json` | MiniMax H3 - R2V (PRISM+Pika) | 〃 · Pika Flex 0.85 병합본, 8스텝 lcm · 시프트 12/3 (Pika LoRA 없음) | `minimax/10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ` (20.2 GB) + 위와 같다 |
+| `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 8스텝 가속이 병합된 커뮤니티 모델용, 가속 LoRA 없이 8스텝 · 샘플링 선택 (기본 euler · beta57) · **프롬프트에 참조 태그 필요** | 8스텝 가속이 병합된 H3 모델 (직접 준비, 아래 「8스텝 병합 모델용 판」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · **AI 프롬프트 생성 권장** (판 안 늘려 쓰기는 기본 끔) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
@@ -363,31 +362,31 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
 - 끝의 대사 한 줄은 30개 중 29개에서 그대로 들렸고, 소리 크기(−12~−14 LUFS)는 구성 사이에 차이가 없었다
 - 시작·끝 프레임, 키프레임 앵커 ①②③ 을 넣은 경우에도 합본 4step 이 lightx2v 4step 만큼 앵커를 지켰다 (앵커 위치 SSIM 0.97 · 0.93 · 0.97, 대조군과 같음)
 
-### PRISM 병합 모델 — R2V 판 2개 · FL2V 판 1개 (커뮤니티)
+### 8스텝 병합 모델용 판 — R2V (PRISM) · FL2V (PRISM)
 
-[🤗 OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM](https://huggingface.co/OliviaRossi/Minimax-h3_Singularity-x-10Eros-Max_PRISM) 의 커뮤니티 병합 모델 두 개로 만든 판이다.
-원본은 [Singularity](https://huggingface.co/WarmBloodAban/Minimax-h3_Singularity)(ref2va v2 미세조정)와 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max)(8step turbo)다.
-저장소에는 변형이 11개 있고, 판은 아래 두 파일만 쓴다.
+8스텝 가속(터보·Pika 등)이 본체에 병합된 커뮤니티 모델을 돌리는 판이다. PRISM 계열 병합 모델로 시험해 만들었고, 같은 방식의 다른 병합 모델도 고를 수 있다.
+이런 모델을 Turbo·Pika Flex 판에서 고르면 가속이 두 번 걸리고(소리 전 대역에 울림), 공식 판(20스텝)에서 고르면 스텝이 맞지 않는다 — 그래서 판을 따로 둔다.
 
-| 판 | 파일 (`diffusion_models/minimax/`) | 샘플링 |
-|---|---|---|
-| **R2V (PRISM)** | `PRISM_DMAD_PDMD_int8.safetensors` (20.3 GB) | 8스텝 · euler · beta57 · 시프트 12/3, 터보 LoRA 없음 |
-| **R2V (PRISM+Pika)** | `10Eros_Max_SingularityV2_PRISM2_PikaFlex_0.85_int8HQ.safetensors` (20.2 GB) | 8스텝 · lcm · simple · 시프트 12/3, Pika LoRA 없음 |
-| **FL2V (PRISM+Pika)** | 위와 같은 파일 | R2V (PRISM+Pika) 와 같다 |
+- **모델을 고정하지 않는다.** 허용 모델 목록도 기본 모델도 비어 있고, `diffusion_models/minimax/` 의 모델에서 직접 고른다. 모델은 각자 준비한다.
+  이 판에서 가속이 없는 모델(공식 H3 본체 등)을 고르면 LoRA 없이 8스텝으로 돌게 되므로 맞지 않는다. API·MCP 로 부를 때는 모델을 반드시 넘긴다
+- **가속 LoRA 를 걸지 않는다.** 워크플로는 R2V (Turbo)·FL2V (Pika Flex) 판에서 가속 LoRA 노드를 뺀 구성이다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 8스텝 · 시프트 12/3 고정
+- **「샘플링」 칸** — 모델 배포처가 권하는 쪽을 고른다. 고르면 샘플러와 스케줄러가 함께 바뀐다
 
-- 둘 다 pruned int8 convrot 이다. ComfyUI 0.44.0 에서 재시작 없이 목록에 보였고 오류 없이 올라갔다
-- **가속·Pika 가 이미 병합돼 있어 가속 LoRA 를 걸지 않는다.** R2V (PRISM) 은 R2V (Turbo) 판에서 터보 LoRA 노드만 뺀 구성이고, PRISM+Pika 두 판은 (Pika Flex) 판에서 Pika LoRA 를 빼고 샘플링을 바꿨다 (스타일 LoRA 칸은 있다 — 아래 「스타일 LoRA」). 모델 선택 목록을 그 병합본 하나로 좁혀
-  둔 것도 그래서다 — 공식 모델을 LoRA 없이 6~8스텝으로 돌리는 조합이 생기지 않게
-- 스케줄러는 모델 카드 권장 beta57 이다. beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다
-  (기본값 0.6·0.6). 판은 ComfyUI 기본 노드 `BetaSamplingScheduler` 에 이 두 값을 넣어 같은 시그마를 만든다 — 노드팩이 필요 없다
-- **프롬프트에서 참조를 태그로 불러야 한다.** 참조를 `<Picture 1>` 처럼 부르고 이어받을 특징을 글로도 적은 Ref2VA 형식에서는 두 판 모두 참조를 지켰다.
+  | 선택 | 구성 | 쓰는 경우 |
+  |---|---|---|
+  | euler · beta57 (R2V 기본) | `euler` + `BetaSamplingScheduler` (alpha 0.5 · beta 0.7) | 터보만 병합된 모델 (배포처 권장 조합) |
+  | lcm · simple (FL2V 기본) | `lcm` + `BasicScheduler` (simple) | Pika 가 섞인 병합 모델 (소리가 더 깨끗했다 — 아래 시험) |
+
+  beta57 은 RES4LYF 커스텀 노드팩이 목록에 넣는 이름인데, 실체는 ComfyUI 기본 `beta` 스케줄러를 alpha 0.5·beta 0.7 로 부른 것이다 (기본값 0.6·0.6).
+  판은 ComfyUI 기본 노드로 같은 시그마를 만든다 — 노드팩이 필요 없다. 두 구성의 전환도 기본 노드(`StringCompare`·`ComfySwitchNode`)다
+- **R2V 는 프롬프트에서 참조를 태그로 불러야 한다.** 참조를 `<Picture 1>` 처럼 부르고 이어받을 특징을 글로도 적은 Ref2VA 형식에서는 참조를 지켰다.
   태그도 설명도 없는 기본 형식 프롬프트에서는 참조를 거의 따르지 않았다 (공식 모델은 지켰다). AI 프롬프트 생성은 이 형식으로 써 준다
 - R2V 시험은 장면 1개(애니 화풍)·각 1회다. 속도는 3회 중앙값을 재지 않아 적지 않는다
-- **FL2V (PRISM+Pika)** (#1242) — 병합본 원본 한쪽(Singularity)이 ref2va 라 FL2V 는 원래 용도 밖이다. 그래서 시험한 뒤에 넣었다.
-  FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다. 장면 4개(끝 프레임 있음·없음·같음)를 시드 1개씩, 각 1회 돌렸다
+- **FL2V (PRISM)** (#1242) — ref2va 계열에서 나온 병합 모델을 FL2V 로 돌리는 것은 원래 용도 밖이다. 그래서 시험한 뒤에 넣었다.
+  장면 4개(끝 프레임 있음·없음·같음)를 시드 1개씩, 각 1회 돌렸다 (Pika 가 섞인 병합 모델)
   - 첫·끝 프레임은 FL2V (Pika Flex) 공식 구성과 비슷하게 지켰다 (끝 프레임 PSNR 39.1, 공식 40.7). 세부 묘사도 비슷하다.
     카메라가 일찍 뒤로 빠져 전신 구도가 되는 경향이 있고, "Static Shot" 같은 고정 지시를 덜 따랐다
-  - **샘플링은 소리로 골랐다.** 같은 시드로 네 구성을 비교했다 (장면 3개, 각 1회, 지표와 스펙트로그램 — 사람이 들은 판정은 아니다)
+  - **기본 샘플링은 소리로 골랐다.** 같은 시드로 네 구성을 비교했다 (장면 3개, 각 1회, 지표와 스펙트로그램 — 사람이 들은 판정은 아니다)
 
     | 구성 | 잡음 바닥 (장면 B · B-FL) | 장면 C 피크 · 저역 | 판정 |
     |---|---|---|---|
@@ -395,13 +394,11 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
     | Pika 6스텝 고정 시그마 · lcm | −55 · −63 dB | **+1.9 dB (클리핑)** · −20 dB | 처음부터 낮은 험이 깔리고 저음이 부풀었다 |
     | euler · simple 8스텝 · 시프트 6/3 | −40 · −90 dB | −1.8 dB · −25 dB | 효과음에 음정 있는 울림이 층층이 쌓였다 |
     | er_sde · sgm_uniform 8스텝 · 시프트 12/3 | −60 · −94 dB | +0.1 dB · −27 dB | 험이 남았다 |
-    | **lcm · simple 8스텝 · 시프트 12/3 (판)** | **−94 · −94 dB** | −0.4 dB · −35 dB | 험이 없어졌다 |
+    | **lcm · simple 8스텝 · 시프트 12/3 (기본)** | **−94 · −94 dB** | −0.4 dB · −35 dB | 험이 없어졌다 |
 
-    마지막 구성은 터보 원본 [10Eros-Max](https://huggingface.co/TenStrip/10Eros-Max) 카드가 권하는 값(시프트 12/3, "LCM/simple 6-8 steps — best turbo audio")이다.
-    병합본 카드에는 이 파일의 권장 설정이 없다. 화면(원본 크롭·흐림 지표)과 첫·끝 프레임은 구성 사이에 뚜렷한 차이가 없었다
-  - **남은 약점:** 판 구성에서도 효과음 구간에 음정 있는 울림이 몇 줄 남고, 효과음 사이 무음이 공식 구성의 절반쯤이다. 소리가 중요하면 FL2V (Pika Flex) 판을 쓴다
-  - **FL2V (Turbo) 판에서 이 병합본을 고르면 안 된다** — 터보가 두 번 걸려 소리 전 대역에 울림이 생긴다. 그래서 Turbo 판 허용 목록에는 없다
-- **R2V (PRISM+Pika) 도 같은 샘플링으로 맞췄다** (#1247). 처음에는 R2V (Pika Flex) 판처럼 Pika 6스텝 고정 시그마였다.
+    화면(원본 크롭·흐림 지표)과 첫·끝 프레임은 구성 사이에 뚜렷한 차이가 없었다
+  - **남은 약점:** 기본 구성에서도 효과음 구간에 음정 있는 울림이 몇 줄 남고, 효과음 사이 무음이 공식 구성의 절반쯤이다. 소리가 중요하면 FL2V (Pika Flex) 판을 쓴다
+- **R2V 에서 Pika 가 섞인 병합 모델은 lcm · simple 이 낫다** (#1247). Pika 6스텝 고정 시그마와 비교했다.
   참조 이미지 3장(새로 생성한 애니·실사·회화 그림)을 같은 시드로 공식 R2V (Pika Flex) · 계단 · lcm 8 세 구성에 각 1회 돌렸다
   - 대사 장면은 세 구성 모두 대사를 그대로 받아 적었다 (음성 인식). 고역은 lcm 8 이 공식과 같았다 (−42.6 · −64.4 dB, 공식 −42.2 · −64.4, 계단 −39.6 · −59.6)
   - 효과음 장면은 lcm 8 의 저역이 공식에 가까웠다 (−36.8 dB, 공식 −37.7, 계단 −28.0). 잡음 바닥 −71 dB (계단 −62, 공식 −87)
@@ -410,14 +407,11 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
   - **같은 페이로드를 다시 돌려도 결과가 달라진다.** 바람 장면 lcm 8 을 그대로 한 번 더 돌리니 영상 PSNR 23.5 dB, 소리 지표는 대역별로 0.2~2.7 dB 움직였다
     (원인은 Sol-Attn 의 토큰 보강이다 — 위 「가속 — Sol-Attn」, #1248). 그래서 대사·바람 장면 차이는 크지 않다고 본다.
     효과음 장면의 저역·잡음 바닥 차이(9 dB)와 FL2V 의 잡음 바닥 차이(30~40 dB)·클리핑은 이 편차보다 훨씬 크다
-  - 정리: 효과음 장면은 뚜렷이 나아졌고, 대사 장면은 조금 나아졌고, 바람 장면은 조금 나빠졌다. FL2V (PRISM+Pika) 와 설정을 맞추는 쪽으로 정했다.
-    6스텝에서 8스텝이 돼 조금 더 걸린다 (속도는 3회 중앙값을 재지 않아 적지 않는다)
-- 라이선스: H3 파생 모델이라 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 모델 라이선스를 `minimax/` 폴더에 붙여 두었다면 이 두 파일도 그 라이선스로
-  표시된다. 다만 10Eros-Max 카드에는 LTX 2.3·Wan 2.2·Krea 2 커뮤니티 라이선스도 적용된다는 문구가 있으니, 상업적으로 쓰기 전에는 원본 카드를 확인한다
+- 라이선스: H3 파생 모델은 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 병합 모델은 원본마다 조건이 더 붙을 수 있으니, 쓰기 전에 그 모델의 배포처 안내를 확인한다
 
-### 스타일 LoRA — 판 10개의 선택 칸
+### 스타일 LoRA — 판 9개의 선택 칸
 
-FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM+Pika)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (PRISM+Pika)·R2V 긴 영상 (Turbo)
+FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V 긴 영상 (Turbo)
 판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
 
 - **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
@@ -426,8 +420,8 @@ FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM+Pika)·키프레임 앵커 (Turbo)·
 
   | 둘 곳 (`loras/`) | 쓰는 판 |
   |---|---|
-  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM+Pika) · 키프레임 앵커 (Turbo) |
-  | `style/Minimax/ref2va/` | R2V 판 6개 (R2V 긴 영상 Turbo 포함) |
+  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · 키프레임 앵커 (Turbo) |
+  | `style/Minimax/ref2va/` | R2V 판 5개 (R2V 긴 영상 Turbo 포함) |
 
   파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다
 - 걸리는 자리: 가속 LoRA(터보·Pika 합본)가 있는 판은 그 뒤, 없는 판(PRISM·FastH3)은 본체 바로 뒤다. 시그마 시프트보다 앞이다.
@@ -435,7 +429,7 @@ FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM+Pika)·키프레임 앵커 (Turbo)·
 - **스텝 12** — (Turbo) 판 셋(FL2V·키프레임 앵커·R2V)은 샘플링 스텝에 12 를 고를 수 있다 (기본 8, 터보 LoRA 는 8step 그대로).
   스타일 LoRA 를 걸었을 때 12 가 나은 경우가 있어 넣었다 — R2V (Turbo) 같은 시드 비교에서 머리카락·옷 선이 더 또렷했다.
   LoRA 마다 달라 **스타일 LoRA 를 골라도 스텝은 자동으로 바뀌지 않는다.** 스텝이 늘어난 만큼 오래 걸린다.
-  증류 본체 판(PRISM·PRISM+Pika·FastH3 Omni)은 8 그대로다 — PRISM 에 12 를 주면 화면 전체에 격자 무늬가 생긴다 (#1161)
+  가속이 든 본체 판(PRISM·FastH3 Omni)은 8 그대로다 — PRISM 에 12 를 주면 화면 전체에 격자 무늬가 생긴다 (#1161)
 - 프롬프트에 `<lora:이름:가중치>` 태그를 적어도 H3 판에서는 걸리지 않는다. 이 판들의 워크플로에는 태그를 읽는 LoRA 태그 로더가 없고,
   그래서 생성 화면에 "LoRA 추가" 칸도 뜨지 않는다 (#1155). LoRA 는 이 선택 칸으로 건다
 
