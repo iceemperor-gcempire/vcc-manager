@@ -124,6 +124,16 @@ H.264 만 쓰면 VHS 동봉 바이너리로 충분해 별도 ffmpeg 설치가 �
 ² **Sketch to Image 3종**은 업로드한 스케치의 비율로 **1M 픽셀·32px 버킷** 크기를 자동 계산하고,
 원본 크기와 업스케일본(선택한 모델: AnimeSharp 2x / Remacri 4x / RealESRGAN 4x 등)을 함께 저장한다.
 Anima 판은 업스케일본 한 장만 저장한다 (#1253).
+
+**기본 프롬프트 · 기본 부정 프롬프트** (#1262) — 아래 판은 새 작업을 열면 프롬프트·부정 프롬프트 칸에 값이 채워져 나온다.
+워크플로가 몰래 붙이지 않으므로 보고 고치거나 지울 수 있다. API·MCP 는 프롬프트를 보낸 그대로 쓰고, 부정 프롬프트를 생략했을 때만 기본값을 쓴다.
+
+| 판 | 기본 프롬프트 | 기본 부정 프롬프트 | 출처 |
+|---|---|---|---|
+| Text to Image - Anima · Sketch to Image - Anima | `masterpiece, best quality, score_7, safe,` | `worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration` | Anima 모델 카드 「Prompting」 절의 권장값 (Aesthetic 모델은 score 태그를 빼라고 권한다 — 칸에서 지우면 된다) |
+| Sketch to Image - SDXL | `masterpiece, best quality,` | `worst quality, low quality, watermark` | 이 판이 워크플로에 넣어 두던 값 그대로 (SDXL 은 파인튜닝마다 권장값이 달라 고쳐 쓴다) |
+
+Qwen-Image 2.1 · Krea 2 판은 비워 둔다 — CFG 1 로 돌아 부정 프롬프트가 계산에 들어가지 않는다 (ComfyUI 는 CFG 가 1 이면 부정 조건을 건너뛴다).
 업스케일 모델은 `models/upscale_models/` 에 있어야 한다.
 
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:

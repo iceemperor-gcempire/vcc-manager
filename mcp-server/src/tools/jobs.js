@@ -17,9 +17,9 @@ export function registerJobTools(server, apiRequest) {
     'Generate an image, video or audio using a workboard (for text workboards use generate_text). Call get_workboard first to see available options. Fields you omit use the workboard defaults (like the web form), so usually only the prompt and any image fields are needed. Select fields in additionalParams accept the option key (display name) or value — mapping is handled automatically.',
     {
       workboardId: z.string().describe('Workboard ID (get from list_workboards)'),
-      prompt: z.string().describe('Generation prompt text'),
+      prompt: z.string().describe('Generation prompt text. Sent as is — if get_workboard shows a defaultPrompt (quality tags the model provider recommends), prepend it yourself when you want it'),
       aiModel: z.string().optional().describe('Base model file path, exactly as get_workboard baseModel shows it (default / options). Omit to use the workboard default. Must be inside baseModel.allowedFolders when set'),
-      negativePrompt: z.string().optional().describe('Negative prompt'),
+      negativePrompt: z.string().optional().describe('Negative prompt. Omit to use the workboard default (get_workboard defaultNegativePrompt); send an empty string for none'),
       imageSize: z.string().optional().describe('Legacy top-level image size. Prefer the size field in additionalParams (see get_workboard additionalFields)'),
       stylePreset: z.string().optional().describe('Style preset name'),
       upscaleMethod: z.string().optional().describe('Upscale method name'),

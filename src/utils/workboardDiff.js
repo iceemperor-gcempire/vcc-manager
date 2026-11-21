@@ -86,6 +86,13 @@ function diffWorkboard(existingDoc, incoming) {
     && !same(trimmedOf(existing.promptGeneratorInstructions), trimmedOf(incoming.promptGeneratorInstructions))) {
     change('promptGeneratorInstructions', 'promptGeneratorInstructions');
   }
+  // 기본 프롬프트·기본 부정 프롬프트 (#1262) — 같은 규칙 (trim 비교, 옛 export 는 건드리지 않음).
+  // 새 작업의 칸 초기값과 부정 프롬프트를 안 보낸 호출에만 영향을 줘 경고는 붙이지 않는다.
+  for (const k of ['defaultPrompt', 'defaultNegativePrompt']) {
+    if (incoming[k] !== undefined && !same(trimmedOf(existing[k]), trimmedOf(incoming[k]))) {
+      change(k, k, `${trimmedOf(existing[k]) || '(없음)'} → ${trimmedOf(incoming[k]) || '(없음)'}`);
+    }
+  }
 
   // ---- 입력 필드 ----
   const oldFields = (existing.additionalInputFields || []).map(plain);
@@ -214,7 +221,7 @@ function diffWorkboard(existingDoc, incoming) {
 const UPDATABLE_FIELDS = Object.freeze([
   'description', 'workboardType', 'outputFormat', 'additionalInputFields', 'workflowData',
   'allowedModelTypes', 'allowedModelFolders', 'modelExposurePolicy', 'modelWhitelist', 'loraExposurePolicy', 'loraWhitelist',
-  'allowedLoraFolders', 'promptGeneratorInstructions',
+  'allowedLoraFolders', 'promptGeneratorInstructions', 'defaultPrompt', 'defaultNegativePrompt',
 ]);
 
 module.exports = { diffWorkboard, UPDATABLE_FIELDS, placeholdersIn };

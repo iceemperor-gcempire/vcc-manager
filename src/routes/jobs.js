@@ -188,7 +188,11 @@ router.post('/generate', requireAuth, async (req, res) => {
 
     const inputData = {
       prompt: prompt.trim(),
-      negativePrompt: negativePrompt?.trim(),
+      // 안 보냈으면 판의 기본 부정 프롬프트 (#1262) — 실행(queueService)과 같은 값을 기록해 계속하기가 그대로 이어받는다.
+      // 빈 문자열은 "없음" 으로 보낸 것이라 그대로 둔다
+      negativePrompt: (negativePrompt === undefined || negativePrompt === null)
+        ? (wb.defaultNegativePrompt || undefined)
+        : negativePrompt.trim(),
       aiModel,
       imageSize,
       referenceImages: referenceImages || [],
