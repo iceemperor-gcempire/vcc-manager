@@ -39,32 +39,23 @@ const FAMILY_BY_NODE = {
   MiniMaxH3ReferenceToVideo: ['ref2v', 'omniref'],
 };
 
-// 이름에 계열 토큰이 없는 커뮤니티 병합본은 파일 헤더가 밝힌 원본 계열로 따로 적는다
-// (#1148 — PRISM 병합본 헤더의 source_a 가 Singularity ref2va v2)
-const FAMILY_BY_FILE = {
-  'prism_dmad_pdmd_int8.safetensors': 'ref2v',
-  '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors': 'ref2v',
-};
+// 이름에 계열 토큰이 없는 모델을 판의 기본·허용 모델로 둘 때, 파일 헤더가 밝힌 원본 계열을 여기 적는다.
+// 지금은 없다 — 커뮤니티 병합 모델용 판은 모델을 고정하지 않는다 (#1252)
+const FAMILY_BY_FILE = {};
 
 const baseName = (model) => String(model).split('\\').pop().toLowerCase();
 /** 계열 판정용 이름 — 병합본은 헤더의 원본 계열, 나머지는 파일명 그대로 */
 const familyOf = (model) => FAMILY_BY_FILE[baseName(model)] || baseName(model);
 
-// 다른 계열 모델을 시험한 뒤 그 판에만 들인 경우 — 계열 규칙의 예외는 판 파일마다 여기 적는다
-// #1242 — PRISM+Pika 병합본(원본 한쪽이 ref2va)을 FL2V 에서 시험: 첫·끝 프레임과 화질은 FL2V (Pika Flex) 와 비슷, 소리는 약간 못하다
-//         (샘플링을 lcm · 8스텝 · 시프트 12/3 으로 바꿔 Pika 계단의 험·클리핑은 없앴다).
-//         FL2V 사용이 R2V 보다 훨씬 많아 FL2V 판을 둔다 (11-20 사용자 결정)
-const CROSS_FAMILY_TESTED = {
-  'minimax-h3-fl2v-prism-pika.json': ['10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors'],
-};
+// 다른 계열 모델을 시험한 뒤 그 판에만 들인 경우 — 계열 규칙의 예외는 판 파일마다 여기 적는다.
+// 지금은 없다 (#1252 — 모델을 고정하지 않는 판은 계열 검사 대상이 아니다)
+const CROSS_FAMILY_TESTED = {};
 const crossFamilyTested = (file, model) => (CROSS_FAMILY_TESTED[file] || []).includes(baseName(model));
 
 // 가속이 이미 들어 있는 모델 (#1245). 이 모델에 터보·Pika LoRA 를 더하면 가속이 두 번 걸린다 —
-// 11-20 PRISM+Pika 병합본을 FL2V Turbo 판에서 돌려 줄무늬 울림, R2V Pika 판에서 돌려 Pika 가 두 번 걸렸다.
+// 11-20 8스텝 병합 모델을 FL2V Turbo 판에서 돌려 줄무늬 울림, R2V Pika 판에서 돌려 Pika 가 두 번 걸렸다.
 // 파일 이름으로는 가릴 수 없어(공식 접두가 없는 원본형 파인튜닝도 있다) 하나씩 적는다.
 const BAKED_ACCELERATION = new Set([
-  'prism_dmad_pdmd_int8.safetensors',                                  // 10Eros 8step turbo 병합 (#1148)
-  '10eros_max_singularityv2_prism2_pikaflex_0.85_int8hq.safetensors',  // 위 + Pika 0.85 (#1148, #1242)
   'fasth3_omniref_8step_pruned_int8_convrot.safetensors',              // FastH3 Omni 8스텝 증류 (#1093)
 ]);
 
@@ -131,6 +122,8 @@ describe('workboards/ 배포 산출물', () => {
     it('required 필드에 기본값이 있다', () => {
       const missing = fields
         .filter((f) => f.required && !ATTACHMENT_FIELD_TYPES.includes(f.type))
+        // 모델을 고정하지 않는 판은 베이스 모델을 비워 둔다 — 설치자 서버의 모델에서 직접 고른다 (#1252)
+        .filter((f) => f.type !== 'baseModel')
         .filter((f) => f.defaultValue === undefined || f.defaultValue === null || f.defaultValue === '')
         .map((f) => f.name);
       expect(missing).toEqual([]);
@@ -163,6 +156,7 @@ describe('workboards/ 배포 산출물', () => {
       expect(baseModel).toBeDefined();
 
       // 파일명 표기는 fl2va / ref2va 처럼 접미가 붙는다 — 계열 토큰만 확인한다
+      if (!baseModel.defaultValue) return; // 모델을 고정하지 않는 판 (#1252)
       if (crossFamilyTested(exported.file, baseModel.defaultValue)) return;
       expect(familyOf(baseModel.defaultValue)).toMatch(new RegExp(tokens.join('|')));
     });
@@ -216,6 +210,14 @@ describe('workboards/ 배포 산출물', () => {
       const baseModel = fields.find((f) => f.name === 'base_model');
       if (conditioning.length !== 1 || !baseModel) return;
 
+      // 예외: 모델을 고정하지 않는 범용 판 (#1252). 가속이 병합된 커뮤니티 모델은 설치자마다 달라 이름으로 적을 수 없다.
+      // 기본 모델을 비우고 폴더 전체를 열되, 가속 LoRA 를 더 걸지는 않아야 한다 (병합 모델에 가속이 두 번 걸린다).
+      if (!baseModel.defaultValue) {
+        expect(wb.modelExposurePolicy).toBe('full');
+        expect(wb.modelWhitelist || []).toEqual([]);
+        expect(addsAcceleration(workflow, fields)).toBe(false);
+        return;
+      }
       expect(wb.modelExposurePolicy).toBe('whitelist');
       const list = wb.modelWhitelist || [];
       expect(list.length).toBeGreaterThan(0);
@@ -227,6 +229,27 @@ describe('workboards/ 배포 산출물', () => {
       const baked = list.filter((m) => BAKED_ACCELERATION.has(baseName(m)));
       if (addsAcceleration(workflow, fields)) expect(baked).toEqual([]);
       if (BAKED_ACCELERATION.has(baseName(baseModel.defaultValue))) expect(baked).toEqual(list);
+    });
+
+    it('샘플링 선택 칸은 샘플러와 스케줄러를 함께 바꾼다 (#1252)', () => {
+      // 샘플러만 바꾸고 스케줄러를 그대로 두면 모델 배포처가 권한 조합(euler · beta57 / lcm · simple)이 깨진다.
+      const sampling = fields.find((f) => f.name === 'sampling');
+      if (!sampling) return;
+      expect((sampling.options || []).map((o) => o.value).sort()).toEqual(['euler', 'lcm']);
+      const nodes = Object.entries(workflow);
+      const select = nodes.filter(([, n]) => n.class_type === 'KSamplerSelect');
+      expect(select.map(([, n]) => n.inputs.sampler_name)).toEqual(['{{##sampling##}}']);
+      const [cmpId, cmp] = nodes.find(([, n]) => n.class_type === 'StringCompare' && n.inputs.string_a === '{{##sampling##}}');
+      expect(cmp.inputs).toMatchObject({ string_b: 'lcm', mode: 'Equal' });
+      const [swId, sw] = nodes.find(([, n]) => n.class_type === 'ComfySwitchNode' && JSON.stringify(n.inputs.switch) === JSON.stringify([cmpId, 0]));
+      const onTrue = workflow[sw.inputs.on_true[0]];
+      const onFalse = workflow[sw.inputs.on_false[0]];
+      expect(onTrue).toMatchObject({ class_type: 'BasicScheduler', inputs: { scheduler: 'simple' } });
+      expect(onFalse).toMatchObject({ class_type: 'BetaSamplingScheduler', inputs: { alpha: 0.5, beta: 0.7 } });
+      expect(onTrue.inputs.steps).toEqual(onFalse.inputs.steps);
+      expect(onTrue.inputs.model).toEqual(onFalse.inputs.model);
+      const advanced = nodes.filter(([, n]) => n.class_type === 'SamplerCustomAdvanced');
+      expect(advanced.map(([, n]) => n.inputs.sigmas)).toEqual([[swId, 0]]);
     });
 
     it('계열 예외 목록의 판이 실제로 있고 그 모델을 쓴다 (#1242)', () => {
