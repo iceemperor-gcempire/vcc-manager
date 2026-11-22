@@ -33,7 +33,7 @@ describe('미디어 축 상수 (#808)', () => {
 describe('첨부형 필드 타입 리터럴 재도입 방지 (#808)', () => {
   // 실제로 이 목록이 4곳에 흩어져 있었다
   const targets = [
-    ['services', 'generationRequest.js'], // 생성 요청 검증 — routes/jobs.js 에서 옮겨 왔다 (#1269)
+    ['routes', 'jobs.js'],
     ['services', 'queueService.js'],
   ];
 
