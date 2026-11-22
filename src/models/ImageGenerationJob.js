@@ -17,6 +17,12 @@ const imageGenerationJobSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SequenceRun'
   },
+  // 채팅 대화에서 만든 작업 (#1282). 작업 히스토리에는 보통 작업으로 보이고, 채팅 화면이 이 연결로
+  // 진행·결과를 읽는다. 대화를 지워도 작업은 남는다 — 생성물은 사용자 것이다.
+  conversationId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'ConversationJob'
+  },
   status: {
     type: String,
     enum: ['pending', 'processing', 'completed', 'failed', 'cancelled'],
@@ -191,5 +197,7 @@ imageGenerationJobSchema.methods.canRetry = function() {
 imageGenerationJobSchema.index({ userId: 1, createdAt: -1 });
 imageGenerationJobSchema.index({ status: 1, priority: -1, createdAt: 1 });
 imageGenerationJobSchema.index({ workboardId: 1 });
+// 채팅 화면이 대화의 작업을 읽는다 (#1282). 대부분의 작업에는 이 필드가 없다
+imageGenerationJobSchema.index({ conversationId: 1, createdAt: -1 }, { sparse: true });
 
 module.exports = mongoose.model('ImageGenerationJob', imageGenerationJobSchema);

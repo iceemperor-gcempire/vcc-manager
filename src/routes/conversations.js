@@ -2,6 +2,7 @@ const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ConversationJob = require('../models/ConversationJob');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
+const { toConversationListItem } = require('../utils/conversationView');
 
 const router = express.Router();
 
@@ -29,7 +30,7 @@ router.get('/my', requireAuth, async (req, res) => {
     res.json({
       success: true,
       data: {
-        conversations: items,
+        conversations: items.map(toConversationListItem), // 도구 결과 본문은 목록에서 줄인다 (#1282)
         pagination: {
           current: page,
           pages: Math.ceil(total / limit),
@@ -63,7 +64,7 @@ router.get('/all', requireAdmin, async (req, res) => {
     res.json({
       success: true,
       data: {
-        conversations: items,
+        conversations: items.map(toConversationListItem), // 도구 결과 본문은 목록에서 줄인다 (#1282)
         pagination: { current: page, pages: Math.ceil(total / limit), total },
       },
     });

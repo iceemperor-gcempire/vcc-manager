@@ -8,6 +8,7 @@ const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const ConversationJob = require('../models/ConversationJob');
+const { isChatConversation } = require('../utils/conversationView');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
@@ -450,6 +451,11 @@ router.post('/generate-prompt', requireAuth, async (req, res) => {
       }
       if (String(conversation.workboardId) !== String(workboard._id)) {
         return res.status(400).json({ message: '대화가 다른 작업판에 속해 있습니다.' });
+      }
+      // 채팅 화면의 대화는 이 경로로 잇지 않는다 (#1282) — 아래에서 메시지를 {role, content} 로만 넘겨
+      // 도구 호출과 결과의 짝이 깨지고, LLM 서버가 그 대화를 거절한다.
+      if (isChatConversation(conversation)) {
+        return res.status(400).json({ message: '채팅 화면의 대화는 채팅 화면에서 이어가세요.' });
       }
       // 멀티턴은 대화에 저장된 model 유지 (#377)
       if (conversation.model) {
