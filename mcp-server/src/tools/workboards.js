@@ -99,6 +99,11 @@ export function registerWorkboardTools(server, apiRequest) {
         // Prompt fields
         promptRequired: true,
         negativePromptSupported: true,
+        // 판의 기본 프롬프트·기본 부정 프롬프트 (#1262). 웹 화면은 이 값을 칸에 채워 보여 준다.
+        // defaultPrompt 는 자동으로 붙지 않는다 — 모델 제공자가 권하는 품질 태그 등이므로, 원하면 프롬프트 앞에 붙여 보낸다.
+        // defaultNegativePrompt 는 generate 에서 negativePrompt 를 생략하면 쓰인다 (빈 문자열을 보내면 쓰이지 않는다).
+        defaultPrompt: wb.defaultPrompt || '',
+        defaultNegativePrompt: wb.defaultNegativePrompt || '',
         seedSupported: true,
       };
 

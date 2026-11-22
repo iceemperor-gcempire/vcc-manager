@@ -637,6 +637,8 @@ router.post('/import', requireAdmin, async (req, res) => {
       loraWhitelist: Array.isArray(wb.loraWhitelist) ? wb.loraWhitelist : [],
       allowedLoraFolders: importLoraFolders.folders,
       promptGeneratorInstructions: typeof wb.promptGeneratorInstructions === 'string' ? wb.promptGeneratorInstructions : '',
+      defaultPrompt: typeof wb.defaultPrompt === 'string' ? wb.defaultPrompt : '',
+      defaultNegativePrompt: typeof wb.defaultNegativePrompt === 'string' ? wb.defaultNegativePrompt : '',
       createdBy: req.user._id,
       version: 1,
       usageCount: 0,
@@ -743,6 +745,8 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       allowedLoraFolders,
       promptGuideIds,
       promptGeneratorInstructions,
+      defaultPrompt,
+      defaultNegativePrompt,
       llmExtraParams
     } = req.body;
 
@@ -802,6 +806,8 @@ router.post('/', requireAdmin, validateBody(workboardCreateSchema), async (req, 
       allowedGroupIds: resolvedAllowedGroupIds,
       promptGuideIds: Array.isArray(promptGuideIds) ? promptGuideIds : [],
       promptGeneratorInstructions: typeof promptGeneratorInstructions === 'string' ? promptGeneratorInstructions : '',
+      defaultPrompt: typeof defaultPrompt === 'string' ? defaultPrompt : '',
+      defaultNegativePrompt: typeof defaultNegativePrompt === 'string' ? defaultNegativePrompt : '',
       modelExposurePolicy: modelExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
       modelWhitelist: Array.isArray(modelWhitelist) ? modelWhitelist : [],
       loraExposurePolicy: isComfyUI && loraExposurePolicy === 'whitelist' ? 'whitelist' : 'full',
@@ -848,6 +854,8 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
       allowedLoraFolders,
       promptGuideIds,
       promptGeneratorInstructions,
+      defaultPrompt,
+      defaultNegativePrompt,
       llmExtraParams,
       isActive
     } = req.body;
@@ -923,6 +931,8 @@ router.put('/:id', requireAdmin, validateBody(workboardUpdateSchema), async (req
     if (promptGeneratorInstructions !== undefined) {
       workboard.promptGeneratorInstructions = promptGeneratorInstructions || '';
     }
+    if (defaultPrompt !== undefined) workboard.defaultPrompt = defaultPrompt || '';
+    if (defaultNegativePrompt !== undefined) workboard.defaultNegativePrompt = defaultNegativePrompt || '';
     if (modelExposurePolicy === 'full' || modelExposurePolicy === 'whitelist') {
       workboard.modelExposurePolicy = modelExposurePolicy;
     }
@@ -1067,6 +1077,8 @@ router.post('/:id/duplicate', requireAdmin, async (req, res) => {
       loraWhitelist: originalWorkboard.loraWhitelist || [],
       allowedLoraFolders: originalWorkboard.allowedLoraFolders || [],
       promptGeneratorInstructions: originalWorkboard.promptGeneratorInstructions || '',
+      defaultPrompt: originalWorkboard.defaultPrompt || '',
+      defaultNegativePrompt: originalWorkboard.defaultNegativePrompt || '',
       llmExtraParams: originalWorkboard.llmExtraParams,
       createdBy: req.user._id
     });

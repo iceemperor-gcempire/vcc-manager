@@ -115,6 +115,25 @@ function getImageSizeValue(workboard, inputData) {
 }
 
 /**
+ * 이 작업의 부정 프롬프트 (#1262). 요청에 온 값이 먼저이고 — **빈 문자열도 값이다** (사용자가 칸을 비운 것) —
+ * 아예 보내지 않았을 때만 판의 기본 부정 프롬프트(`defaultNegativePrompt`)를 쓴다.
+ *
+ * 웹 화면은 부정 프롬프트 칸을 늘 보내므로(비우면 '') 화면에서 비운 값이 기본값으로 되돌아가지 않는다.
+ * REST·MCP 가 부정 프롬프트를 생략하면 판 작성자가 정한 기본값으로 돈다 — 예전에 워크플로 문자열에
+ * 박혀 있던 품질 부정 태그가 하던 일이다.
+ *
+ * @param {Object} workboard
+ * @param {Object} inputData — 작업 입력 (top-level 또는 additionalParams)
+ * @returns {string|undefined}
+ */
+function getNegativePromptValue(workboard, inputData) {
+  const sent = getFieldValueByRole(workboard, inputData, FIELD_ROLES.NEGATIVE_PROMPT);
+  if (sent !== undefined && sent !== null) return sent;
+  const fallback = workboard && workboard.defaultNegativePrompt;
+  return isBlank(fallback) ? undefined : fallback;
+}
+
+/**
  * 작업판의 customFields 를 role 별로 인덱싱한 맵 반환.
  * 같은 role 의 중복 필드가 있으면 첫 번째만 채택 (마지막 매치 무시).
  *
@@ -139,5 +158,6 @@ module.exports = {
   getFieldValueByRole,
   getImageSizeValue,
   getModelValue,
+  getNegativePromptValue,
   indexFieldsByRole
 };

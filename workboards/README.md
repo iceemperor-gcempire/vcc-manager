@@ -110,7 +110,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/image-edit-minimax-h3-image.json` | Image Edit - MiniMax-H3-Image | 이미지 ×1 · 고칠 이미지 + 참조 이미지 최대 3장(`<Picture 1>`~`<Picture 4>`) · 4/8/16MP · 프롬프트 늘려 쓰기(기본 켬) | 위 판과 같다. 4MP 약 21초 |
 
 | `comfyui/video-upscale-ltx-iclora.json` | 영상 업스케일 (LTX IC-LoRA x2) | 영상 (원본 오디오 유지) · **재작화 2x 업스케일** | LTX-2.5 distilled + IC-LoRA 업스케일러⁶ + VHS 노드팩 · ffmpeg¹ |
-| `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 원본 가이드로 디테일 복원** · 프롬프트 없음 | H3 ref2va int8 + H3 Video Upsampler 노드 + h3upscale LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
+| `comfyui/video-upscale-h3-upsampler.json` | 영상 업스케일 (H3 업샘플러 x2) | 영상 (원본 오디오 유지) · **정확히 2배, 세부를 다시 그려 선명하게** · 프롬프트 없음 | H3 fl2va int8 + H3 Video Upsampler 노드(0.7 이상) + Regen2K LoRA + latent 업스케일러 (아래 「H3 업샘플러」) + VHS 노드팩 · ffmpeg¹ |
 
 ¹ **(AV1) 판**은 출력 코덱을 생성 시점에 고른다 (H.264 mp4 / VP9 webm / AV1 webm). 저장을
 core `SaveVideo` 대신 `VHS_VideoCombine`(VideoHelperSuite) 이 담당하므로 ComfyUI 머신에
@@ -124,6 +124,16 @@ H.264 만 쓰면 VHS 동봉 바이너리로 충분해 별도 ffmpeg 설치가 �
 ² **Sketch to Image 3종**은 업로드한 스케치의 비율로 **1M 픽셀·32px 버킷** 크기를 자동 계산하고,
 원본 크기와 업스케일본(선택한 모델: AnimeSharp 2x / Remacri 4x / RealESRGAN 4x 등)을 함께 저장한다.
 Anima 판은 업스케일본 한 장만 저장한다 (#1253).
+
+**기본 프롬프트 · 기본 부정 프롬프트** (#1262) — 아래 판은 새 작업을 열면 프롬프트·부정 프롬프트 칸에 값이 채워져 나온다.
+워크플로가 몰래 붙이지 않으므로 보고 고치거나 지울 수 있다. API·MCP 는 프롬프트를 보낸 그대로 쓰고, 부정 프롬프트를 생략했을 때만 기본값을 쓴다.
+
+| 판 | 기본 프롬프트 | 기본 부정 프롬프트 | 출처 |
+|---|---|---|---|
+| Text to Image - Anima · Sketch to Image - Anima | `masterpiece, best quality, score_7, safe,` | `worst quality, low quality, score_1, score_2, score_3, artist name, blurry, jpeg artifacts, chromatic aberration` | Anima 모델 카드 「Prompting」 절의 권장값 (Aesthetic 모델은 score 태그를 빼라고 권한다 — 칸에서 지우면 된다) |
+| Sketch to Image - SDXL | `masterpiece, best quality,` | `worst quality, low quality, watermark` | 이 판이 워크플로에 넣어 두던 값 그대로 (SDXL 은 파인튜닝마다 권장값이 달라 고쳐 쓴다) |
+
+Qwen-Image 2.1 · Krea 2 판은 비워 둔다 — CFG 1 로 돌아 부정 프롬프트가 계산에 들어가지 않는다 (ComfyUI 는 CFG 가 1 이면 부정 조건을 건너뛴다).
 업스케일 모델은 `models/upscale_models/` 에 있어야 한다.
 
 ³ Anima 판은 `AnimaLLLiteApply`(core) 를 쓰며 **가중치 별도 설치 필요**:
@@ -299,32 +309,38 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 ### H3 업샘플러 — 영상 업스케일 판과 R2V 판 선택지
 
 **영상 업스케일 (H3 업샘플러 x2)** 판은 이미 만든 영상을 받아 **정확히 2배**로 키운다 (832×448 → 1664×896, 1344×768 → 2688×1536).
-R2V 판(기본·터보·Pika Flex)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
+R2V 판(기본·터보·Pika Flex·PRISM)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
 
-처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 ref2va 모델이 `h3upscale_v2_x2` LoRA 로
-원본을 가이드 삼아 한 번(denoise 0.1) 다시 그린다 → 디코드. 가이드는 원본을 출력 절반 크기(= 원본 크기)로 출력 격자 2칸마다 겹쳐
-넣는 깨끗한 조건이라, 질감을 지어내지 않고 원본 디테일을 되살린다. 구도·움직임·소리는 원본 그대로.
+처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 모델이 Regen2K LoRA 로 세부를 다시 그린다
+(3스텝) → 디코드. 작은 얼굴은 따로 확대해 한 번 더 그린다. 구도·움직임·소리는 원본 그대로이고, 얼굴 생김새는 조금 달라질 수 있다.
 
-- **2배인 이유** — LoRA 가 출력 절반 크기 원본을 가이드로 학습됐다(`reference_downscale_factor: 2`). 노드는 면적(메가픽셀)만 받으므로
-  정식 노드 `GetImageSize` + `ComfyMathExpression` 으로 원본 크기 × 4 를 계산해 넣는다
-- **FL2V · 키프레임 판에는 없다** — 다시 그리기용 ref2va 를 생성용 fl2va 와 함께 올려야 해 업샘플 구간 GPU 메모리를 96 GiB 중 약 90 GiB 까지
-  썼다. 그 판의 결과는 영상 업스케일 판으로 따로 키운다. R2V 판은 같은 모델로 다시 그려 여유가 34 GiB 이상 남는다
-- **프롬프트 없음** — 업스케일 판은 LoRA 학습 문구를 고정으로 쓴다 (생성 화면에 프롬프트 칸이 나오지 않는다)
+- **2배로 고정** — 노드는 면적(메가픽셀)만 받으므로 정식 노드 `GetImageSize` + `ComfyMathExpression` 으로 원본 크기 × 4 를 계산해 넣는다
+- **다시 그리는 정도** — `denoise` 0.8 · `redraw_start` 0.6 (노드 기본값). `redraw_start` 를 0.8 로 올리면 더 선명하지만 얼굴이 더 달라진다
+- **모델** — 업스케일 판은 `minimax_h3_fl2va_int8_convrot`, R2V 판은 그 판에서 고른 베이스 모델(가속·스타일 LoRA 를 걸기 전)로 다시 그린다.
+  노드 안내는 fl2va pruned int8 을 권하지만, fl2va int8 · ref2va int8 · 8스텝 병합 모델에서도 같은 수준으로 나왔다 (아래 실측)
+- **FL2V · 키프레임 판에는 없다** — 그 판의 결과는 영상 업스케일 판으로 따로 키운다
+- **프롬프트 없음** — 글 조건 없이 그린다 (업스케일 판의 생성 화면에는 프롬프트 칸이 나오지 않는다)
 
 필요한 것 (영상 ComfyUI, 0.38 이상):
-- 커스텀 노드 [`ComfyUI-H3-Video-Upsampler`](https://github.com/dntpi/ComfyUI-H3-Video-Upsampler) (검증 커밋 `36cb612`, pip 의존성 없음)
-- LoRA `loras/optimizer/minimax/h3upscale_v2_x2.safetensors` — [🤗 sandpies/ComfyUI-H3-Video-Upsampler](https://huggingface.co/sandpies/ComfyUI-H3-Video-Upsampler/tree/main/lora)
-- latent 업스케일러 `latent_upscale_models/minimax_h3_latent_upscaler_3d_bf16.safetensors` — [🤗 LBH-123-AI](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)
-- `diffusion_models/minimax/minimax_h3_ref2va_int8_convrot.safetensors` (R2V 판과 같은 것)
+- 커스텀 노드 [`ComfyUI-H3-Video-Upsampler`](https://github.com/sandpies/ComfyUI-H3-Video-Upsampler) **0.7 이상** (검증 `44db226` · 0.7.3, pip 의존성 없음).
+  0.1 대의 옛 노드와는 입력이 달라 서로 바꿔 쓸 수 없다 — 노드를 올리면 판도 함께 갱신해야 한다
+- LoRA `loras/open_h3_regenerate_2k_r256pp_bf16.safetensors` (3.8 GB) — [🤗 sandpies/ComfyUI-H3-Video-Upsampler](https://huggingface.co/sandpies/ComfyUI-H3-Video-Upsampler/tree/main/lora).
+  **`loras` 폴더 바로 아래에 이 이름 그대로** 둔다 (노드의 얼굴 다시 그리기가 이 위치에서 직접 찾는다)
+- latent 업스케일러 `latent_upscale_models/minimax_h3_latent_upscaler_3d_conv_v1_bf16.safetensors` — [🤗 LBH-123-AI](https://huggingface.co/LBH-123-AI/Minimax_h3_latent_Upscaler)
+- `diffusion_models/minimax/minimax_h3_fl2va_int8_convrot.safetensors` (업스케일 판. FL2V 판과 같은 것)
 
-실측 (RTX PRO 6000, VCC 작업 시간):
+실측 (RTX PRO 6000, 1344×768·5초 → 2688×1536, VCC 작업 시간, 각 1회):
 
-| 경우 | 시간 |
-|---|---|
-| 업스케일 판 · 832×448·5초 → 1664×896 (모델 로드 포함) | 111초 |
-| R2V Turbo 1344×768·5초 · 끔 / 2배 (→ 2688×1536) | 약 70초 / 237초 |
+| 경우 | 시간 | 흐림 (ffmpeg `blurdetect` 평균, 낮을수록 선명) |
+|---|---|---|
+| 업스케일 판 · 움직임 적은 실내 | 219초 | 9.03 (단순 확대 9.13 · 옛 방식 10.42) |
+| 업스케일 판 · 움직임 많은 야시장 | 275초 | 8.89 (단순 확대 9.36 · 옛 방식 9.57) |
+| 같은 영상 · ref2va int8 로 | 324초 | 8.92 |
+| R2V (Pika Flex) · 생성 + 2배 | 389초 | — |
+| R2V (PRISM) 3초 · 끔 / 2배 | 49초 / 203초 | 11.08 (단순 확대) / 9.73 |
 
-같은 영상을 2MP(1.4~1.7배)로 키운 것보다 2배가 털 결이 더 살아났다. 어두운 역광 장면은 효과가 작다.
+연속 프레임 사이의 변화량은 단순 확대의 1.08배였고, 특정 프레임에서 튀는 곳은 없었다 (야시장 영상).
+옛 방식(0.1 노드 + `h3upscale_v2_x2` LoRA, denoise 0.1)은 움직이는 구간에서 단순 확대보다 흐려져서 바꿨다 (#1176).
 R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다.
 
 ### Pika H3 Flex — 6스텝 판 2개와 Turbo 판 합본 선택지

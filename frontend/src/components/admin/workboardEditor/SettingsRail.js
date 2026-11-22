@@ -18,6 +18,7 @@ import WorkboardBasicInfoForm from '../WorkboardBasicInfoForm';
 import PermissionsCard from './PermissionsCard';
 import PromptGuideCard from './PromptGuideCard';
 import PromptGeneratorInstructionsCard from './PromptGeneratorInstructionsCard';
+import DefaultPromptsCard from './DefaultPromptsCard';
 import { BUILTIN_WORKFLOW_VARIABLES } from '../../../constants/workflowVariables';
 import { MONO } from '../../../theme';
 
@@ -150,6 +151,8 @@ function SettingsRail({
       )}
 
       {outputFormat === 'text' && <PromptGuideCard control={control} guides={promptGuides} />}
+
+      {outputFormat !== 'text' && <DefaultPromptsCard control={control} />}
 
       {outputFormat !== 'text' && <PromptGeneratorInstructionsCard control={control} />}
 
