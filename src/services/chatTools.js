@@ -130,23 +130,28 @@ function describeWorkboard(wb) {
 async function filterReady(workboards, log) {
   const kept = [];
   const dropped = [];
-  let unchecked = 0;
+  const unchecked = [];
   await Promise.all(workboards.map(async (wb) => {
     try {
       const r = await checkWorkboardReadiness({ workboard: wb, server: wb.serverId });
-      if (r.issues.length > 0) {
-        dropped.push(`${wb.name}: ${r.issues[0].code}`);
+      // 워크플로를 JSON 으로 못 읽는 판은 "확인 못 함"이다. 따옴표 없는 자리표시(숫자 칸의 {{##seed##}} 등)를 쓴
+      // 워크플로는 값을 채우기 전에는 JSON 이 아니어서 준비 검사가 읽지 못하지만 실행은 된다 (실호출에서 확인 —
+      // 사용량 3위 판이 이 사유로 빠졌다)
+      const real = r.issues.filter((i) => i.code !== 'WORKFLOW_PARSE_FAILED');
+      if (real.length > 0) {
+        dropped.push(`${wb.name}: ${real[0].code}`);
         return;
       }
-      if (r.unavailable) unchecked += 1;
+      if (r.issues.length > 0) unchecked.push(`${wb.name}: ${r.issues[0].code}`);
+      else if (r.unavailable) unchecked.push(r.unavailable);
     } catch (e) {
-      unchecked += 1;
+      unchecked.push(e.message);
     }
     kept.push(wb);
   }));
   const order = new Map(workboards.map((wb, i) => [wb, i]));
   kept.sort((a, b) => order.get(a) - order.get(b));
-  log(`[chatTools] readiness asked=${workboards.length} kept=${kept.length} unchecked=${unchecked} dropped=${dropped.length}${dropped.length ? ` (${dropped.slice(0, 5).join('; ')})` : ''}`);
+  log(`[chatTools] readiness asked=${workboards.length} kept=${kept.length} unchecked=${unchecked.length}${unchecked.length ? ` (${String(unchecked[0]).slice(0, 120)})` : ''} dropped=${dropped.length}${dropped.length ? ` (${dropped.slice(0, 5).join('; ')})` : ''}`);
   return kept;
 }
 
@@ -181,7 +186,10 @@ function createChatTools({ user, conversation, onJob, log = console.log }) {
       const usable = all.filter((wb) => wb.serverId && wb.serverId.isActive);
       const wantsImage = needsImageInput === true;
       const matched = usable.filter((wb) => {
-        const imageFields = attachmentFields(wb, 'image');
+        const fields = (wb.additionalInputFields || []).filter(Boolean);
+        // 영상·오디오 첨부가 필수인 판(영상 업스케일 등)은 채팅에서 줄 방법이 없다 — 붙일 수 있는 것은 이미지뿐이다
+        if (fields.some((f) => f.required && (f.type === 'video' || f.type === 'audio'))) return false;
+        const imageFields = fields.filter((f) => f.type === 'image');
         // 이미지를 써야 하면 받는 칸이 있는 판만, 아니면 이미지 없이 돌 수 있는 판만
         return wantsImage ? imageFields.length > 0 : !imageFields.some((f) => f.required);
       });

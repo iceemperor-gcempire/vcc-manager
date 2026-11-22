@@ -86,7 +86,25 @@ describe('find_workboards', () => {
     });
     const r = await make().handlers.find_workboards({ output: 'image' });
     expect(r.workboards.map((w) => w.id)).toEqual([id('b'), id('d')]);
-    expect(logs.find((l) => l.includes('readiness'))).toMatch(/asked=3 kept=2 unchecked=2 dropped=1 .*NODE_MISSING/);
+    expect(logs.find((l) => l.includes('readiness'))).toMatch(/asked=3 kept=2 unchecked=2 \(.*\) dropped=1 .*NODE_MISSING/);
+  });
+
+  test('준비 검사가 워크플로를 못 읽은 판은 "확인 못 함" — 빼지 않는다', async () => {
+    Workboard.find.mockReturnValue(findChain([board('a'), board('b')]));
+    checkWorkboardReadiness.mockImplementation(async ({ workboard }) => (String(workboard._id) === id('a')
+      ? { issues: [{ code: 'WORKFLOW_PARSE_FAILED' }], unavailable: null }
+      : { issues: [{ code: 'WORKFLOW_PARSE_FAILED' }, { code: 'VALUE_MISSING' }], unavailable: null }));
+    const r = await make().handlers.find_workboards({ output: 'image' });
+    expect(r.workboards.map((w) => w.id)).toEqual([id('a')]);
+    expect(logs.find((l) => l.includes('readiness'))).toMatch(/kept=1 unchecked=1 \(판 a: WORKFLOW_PARSE_FAILED\) dropped=1 \(판 b: VALUE_MISSING\)/);
+  });
+
+  test('영상·오디오 첨부가 필수인 판은 어느 쪽으로도 나오지 않는다 (채팅에서 붙일 수 있는 것은 이미지뿐)', async () => {
+    const upscale = board('a', { outputFormat: 'video', additionalInputFields: [{ name: 'src', type: 'video', required: true }] });
+    const optionalAudio = board('b', { outputFormat: 'video', additionalInputFields: [{ name: 'bgm', type: 'audio', required: false }, { name: 'first', type: 'image' }] });
+    Workboard.find.mockReturnValue(findChain([upscale, optionalAudio]));
+    expect((await make().handlers.find_workboards({ output: 'video' })).workboards.map((w) => w.id)).toEqual([id('b')]);
+    expect((await make().handlers.find_workboards({ output: 'video', needsImageInput: true })).workboards.map((w) => w.id)).toEqual([id('b')]);
   });
 
   test('사용량 순서를 지키고 상한까지만 — 더 있으면 알린다', async () => {

@@ -23,8 +23,11 @@ const { FIELD_ROLES, WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fie
 const CHAT_SERVER_TYPES = Object.freeze(['OpenAI', 'OpenAI Compatible']);
 /** 한 턴의 도구 라운드 상한 — 찾기·보기·생성·마무리에 넉넉한 수 */
 const CHAT_MAX_ROUNDS = 6;
-/** 도구 결과 한 건의 글자 상한. 결과는 대화가 이어지는 내내 문맥에 남는다 */
-const CHAT_MAX_RESULT_CHARS = 8000;
+/**
+ * 도구 결과 한 건의 글자 상한. 결과는 대화가 이어지는 내내 문맥에 남는다. 칸이 많은 영상 판의 get_workboard 가
+ * 8천 자를 넘어 잘린 적이 있다 (실호출) — 잘리면 뒤쪽 칸을 모델이 못 본다.
+ */
+const CHAT_MAX_RESULT_CHARS = 16000;
 /** 이보다 오래 processing 인 대화는 죽은 턴으로 본다 (서버 재시작 등) — 새 턴을 받는다 */
 const STALE_TURN_MS = 10 * 60 * 1000;
 const TITLE_CHARS = 40;

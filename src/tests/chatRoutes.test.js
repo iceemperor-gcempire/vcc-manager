@@ -13,9 +13,11 @@ jest.mock('../middleware/auth', () => ({
   buildWorkboardAccessFilter: jest.requireActual('../middleware/auth').buildWorkboardAccessFilter,
 }));
 jest.mock('../models/Workboard', () => ({ find: jest.fn(), findById: jest.fn() }));
-jest.mock('../models/ConversationJob', () => ({ find: jest.fn(), findById: jest.fn(), countDocuments: jest.fn(), create: jest.fn(), updateOne: jest.fn(async () => ({})) }));
+jest.mock('../models/ConversationJob', () => ({ find: jest.fn(), findById: jest.fn(), findOneAndUpdate: jest.fn(), countDocuments: jest.fn(), create: jest.fn(), updateOne: jest.fn(async () => ({})) }));
 jest.mock('../models/ImageGenerationJob', () => ({ find: jest.fn(), updateMany: jest.fn(async () => ({ modifiedCount: 2 })) }));
-jest.mock('../utils/visionImages', () => ({ MAX_IMAGES: 4, loadVisionImages: jest.fn() }));
+jest.mock('../utils/visionImages', () => ({ MAX_IMAGES: 4 }));
+jest.mock('../models/UploadedImage', () => ({ find: jest.fn() }));
+jest.mock('../models/GeneratedImage', () => ({ find: jest.fn() }));
 jest.mock('../services/chatService', () => ({
   ...jest.requireActual('../services/chatService'),
   runChatTurn: jest.fn(),
@@ -24,7 +26,8 @@ jest.mock('../services/chatService', () => ({
 const Workboard = require('../models/Workboard');
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
-const { loadVisionImages } = require('../utils/visionImages');
+const UploadedImage = require('../models/UploadedImage');
+const GeneratedImage = require('../models/GeneratedImage');
 const { runChatTurn, CHAT_SYSTEM_PROMPT } = require('../services/chatService');
 
 const hex = (c) => c.charCodeAt(0).toString(16).padStart(2, '0').repeat(12);
@@ -73,7 +76,8 @@ beforeEach(() => {
   mockCurrentUser = { _id: ME, isAdmin: false, groupIds: [GROUP] };
   Workboard.findById.mockImplementation(() => boardChain(textBoard()));
   runChatTurn.mockImplementation(async ({ emit }) => { emit('token', { delta: '네' }); emit('done', { content: '네' }); return { ok: true }; });
-  loadVisionImages.mockImplementation(async (ids) => ids.map((i) => ({ imageId: i, url: `/uploads/${i}.png`, base64: 'x', mimeType: 'image/jpeg' })));
+  UploadedImage.find.mockReturnValue(chain([]));
+  GeneratedImage.find.mockReturnValue(chain([]));
 });
 afterEach(() => logSpy.mockRestore());
 
@@ -83,11 +87,12 @@ describe('GET /workboards', () => {
       textBoard(),
       textBoard({ _id: hex('x'), name: 'Gemini 판', serverId: { name: 'G', isActive: true, serverType: 'Gemini' } }),
       textBoard({ _id: hex('y'), name: '꺼진 서버', serverId: { name: 'S', isActive: false, serverType: 'OpenAI' } }),
+      textBoard({ _id: hex('v'), name: '기본 모델 없음', additionalInputFields: [{ name: 'base_model', type: 'baseModel' }] }),
     ]));
     const res = await request(app).get('/api/chat/workboards');
     expect(res.status).toBe(200);
     expect(Workboard.find).toHaveBeenCalledWith({ allowedGroupIds: { $in: [GROUP] }, isActive: true, outputFormat: 'text' });
-    expect(res.body.data.textWorkboards).toBe(3);
+    expect(res.body.data.textWorkboards).toBe(4);
     expect(res.body.data.workboards).toEqual([
       { _id: WB, name: '채팅 판', description: '', usageCount: 5, model: 'board-model', server: { name: 'Local', serverType: 'OpenAI Compatible' }, acceptsImages: true },
     ]);
@@ -187,29 +192,52 @@ describe('POST /messages', () => {
     expect(runChatTurn.mock.calls[0][0]).toMatchObject({ user: mockCurrentUser });
   });
 
-  test('이어가기 — 사용자 메시지를 붙여 저장한 뒤 턴을 돌린다. 판은 대화에 저장된 것', async () => {
+  test('이어가기 — 턴 잡기와 메시지 붙이기를 한 번의 갱신으로. 판은 대화에 저장된 것', async () => {
     const doc = chatDoc({ status: 'failed', error: { message: 'x' } });
+    const claimed = chatDoc({ status: 'processing' });
     ConversationJob.findById.mockResolvedValue(doc);
+    ConversationJob.findOneAndUpdate.mockResolvedValue(claimed);
     const res = await send({ sessionId: CONV, workboardId: hex('z'), text: '하나 더' });
     expect(res.status).toBe(200);
     expect(Workboard.findById).toHaveBeenCalledWith(WB);
-    expect(doc.messages[doc.messages.length - 1]).toMatchObject({ role: 'user', content: '하나 더', attachments: [] });
-    expect(doc.status).toBe('processing');
-    expect(doc.error).toBeUndefined();
-    expect(doc.save).toHaveBeenCalledTimes(1);
+    const [filter, update, options] = ConversationJob.findOneAndUpdate.mock.calls[0];
+    expect(filter._id).toBe(CONV);
+    expect(filter.$or[0]).toEqual({ status: { $ne: 'processing' } });
+    expect(filter.$or[1].updatedAt.$lt).toBeInstanceOf(Date);
+    expect(update.$push.messages).toMatchObject({ role: 'user', content: '하나 더', attachments: [] });
+    expect(update.$set).toEqual({ status: 'processing' });
+    expect(update.$unset).toEqual({ error: 1 });
+    expect(options).toEqual({ new: true });
+    expect(doc.save).not.toHaveBeenCalled();
+    expect(runChatTurn.mock.calls[0][0].conversation).toBe(claimed); // 갱신된 문서로 턴을 돌린다
     expect(ConversationJob.create).not.toHaveBeenCalled();
   });
 
-  test('이미지 첨부 — 내 이미지로 읽어 id 와 주소를 메시지에 남긴다', async () => {
-    ConversationJob.create.mockImplementation(async (doc) => ({ _id: CONV, ...doc }));
-    await send({ workboardId: WB, text: '이걸 영상으로', imageIds: [IMG] });
-    expect(loadVisionImages).toHaveBeenCalledWith([IMG], ME);
-    expect(ConversationJob.create.mock.calls[0][0].messages[1].attachments).toEqual([{ imageId: IMG, url: `/uploads/${IMG}.png` }]);
+  test('동시에 온 요청이 턴을 먼저 잡았으면 409 (검사는 통과했어도 갱신이 못 잡는다)', async () => {
+    ConversationJob.findById.mockResolvedValue(chatDoc());
+    ConversationJob.findOneAndUpdate.mockResolvedValue(null);
+    const res = await send({ sessionId: CONV, text: '하나 더' });
+    expect(res.status).toBe(409);
+    expect(runChatTurn).not.toHaveBeenCalled();
   });
 
-  test('못 읽는 이미지가 섞이면 400 — 조용히 빼지 않는다', async () => {
-    loadVisionImages.mockResolvedValue([]);
-    const res = await send({ workboardId: WB, text: '이걸 영상으로', imageIds: [IMG] });
+  test('이미지 첨부 — 올린 것·만든 것 모두 내 것만, 받은 순서대로 id 와 주소를 남긴다', async () => {
+    const GEN = hex('k');
+    UploadedImage.find.mockReturnValue(chain([{ _id: IMG, url: '/uploads/a.png' }]));
+    GeneratedImage.find.mockReturnValue(chain([{ _id: GEN, url: '/uploads/generated/b.png' }]));
+    ConversationJob.create.mockImplementation(async (doc) => ({ _id: CONV, ...doc }));
+    const res = await send({ workboardId: WB, text: '이걸 영상으로', imageIds: [GEN, IMG] });
+    expect(res.status).toBe(200);
+    expect(UploadedImage.find).toHaveBeenCalledWith({ _id: { $in: [GEN, IMG] }, userId: ME });
+    expect(GeneratedImage.find).toHaveBeenCalledWith({ _id: { $in: [GEN, IMG] }, userId: ME });
+    expect(ConversationJob.create.mock.calls[0][0].messages[1].attachments).toEqual([
+      { imageId: GEN, url: '/uploads/generated/b.png' }, { imageId: IMG, url: '/uploads/a.png' },
+    ]);
+  });
+
+  test('내 것이 아닌 이미지가 섞이면 400 — 조용히 빼지 않는다', async () => {
+    UploadedImage.find.mockReturnValue(chain([{ _id: IMG, url: '/uploads/a.png' }]));
+    const res = await send({ workboardId: WB, text: '이걸 영상으로', imageIds: [IMG, hex('q')] });
     expect(res.status).toBe(400);
     expect(ConversationJob.create).not.toHaveBeenCalled();
     expect(runChatTurn).not.toHaveBeenCalled();
@@ -233,13 +261,13 @@ describe('POST /messages', () => {
     ConversationJob.findById.mockResolvedValue(doc);
     const res = await send({ sessionId: CONV, text: '하나 더' });
     expect(res.status).toBe(409);
-    expect(doc.save).not.toHaveBeenCalled();
-    expect(doc.messages).toHaveLength(3);
+    expect(ConversationJob.findOneAndUpdate).not.toHaveBeenCalled();
   });
 
   test('오래 processing 에 머문 대화(죽은 턴)는 다시 받는다', async () => {
     const doc = chatDoc({ status: 'processing', updatedAt: new Date(Date.now() - 11 * 60 * 1000) });
     ConversationJob.findById.mockResolvedValue(doc);
+    ConversationJob.findOneAndUpdate.mockResolvedValue(chatDoc({ status: 'processing' }));
     expect((await send({ sessionId: CONV, text: '하나 더' })).status).toBe(200);
   });
 

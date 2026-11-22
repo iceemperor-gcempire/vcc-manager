@@ -4,11 +4,13 @@ const { requireAuth, userHasWorkboardAccess, buildWorkboardAccessFilter } = requ
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Workboard = require('../models/Workboard');
-const { loadVisionImages, MAX_IMAGES } = require('../utils/visionImages');
+const UploadedImage = require('../models/UploadedImage');
+const GeneratedImage = require('../models/GeneratedImage');
+const { MAX_IMAGES } = require('../utils/visionImages');
 const { isChatConversation } = require('../utils/conversationView');
 const {
   runChatTurn, buildSystemPrompt, defaultModelOf, titleFrom,
-  isChatCapableWorkboard, isTurnInProgress,
+  isChatCapableWorkboard, isTurnInProgress, STALE_TURN_MS,
 } = require('../services/chatService');
 
 const router = express.Router();
@@ -32,14 +34,26 @@ async function loadMyChat(req, res, id = req.params.id) {
   return conversation;
 }
 
+/** 내 이미지(올린 것·만든 것)를 받은 순서대로. 내 것이 아닌 id 는 빠진다 */
+async function findMyImages(imageIds, userId) {
+  const [uploaded, generated] = await Promise.all([
+    UploadedImage.find({ _id: { $in: imageIds }, userId }).select('url').lean(),
+    GeneratedImage.find({ _id: { $in: imageIds }, userId }).select('url').lean(),
+  ]);
+  const byId = new Map([...uploaded, ...generated].map((d) => [String(d._id), d]));
+  return imageIds.filter((id) => byId.has(String(id))).map((id) => ({ imageId: id, url: byId.get(String(id)).url }));
+}
+
 // GET /workboards — 대화 상대로 고를 수 있는 텍스트 판 (사용량 순). 비어 있으면 화면이 만들라고 안내한다
 router.get('/workboards', requireAuth, async (req, res) => {
   try {
     const all = await Workboard.find({ ...buildWorkboardAccessFilter(req.user), isActive: true, outputFormat: 'text' })
       .sort({ usageCount: -1, name: 1 })
       .populate('serverId', 'name serverType isActive');
-    const usable = all.filter(isChatCapableWorkboard);
-    console.log(`[chat] workboards accessibleText=${all.length} chatCapable=${usable.length}`);
+    // 채팅에는 판의 입력 화면이 없어 모델을 고를 곳이 없다 — 기본 모델이 없는 판은 대화 상대가 못 된다
+    const capable = all.filter(isChatCapableWorkboard);
+    const usable = capable.filter((wb) => defaultModelOf(wb));
+    console.log(`[chat] workboards accessibleText=${all.length} chatCapable=${capable.length} withDefaultModel=${usable.length}`);
     res.json({
       success: true,
       data: {
@@ -170,22 +184,30 @@ router.post('/messages', requireAuth, async (req, res) => {
       return res.status(400).json({ message: '이 작업판은 채팅 상대로 쓸 수 없습니다 (꺼져 있거나, 텍스트 작업판이 아니거나, 서버 종류가 지원되지 않습니다).' });
     }
 
-    // 첨부 — 내 이미지(올린 것·만든 것)만. 하나라도 못 읽으면 조용히 빼지 않고 알린다
+    // 첨부 — 내 이미지(올린 것·만든 것)만. 하나라도 내 것이 아니면 조용히 빼지 않고 알린다.
+    // 소유는 DB 로만 본다. 파일을 읽어 비전 입력으로 바꾸는 일은 턴 안에서 한다 (services/chatService)
     let attachments = [];
     if (imageIds.length > 0) {
-      const loaded = await loadVisionImages(imageIds, req.user._id);
-      if (loaded.length !== imageIds.length) {
+      attachments = await findMyImages(imageIds, req.user._id);
+      if (attachments.length !== imageIds.length) {
+        console.log(`[chat] attachments rejected asked=${imageIds.length} mine=${attachments.length}`);
         return res.status(400).json({ message: '붙인 이미지 중 쓸 수 없는 것이 있습니다 — 내가 올리거나 만든 이미지만 붙일 수 있습니다.' });
       }
-      attachments = loaded.map((v) => ({ imageId: v.imageId, url: v.url }));
     }
 
     const userMessage = { role: 'user', content: text, attachments, createdAt: new Date() };
     if (conversation) {
-      conversation.messages.push(userMessage);
-      conversation.status = 'processing';
-      conversation.error = undefined;
-      await conversation.save();
+      // 턴을 잡는 것과 메시지를 붙이는 것을 한 번의 갱신으로 한다 — 위의 isTurnInProgress 검사만으로는 동시에 온
+      // 두 요청이 모두 통과한다 (실호출에서 확인). 조건에 맞는 요청 하나만 문서를 받는다.
+      conversation = await ConversationJob.findOneAndUpdate(
+        {
+          _id: conversation._id,
+          $or: [{ status: { $ne: 'processing' } }, { updatedAt: { $lt: new Date(Date.now() - STALE_TURN_MS) } }],
+        },
+        { $push: { messages: userMessage }, $set: { status: 'processing' }, $unset: { error: 1 } },
+        { new: true },
+      );
+      if (!conversation) return res.status(409).json({ message: '이 대화는 아직 응답을 받는 중입니다.' });
     } else {
       const model = defaultModelOf(workboard);
       if (!model) return res.status(400).json({ message: '작업판에 기본 모델이 정해져 있지 않습니다.' });
