@@ -292,11 +292,11 @@ FL2V Turbo 80초 → 65초 (1.23×), R2V Turbo 91초 → 70초 (1.31×). 프레�
 
 토큰 수가 클수록 이득이 커진다. 설정값은 tau 1.3, 전체 스텝의 20~90% 구간, 4096 토큰 미만은 그대로.
 근사 연산이라 끈 결과와 세부가 다르다 — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
-**켜 두면 같은 시드로 다시 만들어도 생성할 때마다 세부가 달라진다** (#1248). 토큰 보강(`extra_tokens`, 기본 256)이
+**토큰 보강(`extra_tokens`)은 0 으로 둔다** (#1248). ComfyUI 기본값 256 은 같은 시드로 다시 만들어도 생성할 때마다 세부가 달라진다 —
 예산을 넘칠 때 남길 토큰을 원자 연산 순서로 고르는 comfy-kitchen 의 알려진 문제다
-([comfy-kitchen 이슈 241](https://github.com/Comfy-Org/comfy-kitchen/issues/241), 수정 PR 대기 — ComfyUI 0.46.0 · comfy-kitchen 0.2.41 에 아직 없다).
-같은 결과가 필요하면 체크를 끈다 (끄면 비트 단위로 같고, 1344×768·5초 R2V 기준 64.8초 → 84.1초, 3회 중앙값).
-`extra_tokens` 0 도 결과가 같아지고 속도도 같지만 근사가 거칠어져 판에는 쓰지 않았다. 첫 실행은 커널 컴파일 때문에 느리다.
+([comfy-kitchen 이슈 241](https://github.com/Comfy-Org/comfy-kitchen/issues/241), ComfyUI 0.46.0 · comfy-kitchen 0.2.41 에 수정 없음).
+0 이면 다시 돌려도 비트 단위로 같다. FL2V (Pika Flex) 구성 두 장면에서 256 과 견줘 속도(55초 안팎)와 흐림 수치(`blurdetect`)가 같았고,
+원본 크기 크롭으로도 차이가 보이지 않았다 (2026-11-23, 수치는 #1248). v4.25 까지의 판은 256 이었으므로 같은 시드라도 그때와 다른 결과가 나온다. 첫 실행은 커널 컴파일 때문에 느리다.
 
 **SageAttention 이 없는 서버라면** ComfyUI 기동 인자 `--use-sage-attention` 없이도 같은 속도를 낼 수 있다 —
 ComfyUI 0.38 의 *Model Attention Backend* 노드에서 `comfy kitchen attention`(INT8, Nvidia·AMD)을 고르면 된다.
