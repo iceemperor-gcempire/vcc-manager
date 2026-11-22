@@ -28,20 +28,43 @@ describe.each(['text-to-image-qwen-image-21', 'sketch-to-image-qwen-image-21'])(
     expect(normal.inputs).toMatchObject({ scheduler: 'simple', steps: '{{##steps##}}', denoise: 1 });
   });
 
-  test('공식 Turbo 파일 이름으로 판정한다 (폴더 안 · 폴더 밖 둘 다)', () => {
+  test('공식 Turbo 파일 이름으로 판정한다 — 폴더·구분자·대소문자와 무관, 다른 이름은 일반 일정', () => {
     const [, sampler] = one('SamplerCustomAdvanced');
     const cmp = wf[wf[sampler.inputs.sigmas[0]].inputs.switch[0]];
-    expect(cmp.class_type).toBe('StringContains');
-    expect(cmp.inputs.substring).toBe(';{{##base_model##}};');
-    const names = cmp.inputs.string.split(';').filter(Boolean);
-    expect(names).toEqual(expect.arrayContaining([
+    expect(cmp.class_type).toBe('RegexMatch');
+    expect(cmp.inputs).toMatchObject({ string: '{{##base_model##}}', case_insensitive: true, multiline: false, dotall: false });
+    // 실제 판정을 재현한다 — 치환된 모델 이름에 노드의 정규식을 건다
+    const isTurbo = (model) => new RegExp(cmp.inputs.regex_pattern, 'i').test(model);
+    for (const m of [
       'qwen\\qwen_image_2.1_turbo_int8_convrot.safetensors',
+      'qwen\\qwen_image_2.1_turbo_bf16.safetensors',
+      'qwen/qwen_image_2.1_turbo_int8_convrot.safetensors',
+      'qwen/official/qwen_image_2.1_turbo_bf16.safetensors',
+      'Qwen\\Qwen_Image_2.1_Turbo_int8_convrot.safetensors',
       'qwen_image_2.1_turbo_int8_convrot.safetensors',
-    ]));
-    for (const n of names) expect(n).toMatch(/qwen_image_2\.1_turbo_/);
-    // 일반 모델(판 기본값)은 Turbo 목록에 없다
+    ]) expect([m, isTurbo(m)]).toEqual([m, true]);
     const base = board.additionalInputFields.find((f) => f.name === 'base_model').defaultValue;
-    expect(names).not.toContain(base);
+    for (const m of [
+      base,
+      'qwen\\qwen_image_2.1_int8_convrot.safetensors',
+      'qwen\\my_qwen_image_2.1_turbo_int8_convrot.safetensors',
+      'qwen\\qwen_image_2.1_turbo_int8_convrot.safetensors.bak',
+      'qwen\\qwen_image_2.1_turbo_bf16.safetensors;qwen_image_2.1_turbo_int8_convrot.safetensors.x',
+      'qwen\\qwen_image_2x1_turbo_bf16.safetensors',
+      'qwen\\qwen-image-2.1-UC-int8_convrot.safetensors',
+    ]) expect([m, isTurbo(m)]).toEqual([m, false]);
+  });
+
+  test('배선 — 출력 슬롯 0 을 쓰고, 노이즈·가이더·샘플러 선택·일정이 샘플러에 물린다', () => {
+    const [, sampler] = one('SamplerCustomAdvanced');
+    const sw = wf[sampler.inputs.sigmas[0]];
+    for (const link of [sampler.inputs.sigmas, sw.inputs.switch, sw.inputs.on_true, sw.inputs.on_false]) {
+      expect(link).toHaveLength(2);
+      expect(link[1]).toBe(0);
+    }
+    expect(sampler.inputs.noise).toEqual([one('RandomNoise')[0], 0]);
+    expect(sampler.inputs.guider).toEqual([one('CFGGuider')[0], 0]);
+    expect(sampler.inputs.sampler).toEqual([one('KSamplerSelect')[0], 0]);
   });
 
   test('CFG 1 · 일정과 가이더가 같은 모델을 본다 · 옛 KSampler 는 남지 않는다', () => {
