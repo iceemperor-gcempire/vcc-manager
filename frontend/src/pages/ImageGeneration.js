@@ -1330,6 +1330,9 @@ function ImageGeneration() {
                     maxRows={12}
                     label="부정 프롬프트 (선택사항)"
                     placeholder="생성하지 않았으면 하는 요소들을 입력하세요..."
+                    // 값이 없을 때도 '' 를 넘겨 처음부터 제어 입력으로 둔다. undefined 로 시작하면 MUI 가 비제어로 굳어,
+                    // 판 기본값·계속하기로 나중에 들어온 값 위에 라벨이 겹친다 (#1271)
+                    value={field.value || ''}
                     InputProps={{
                       endAdornment: (
                         <IconButton size="small" aria-label="부정 프롬프트 크게 편집" onClick={() => setPromptEditorField('negativePrompt')} sx={{ alignSelf: 'flex-start' }}>
