@@ -145,6 +145,33 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
 
   return { content, toolCalls, usage, model };
 };
+const MAX_ERROR_BODY_BYTES = 64 * 1024;
+
+/**
+ * axios 오류에서 서버가 준 오류 문구를 꺼낸다. 본문이 객체면 그대로, 스트림이면 모아서 JSON 으로 읽는다.
+ * 못 읽으면 undefined — 호출자가 원래 오류를 그대로 던진다.
+ */
+async function readErrorMessage(err) {
+  const data = err?.response?.data;
+  if (!data) return undefined;
+  if (typeof data.on !== 'function' && typeof data[Symbol.asyncIterator] !== 'function') {
+    return data.error?.message;
+  }
+  try {
+    const chunks = [];
+    let size = 0;
+    for await (const chunk of data) {
+      const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      size += buf.length;
+      if (size > MAX_ERROR_BODY_BYTES) break;
+      chunks.push(buf);
+    }
+    const parsed = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    return parsed?.error?.message || (typeof parsed?.error === 'string' ? parsed.error : undefined);
+  } catch (_) {
+    return undefined;
+  }
+}
 
 // 스트리밍 버전 — `stream: true` 로 /v1/chat/completions 호출 후 토큰 delta 를 onToken 으로 흘려보낸다.
 // 첫 토큰이 즉시 나가므로 Cloudflare 등 앞단 프록시의 TTFB 타임아웃(예: 100초)을 회피한다 (#490).
@@ -184,8 +211,9 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
       { headers, timeout: options.timeout || 60000, responseType: 'stream' }
     );
   } catch (err) {
-    // 스트림 요청 실패 시 에러 본문이 stream 으로 올 수 있어 한 번 모아 파싱 시도
-    const apiMessage = err.response?.data?.error?.message;
+    // 스트림 요청이 실패하면 오류 본문도 stream 으로 온다 — 모아서 읽는다. 읽지 않으면 사용자에게는
+    // "Request failed with status code 400" 만 보이고 서버가 말한 이유가 사라진다 (#1284 실호출)
+    const apiMessage = await readErrorMessage(err);
     if (apiMessage && /organization must be verified/i.test(apiMessage)) {
       throw new Error(
         `${model} 모델 사용에는 OpenAI 조직 인증(Verify Organization)이 필요합니다. https://platform.openai.com/settings/organization/general 에서 인증 후 약 15분 대기하세요.`

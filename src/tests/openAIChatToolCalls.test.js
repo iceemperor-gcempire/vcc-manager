@@ -184,3 +184,27 @@ describe('completeStream — 툴 콜 조각 누적', () => {
     expect('tools' in axios.post.mock.calls[0][1]).toBe(false);
   });
 });
+
+describe('completeStream — 스트림으로 온 오류 본문 (#1284)', () => {
+  const axios = require('axios');
+  const { Readable } = require('stream');
+  const chat = require('../services/openAIChatService');
+  const failWith = (data) => jest.spyOn(axios, 'post').mockRejectedValueOnce(Object.assign(new Error('Request failed with status code 400'), { response: { status: 400, data } }));
+  const call = () => chat.completeStream('http://llm.invalid', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' }, () => {});
+  afterEach(() => jest.restoreAllMocks());
+
+  test('본문이 스트림이면 모아 읽어 서버가 말한 이유를 돌려준다', async () => {
+    failWith(Readable.from([Buffer.from('{"error":{"message":"Function tools are '), Buffer.from('not supported for this model"}}')]));
+    await expect(call()).rejects.toThrow('OpenAI: Function tools are not supported for this model');
+  });
+
+  test('본문이 객체여도 읽는다', async () => {
+    failWith({ error: { message: 'bad model' } });
+    await expect(call()).rejects.toThrow('OpenAI: bad model');
+  });
+
+  test('JSON 이 아니면 원래 오류를 그대로', async () => {
+    failWith(Readable.from([Buffer.from('<html>502</html>')]));
+    await expect(call()).rejects.toThrow('Request failed with status code 400');
+  });
+});

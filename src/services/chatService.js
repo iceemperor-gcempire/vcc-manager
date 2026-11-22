@@ -81,12 +81,22 @@ const titleFrom = (text) => {
 /** 판이 이미지 칸을 가지면 비전 입력을 보낸다 — 텍스트 판의 기존 규칙과 같다 (#519) */
 const sendsVision = (workboard) => (workboard.additionalInputFields || []).some((f) => f && f.type === 'image');
 
+/** 지난 턴의 도구 결과를 줄여 보낼 도구 — 결과가 크고(판 목록·칸 설명), 그 턴이 끝나면 다시 볼 일이 없다 */
+const COMPACTED_TOOLS = new Set(['find_workboards', 'get_workboard']);
+const COMPACTED_RESULT = '{"note":"earlier result omitted to save context — call the tool again if you need it"}';
+
 /**
- * 저장된 대화를 LLM 호출용 내부 형식으로. 첨부가 있는 사용자 메시지에는 id 안내를 붙인다 — 모델이 그 id 를
- * 생성 도구의 첨부 칸 값으로 쓴다. 안내는 저장하지 않고 매번 첨부에서 만든다.
+ * 저장된 대화를 LLM 호출용 내부 형식으로.
+ * - 첨부가 있는 사용자 메시지에는 id 안내를 붙인다 — 모델이 그 id 를 생성 도구의 첨부 칸 값으로 쓴다.
+ *   안내는 저장하지 않고 매번 첨부에서 만든다.
+ * - 지난 턴(마지막 사용자 메시지 이전)의 판 찾기·판 보기 결과는 짧은 안내로 바꿔 보낸다. 생성 요청 한 번에
+ *   1만 토큰 가까이 쌓여 (실호출), 그대로 두면 대화가 길어질수록 문맥이 차서 턴이 실패한다. 메시지 자체는
+ *   남기므로 호출과 결과의 짝은 그대로이고, 저장된 기록도 바꾸지 않는다.
  */
 async function toModelMessages(conversation, { vision }) {
-  return Promise.all(conversation.messages.map(async (m) => {
+  let lastUserIndex = -1;
+  conversation.messages.forEach((m, i) => { if (m.role === 'user') lastUserIndex = i; });
+  return Promise.all(conversation.messages.map(async (m, i) => {
     const out = { role: m.role, content: m.content || '' };
     if (m.role === 'assistant' && Array.isArray(m.toolCalls) && m.toolCalls.length > 0) {
       out.toolCalls = m.toolCalls.map((c) => ({ id: c.id, name: c.name, arguments: c.arguments }));
@@ -94,11 +104,13 @@ async function toModelMessages(conversation, { vision }) {
     if (m.role === 'tool') {
       out.toolCallId = m.toolCallId;
       out.name = m.name;
+      if (i < lastUserIndex && COMPACTED_TOOLS.has(m.name) && out.content.length > COMPACTED_RESULT.length) out.content = COMPACTED_RESULT;
     }
     const ids = (m.attachments || []).map((a) => a.imageId).filter(Boolean);
     if (m.role === 'user' && ids.length > 0) {
       out.content = `${out.content}\n\n[attached image ids: ${ids.map(String).join(', ')}]`;
-      if (vision) {
+      // 비전 입력은 이번 턴의 첨부만 — 지난 턴의 이미지를 매번 다시 싣지 않는다 (id 안내는 남는다)
+      if (vision && i === lastUserIndex) {
         const images = await loadVisionImages(ids, conversation.userId);
         if (images.length > 0) out.images = images.map((v) => ({ base64: v.base64, mimeType: v.mimeType }));
       }

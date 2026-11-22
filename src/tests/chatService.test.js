@@ -207,6 +207,43 @@ describe('toModelMessages', () => {
   });
 });
 
+describe('toModelMessages — 지난 턴 줄이기', () => {
+  const big = JSON.stringify({ workboards: Array.from({ length: 6 }, (_, i) => ({ id: `w${i}`, description: 'x'.repeat(300) })) });
+  const conv = {
+    userId: 'user-1',
+    messages: [
+      { role: 'user', content: '고양이', attachments: [{ imageId: 'old', url: '/u/old' }] },
+      { role: 'assistant', content: '', toolCalls: [{ id: 'c1', name: 'find_workboards', arguments: '{}' }, { id: 'c2', name: 'generate', arguments: '{}' }] },
+      { role: 'tool', toolCallId: 'c1', name: 'find_workboards', content: big },
+      { role: 'tool', toolCallId: 'c2', name: 'generate', content: '{"jobId":"j1"}' },
+      { role: 'assistant', content: '시작했습니다.' },
+      { role: 'user', content: '이번엔 영상', attachments: [{ imageId: 'new', url: '/u/new' }] },
+      { role: 'assistant', content: '', toolCalls: [{ id: 'c3', name: 'get_workboard', arguments: '{}' }] },
+      { role: 'tool', toolCallId: 'c3', name: 'get_workboard', content: big },
+    ],
+  };
+
+  test('지난 턴의 판 찾기·보기 결과만 줄인다 — 짝·생성 결과·이번 턴은 그대로', async () => {
+    const out = await toModelMessages(conv, { vision: false });
+    expect(out.map((m) => m.role)).toEqual(conv.messages.map((m) => m.role));
+    expect(out[2]).toMatchObject({ role: 'tool', toolCallId: 'c1', name: 'find_workboards' });
+    expect(out[2].content).toMatch(/omitted/);
+    expect(out[2].content.length).toBeLessThan(120);
+    expect(out[3].content).toBe('{"jobId":"j1"}');   // 생성 결과(작업 id)는 남는다
+    expect(out[7].content).toBe(big);                 // 이번 턴의 결과는 그대로
+    expect(conv.messages[2].content).toBe(big);       // 저장된 기록은 바꾸지 않는다
+  });
+
+  test('비전 입력은 이번 턴의 첨부만 싣고, 지난 턴은 id 안내만 남긴다', async () => {
+    const out = await toModelMessages(conv, { vision: true });
+    expect(loadVisionImages).toHaveBeenCalledTimes(1);
+    expect(loadVisionImages).toHaveBeenCalledWith(['new'], 'user-1');
+    expect(out[0].images).toBeUndefined();
+    expect(out[0].content).toMatch(/\[attached image ids: old\]/);
+    expect(out[5].images).toHaveLength(1);
+  });
+});
+
 describe('판정·보조', () => {
   test('buildSystemPrompt — 채팅 안내 뒤에 판의 시스템 프롬프트 기본값', () => {
     expect(buildSystemPrompt(workboard())).toBe(CHAT_SYSTEM_PROMPT);
