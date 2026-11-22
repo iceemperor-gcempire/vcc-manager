@@ -14,6 +14,12 @@ const DEFAULT_MAX_ROUNDS = 8;
 // 도구 결과 하나의 글자 수 상한 — 목록형 도구가 컨텍스트를 다 채우지 못하게 한다
 const DEFAULT_MAX_RESULT_CHARS = 20_000;
 
+const LIMIT_NOTICE = Object.freeze({
+  role: 'user',
+  content: '[시스템 안내] 이번 차례에 쓸 수 있는 도구 호출 횟수를 다 썼습니다. 더는 도구를 부를 수 없습니다. '
+    + '도구 호출 문법을 적지 말고, 지금까지 받은 결과만으로 사용자에게 답하세요. 끝내지 못한 일이 있으면 무엇이 남았는지 말하세요.',
+});
+
 const addUsage = (a, b) => ({
   promptTokens: (a.promptTokens || 0) + (b?.promptTokens || 0),
   completionTokens: (a.completionTokens || 0) + (b?.completionTokens || 0),
@@ -101,9 +107,12 @@ async function runToolLoop({
   const outcomes = { ok: 0, unknown_tool: 0, bad_arguments: 0, handler_error: 0 };
 
   for (;;) {
-    // 상한에 닿으면 도구를 빼고 부른다 — 모델이 지금까지의 결과로 답을 마무리하게 한다
+    // 상한에 닿으면 도구를 빼고 부른다 — 모델이 지금까지의 결과로 답을 마무리하게 한다.
+    // 도구만 빼면 모델은 빠진 줄 모르고 도구 호출 문법을 글로 적어 낸다 (실호출에서 확인) — 알려 준다.
+    // 안내는 이 호출에만 붙이고 대화 기록(newMessages)에는 남기지 않는다. 대화 중간의 system 을
+    // 거부하는 채팅 템플릿이 있어 user 로 보낸다.
     const offered = limitReached ? [] : tools;
-    const reply = await callModel(working, offered);
+    const reply = await callModel(limitReached ? [...working, LIMIT_NOTICE] : working, offered);
     usage = addUsage(usage, reply?.usage);
     const calls = limitReached ? [] : (Array.isArray(reply?.toolCalls) ? reply.toolCalls : []);
 
@@ -138,4 +147,4 @@ async function runToolLoop({
   }
 }
 
-module.exports = { runToolLoop, runToolCall, DEFAULT_MAX_ROUNDS, DEFAULT_MAX_RESULT_CHARS };
+module.exports = { runToolLoop, runToolCall, DEFAULT_MAX_ROUNDS, DEFAULT_MAX_RESULT_CHARS, LIMIT_NOTICE };

@@ -2,7 +2,7 @@
  * llmToolLoop (#769) — 가짜 모델로 재호출 루프와 방어를 고정한다.
  */
 
-const { runToolLoop } = require('../services/llmToolLoop');
+const { runToolLoop, LIMIT_NOTICE } = require('../services/llmToolLoop');
 
 const TOOLS = [{ name: 'echo', description: '', parameters: { type: 'object', properties: {} } }];
 const call = (id, name, args) => ({ id, name, arguments: typeof args === 'string' ? args : JSON.stringify(args) });
@@ -116,6 +116,11 @@ describe('runToolLoop', () => {
     expect(echo).toHaveBeenCalledTimes(3);
     expect(callModel).toHaveBeenCalledTimes(4);
     expect(callModel.mock.calls[3][1]).toEqual([]);
+    // 마무리 호출에는 "도구를 더 못 쓴다" 안내가 붙고, 저장할 대화에는 남지 않는다
+    const lastSent = callModel.mock.calls[3][0];
+    expect(lastSent[lastSent.length - 1]).toEqual(LIMIT_NOTICE);
+    expect(callModel.mock.calls[2][0]).not.toContainEqual(LIMIT_NOTICE);
+    expect(r.newMessages).not.toContainEqual(LIMIT_NOTICE);
     expect(r).toMatchObject({ content: '여기까지 했습니다', rounds: 3, toolCalls: 3, limitReached: true });
     expect(r.newMessages[r.newMessages.length - 1]).toEqual({ role: 'assistant', content: '여기까지 했습니다' });
     expect(logs.join('\n')).toMatch(/라운드 상한 도달 maxRounds=3/);

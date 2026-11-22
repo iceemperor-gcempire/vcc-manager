@@ -89,6 +89,17 @@ describe('complete — 툴 콜', () => {
     ]);
   });
 
+  test('호출자가 tools 를 안 줬으면 tool_calls 만 온 응답은 예전처럼 빈 응답 오류 (extraParams 로 들어온 tools)', async () => {
+    axios.post.mockResolvedValue({
+      data: { choices: [{ message: { content: '', tool_calls: [{ id: 'c1', function: { name: 'x', arguments: '{}' } }] } }] },
+    });
+    await expect(
+      openAIChatService.complete('http://llm', 'k', [{ role: 'user', content: 'hi' }], {
+        model: 'm', extraParams: { tools: [{ type: 'function', function: { name: 'x' } }] },
+      })
+    ).rejects.toThrow('빈 응답');
+  });
+
   test('content 도 tool_calls 도 없으면 여전히 빈 응답 오류', async () => {
     axios.post.mockResolvedValue({ data: { choices: [{ message: { content: '', tool_calls: [] } }] } });
     await expect(
@@ -140,6 +151,30 @@ describe('completeStream — 툴 콜 조각 누적', () => {
     const r = await openAIChatService.completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm', tools: TOOLS });
     expect(r.content).toBe('찾아볼게요');
     expect(r.toolCalls).toEqual([{ id: 'call_0', name: 'find_workboards', arguments: '{}' }]);
+  });
+
+  test('index 가 없거나 전부 0 이어도 id 가 바뀌면 다른 호출로 가른다', async () => {
+    streamWith((s) => {
+      s.emit('data', Buffer.from(line({ tool_calls: [{ id: 'c1', function: { name: 'a', arguments: '{"x":' } }] })));
+      s.emit('data', Buffer.from(line({ tool_calls: [{ function: { arguments: '1}' } }] })));
+      s.emit('data', Buffer.from(line({ tool_calls: [{ index: 0, id: 'c2', function: { name: 'b', arguments: '{}' } }] })));
+      s.emit('end');
+    });
+    const r = await openAIChatService.completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm', tools: TOOLS });
+    expect(r.toolCalls).toEqual([
+      { id: 'c1', name: 'a', arguments: '{"x":1}' },
+      { id: 'c2', name: 'b', arguments: '{}' },
+    ]);
+  });
+
+  test('호출자가 tools 를 안 줬으면 스트림의 tool_calls 조각은 모으지 않는다', async () => {
+    streamWith((s) => {
+      s.emit('data', Buffer.from(line({ content: 'hi' })));
+      s.emit('data', Buffer.from(line({ tool_calls: [{ index: 0, id: 'c1', function: { name: 'a' } }] })));
+      s.emit('end');
+    });
+    const r = await openAIChatService.completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' });
+    expect(r.toolCalls).toEqual([]);
   });
 
   test('도구 호출이 없으면 빈 배열', async () => {

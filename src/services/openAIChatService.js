@@ -127,8 +127,12 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
   }
 
   const content = choices[0]?.message?.content || '';
-  // 도구를 부르는 응답은 content 가 비는 게 정상이다 (#769)
-  const toolCalls = fromOpenAIToolCalls(choices[0]?.message?.tool_calls);
+  // 도구를 부르는 응답은 content 가 비는 게 정상이다 (#769). 도구를 준 호출에서만 받는다 —
+  // 작업판 extraParams 에 tools 가 들어 있어도 호출자가 도구를 안 줬으면 받아줄 루프가 없으니
+  // 예전처럼 빈 응답 오류로 드러낸다.
+  const toolCalls = Array.isArray(options.tools) && options.tools.length > 0
+    ? fromOpenAIToolCalls(choices[0]?.message?.tool_calls)
+    : [];
   if (!content && toolCalls.length === 0) {
     throw new Error('LLM 서버에서 빈 응답을 반환했습니다.');
   }
@@ -195,7 +199,10 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
   let usage = null;
   let buffer = '';
   // 스트림의 tool_calls 는 index 별 조각으로 온다 (#769) — id·name 은 첫 조각에, arguments 는 나뉘어서.
+  // 모은 순서(slot)대로 둔다. 도구를 안 준 호출에서는 모으지 않는다 (complete 와 같은 이유).
   const toolCallParts = new Map();
+  const slotOfIndex = new Map();
+  const wantsTools = Array.isArray(options.tools) && options.tools.length > 0;
 
   await new Promise((resolve, reject) => {
     response.data.on('data', (chunk) => {
@@ -215,13 +222,20 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
           content += delta;
           if (typeof onToken === 'function') onToken(delta);
         }
-        for (const part of (json.choices?.[0]?.delta?.tool_calls || [])) {
+        for (const part of (wantsTools ? (json.choices?.[0]?.delta?.tool_calls || []) : [])) {
+          // index 를 빼거나 전부 0 으로 주는 호환 서버가 있다 — 같은 자리에 다른 id 가 오면 새 호출이다
           const idx = Number.isInteger(part.index) ? part.index : 0;
-          const acc = toolCallParts.get(idx) || { id: '', name: '', arguments: '' };
+          let slot = slotOfIndex.get(idx);
+          const current = slot !== undefined ? toolCallParts.get(slot) : null;
+          if (!current || (part.id && current.id && part.id !== current.id)) {
+            slot = toolCallParts.size;
+            slotOfIndex.set(idx, slot);
+            toolCallParts.set(slot, { id: '', name: '', arguments: '' });
+          }
+          const acc = toolCallParts.get(slot);
           if (part.id) acc.id = part.id;
           if (part.function?.name) acc.name += part.function.name;
           if (typeof part.function?.arguments === 'string') acc.arguments += part.function.arguments;
-          toolCallParts.set(idx, acc);
         }
         if (json.usage) usage = json.usage;
       }
