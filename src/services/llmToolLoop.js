@@ -81,6 +81,7 @@ async function runToolCall(call, handlers, maxResultChars) {
  * @param {number} [opts.maxRounds] 도구를 실행하는 라운드 상한. 넘으면 도구 없이 한 번 더 불러 답을 받는다
  * @param {Function} [opts.onToolCall] (call) => void — 실행 직전
  * @param {Function} [opts.onToolResult] (call, { outcome, content }) => void — 실행 직후
+ * @param {Function} [opts.onRound] async (messagesOfRound) => void — 라운드의 assistant + tool 메시지가 다 모인 뒤. 저장용
  * @param {Function} [opts.log] 한 줄 로그 (기본 console.log)
  * @returns {Promise<{ content, newMessages, usage, rounds, toolCalls, limitReached }>}
  *   newMessages — 이번 루프에서 생긴 assistant·tool 메시지 (저장용, 순서대로)
@@ -94,6 +95,7 @@ async function runToolLoop({
   maxResultChars = DEFAULT_MAX_RESULT_CHARS,
   onToolCall,
   onToolResult,
+  onRound,
   log = console.log,
 }) {
   if (typeof callModel !== 'function') throw new Error('runToolLoop: callModel is required');
@@ -139,6 +141,10 @@ async function runToolLoop({
       newMessages.push(toolMessage);
       if (typeof onToolResult === 'function') onToolResult(call, { outcome: result.outcome, content: result.content });
     }
+
+    // 한 라운드 = assistant(toolCalls) + 그 호출 전부의 tool 결과. 이 묶음 단위로 저장하면 다음 모델 호출이
+    // 실패해도 대화 기록에 짝이 맞는 메시지만 남는다 (#1284). await 한다 — 저장이 끝난 뒤 다음 호출로 간다.
+    if (typeof onRound === 'function') await onRound(newMessages.slice(-(calls.length + 1)));
 
     if (rounds >= maxRounds) {
       limitReached = true;

@@ -148,3 +148,51 @@ describe('runToolLoop', () => {
     await expect(runToolLoop({ messages: [] })).rejects.toThrow('callModel is required');
   });
 });
+
+describe('onRound — 라운드 단위 저장 훅 (#1284)', () => {
+  const { runToolLoop: loop } = require('../services/llmToolLoop');
+  const reply = (toolCalls, content = '') => ({ content, toolCalls, usage: {} });
+  const tc = (id, name) => ({ id, name, arguments: '{}' });
+
+  test('라운드마다 assistant + 그 호출 전부의 tool 메시지를 한 묶음으로 넘기고, 끝날 때까지 기다린다', async () => {
+    const replies = [reply([tc('a', 't'), tc('b', 't')]), reply([tc('c', 't')]), reply([], '끝')];
+    const rounds = [];
+    const order = [];
+    let n = 0;
+    await loop({
+      messages: [{ role: 'user', content: 'x' }],
+      tools: [{ name: 't' }],
+      handlers: { t: async () => 'ok' },
+      callModel: async () => { order.push(`model${n}`); const r = replies[n]; n += 1; return r; },
+      onRound: async (msgs) => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        rounds.push(msgs.map((m) => [m.role, m.toolCallId || (m.toolCalls || []).map((c) => c.id).join('+')]));
+        order.push(`saved${rounds.length}`);
+      },
+      log: () => {},
+    });
+    expect(rounds).toEqual([
+      [['assistant', 'a+b'], ['tool', 'a'], ['tool', 'b']],
+      [['assistant', 'c'], ['tool', 'c']],
+    ]);
+    // 저장이 끝난 뒤에 다음 모델 호출로 간다
+    expect(order).toEqual(['model0', 'saved1', 'model1', 'saved2', 'model2']);
+  });
+
+  test('도구를 안 부르면 불리지 않는다', async () => {
+    const onRound = jest.fn();
+    await loop({ messages: [], tools: [], handlers: {}, callModel: async () => reply([], '답'), onRound, log: () => {} });
+    expect(onRound).not.toHaveBeenCalled();
+  });
+
+  test('다음 모델 호출이 실패해도 그 전 라운드는 이미 넘어갔다', async () => {
+    const onRound = jest.fn(async () => {});
+    let n = 0;
+    await expect(loop({
+      messages: [], tools: [{ name: 't' }], handlers: { t: async () => 'ok' },
+      callModel: async () => { n += 1; if (n === 2) throw new Error('down'); return reply([tc('a', 't')]); },
+      onRound, log: () => {},
+    })).rejects.toThrow('down');
+    expect(onRound).toHaveBeenCalledTimes(1);
+  });
+});

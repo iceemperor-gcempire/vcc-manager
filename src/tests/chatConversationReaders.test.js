@@ -21,6 +21,7 @@ jest.mock('../services/queueService', () => ({
 }));
 jest.mock('../models/Workboard', () => ({ findById: jest.fn() }));
 jest.mock('../models/ConversationJob', () => ({ create: jest.fn(), find: jest.fn(), findById: jest.fn(), countDocuments: jest.fn() }));
+jest.mock('../models/ImageGenerationJob', () => ({ updateMany: jest.fn(async () => ({})) }));
 jest.mock('../models/GeneratedText', () => ({ create: jest.fn(async (doc) => ({ _id: 'gt-1', ...doc })) }));
 jest.mock('../services/promptGuideService', () => ({ loadGuidesForWorkboard: jest.fn(async () => []) }));
 jest.mock('../services/openAIChatService', () => ({ completeStream: jest.fn(async () => ({ content: 'ok', usage: {} })) }));
@@ -29,6 +30,7 @@ jest.mock('../services/geminiService', () => ({}));
 const Workboard = require('../models/Workboard');
 const ConversationJob = require('../models/ConversationJob');
 const GeneratedText = require('../models/GeneratedText');
+const ImageGenerationJob = require('../models/ImageGenerationJob');
 const openAIChatService = require('../services/openAIChatService');
 const { LIST_TOOL_CONTENT_CHARS } = require('../utils/conversationView');
 
@@ -158,5 +160,26 @@ describe('대화 메시지를 텍스트로 저장 (#1282)', () => {
     const res = await save(3);
     expect(res.status).toBeLessThan(300);
     expect(GeneratedText.create).toHaveBeenCalledWith(expect.objectContaining({ content: '만들었습니다.', sourcePrompt: '고양이 그려 줘', messageIndex: 3 }));
+  });
+});
+
+describe('작업 히스토리에서 대화 삭제 (#1284)', () => {
+  const remove = (kind) => {
+    const deleteOne = jest.fn(async () => {});
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind, deleteOne });
+    return request(app).delete('/api/conversations/c1').then((res) => ({ res, deleteOne }));
+  };
+
+  test('채팅 대화를 지우면 그 대화에서 만든 작업은 남기고 연결만 끊는다', async () => {
+    const { res, deleteOne } = await remove('chat');
+    expect(res.status).toBe(200);
+    expect(deleteOne).toHaveBeenCalled();
+    expect(ImageGenerationJob.updateMany).toHaveBeenCalledWith({ conversationId: 'c1' }, { $unset: { conversationId: 1 } });
+  });
+
+  test('보통 대화는 작업을 건드리지 않는다', async () => {
+    const { res } = await remove(undefined);
+    expect(res.status).toBe(200);
+    expect(ImageGenerationJob.updateMany).not.toHaveBeenCalled();
   });
 });

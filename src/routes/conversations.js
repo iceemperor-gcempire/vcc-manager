@@ -1,8 +1,9 @@
 const express = require('express');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ConversationJob = require('../models/ConversationJob');
+const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
-const { toConversationListItem } = require('../utils/conversationView');
+const { toConversationListItem, isChatConversation } = require('../utils/conversationView');
 
 const router = express.Router();
 
@@ -105,6 +106,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ message: '삭제 권한이 없습니다.' });
     }
     await item.deleteOne();
+    // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다
+    if (isChatConversation(item)) {
+      await ImageGenerationJob.updateMany({ conversationId: item._id }, { $unset: { conversationId: 1 } });
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Conversation delete error:', error);
