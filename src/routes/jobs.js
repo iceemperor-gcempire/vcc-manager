@@ -1,23 +1,19 @@
 const express = require('express');
-const { isPromptOptional } = require('../utils/workflowDirectives');
 const { requireAuth, userHasWorkboardAccess, userHasProjectAccess } = require('../middleware/auth');
 const { loadContextDocs, loadSystemPromptDoc, resolveProjectTag } = require('../services/containerDocAccess');
 const { loadTargetWorkboardInstructions } = require('../services/targetWorkboardInstructions');
-const { ATTACHMENT_FIELD_TYPES } = require('../constants/mediaTypes');
 const { addImageGenerationJob, getQueueStats, cancelQueueJob, abortActiveJob } = require('../services/queueService');
 const openAIChatService = require('../services/openAIChatService');
 const geminiService = require('../services/geminiService');
 const { deleteFile } = require('../utils/fileUpload');
-const { reverseUploadUrls } = require('../utils/signedUrl');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const ConversationJob = require('../models/ConversationJob');
-const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
 const Workboard = require('../models/Workboard');
 const { escapeRegex } = require('../utils/escapeRegex');
 const Server = require('../models/Server');
-const { getFieldValueByRole, getImageSizeValue, getModelValue } = require('../utils/customFieldHelpers');
+const { getFieldValueByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES } = require('../constants/fieldRoles');
 const { computeOpenAITextCost, computeGeminiTextCost } = require('../utils/pricing');
 const Project = require('../models/Project');
@@ -32,6 +28,7 @@ const { findLoraFolderViolation, findLoraFieldViolation } = require('../services
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
+const { submitGenerationRequest, GenerationRequestError } = require('../services/generationRequest');
 const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 
 // 세계관 (사전 컨텍스트) + 작업 지침 → 단일 system 메시지로 합성 (#396).
@@ -66,165 +63,10 @@ router.post('/generate', requireAuth, async (req, res) => {
   try {
     console.log('🎯 Image generation request received');
     console.log('📋 Request body:', JSON.stringify(req.body, null, 2));
-    
-    const {
-      workboardId,
-      prompt: rawPrompt,
-      negativePrompt,
-      referenceImages,
-      referenceImageMethod,
-      stylePreset,
-      upscaleMethod,
-      additionalParams,
-      seed,
-      randomSeed,
-      tags
-    } = req.body;
 
-    if (!workboardId) {
-      return res.status(400).json({ message: 'Missing required fields: workboardId, prompt' });
-    }
+    // 검증과 작업 등록은 서비스에 있다 (#1269) — 채팅 도구도 같은 함수를 쓴다
+    const job = await submitGenerationRequest({ user: req.user, body: req.body });
 
-    // 작업판 접근 권한 검사 (#198)
-    const wb = await Workboard.findById(workboardId);
-    if (!wb) {
-      return res.status(404).json({ message: 'Workboard not found' });
-    }
-    if (!userHasWorkboardAccess(req.user, wb)) {
-      return res.status(403).json({ message: '이 작업판에 접근할 권한이 없습니다.' });
-    }
-
-    // 프롬프트는 필수 — 워크플로가 프롬프트를 쓰지 않는 ComfyUI 판만 비워도 된다 (#1035)
-    if (!rawPrompt && !isPromptOptional(wb)) {
-      return res.status(400).json({ message: 'Missing required fields: workboardId, prompt' });
-    }
-    const prompt = rawPrompt || '';
-
-    // 텍스트 작업판은 작업 큐에 처리기가 없다 — 작업을 만들어 비동기로 실패시키지 말고 바로 알린다 (#1015)
-    if (wb.outputFormat === 'text') {
-      return res.status(400).json({
-        message: '텍스트 작업판은 이 경로로 실행할 수 없습니다. POST /api/jobs/generate-prompt 를 쓰세요 (MCP 는 generate_text).',
-      });
-    }
-
-    // required 이미지/비디오/오디오 필드 검증 (#758, #772) — 프론트 rules 를 우회하는 API/MCP 경로 커버.
-    // (일반 필드의 required 는 프론트 CustomFieldControl 이 강제 — 여기서는 첨부형만 본다)
-    const ap0 = additionalParams || {};
-    for (const field of (wb.additionalInputFields || [])) {
-      if (!field.required || !ATTACHMENT_FIELD_TYPES.includes(field.type)) continue;
-      const v = ap0[field.name] !== undefined ? ap0[field.name] : req.body[field.name];
-      const empty = Array.isArray(v) ? v.length === 0 : !v;
-      if (empty) {
-        return res.status(400).json({
-          message: `필수 첨부가 누락되었습니다: ${field.label || field.name}`
-        });
-      }
-    }
-
-    // 첨부 참조 검증 (#959) — 첨부 메타데이터를 읽는 아래 사전 검사들보다 먼저 한다
-    if (!req.user.isAdmin) {
-      const unusable = await findUnusableAttachments({
-        workboard: wb, inputData: { ...req.body, additionalParams: ap0 }, ownerIds: [req.user._id], label: 'generate',
-      });
-      if (unusable.length > 0) {
-        return res.status(400).json({
-          message: `${describeUnusableAttachments(unusable)} — 내가 올리거나 만든 미디어만 첨부할 수 있습니다`,
-        });
-      }
-    }
-
-    // 무음 영상 + "소리도 참조" 차단 (#859) — 통과시키면 ComfyUI 에서 원인불명 실패가 된다
-    const silentViolation = await findSilentVideoViolation(wb, { ...req.body, additionalParams: ap0 });
-    if (silentViolation) {
-      return res.status(400).json({ message: silentViolation });
-    }
-
-    // 이미지·영상 방향 불일치 차단 (#862) — 늘리기 모드의 세로↔가로 조합은 시작 프레임을 뭉갠다
-    const orientationViolation = await findOrientationViolation(wb, { ...req.body, additionalParams: ap0 });
-    if (orientationViolation) {
-      return res.status(400).json({ message: orientationViolation });
-    }
-
-    // 모델 / 이미지 크기 추출 — customField 이름이 임의일 수 있어 schema-aware lookup.
-    // 작업판의 additionalInputFields 에서 type='baseModel' 인 필드 (없으면 well-known name fallback) 의
-    // name 으로 inputData (top-level 또는 additionalParams) 에서 값 조회.
-    const ap = additionalParams || {};
-    const lookupInput = { ...req.body, additionalParams: ap };
-    // 칸 값이 먼저, 비었으면 top-level aiModel·imageSize (#1174) — 실행(queueService)·폴더 검사와 같은 값을 기록한다
-    const aiModel = getModelValue(wb, lookupInput);
-    const imageSize = getImageSizeValue(wb, lookupInput);   // 빠지면 판 기본값 — 실행과 같은 값을 기록한다 (#1221)
-
-    console.log('🔍 Extracted fields:', {
-      workboardId,
-      prompt: prompt?.substring(0, 50) + '...',
-      aiModel,
-      imageSize,
-      seed,
-      randomSeed,
-      additionalParamsKeys: Object.keys(ap)
-    });
-
-    // 베이스 모델 필드가 없는 유틸리티 작업판(픽셀 업스케일 등, #871)은 aiModel 없이 허용.
-    // 필드가 있는데 값이 없는 경우만 사용자 실수로 본다.
-    const hasBaseModelField = (wb.additionalInputFields || []).some((f) => f.type === 'baseModel');
-    if (!aiModel && hasBaseModelField) {
-      console.error('❌ aiModel 추출 실패 — workboard customField (type=baseModel) 또는 inputData 확인 필요');
-      return res.status(400).json({
-        message: '베이스 모델이 지정되지 않았습니다. 작업판 \"입력 양식\" 에 베이스 모델 타입 필드가 있는지, 사용자 페이지에서 모델을 선택했는지 확인하세요.'
-      });
-    }
-
-    // 판의 모델 폴더 밖이면 막는다 (#1086) — API·MCP 는 모델 선택 목록을 거치지 않는다
-    const folderViolation = findModelFolderViolation(wb, lookupInput);
-    if (folderViolation) {
-      return res.status(400).json({ message: folderViolation });
-    }
-    // 판의 LoRA 폴더 밖 LoRA 태그(#1099)와 LoRA 선택 칸 값(#1157)도 막는다
-    const loraViolation = await findLoraFolderViolation(wb, prompt) || findLoraFieldViolation(wb, lookupInput);
-    if (loraViolation) {
-      return res.status(400).json({ message: loraViolation });
-    }
-
-
-    const inputData = {
-      prompt: prompt.trim(),
-      // 안 보냈으면 판의 기본 부정 프롬프트 (#1262) — 실행(queueService)과 같은 값을 기록해 계속하기가 그대로 이어받는다.
-      // 빈 문자열은 "없음" 으로 보낸 것이라 그대로 둔다
-      negativePrompt: (negativePrompt === undefined || negativePrompt === null)
-        ? (wb.defaultNegativePrompt || undefined)
-        : negativePrompt.trim(),
-      aiModel,
-      imageSize,
-      referenceImages: referenceImages || [],
-      referenceImageMethod,
-      stylePreset,
-      upscaleMethod,
-      additionalParams: additionalParams || {},
-      seed,
-      randomSeed,
-      tags: Array.isArray(tags) ? tags : []
-    };
-    
-    console.log('📦 Prepared inputData for job creation:', JSON.stringify(inputData, null, 2));
-    
-    // 첨부 주소는 서명을 떼고 /uploads 경로로 저장한다 (#966) — 응답에서 다시 서명하므로 만료가 남지 않는다.
-    const job = await addImageGenerationJob(req.user._id, workboardId, reverseUploadUrls(inputData));
-    
-    console.log('✅ Job created successfully:', {
-      jobId: job._id,
-      status: job.status,
-      createdAt: job.createdAt
-    });
-    
-    if (referenceImages && referenceImages.length > 0) {
-      for (const refImg of referenceImages) {
-        await UploadedImage.findByIdAndUpdate(refImg.imageId, {
-          $push: { referencedBy: { jobId: job._id } },
-          isReferenced: true
-        });
-      }
-    }
-    
     res.status(201).json({
       message: 'Image generation job created successfully',
       job: {
@@ -235,7 +77,7 @@ router.post('/generate', requireAuth, async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    res.status(error instanceof GenerationRequestError ? error.status : 400).json({ message: error.message });
   }
 });
 
