@@ -64,8 +64,8 @@ LoRA 선택 칸에 다른 폴더의 LoRA 를 넣으면 실행이 거절된다 (#
 | 판 | 허용 LoRA 폴더 |
 |---|---|
 | Text to Image - MOSS-Image · MOSS-Image (빠름) | `style/openmoss/` |
-| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
-| MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) | `style/Minimax/ref2va/` |
+| MiniMax H3 FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · FL2V (pi-H3) · 키프레임 앵커 (Turbo) | `style/Minimax/fl2va/` (아래 「스타일 LoRA」) |
+| MiniMax H3 R2V (Turbo) · R2V (Pika Flex) · R2V (FastH3 Omni) · R2V (PRISM) · R2V (pi-H3) | `style/Minimax/ref2va/` |
 
 LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에서 **허용 LoRA 폴더**를 바꾼다.
 
@@ -102,8 +102,10 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/minimax-h3-keyframe-turbo.json` | MiniMax H3 - 키프레임 앵커 (Turbo) | 영상+오디오 · 키 이미지 1~3장을 시간축에 앵커 | FL2V Turbo 와 동일 (H3 int8 + 터보 LoRA) |
 | `comfyui/minimax-h3-r2v-turbo.json` | MiniMax H3 - R2V (Turbo) | 〃 | H3 non-pruned 모델 + Turbo LoRA⁴ + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-fl2v-pika-flex.json` | MiniMax H3 - FL2V (Pika Flex) | 영상 + 오디오 · **6스텝** (Pika H3 Flex 공식 어댑터) · 코덱 선택 · 업스케일 옵션⁵ | H3 non-pruned 모델 + Pika Flex LoRA (아래 「Pika H3 Flex」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
+| `comfyui/minimax-h3-fl2v-pi-h3.json` | MiniMax H3 - FL2V (pi-H3) | 영상 + 오디오 · 첫·끝 프레임 · **2~4스텝** (pi-H3 어댑터, 영상 VAE 디코드 없음) · 코덱 선택 · 업스케일 옵션⁵ | H3 **pruned** fl2va 모델 + `ComfyUI-piFlow` 노드 + pi-H3 DWD 어댑터 (+ Spark-H3 노드, 아래 「pi-H3」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-fl2v-prism.json` | MiniMax H3 - FL2V (PRISM) | 영상 + 오디오 · 첫·끝 프레임 · 8스텝 가속이 병합된 커뮤니티 모델용, **8스텝 · 시프트 12/3** (가속 LoRA 없음) · 샘플링 선택 (기본 lcm · simple) | 8스텝 가속이 병합된 H3 모델 (직접 준비, 아래 「8스텝 병합 모델용 판」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-pika-flex.json` | MiniMax H3 - R2V (Pika Flex) | 〃 | 〃 (ref2va 용 Pika Flex LoRA) |
+| `comfyui/minimax-h3-r2v-pi-h3.json` | MiniMax H3 - R2V (pi-H3) | 영상+오디오 · 참조 이미지·영상·소리 · **2~4스텝** (pi-H3 어댑터, 영상 VAE 디코드 없음) · **프롬프트에 참조 태그 필요** | H3 **pruned** ref2va 모델 + `ComfyUI-piFlow` 노드 + pi-H3 DWD 어댑터 (+ Spark-H3 노드, 아래 「pi-H3」) + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/minimax-h3-r2v-fasth3-omni.json` | MiniMax H3 - R2V (FastH3 Omni) | 영상+오디오 · 참조 이미지·영상·소리, 8스텝 (FastVideo 증류) · 5·10·15초 | `minimax/fasth3_omniref_8step_pruned_int8_convrot` ([🤗 FastVideo/FastH3-Omni-Comfy](https://huggingface.co/FastVideo/FastH3-Omni-Comfy), 22.2 GB) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²). ComfyUI **0.42 이상**. 1344x768 5초 약 68초 (참조 영상을 넣으면 크게 늘어난다) |
 | `comfyui/minimax-h3-r2v-prism.json` | MiniMax H3 - R2V (PRISM) | 영상+오디오 · 참조 이미지·영상·소리 · 8스텝 가속이 병합된 커뮤니티 모델용, 가속 LoRA 없이 8스텝 · 샘플링 선택 (기본 euler · beta57) · **프롬프트에 참조 태그 필요** | 8스텝 가속이 병합된 H3 모델 (직접 준비, 아래 「8스텝 병합 모델용 판」) + H3 TE·VAE + VHS 노드팩 · ffmpeg¹ (+ 업스케일 모델²) |
 | `comfyui/text-to-image-minimax-h3-image.json` | Text to Image - MiniMax-H3-Image | 이미지 ×1 · **MiniMax 공식 이미지 모델** · 4/8/16MP · 비율 8가지 · **AI 프롬프트 생성 권장** (판 안 늘려 쓰기는 기본 끔) | H3-Image 본체·VAE + H3 텍스트 인코더 + Qwen3.5 9B 보강 모델 (아래 「MiniMax-H3-Image」). **H3 영상 판과 같은 서버에 연결한다.** ComfyUI 0.45.0 이상. 4MP 약 7초 |
@@ -291,11 +293,11 @@ FL2V Turbo 80초 → 65초 (1.23×), R2V Turbo 91초 → 70초 (1.31×). 프레�
 
 토큰 수가 클수록 이득이 커진다. 설정값은 tau 1.3, 전체 스텝의 20~90% 구간, 4096 토큰 미만은 그대로.
 근사 연산이라 끈 결과와 세부가 다르다 — 같은 시점 프레임 비교로 화질 차이는 보이지 않았다.
-**켜 두면 같은 시드로 다시 만들어도 생성할 때마다 세부가 달라진다** (#1248). 토큰 보강(`extra_tokens`, 기본 256)이
+**토큰 보강(`extra_tokens`)은 0 으로 둔다** (#1248). ComfyUI 기본값 256 은 같은 시드로 다시 만들어도 생성할 때마다 세부가 달라진다 —
 예산을 넘칠 때 남길 토큰을 원자 연산 순서로 고르는 comfy-kitchen 의 알려진 문제다
-([comfy-kitchen 이슈 241](https://github.com/Comfy-Org/comfy-kitchen/issues/241), 수정 PR 대기 — ComfyUI 0.46.0 · comfy-kitchen 0.2.41 에 아직 없다).
-같은 결과가 필요하면 체크를 끈다 (끄면 비트 단위로 같고, 1344×768·5초 R2V 기준 64.8초 → 84.1초, 3회 중앙값).
-`extra_tokens` 0 도 결과가 같아지고 속도도 같지만 근사가 거칠어져 판에는 쓰지 않았다. 첫 실행은 커널 컴파일 때문에 느리다.
+([comfy-kitchen 이슈 241](https://github.com/Comfy-Org/comfy-kitchen/issues/241), ComfyUI 0.46.0 · comfy-kitchen 0.2.41 에 수정 없음).
+0 이면 다시 돌려도 비트 단위로 같다. FL2V (Pika Flex) 구성 두 장면에서 256 과 견줘 속도(55초 안팎)와 흐림 수치(`blurdetect`)가 같았고,
+원본 크기 크롭으로도 차이가 보이지 않았다 (2026-11-23, 수치는 #1248). v4.25 까지의 판은 256 이었으므로 같은 시드라도 그때와 다른 결과가 나온다. 첫 실행은 커널 컴파일 때문에 느리다.
 
 **SageAttention 이 없는 서버라면** ComfyUI 기동 인자 `--use-sage-attention` 없이도 같은 속도를 낼 수 있다 —
 ComfyUI 0.38 의 *Model Attention Backend* 노드에서 `comfy kitchen attention`(INT8, Nvidia·AMD)을 고르면 된다.
@@ -309,7 +311,7 @@ UNETLoader 바로 뒤에 이 노드를 끼우면 된다.
 ### H3 업샘플러 — 영상 업스케일 판과 R2V 판 선택지
 
 **영상 업스케일 (H3 업샘플러 x2)** 판은 이미 만든 영상을 받아 **정확히 2배**로 키운다 (832×448 → 1664×896, 1344×768 → 2688×1536).
-R2V 판(기본·터보·Pika Flex·PRISM)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
+R2V 판(기본·터보·Pika Flex·PRISM·pi-H3)에는 같은 처리를 생성 직후에 붙이는 **업스케일 — H3 업샘플러** 선택지(없음 / 2배, 기본 없음)가 있다.
 
 처리: 완성된 영상을 VAE 로 다시 latent 로 바꾸고 → H3 latent 업스케일러로 2배 → H3 모델이 Regen2K LoRA 로 세부를 다시 그린다
 (3스텝) → 디코드. 작은 얼굴은 따로 확대해 한 번 더 그린다. 구도·움직임·소리는 원본 그대로이고, 얼굴 생김새는 조금 달라질 수 있다.
@@ -342,6 +344,58 @@ R2V 판(기본·터보·Pika Flex·PRISM)에는 같은 처리를 생성 직후�
 연속 프레임 사이의 변화량은 단순 확대의 1.08배였고, 특정 프레임에서 튀는 곳은 없었다 (야시장 영상).
 옛 방식(0.1 노드 + `h3upscale_v2_x2` LoRA, denoise 0.1)은 움직이는 구간에서 단순 확대보다 흐려져서 바꿨다 (#1176).
 R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함께 켜면 두 번 커지니 하나만 쓴다.
+
+### pi-H3 — 2~4스텝 FL2V · R2V 판
+
+**MiniMax H3 - FL2V (pi-H3)** 판은 [`ComfyUI-piFlow`](https://github.com/Lakonik/ComfyUI-piFlow) 의 pi-H3 어댑터로 FL2V 를 2스텝 또는 4스텝에 만든다.
+어댑터가 마지막 스텝에서 프레임을 바로 내놓아(DWD) 영상 VAE 디코드를 건너뛴다. 소리는 다른 판처럼 오디오 VAE 로 푼다.
+구성은 piFlow 가 배포하는 `pi-H3-DWD-Spark-SM120` 워크플로를 따랐다 (euler · 시프트 12/3 · pi-Flow Scheduler).
+
+- **샘플링 스텝** (기본 4) — 2스텝용과 4스텝용 어댑터가 따로 있다. 칸 하나가 어댑터 파일, 스케줄러 스텝, `max_raw_t`
+  (4스텝 0.96 · 2스텝 0.93, piFlow 권장값), Spark-Attn 스텝을 함께 바꾼다
+- **가속 — Spark-Attn** (기본 켬) — [Spark-H3](https://github.com/zechengtang/Spark-H3) 의 희소 어텐션. 이 노드는 GPU 구조마다 따로 나오고,
+  판에는 RTX 50 시리즈 · RTX PRO Blackwell 용 `MiniMaxH3SparkAttentionSM120` 이 들어 있다. 노드가 없거나 GPU 가 다르면 칸을 끈다 — 노드를 빼고 돈다.
+  RTX 30 · 40 시리즈용 노드(SM86 · SM89)는 시험하지 않았다 — piFlow 가 GPU 별로 배포하는 워크플로를 참고한다
+- **ComfyUI 내장 Sol-Attn 은 넣지 않았다** — piFlow 문서가 pi-H3 영상을 눈에 띄게 떨어뜨린다고 적었고, 시험에서도 인물이 뭉개졌다
+- **베이스 모델은 pruned 만** — 어댑터가 pruned 모델에 맞춰져 있다. non-pruned 모델(ref2va int8 로 확인)에 걸면 모양이 맞지 않아 실패한다
+- **스타일 LoRA** 는 어댑터 앞에 건다. LoRA 하나로 걸리는 것만 확인했다 (같은 시드에서 결과가 달라짐)
+
+필요한 것 (영상 ComfyUI, 0.45 이상):
+- 커스텀 노드 [`ComfyUI-piFlow`](https://github.com/Lakonik/ComfyUI-piFlow) (검증 v1.4.2 `e0ca46f`, pip 의존성 없음)
+- 어댑터 `loras/pi_h3_4step_dwd_adapter_int8_convrot.safetensors` · `loras/pi_h3_2step_dwd_adapter_int8_convrot.safetensors` —
+  [🤗 Lakonik/pi-H3](https://huggingface.co/Lakonik/pi-H3). **`loras` 폴더 바로 아래에 이 이름 그대로** 둔다
+- `diffusion_models/minimax/minimax_h3_fl2va_pruned_int8_convrot.safetensors` (기본) 또는 `minimax_h3_fl2va_pruned_w6a8.safetensors`
+- (Spark-Attn 을 켤 때) Spark-H3 — 운영체제 · GPU 에 맞는 배포본을 받아 설치한다 (검증 v0.2.0 SM120).
+  Spark-H3 는 ComfyUI 0.44 까지를 지원 범위로 적어 두었고, 여기서는 0.46.0 에서 돌렸다
+
+실측 (RTX PRO 6000, 1344×768, 첫 프레임 1장, 모델이 올라온 뒤 ComfyUI 실행 시간):
+
+| 구성 | 5초 | 10초 |
+|---|---|---|
+| pi-H3 4스텝 · Spark-Attn | 30.6초 (3회 중앙값) | 67.8 · 75.4초 |
+| pi-H3 2스텝 · Spark-Attn | 18.4초 (3회 중앙값) | 38.9초 (1회) |
+| pi-H3 2스텝 · Spark-Attn 끔 | 22.5초 (1회) | |
+| FL2V (Pika Flex) 6스텝 · Sol-Attn 켬 | 53.2초 (3회 중앙값) | |
+
+- 화질은 한 장면(비 오는 야시장을 달리는 인물)에서 본 것이다. 전체 구도 · 움직임은 FL2V (Pika Flex) 에 가깝다.
+  빠르게 움직이는 작은 얼굴은 2스텝 · 4스텝 모두 무르거나 몇 프레임 일그러진 실행이 있었고(4스텝에서도 3프레임), Pika Flex 는 같은 구간에서 안정적이었다.
+  `blurdetect` 평균은 Pika Flex 7.23 · 4스텝 7.45 · 2스텝 7.70 (낮을수록 선명)
+- 판으로 돌려 본 것 (각 1회): 첫 프레임만 · 끝 프레임만 · 둘 다 · 프레임 없음, 2스텝, Spark-Attn 끔, 스타일 LoRA, 인코딩 전 업스케일(3초),
+  768×1344 · 15초, pruned w6a8 베이스. 모두 지정한 크기 · 프레임 수로 나왔다
+- 끝 프레임은 목표 이미지와 PSNR 29.3 dB (첫+끝) · 29.0 dB (끝만). 같은 프레임 · 같은 방법으로 잰 FL2V (Pika Flex) 는 31.3 dB
+- 기본값(스텝 · 코덱 생략)으로도 만들어지고, 생성 화면에 칸과 허용 모델 2개가 나오는 것을 확인했다
+- 소리는 트랙이 있고 음량이 정상 범위인 것만 확인했다. 내용을 듣고 평가하지는 않았다
+
+**MiniMax H3 - R2V (pi-H3)** 판은 같은 DWD 어댑터를 REF2VA 베이스에 걸고 조건 노드만 R2V 용으로 바꾼 구성이다.
+어댑터는 FL2VA 용으로 공개됐고 모델 카드는 REF2VA 를 말하지 않는다 — 돌려 보니 되는 구성이지 제작자가 안내한 쓰임은 아니다.
+
+- 칸은 R2V (Pika Flex) 판과 같고(참조 이미지 3 · 영상 2 · 소리 2, H3 업샘플러, 스타일 LoRA), Sol-Attn 칸 대신 **샘플링 스텝** 과 **가속 — Spark-Attn** 이 있다
+- **베이스 모델은 `minimax_h3_ref2va_pruned_w6a8`** — non-pruned `ref2va_int8_convrot` 는 어댑터 모양이 맞지 않아 로드에서 실패한다
+- 판으로 돌려 본 것 (알파, RTX PRO 6000, 1344×768, 각 1회, VCC 작업 시간): 참조 이미지 1장 4스텝 49초 · 2스텝 32초 · Spark-Attn 끔 56초,
+  이미지 2장 40초, 참조 영상 170초, 참조 영상 + 영상 소리 178초, 참조 오디오 41초, 10초 81초, 스타일 LoRA 49초, H3 업샘플러 2배(3초 영상) 186초.
+  모두 지정한 크기 · 프레임 수로 나왔고 참조 인물이 유지됐다 (줄인 프레임 묶음으로 봄, 업샘플러와 연속 프레임은 원본 크기 크롭). 참조 영상을 넣으면 다른 R2V 판처럼 시간이 크게 는다
+- 참조 오디오 시험에서는 프롬프트의 장소(빈 아케이드)가 반영되지 않고 참조 이미지의 장소가 그대로 나왔다 (1회)
+- 소리 내용은 듣고 평가하지 않았다. 참조 영상의 동작을 얼마나 따르는지도 재지 않았다
 
 ### Pika H3 Flex — 6스텝 판 2개와 Turbo 판 합본 선택지
 
@@ -425,9 +479,9 @@ R2V 용 합본도 있지만, 시험에서 참조 이미지에 없는 역광·배
     효과음 장면의 저역·잡음 바닥 차이(9 dB)와 FL2V 의 잡음 바닥 차이(30~40 dB)·클리핑은 이 편차보다 훨씬 크다
 - 라이선스: H3 파생 모델은 **MiniMax H3 커뮤니티 라이선스**로 다룬다. 병합 모델은 원본마다 조건이 더 붙을 수 있으니, 쓰기 전에 그 모델의 배포처 안내를 확인한다
 
-### 스타일 LoRA — 판 9개의 선택 칸
+### 스타일 LoRA — 판 11개의 선택 칸
 
-FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V 긴 영상 (Turbo)
+FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM)·FL2V (pi-H3)·키프레임 앵커 (Turbo)·R2V (Turbo)·R2V (Pika Flex)·R2V (FastH3 Omni)·R2V (PRISM)·R2V (pi-H3)·R2V 긴 영상 (Turbo)
 판에는 **스타일 LoRA** 와 **스타일 LoRA 강도** 칸이 있다. (AV1) 두 판에는 없다.
 
 - **비워 두면 LoRA 노드를 건너뛴다** — 칸이 생기기 전과 같은 워크플로로 돈다. 강도 기본값은 1.0
@@ -436,8 +490,8 @@ FL2V (Turbo)·FL2V (Pika Flex)·FL2V (PRISM)·키프레임 앵커 (Turbo)·R2V (
 
   | 둘 곳 (`loras/`) | 쓰는 판 |
   |---|---|
-  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · 키프레임 앵커 (Turbo) |
-  | `style/Minimax/ref2va/` | R2V 판 5개 (R2V 긴 영상 Turbo 포함) |
+  | `style/Minimax/fl2va/` | FL2V (Turbo) · FL2V (Pika Flex) · FL2V (PRISM) · FL2V (pi-H3) · 키프레임 앵커 (Turbo) |
+  | `style/Minimax/ref2va/` | R2V 판 6개 (R2V 긴 영상 Turbo 포함) |
 
   파일을 넣은 뒤 관리자 화면의 서버 관리에서 **LoRA 동기화**를 해야 선택 목록에 나온다
 - 걸리는 자리: 가속 LoRA(터보·Pika 합본)가 있는 판은 그 뒤, 없는 판(PRISM·FastH3)은 본체 바로 뒤다. 시그마 시프트보다 앞이다.
