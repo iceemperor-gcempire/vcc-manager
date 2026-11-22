@@ -1,14 +1,21 @@
 const fs = require('fs');
 const path = require('path');
 
-// MiniMax H3 - FL2V (pi-H3) 판 (#1266).
+// MiniMax H3 - FL2V (pi-H3) · R2V (pi-H3) 판 (#1266).
 // 「샘플링 스텝」 칸 하나가 어댑터 파일 · 스케줄러 스텝 · max_raw_t · Spark-Attn 스텝을 함께 바꾼다.
 // 한 곳이라도 따로 놀면 2스텝 어댑터에 4스텝 스케줄이 걸리는 식으로 조용히 화질이 무너진다.
-const board = JSON.parse(fs.readFileSync(path.join(__dirname, '../../workboards/comfyui/minimax-h3-fl2v-pi-h3.json'), 'utf8')).workboard;
+const load = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, `../../workboards/comfyui/${name}.json`), 'utf8')).workboard;
+const BOARDS = [
+  ['minimax-h3-fl2v-pi-h3', /fl2va_pruned_/],
+  ['minimax-h3-r2v-pi-h3', /ref2va_pruned_/],
+];
+
+describe.each(BOARDS)('%s', (name, baseModelPattern) => {
+const board = load(name);
 const wf = JSON.parse(board.workflowData);
 const byType = (t) => Object.entries(wf).filter(([, n]) => n.class_type === t);
 const one = (t) => { const l = byType(t); expect(l).toHaveLength(1); return l[0]; };
-const field = (name) => board.additionalInputFields.find((f) => f.name === name);
+const field = (fieldName) => board.additionalInputFields.find((f) => f.name === fieldName);
 
 test('스텝 선택지는 2 와 4 뿐이고 기본은 4', () => {
   expect(field('steps').options.map((o) => o.value).sort()).toEqual(['2', '4']);
@@ -64,6 +71,7 @@ test('시프트 12/3 · euler', () => {
 test('베이스 모델은 pruned 만 — 어댑터가 pruned 모델 모양이라 일반 모델에는 걸리지 않는다', () => {
   expect(board.modelExposurePolicy).toBe('whitelist');
   expect(board.modelWhitelist.length).toBeGreaterThan(0);
-  for (const m of board.modelWhitelist) expect(m).toMatch(/fl2va_pruned_/);
+  for (const m of board.modelWhitelist) expect(m).toMatch(baseModelPattern);
   expect(board.modelWhitelist).toContain(field('base_model').defaultValue);
+});
 });
