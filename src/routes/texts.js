@@ -235,6 +235,8 @@ router.post('/generated', requireAuth, async (req, res) => {
       const msg = conv.messages?.[messageIndex];
       if (!msg) return res.status(400).json({ message: '메시지 인덱스가 유효하지 않습니다.' });
       if (msg.role !== 'assistant') return res.status(400).json({ message: 'assistant 메시지만 저장할 수 있습니다.' });
+      // 도구 호출만 있는 assistant 메시지(채팅 대화, #1282)는 본문이 비어 있다 — 빈 텍스트를 만들지 않는다
+      if (!msg.content || !String(msg.content).trim()) return res.status(400).json({ message: '내용이 없는 메시지는 저장할 수 없습니다.' });
       content = msg.content;
       model = conv.model;
       workboardId = conv.workboardId;
