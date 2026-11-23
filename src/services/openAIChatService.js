@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { StringDecoder } = require('string_decoder');
 
 const extractValue = (input) => {
   if (input && typeof input === 'object' && input.value !== undefined) {
@@ -232,9 +233,11 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
   const slotOfIndex = new Map();
   const wantsTools = Array.isArray(options.tools) && options.tools.length > 0;
 
+  // 청크 경계가 글자 중간(한글은 3바이트)에 올 수 있다 — 디코더가 남은 바이트를 다음 청크와 합친다 (#1293)
+  const decoder = new StringDecoder('utf8');
   await new Promise((resolve, reject) => {
     response.data.on('data', (chunk) => {
-      buffer += chunk.toString('utf8');
+      buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
       let nl;
       // SSE 는 줄 단위(`data: {...}`) — 청크 경계에서 잘린 줄은 buffer 에 남겨 다음 청크와 합친다.
       while ((nl = buffer.indexOf('\n')) !== -1) {
@@ -288,4 +291,4 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
   return { content, toolCalls, usage: normalizedUsage };
 };
 
-module.exports = { complete, completeStream };
+module.exports = { complete, completeStream, readErrorMessage };
