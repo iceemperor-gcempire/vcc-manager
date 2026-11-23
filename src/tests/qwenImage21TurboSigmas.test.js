@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { injectInputsIntoWorkflow } = require('../services/queueService');
 
 // Qwen-Image 2.1 판은 공식 Turbo 모델을 고르면 공식 Turbo 템플릿의 8스텝 시그마로 돈다 (#1278).
 // 스텝만 8 로 줄인 simple 일정은 질감이 과하게 거칠어졌다. 일반 모델은 지금까지와 같은 simple 일정이다.
@@ -78,6 +79,7 @@ describe.each(['text-to-image-qwen-image-21', 'sketch-to-image-qwen-image-21'])(
 });
 
 // 공식 모델 카드(Qwen/Qwen-Image-2.1 "Supported Aspect Ratios")의 2K 크기 7가지 (#1278)
+const EXISTING_SIZES = ['1024x1024', '1152x896', '1216x832', '1344x768', '1536x1024', '896x1152', '832x1216', '768x1344', '1024x1536'];
 const OFFICIAL_2K_SIZES = ['2048x2048', '2400x1792', '1792x2400', '2528x1696', '1696x2528', '2752x1536', '1536x2752'];
 
 describe('text-to-image-qwen-image-21 크기 선택지', () => {
@@ -103,8 +105,30 @@ describe('text-to-image-qwen-image-21 크기 선택지', () => {
     for (const o of field.options) expect(o.key.startsWith(`${o.value} `)).toBe(true);
   });
 
-  test('기본 크기는 1MP 그대로다', () => {
+  test('기본 크기는 1MP 그대로이고 선택지 안에 있다', () => {
     expect(field.defaultValue).toBe('1024x1024');
+    expect(values).toContain(field.defaultValue);
+  });
+
+  test('기존 1MP · 1.5MP 선택지는 그대로 남아 있다', () => {
+    for (const size of EXISTING_SIZES) expect(values).toContain(size);
+  });
+
+  // 문자열 자리만 보면 큐가 큰 크기를 잘라 내거나 기본값으로 바꿔도 통과한다 — 실제 주입 결과를 본다
+  test.each(OFFICIAL_2K_SIZES)('%s 를 고르면 빈 latent 에 그 가로·세로가 숫자로 들어간다', async (size) => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      const { workflowJson } = await injectInputsIntoWorkflow(
+        board.workflowData,
+        { prompt: 'a', additionalParams: { base_model: 'qwen\\qwen_image_2.1_int8_convrot.safetensors', image_size: size } },
+        board,
+      );
+      const [w, h] = size.split('x').map(Number);
+      const latent = Object.values(workflowJson).find((n) => n.class_type === 'EmptyLatentImage');
+      expect(latent.inputs).toMatchObject({ width: w, height: h });
+    } finally {
+      logSpy.mockRestore();
+    }
   });
 
   test('빈 latent 가 고른 크기를 그대로 받는다', () => {
