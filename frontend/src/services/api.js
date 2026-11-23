@@ -125,6 +125,15 @@ export const jobAPI = {
   getQueueStats: () => api.get('/jobs/queue/stats'),
 };
 
+// 채팅 화면 (#1288). 메시지 전송은 SSE 라 services/streamChat 의 streamChatMessage 로 보낸다
+export const chatAPI = {
+  getWorkboards: () => api.get('/chat/workboards'),
+  getSessions: (params) => api.get('/chat/sessions', { params }),
+  getSession: (id) => api.get(`/chat/sessions/${id}`),
+  renameSession: (id, title) => api.patch(`/chat/sessions/${id}`, { title }),
+  deleteSession: (id) => api.delete(`/chat/sessions/${id}`),
+};
+
 // LLM 대화 히스토리 (#373)
 export const conversationAPI = {
   getMy: (params) => api.get('/conversations/my', { params }),

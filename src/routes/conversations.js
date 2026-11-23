@@ -3,7 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
-const { toConversationListItem, isChatConversation } = require('../utils/conversationView');
+const { toConversationListItem, isChatConversation, isTurnInProgress } = require('../utils/conversationView');
 
 const router = express.Router();
 
@@ -104,6 +104,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
     }
     if (!req.user.isAdmin && String(item.userId) !== String(req.user._id)) {
       return res.status(403).json({ message: '삭제 권한이 없습니다.' });
+    }
+    // 응답을 받는 중인 채팅 대화는 못 지운다 — 지우면 도는 턴이 답을 저장할 곳이 없어진다. 채팅 화면의 삭제와 같다 (#1288)
+    if (isChatConversation(item) && isTurnInProgress(item)) {
+      return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
     }
     await item.deleteOne();
     // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다

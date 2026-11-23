@@ -30,6 +30,7 @@ export const WORKBOARD_QUERY_ROOTS = [
   'allWorkboardsForPicker',    // 프로젝트에 작업판 추가 다이얼로그 (#396)
   'sequenceWorkboardPicker',   // 작업 절차 편집기의 작업판 picker
   'sequencePreviewInputs',     // 작업 절차 편집기의 입력 미리보기 — 판의 입력 칸으로 서버가 계산한다
+  'chatWorkboards',            // 채팅 화면의 대화 상대 목록 (#1288)
 ];
 
 export function invalidateWorkboardQueries(queryClient) {
@@ -46,6 +47,7 @@ export function invalidateWorkboardQueries(queryClient) {
 export const REFRESH_ON_ENTER_PATHS = ['/jobs', '/content'];
 export const REFRESH_ON_ENTER_ROOTS = [
   'historyJobs',      // 작업 히스토리
+  'historyConvs',     //            대화 — 채팅 화면에서 생긴·지운 대화가 바로 보이게 (#1288)
   'generatedImages',  // 내 콘텐츠 — 생성 이미지
   'uploadedImages',   //            업로드 이미지
   'generatedVideos',  //            생성 영상

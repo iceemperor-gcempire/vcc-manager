@@ -7,6 +7,7 @@
 // 저장 단위: 도구 라운드(assistant 의 호출 + 그 결과 전부)를 한 묶음으로, 마지막 답을 따로. 중간에 모델
 // 호출이 실패해도 기록에는 짝이 맞는 메시지만 남는다 — 짝이 깨진 기록은 다음 턴을 LLM 서버가 거절한다.
 
+const { isTurnInProgress, STALE_TURN_MS } = require('../utils/conversationView'); // 판정은 대화 기록 쪽과 한 곳에 둔다
 const openAIChatService = require('./openAIChatService');
 const { runToolLoop } = require('./llmToolLoop');
 const { createChatTools } = require('./chatTools');
@@ -28,8 +29,6 @@ const CHAT_MAX_ROUNDS = 6;
  * 8천 자를 넘어 잘린 적이 있다 (실호출) — 잘리면 뒤쪽 칸을 모델이 못 본다.
  */
 const CHAT_MAX_RESULT_CHARS = 16000;
-/** 이보다 오래 processing 인 대화는 죽은 턴으로 본다 (서버 재시작 등) — 새 턴을 받는다 */
-const STALE_TURN_MS = 10 * 60 * 1000;
 const TITLE_CHARS = 40;
 
 const CHAT_SYSTEM_PROMPT = [
@@ -117,13 +116,6 @@ async function toModelMessages(conversation, { vision }) {
     }
     return out;
   }));
-}
-
-/** 다른 턴이 돌고 있는가 — 오래된 processing 은 죽은 턴으로 보고 받는다 */
-function isTurnInProgress(conversation, now = Date.now()) {
-  if (conversation.status !== 'processing') return false;
-  const touched = new Date(conversation.updatedAt || conversation.createdAt || 0).getTime();
-  return now - touched < STALE_TURN_MS;
 }
 
 const stamp = (messages) => messages.map((m) => ({ ...m, createdAt: new Date() }));

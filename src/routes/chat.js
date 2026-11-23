@@ -92,7 +92,9 @@ router.get('/sessions', requireAuth, async (req, res) => {
         .lean(),
       ConversationJob.countDocuments(filter),
     ]);
-    res.json({ success: true, data: { sessions: items, pagination: { current: page, pages: Math.ceil(total / limit), total } } });
+    // turnInProgress — 응답을 받는 중인지는 서버가 판정해 준다 (죽은 턴 기준이 여기 한 곳에만 있게)
+    const sessions = items.map((s) => ({ ...s, turnInProgress: isTurnInProgress(s) }));
+    res.json({ success: true, data: { sessions, pagination: { current: page, pages: Math.ceil(total / limit), total } } });
   } catch (error) {
     console.error('Chat sessions error:', error);
     res.status(500).json({ message: error.message });
@@ -112,7 +114,7 @@ router.get('/sessions/:id', requireAuth, async (req, res) => {
       .populate('resultImages')
       .populate('resultVideos')
       .populate('resultAudios');
-    res.json({ success: true, data: { session: conversation, jobs } });
+    res.json({ success: true, data: { session: conversation, jobs, turnInProgress: isTurnInProgress(conversation) } });
   } catch (error) {
     console.error('Chat session get error:', error);
     res.status(500).json({ message: error.message });
