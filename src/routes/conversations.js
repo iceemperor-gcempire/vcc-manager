@@ -113,10 +113,18 @@ router.delete('/:id', requireAuth, async (req, res) => {
       // 판정과 삭제를 한 번에 — 위 검사 뒤에 다른 요청이 턴을 잡았으면 지우지 않는다
       const removed = await ConversationJob.deleteOne({ _id: item._id, ...idleTurnFilter() });
       if (!removed.deletedCount) {
+        // 0건 — 다른 요청이 그 사이 지웠으면 없는 대화, 아직 있으면 턴을 잡힌 것이다
+        const still = await ConversationJob.countDocuments({ _id: item._id });
+        if (!still) return res.status(404).json({ message: '대화를 찾을 수 없습니다.' });
         return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
       }
-      // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다
-      await ImageGenerationJob.updateMany({ conversationId: item._id }, { $unset: { conversationId: 1 } });
+      // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다.
+      // 대화는 이미 지워졌으므로 연결 끊기가 실패해도 삭제는 성공이다
+      try {
+        await ImageGenerationJob.updateMany({ conversationId: item._id }, { $unset: { conversationId: 1 } });
+      } catch (e) {
+        console.error(`Conversation delete — 작업 연결 끊기 실패 conversation=${item._id}: ${e.message}`);
+      }
     } else {
       await item.deleteOne();
     }

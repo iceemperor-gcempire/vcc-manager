@@ -147,17 +147,21 @@ const complete = async (serverUrl, apiKey, messages, options = {}) => {
   return { content, toolCalls, usage, model };
 };
 const MAX_ERROR_BODY_BYTES = 64 * 1024;
+// 오류 본문을 기다리는 기한 — 본문이 오다 멈추면 호출이 끝나지 않는다
+const ERROR_BODY_TIMEOUT_MS = 10 * 1000;
 
 /**
  * axios 오류에서 서버가 준 오류 문구를 꺼낸다. 본문이 객체면 그대로, 스트림이면 모아서 JSON 으로 읽는다.
  * 못 읽으면 undefined — 호출자가 원래 오류를 그대로 던진다.
  */
-async function readErrorMessage(err) {
+async function readErrorMessage(err, timeoutMs = ERROR_BODY_TIMEOUT_MS) {
   const data = err?.response?.data;
   if (!data) return undefined;
   if (typeof data.on !== 'function' && typeof data[Symbol.asyncIterator] !== 'function') {
     return data.error?.message;
   }
+  // 기한이 지나면 스트림을 닫는다 — 읽기 루프가 끝나고, 못 읽은 것으로 돌아간다 (호출자는 원래 오류를 던진다)
+  const timer = setTimeout(() => { if (typeof data.destroy === 'function') data.destroy(); }, timeoutMs);
   try {
     const chunks = [];
     let size = 0;
@@ -171,6 +175,8 @@ async function readErrorMessage(err) {
     return parsed?.error?.message || (typeof parsed?.error === 'string' ? parsed.error : undefined);
   } catch (_) {
     return undefined;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

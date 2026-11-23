@@ -145,9 +145,19 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
     if (isTurnInProgress(conversation)) return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
     // 판정과 삭제를 한 번에 — 위 검사 뒤에 다른 탭이 턴을 잡았으면 지우지 않는다
     const removed = await ConversationJob.deleteOne({ _id: conversation._id, ...idleTurnFilter() });
-    if (!removed.deletedCount) return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
-    const unlinked = await ImageGenerationJob.updateMany({ conversationId: conversation._id }, { $unset: { conversationId: 1 } });
-    console.log(`[chat] session deleted conversation=${conversation._id} unlinkedJobs=${unlinked.modifiedCount || 0}`);
+    if (!removed.deletedCount) {
+      // 0건 — 다른 요청이 그 사이 지웠으면 없는 대화, 아직 있으면 턴을 잡힌 것이다
+      const still = await ConversationJob.countDocuments({ _id: conversation._id });
+      if (!still) return res.status(404).json({ message: '대화를 찾을 수 없습니다.' });
+      return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
+    }
+    // 대화는 이미 지워졌다 — 연결 끊기가 실패해도 삭제는 성공이다. 남은 연결은 없는 대화를 가리킬 뿐 작업에는 해가 없다
+    try {
+      const unlinked = await ImageGenerationJob.updateMany({ conversationId: conversation._id }, { $unset: { conversationId: 1 } });
+      console.log(`[chat] session deleted conversation=${conversation._id} unlinkedJobs=${unlinked.modifiedCount || 0}`);
+    } catch (e) {
+      console.error(`[chat] session deleted conversation=${conversation._id} — 작업 연결 끊기 실패: ${e.message}`);
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('Chat session delete error:', error);
