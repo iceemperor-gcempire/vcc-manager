@@ -89,9 +89,26 @@ describe('toResponsesTools · toResponsesParams', () => {
       temperature: 0.7, reasoning_effort: 'low', max_completion_tokens: 500, max_tokens: 900,
       stream_options: { include_usage: true }, stop: ['x'], messages: [], tools: [{}], store: true, input: 'x',
     })).toEqual({ temperature: 0.7, reasoning: { effort: 'low' }, max_output_tokens: 500 });
-    expect(toResponsesParams({ reasoning: { summary: 'auto' }, reasoning_effort: 'high' })).toEqual({ reasoning: { summary: 'auto', effort: 'high' } });
-    expect(toResponsesParams({ reasoning_effort: 'high', reasoning: { summary: 'auto', effort: 'low' } })).toEqual({ reasoning: { summary: 'auto', effort: 'high' } });
     expect(toResponsesParams(undefined)).toEqual({});
+  });
+
+  test('같은 뜻의 키가 겹치면 키 순서와 무관하게 Responses 이름이 이긴다', () => {
+    expect(toResponsesParams({ max_tokens: 900, max_completion_tokens: 500 }).max_output_tokens).toBe(500);
+    expect(toResponsesParams({ max_tokens: 900, max_output_tokens: 100, max_completion_tokens: 500 }).max_output_tokens).toBe(100);
+    for (const p of [{ reasoning: { summary: 'auto', effort: 'low' }, reasoning_effort: 'high' }, { reasoning_effort: 'high', reasoning: { summary: 'auto', effort: 'low' } }]) {
+      expect(toResponsesParams(p)).toEqual({ reasoning: { summary: 'auto', effort: 'low' } });
+    }
+    expect(toResponsesParams({ reasoning: { summary: 'auto' }, reasoning_effort: 'high' })).toEqual({ reasoning: { summary: 'auto', effort: 'high' } });
+  });
+
+  test('response_format 은 text.format 으로', () => {
+    expect(toResponsesParams({ response_format: { type: 'json_object' } })).toEqual({ text: { format: { type: 'json_object' } } });
+    expect(toResponsesParams({ response_format: { type: 'json_schema', json_schema: { name: 'n', schema: { type: 'object' }, strict: true } }, text: { verbosity: 'low' } }))
+      .toEqual({ text: { format: { type: 'json_schema', name: 'n', schema: { type: 'object' }, strict: true }, verbosity: 'low' } });
+  });
+
+  test('서버 쪽 대화 상태를 잇는 키는 보내지 않는다 — 판 설정 하나가 사용자들의 대화를 섞지 못하게', () => {
+    expect(toResponsesParams({ conversation: 'conv_1', previous_response_id: 'resp_1', background: true, prompt: { id: 'p' }, top_p: 0.9 })).toEqual({ top_p: 0.9 });
   });
 });
 
@@ -163,6 +180,46 @@ describe('completeStream', () => {
     expect(partial.usage).toEqual({ promptTokens: 3, completionTokens: 2, totalTokens: 5 });
     await expect(run(sse({ type: 'response.incomplete', response: { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, output: [] } })))
       .rejects.toThrow('max_output_tokens');
+  });
+
+  test('중단된 응답의 도구 호출은 받지 않는다 — 잘린 인자로 실행되거나 기록에 남지 않게', async () => {
+    const cut = (output) => sse({ type: 'response.incomplete', response: { status: 'incomplete', incomplete_details: { reason: 'max_output_tokens' }, output } });
+    const call = { type: 'function_call', call_id: 'c1', name: 'get_weather', arguments: '{"city":', status: 'incomplete' };
+    await expect(run(cut([call]))).rejects.toThrow('max_output_tokens');
+    await expect(run(cut([{ ...call, arguments: '' }]))).rejects.toThrow('max_output_tokens');
+    const withText = await run(cut([{ type: 'message', content: [{ type: 'output_text', text: '볼게요' }] }, call]));
+    expect(withText).toEqual(expect.objectContaining({ content: '볼게요', toolCalls: [] }));
+  });
+
+  test('끝 이벤트를 받으면 연결이 닫히기를 기다리지 않는다', async () => {
+    const stream = new EventEmitter();
+    stream.destroy = jest.fn();
+    axios.post.mockResolvedValue({ data: stream });
+    setImmediate(() => stream.emit('data', Buffer.from(sse({ type: 'response.completed', response: { output: [{ type: 'message', content: [{ type: 'output_text', text: 'ok' }] }] } }))));
+    const r = await completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' });
+    expect(r.content).toBe('ok');
+    expect(stream.destroy).toHaveBeenCalled();
+
+    const failing = new EventEmitter();
+    axios.post.mockResolvedValue({ data: failing });
+    setImmediate(() => failing.emit('data', Buffer.from(sse({ type: 'response.failed', response: { error: { message: 'boom' } } }))));
+    await expect(completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' })).rejects.toThrow('OpenAI: boom');
+  });
+
+  test('끝 이벤트 없이 close 만 오면 끊긴 것으로 본다', async () => {
+    const stream = new EventEmitter();
+    axios.post.mockResolvedValue({ data: stream });
+    setImmediate(() => { stream.emit('data', Buffer.from(sse({ type: 'response.output_text.delta', delta: '안' }))); stream.emit('close'); });
+    await expect(completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' })).rejects.toThrow('중간에 끊겼습니다');
+  });
+
+  test('조각이 오다 멈추면 기한 뒤에 끊는다', async () => {
+    const stream = new EventEmitter();
+    stream.destroy = jest.fn();
+    axios.post.mockResolvedValue({ data: stream });
+    setImmediate(() => stream.emit('data', Buffer.from(sse({ type: 'response.output_text.delta', delta: '안' }))));
+    await expect(completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm', streamIdleTimeout: 30 })).rejects.toThrow('응답이 오지 않아');
+    expect(stream.destroy).toHaveBeenCalled();
   });
 
   test('요청이 거절되면 서버가 말한 이유를 꺼낸다 (오류 본문도 스트림으로 온다)', async () => {

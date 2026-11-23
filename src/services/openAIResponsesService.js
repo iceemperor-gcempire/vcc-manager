@@ -11,6 +11,9 @@ const axios = require('axios');
 const { StringDecoder } = require('string_decoder');
 const { readErrorMessage } = require('./openAIChatService');
 
+// 스트림 조각 사이에 허용하는 침묵. 추론 모델은 첫 글이 나오기까지 오래 조용할 수 있어 넉넉히 둔다
+const STREAM_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
 const extractValue = (input) => (input && typeof input === 'object' && input.value !== undefined ? input.value : input);
 
 /**
@@ -58,29 +61,49 @@ const toResponsesTools = (tools) => (Array.isArray(tools) && tools.length > 0
     }
   : {});
 
-// Chat Completions 에만 있는 키 — Responses 가 모르는 키라 그대로 보내면 400 이 난다
-const CHAT_ONLY_PARAMS = new Set([
-  'messages', 'stream', 'stream_options', 'n', 'stop', 'response_format',
+// 보내지 않는 키.
+// - Chat Completions 에만 있거나 이 서비스가 직접 정하는 키 (model·input·tools·stream·store 는 뒤에서 덮는다)
+// - 서버에 대화 상태를 잇는 키 — 작업판 설정 하나가 모든 사용자의 요청을 같은 서버 쪽 대화에 붙이게 된다.
+//   기록은 우리 DB 가 갖고 매번 전체를 보낸다
+const DROPPED_PARAMS = new Set([
+  'messages', 'stream', 'stream_options', 'n', 'stop',
   'tools', 'tool_choice', 'functions', 'function_call', 'input', 'store',
+  'conversation', 'previous_response_id', 'background', 'prompt',
 ]);
+
+// Chat Completions 의 response_format 을 Responses 의 text.format 으로
+function toTextFormat(responseFormat) {
+  if (!responseFormat || typeof responseFormat !== 'object') return null;
+  if (responseFormat.type === 'json_schema' && responseFormat.json_schema && typeof responseFormat.json_schema === 'object') {
+    return { type: 'json_schema', ...responseFormat.json_schema };
+  }
+  return responseFormat.type ? { type: responseFormat.type } : null;
+}
 
 /**
  * 작업판의 추가 LLM 파라미터(Chat Completions 꼴, docs/LLM_EXTRA_PARAMS.md)를 Responses 꼴로.
  * 이름이 다른 것만 옮기고 나머지는 그대로 둔다 — 서버가 모르는 키는 서버가 오류로 알려 준다.
+ * 같은 뜻의 키가 겹치면 Responses 이름이 이긴다 (키 순서와 무관): max_output_tokens > max_completion_tokens > max_tokens,
+ * reasoning.effort > reasoning_effort, text.format > response_format.
  */
 function toResponsesParams(extraParams) {
+  const src = extraParams && typeof extraParams === 'object' ? extraParams : {};
   const out = {};
-  for (const [key, value] of Object.entries(extraParams || {})) {
-    if (CHAT_ONLY_PARAMS.has(key)) continue;
-    if (key === 'reasoning_effort') {
-      out.reasoning = { ...(out.reasoning || {}), effort: value };
-    } else if (key === 'max_tokens' || key === 'max_completion_tokens') {
-      if (out.max_output_tokens === undefined) out.max_output_tokens = value;
-    } else if (key === 'reasoning' && value && typeof value === 'object') {
-      out.reasoning = { ...value, ...(out.reasoning || {}) };
-    } else {
-      out[key] = value;
-    }
+  for (const [key, value] of Object.entries(src)) {
+    if (DROPPED_PARAMS.has(key)) continue;
+    if (['reasoning_effort', 'max_tokens', 'max_completion_tokens', 'response_format'].includes(key)) continue;
+    out[key] = value;
+  }
+  const cap = [src.max_output_tokens, src.max_completion_tokens, src.max_tokens].find((v) => v !== undefined && v !== null);
+  if (cap !== undefined) out.max_output_tokens = cap;
+  if (src.reasoning_effort !== undefined) {
+    const given = src.reasoning && typeof src.reasoning === 'object' ? src.reasoning : {};
+    out.reasoning = { effort: src.reasoning_effort, ...given };
+  }
+  const format = toTextFormat(src.response_format);
+  if (format) {
+    const given = src.text && typeof src.text === 'object' ? src.text : {};
+    out.text = { format, ...given };
   }
   return out;
 }
@@ -185,8 +208,29 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
 
   // 청크 경계가 글자 중간(한글은 3바이트)에 올 수 있다 — 디코더가 남은 바이트를 다음 청크와 합친다
   const decoder = new StringDecoder('utf8');
+  const stream = response.data;
+  // axios 의 timeout 은 응답 머리까지만 본다. 본문이 오다 멈추면 영영 기다리게 되므로, 조각 사이의 침묵에 기한을 둔다
+  const idleMs = options.streamIdleTimeout || STREAM_IDLE_TIMEOUT_MS;
   await new Promise((resolve, reject) => {
-    response.data.on('data', (chunk) => {
+    let settled = false;
+    let idle = null;
+    const finish = (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(idle);
+      if (err) reject(err); else resolve();
+    };
+    const arm = () => {
+      clearTimeout(idle);
+      idle = setTimeout(() => {
+        if (typeof stream.destroy === 'function') stream.destroy();
+        finish(new Error(`OpenAI: ${Math.round(idleMs / 1000)}초 동안 응답이 오지 않아 중단했습니다.`));
+      }, idleMs);
+    };
+    arm();
+    stream.on('data', (chunk) => {
+      if (settled) return;
+      arm();
       buffer += typeof chunk === 'string' ? chunk : decoder.write(chunk);
       let nl;
       // SSE 는 줄 단위 — 청크 경계에서 잘린 줄은 buffer 에 남겨 다음 청크와 합친다. `event:` 줄은 안 본다
@@ -200,18 +244,28 @@ const completeStream = async (serverUrl, apiKey, messages, options = {}, onToken
         let json;
         try { json = JSON.parse(data); } catch { continue; }
         handleEvent(json);
+        // 끝을 알리는 이벤트를 받았으면 연결이 닫히기를 기다리지 않는다
+        if (final || failure) {
+          if (typeof stream.destroy === 'function') stream.destroy();
+          finish();
+          return;
+        }
       }
     });
-    response.data.on('end', resolve);
-    response.data.on('error', reject);
+    stream.on('end', () => finish());
+    stream.on('close', () => finish()); // 끝 이벤트 없이 닫혔으면 아래에서 "중간에 끊겼습니다"
+    stream.on('error', (err) => finish(err));
   });
 
   if (failure) throw new Error(`OpenAI: ${failure}`);
   // 완료 이벤트 없이 닫혔다 — 빈 응답으로 넘기면 원인이 사라진다
   if (!final) throw new Error('OpenAI: 응답이 중간에 끊겼습니다.');
 
-  const { content, toolCalls } = fromResponsesOutput(final.output, { wantsTools });
-  if (!content && toolCalls.length === 0 && final.status === 'incomplete') {
+  const incomplete = final.status === 'incomplete';
+  // 멈춘 응답의 도구 호출은 받지 않는다 — 인자가 잘렸을 수 있고, 빈 인자는 {} 로 읽혀 그대로 실행된다.
+  // 실행하지도 기록에 남기지도 않는다
+  const { content, toolCalls } = fromResponsesOutput(final.output, { wantsTools: wantsTools && !incomplete });
+  if (incomplete && !content) {
     throw new Error(`OpenAI: 응답이 끝나기 전에 멈췄습니다 (${final.incomplete_details?.reason || '사유 없음'}).`);
   }
   return { content, toolCalls, usage: normalizeUsage(final.usage) };
