@@ -131,7 +131,8 @@ export default function Chat() {
     return toChatRows(session?.messages);
   }, [session, liveHere, live]);
   const jobs = useMemo(
-    () => (liveHere ? mergeJobs(live.baseJobs, live.turn.jobs) : mergeJobs(serverJobs, [])),
+    // 작업은 가장 새로 읽은 목록을 쓴다 — 받는 동안 도착한 조회가 앞선 작업의 완료를 담고 있을 수 있다
+    () => (liveHere ? mergeJobs(serverJobs || live.baseJobs, live.turn.jobs) : mergeJobs(serverJobs, [])),
     [serverJobs, liveHere, live],
   );
   const activeJobs = jobs.filter(isJobActive).length;
@@ -165,6 +166,7 @@ export default function Chat() {
     const startedIn = sessionId;
     let sid = sessionId;
     let settled = false;
+    let opened = false; // 스트림이 열렸는가 — 열리기 전의 실패는 보낸 것이 저장되지 않은 것이다
     const finish = () => { if (!settled) { settled = true; settle(sid); } };
 
     setLive({
@@ -181,6 +183,7 @@ export default function Chat() {
       { ...(sessionId ? { sessionId } : { workboardId: board._id }), text: body, imageIds: attachments.map((a) => a.imageId) },
       {
         onEvent: (event, data) => {
+          opened = true;
           if (!mounted.current) return;
           if (event === 'session') {
             sid = data.sessionId;
@@ -198,9 +201,10 @@ export default function Chat() {
         onClose: finish, // done 없이 끊긴 경우에도 저장본으로 돌아간다
         onError: (err) => {
           if (!mounted.current) return;
-          if (!sid || err.status) {
-            // 스트림을 열지 못했다 (검증 실패·이미 응답 중 등) — 보낸 것은 저장되지 않았으니 입력을 되돌린다
-            toast.error(err.message || '메시지를 보내지 못했습니다.');
+          if (!opened) {
+            // 스트림을 열지 못했다. 서버가 거절했으면(err.status: 검증 실패·이미 응답 중 등) 저장되지 않았다.
+            // 연결 자체가 안 된 경우는 저장됐는지 알 수 없다 — 입력은 되돌리되, 대화를 다시 읽어 올라갔는지 보이게 한다
+            toast.error(err.status ? (err.message || '메시지를 보내지 못했습니다.') : '서버에 연결하지 못했습니다. 대화에 이미 올라갔는지 확인한 뒤 다시 보내세요.');
             if (routeRef.current === startedIn) {
               setText(sent.text);
               setAttachments(sent.attachments);

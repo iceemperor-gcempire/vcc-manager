@@ -20,7 +20,7 @@ jest.mock('../services/queueService', () => ({
   addImageGenerationJob: jest.fn(), getQueueStats: jest.fn(), cancelQueueJob: jest.fn(), abortActiveJob: jest.fn(),
 }));
 jest.mock('../models/Workboard', () => ({ findById: jest.fn() }));
-jest.mock('../models/ConversationJob', () => ({ create: jest.fn(), find: jest.fn(), findById: jest.fn(), countDocuments: jest.fn() }));
+jest.mock('../models/ConversationJob', () => ({ create: jest.fn(), find: jest.fn(), findById: jest.fn(), countDocuments: jest.fn(), deleteOne: jest.fn(async () => ({ deletedCount: 1 })) }));
 jest.mock('../models/ImageGenerationJob', () => ({ updateMany: jest.fn(async () => ({})) }));
 jest.mock('../models/GeneratedText', () => ({ create: jest.fn(async (doc) => ({ _id: 'gt-1', ...doc })) }));
 jest.mock('../services/promptGuideService', () => ({ loadGuidesForWorkboard: jest.fn(async () => []) }));
@@ -173,7 +173,8 @@ describe('작업 히스토리에서 대화 삭제 (#1284)', () => {
   test('채팅 대화를 지우면 그 대화에서 만든 작업은 남기고 연결만 끊는다', async () => {
     const { res, deleteOne } = await remove('chat');
     expect(res.status).toBe(200);
-    expect(deleteOne).toHaveBeenCalled();
+    expect(deleteOne).not.toHaveBeenCalled(); // 채팅 대화는 조건을 건 삭제 한 번으로 지운다
+    expect(ConversationJob.deleteOne).toHaveBeenCalledWith(expect.objectContaining({ _id: 'c1', $or: expect.any(Array) }));
     expect(ImageGenerationJob.updateMany).toHaveBeenCalledWith({ conversationId: 'c1' }, { $unset: { conversationId: 1 } });
   });
 
@@ -181,15 +182,23 @@ describe('작업 히스토리에서 대화 삭제 (#1284)', () => {
     const deleteOne = jest.fn(async () => {});
     ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'processing', updatedAt: new Date(), deleteOne });
     expect((await request(app).delete('/api/conversations/c1')).status).toBe(409);
-    expect(deleteOne).not.toHaveBeenCalled();
+    expect(ConversationJob.deleteOne).not.toHaveBeenCalled();
     ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'processing', updatedAt: new Date(Date.now() - 11 * 60 * 1000), deleteOne });
     expect((await request(app).delete('/api/conversations/c1')).status).toBe(200);
-    expect(deleteOne).toHaveBeenCalledTimes(1);
+    expect(ConversationJob.deleteOne).toHaveBeenCalledTimes(1);
+  });
+
+  test('검사 뒤에 다른 요청이 턴을 잡았으면(조건 삭제가 0건) 409 — 작업 연결도 건드리지 않는다 (#1288)', async () => {
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'completed' });
+    ConversationJob.deleteOne.mockResolvedValueOnce({ deletedCount: 0 });
+    expect((await request(app).delete('/api/conversations/c1')).status).toBe(409);
+    expect(ImageGenerationJob.updateMany).not.toHaveBeenCalled();
   });
 
   test('보통 대화는 작업을 건드리지 않는다', async () => {
-    const { res } = await remove(undefined);
+    const { res, deleteOne } = await remove(undefined);
     expect(res.status).toBe(200);
+    expect(deleteOne).toHaveBeenCalled();
     expect(ImageGenerationJob.updateMany).not.toHaveBeenCalled();
   });
 });
