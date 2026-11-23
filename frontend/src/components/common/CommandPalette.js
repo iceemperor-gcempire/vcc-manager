@@ -12,6 +12,7 @@ import {
   Folder as FolderIcon,
   ViewModule as WorkboardIcon,
   AccountTree as PipelineIcon,
+  ForumOutlined as ChatIcon,
   Add as AddIcon,
   Settings as SettingsIcon,
   Image as ImageIcon,
@@ -103,6 +104,12 @@ export default function CommandPalette({ open, onClose }) {
         icon: <ImageIcon fontSize="small" />,
         name: '내 콘텐츠',
         action: () => navigate('/content'),
+      },
+      {
+        group: '명령',
+        icon: <ChatIcon fontSize="small" />,
+        name: '채팅',
+        action: () => navigate('/chat'),
       },
       {
         group: '명령',

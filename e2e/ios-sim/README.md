@@ -85,7 +85,7 @@ pnpm run test:ios-sim -- /admin/workboards  # 고른 화면만
 
 종료 코드: `0` 전부 측정하고 통과 · `2` 측정 못 한 화면이 있음 · `1` 문제 또는 오류.
 
-`App.js` 에 `:param` 화면을 새로 넣으면 `layout-check.js` 의 `PARAM_SAMPLES` 에 견본 규칙도 넣는다. 안 넣으면 "측정 못 함"으로 드러난다.
+`App.js` 에 `:param` 화면을 새로 넣으면 `layout-check.js` 의 `PARAM_SAMPLES` 에 견본 규칙도 넣는다. 안 넣으면 "측정 못 함"으로 드러난다. 생략할 수 있는 조각(`/chat/:id?`)은 뺀 주소(`/chat`)로 재므로 견본 규칙이 필요 없다. 그 화면만 고를 때는 `/chat` 과 `'/chat/:id?'` 둘 다 된다.
 
 ## 주의
 

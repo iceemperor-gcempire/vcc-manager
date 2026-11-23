@@ -49,6 +49,7 @@ import {
   SequenceManagementPage
 } from './pages/admin';
 import Sequences from './pages/Sequences';
+import Chat from './pages/Chat';
 import AuthCallback from './pages/AuthCallback';
 
 export const queryClient = new QueryClient({
@@ -166,6 +167,8 @@ function MainLayout() {
             <Route path="/images" element={<Navigate to="/content" replace />} />
             <Route path="/jobs" element={<JobHistory />} />
             <Route path="/sequences" element={<Sequences />} />
+            {/* 채팅 (#1288) — /chat 은 새 대화, /chat/:id 는 지난 대화. 한 라우트라 대화를 열어도 화면 상태가 유지된다 */}
+            <Route path="/chat/:id?" element={<Chat />} />
             <Route path="/prompt-data" element={<PromptDataList />} />
             <Route path="/projects" element={<ProjectList />} />
             <Route path="/projects/:id" element={<ProjectDetail />} />

@@ -1,0 +1,90 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"input_transformations":[],"id":"resp_0576a7ab7dac2011016b04288d52d087d085758183493f870d","object":"response","created_at":1795434637,"completed_at":null,"status":"in_progress","background":false,"frequency_penalty":0.0,"presence_penalty":0.0,"moderation":null,"model":"gpt-6.2-sol","access_programs":{"cyber":"standard"},"previous_response_id":null,"instructions":null,"output":[],"error":null,"incomplete_details":null,"tools":[{"type":"function","name":"get_weather","description":"Get the weather for a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"output_schema":null,"strict":true}],"tool_choice":"auto","parallel_tool_calls":true,"prompt_cache_key":null,"prompt_cache_retention":"24h","text":{"format":{"type":"text"},"verbosity":"medium"},"top_p":1.0,"top_logprobs":0,"temperature":1.0,"reasoning":{"context":"all_turns","effort":"medium","summary":null,"mode":"standard"},"user":null,"usage":null,"tool_usage":{"image_gen":{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"text_tokens":0,"image_tokens":0},"output_tokens_details":{"image_tokens":0,"text_tokens":0}},"web_search":{"num_requests":0}},"safety_identifier":null,"store":false,"metadata":{},"max_output_tokens":null,"max_tool_calls":null,"service_tier":"auto","truncation":"disabled","image":{"context_compression":"disabled"}}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"input_transformations":[],"id":"resp_0576a7ab7dac2011016b04288d52d087d085758183493f870d","object":"response","created_at":1795434637,"completed_at":null,"status":"in_progress","background":false,"frequency_penalty":0.0,"presence_penalty":0.0,"moderation":null,"model":"gpt-6.2-sol","access_programs":{"cyber":"standard"},"previous_response_id":null,"instructions":null,"output":[],"error":null,"incomplete_details":null,"tools":[{"type":"function","name":"get_weather","description":"Get the weather for a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"output_schema":null,"strict":true}],"tool_choice":"auto","parallel_tool_calls":true,"prompt_cache_key":null,"prompt_cache_retention":"24h","text":{"format":{"type":"text"},"verbosity":"medium"},"top_p":1.0,"top_logprobs":0,"temperature":1.0,"reasoning":{"context":"all_turns","effort":"medium","summary":null,"mode":"standard"},"user":null,"usage":null,"tool_usage":{"image_gen":{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"text_tokens":0,"image_tokens":0},"output_tokens_details":{"image_tokens":0,"text_tokens":0}},"web_search":{"num_requests":0}},"safety_identifier":null,"store":false,"metadata":{},"max_output_tokens":null,"max_tool_calls":null,"service_tier":"auto","truncation":"disabled","image":{"context_compression":"disabled"}}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"type":"message","id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","role":"assistant","status":"in_progress","content":[],"phase":"commentary"}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"서울","logprobs":[],"obfuscation":"Dx8lEZW5kkrmS7"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"과","logprobs":[],"obfuscation":"vfFu0TnQTBRXANL"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":" 부산","logprobs":[],"obfuscation":"X2HlK7YSBlGFy"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"의","logprobs":[],"obfuscation":"nJ5u3JmAK8hRTtI"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":" 현재","logprobs":[],"obfuscation":"PHAdPQIo8OXHX"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":" 날","logprobs":[],"obfuscation":"gtpegMI3SE6Kra"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"씨","logprobs":[],"obfuscation":"nq9V0R3aNMZ0rll"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"를","logprobs":[],"obfuscation":"Ks8CGxzo4NLTSHa"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":" 확인","logprobs":[],"obfuscation":"ukJoweX2Ieqbx"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"해","logprobs":[],"obfuscation":"dZeNzZ6sjskOAZ0"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":" 볼","logprobs":[],"obfuscation":"S7Xhi3OUMuwteW"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"게","logprobs":[],"obfuscation":"FmRP3eJFjbI01ie"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":"요","logprobs":[],"obfuscation":"SK9ahJbvlyGVizX"}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"delta":".","logprobs":[],"obfuscation":"xM16It1qYXzNHdo"}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":18,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"text":"서울과 부산의 현재 날씨를 확인해 볼게요.","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":19,"item_id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","output_index":0,"content_index":0,"part":{"type":"output_text","text":"서울과 부산의 현재 날씨를 확인해 볼게요.","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":20,"output_index":0,"item":{"type":"message","id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","role":"assistant","status":"completed","content":[{"type":"output_text","text":"서울과 부산의 현재 날씨를 확인해 볼게요.","annotations":[],"logprobs":[]}],"phase":"commentary"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":21,"output_index":1,"item":{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f265087d0a3863fa90f915cc7","call_id":"call_e75a8a9f7afb4c7f80a60517f986afe9","name":"get_weather","arguments":"","status":"in_progress"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":22,"item_id":"fc_0576a7ab7dac2011016b04288f265087d0a3863fa90f915cc7","output_index":1,"delta":"{\"city\": \"Seoul\"}","obfuscation":"lYzgiYqknbi59wb"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":23,"item_id":"fc_0576a7ab7dac2011016b04288f265087d0a3863fa90f915cc7","output_index":1,"arguments":"{\"city\": \"Seoul\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":24,"output_index":1,"item":{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f265087d0a3863fa90f915cc7","call_id":"call_e75a8a9f7afb4c7f80a60517f986afe9","name":"get_weather","arguments":"{\"city\": \"Seoul\"}","status":"completed"}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":25,"output_index":2,"item":{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f814c87d08648d320a1c6f27d","call_id":"call_caae95bbe57a492c9922353178f03e78","name":"get_weather","arguments":"","status":"in_progress"}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":26,"item_id":"fc_0576a7ab7dac2011016b04288f814c87d08648d320a1c6f27d","output_index":2,"delta":"{\"city\": \"Busan\"}","obfuscation":"xDA5kSDbhGLvkSC"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":27,"item_id":"fc_0576a7ab7dac2011016b04288f814c87d08648d320a1c6f27d","output_index":2,"arguments":"{\"city\": \"Busan\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":28,"output_index":2,"item":{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f814c87d08648d320a1c6f27d","call_id":"call_caae95bbe57a492c9922353178f03e78","name":"get_weather","arguments":"{\"city\": \"Busan\"}","status":"completed"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":29,"response":{"input_transformations":[],"id":"resp_0576a7ab7dac2011016b04288d52d087d085758183493f870d","object":"response","created_at":1795434637,"completed_at":1795434639,"status":"completed","background":false,"frequency_penalty":0.0,"presence_penalty":0.0,"moderation":null,"model":"gpt-6.2-sol","access_programs":{"cyber":"standard"},"previous_response_id":null,"instructions":null,"output":[{"type":"message","id":"msg_0576a7ab7dac2011016b04288ed40887d0818b3bf234db8250","role":"assistant","status":"completed","content":[{"type":"output_text","text":"서울과 부산의 현재 날씨를 확인해 볼게요.","annotations":[],"logprobs":[]}],"phase":"commentary"},{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f265087d0a3863fa90f915cc7","call_id":"call_e75a8a9f7afb4c7f80a60517f986afe9","name":"get_weather","arguments":"{\"city\": \"Seoul\"}","status":"completed"},{"type":"function_call","id":"fc_0576a7ab7dac2011016b04288f814c87d08648d320a1c6f27d","call_id":"call_caae95bbe57a492c9922353178f03e78","name":"get_weather","arguments":"{\"city\": \"Busan\"}","status":"completed"}],"error":null,"incomplete_details":null,"tools":[{"type":"function","name":"get_weather","description":"Get the weather for a city","parameters":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"],"additionalProperties":false},"output_schema":null,"strict":true}],"tool_choice":"auto","parallel_tool_calls":true,"prompt_cache_key":null,"prompt_cache_retention":"24h","text":{"format":{"type":"text"},"verbosity":"medium"},"top_p":1.0,"top_logprobs":0,"temperature":1.0,"reasoning":{"context":"all_turns","effort":"medium","summary":null,"mode":"standard"},"user":null,"usage":{"input_tokens":96,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"cache_write_tokens_details":{"ttl_30m_tokens":0,"ttl_12h_tokens":0}},"output_tokens":71,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":167},"tool_usage":{"image_gen":{"input_tokens":0,"output_tokens":0,"total_tokens":0,"input_tokens_details":{"text_tokens":0,"image_tokens":0},"output_tokens_details":{"image_tokens":0,"text_tokens":0}},"web_search":{"num_requests":0}},"safety_identifier":null,"store":false,"metadata":{},"max_output_tokens":null,"max_tool_calls":null,"service_tier":"default","truncation":"disabled","image":{"context_compression":"disabled"}}}
+

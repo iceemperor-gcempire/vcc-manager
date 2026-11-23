@@ -1,6 +1,23 @@
 import React from 'react';
 import { Box, Typography, CircularProgress } from '@mui/material';
+import ReactMarkdown from 'react-markdown';
 import { BRAND_GRADIENTS } from '../../../utils/brandGradients';
+
+// 마크다운 본문 — 말풍선 안에서 문단·목록·코드의 간격을 본문 크기에 맞춘다
+const MARKDOWN_SX = {
+  wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.65,
+  '& > :first-of-type': { mt: 0 },
+  '& > :last-child': { mb: 0 },
+  '& p': { my: 2 },
+  '& ul, & ol': { my: 2, pl: 5 },
+  '& h1, & h2, & h3, & h4': { fontSize: 14, fontWeight: 700, mt: 3, mb: 1.5 },
+  '& code': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: 12.5, bgcolor: 'action.hover', px: 1, borderRadius: 1 },
+  '& pre': { my: 2, p: 2.5, borderRadius: 2, bgcolor: 'action.hover', overflowX: 'auto' },
+  '& pre code': { bgcolor: 'transparent', px: 0 },
+  '& a': { color: 'primary.main' },
+  '& table': { borderCollapse: 'collapse', display: 'block', overflowX: 'auto' },
+  '& th, & td': { border: 1, borderColor: 'divider', px: 2, py: 1 },
+};
 
 /**
  * v2 채팅 말풍선 (#572) — 대화형 화면 공용.
@@ -8,8 +25,9 @@ import { BRAND_GRADIENTS } from '../../../utils/brandGradients';
  * - assistant: 카드형 버블, 좌측 정렬
  * - system: 중앙 캡션
  * streaming 이면 content 대신 streamingText + 커서를 표시한다 (로직은 호출측 소유).
+ * markdown 이면 완성된 content 를 마크다운으로 그린다 (채팅 화면 #1288 — 받는 중에는 글자 그대로).
  */
-export default function ChatBubble({ role, content, attachments, actions, streaming, streamingText }) {
+export default function ChatBubble({ role, content, attachments, actions, streaming, streamingText, markdown }) {
   if (role === 'system') {
     return (
       <Box sx={{ alignSelf: 'center', maxWidth: '92%', textAlign: 'center', py: 1 }}>
@@ -65,6 +83,11 @@ export default function ChatBubble({ role, content, attachments, actions, stream
               ))}
             </Box>
           )}
+          {markdown && !streaming ? (
+            <Typography component="div" variant="body2" sx={MARKDOWN_SX}>
+              <ReactMarkdown>{content}</ReactMarkdown>
+            </Typography>
+          ) : (
           <Typography component="div" variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 13.5, lineHeight: 1.65 }}>
             {streaming ? (
               <>
@@ -74,6 +97,7 @@ export default function ChatBubble({ role, content, attachments, actions, stream
               </>
             ) : content}
           </Typography>
+          )}
         </Box>
         {actions && <Box sx={{ display: 'flex', gap: 1.5, mt: 1.5, justifyContent: isUser ? 'flex-end' : 'flex-start' }}>{actions}</Box>}
       </Box>
