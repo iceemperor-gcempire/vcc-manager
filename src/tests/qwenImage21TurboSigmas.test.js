@@ -76,3 +76,41 @@ describe.each(['text-to-image-qwen-image-21', 'sketch-to-image-qwen-image-21'])(
     expect(Object.values(wf).some((n) => n.class_type === 'KSampler')).toBe(false);
   });
 });
+
+// 공식 모델 카드(Qwen/Qwen-Image-2.1 "Supported Aspect Ratios")의 2K 크기 7가지 (#1278)
+const OFFICIAL_2K_SIZES = ['2048x2048', '2400x1792', '1792x2400', '2528x1696', '1696x2528', '2752x1536', '1536x2752'];
+
+describe('text-to-image-qwen-image-21 크기 선택지', () => {
+  const board = load('text-to-image-qwen-image-21');
+  const field = board.additionalInputFields.find((f) => f.name === 'image_size');
+  const values = field.options.map((o) => o.value);
+
+  test('공식 2K 크기 7가지를 모두 고를 수 있다', () => {
+    for (const size of OFFICIAL_2K_SIZES) expect(values).toContain(size);
+  });
+
+  test('모든 크기는 "가로x세로" 형식이고 32 의 배수이며 겹치지 않는다', () => {
+    expect(new Set(values).size).toBe(values.length);
+    for (const v of values) {
+      expect(v).toMatch(/^\d+x\d+$/);
+      const [w, h] = v.split('x').map(Number);
+      expect(w % 32).toBe(0);
+      expect(h % 32).toBe(0);
+    }
+  });
+
+  test('선택지 이름은 값으로 시작한다 — 이름과 실제 크기가 어긋나지 않게', () => {
+    for (const o of field.options) expect(o.key.startsWith(`${o.value} `)).toBe(true);
+  });
+
+  test('기본 크기는 1MP 그대로다', () => {
+    expect(field.defaultValue).toBe('1024x1024');
+  });
+
+  test('빈 latent 가 고른 크기를 그대로 받는다', () => {
+    const wf = JSON.parse(board.workflowData);
+    const latent = Object.values(wf).filter((n) => n.class_type === 'EmptyLatentImage');
+    expect(latent).toHaveLength(1);
+    expect(latent[0].inputs).toMatchObject({ width: '{{##width##}}', height: '{{##height##}}' });
+  });
+});
