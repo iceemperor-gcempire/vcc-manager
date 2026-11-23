@@ -14,6 +14,7 @@
 ## 어떻게 적용되나요
 
 - **OpenAI / OpenAI Compatible**: 입력한 키들이 `/v1/chat/completions` **요청 본문 최상위**에 그대로 병합됩니다.
+- **채팅 화면에서 OpenAI 서버의 판과 대화할 때**: `/v1/responses` 로 호출하므로 이름이 다른 키는 옮겨서 보냅니다 — `reasoning_effort` → `reasoning.effort`, `max_tokens`·`max_completion_tokens` → `max_output_tokens`. Responses 에 없는 키(`stop`, `response_format`, `n` 등)는 보내지 않습니다. OpenAI Compatible 서버의 판은 채팅 화면에서도 `/v1/chat/completions` 그대로입니다.
 - **Gemini**: 입력한 키들이 `generateContent` 의 **`generationConfig`** 에 병합됩니다.
 - `model` / `messages` / `stream` 같은 필수·스트리밍 키는 시스템 값이 항상 우선하므로 덮어쓸 수 없습니다.
 - 단발 생성 · 멀티턴 대화 · 파이프라인 단계 모두 동일하게 적용됩니다.

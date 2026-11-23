@@ -9,6 +9,7 @@
 
 const { isTurnInProgress, STALE_TURN_MS } = require('../utils/conversationView'); // 판정은 대화 기록 쪽과 한 곳에 둔다
 const openAIChatService = require('./openAIChatService');
+const openAIResponsesService = require('./openAIResponsesService');
 const { runToolLoop } = require('./llmToolLoop');
 const { createChatTools } = require('./chatTools');
 const { loadVisionImages } = require('../utils/visionImages');
@@ -18,10 +19,15 @@ const { getFieldByRole } = require('../utils/customFieldHelpers');
 const { FIELD_ROLES, WELL_KNOWN_FIELD_NAME_TO_ROLE } = require('../constants/fieldRoles');
 
 /**
- * 채팅 상대가 될 수 있는 서버 종류. 도구 호출은 Chat Completions 의 tools 로 구현돼 있다 (#769).
- * Gemini 는 응답 형식이 달라 보류. OpenAI 공식 서버의 일부 모델은 Responses API 가 있어야 도구를 쓴다 (#769 댓글).
+ * 채팅 상대가 될 수 있는 서버 종류. Gemini 는 응답 형식이 달라 보류.
  */
 const CHAT_SERVER_TYPES = Object.freeze(['OpenAI', 'OpenAI Compatible']);
+/**
+ * 서버 종류별 호출 경로 (#1293). 둘 다 같은 내부 형식을 주고받는다.
+ * - OpenAI 공식 서버는 Responses API — 일부 모델(gpt-6.2-sol 등)이 Chat Completions 에서 function tools 를 거부한다
+ * - 호환 서버는 Chat Completions — 가장 널리 지원되는 방식이다 (#769)
+ */
+const chatModelService = (server) => (server.serverType === 'OpenAI' ? openAIResponsesService : openAIChatService);
 /** 한 턴의 도구 라운드 상한 — 찾기·보기·생성·마무리에 넉넉한 수 */
 const CHAT_MAX_ROUNDS = 6;
 /**
@@ -163,7 +169,7 @@ async function runChatTurn({ user, conversation, workboard, emit = () => {}, log
       maxRounds: CHAT_MAX_ROUNDS,
       maxResultChars: CHAT_MAX_RESULT_CHARS,
       log,
-      callModel: (msgs, offered) => openAIChatService.completeStream(
+      callModel: (msgs, offered) => chatModelService(server).completeStream(
         server.serverUrl,
         apiKey,
         msgs,

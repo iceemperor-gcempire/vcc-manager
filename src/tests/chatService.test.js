@@ -2,11 +2,13 @@
  * 채팅 대화 한 턴 (#1284) — 가짜 LLM 으로 루프·저장 단위·실패 처리를 본다.
  */
 jest.mock('../services/openAIChatService', () => ({ completeStream: jest.fn() }));
+jest.mock('../services/openAIResponsesService', () => ({ completeStream: jest.fn() }));
 jest.mock('../services/chatTools', () => ({ createChatTools: jest.fn() }));
 jest.mock('../utils/visionImages', () => ({ loadVisionImages: jest.fn(async (ids) => ids.map((i) => ({ imageId: i, url: `/uploads/${i}`, base64: `b64-${i}`, mimeType: 'image/jpeg' }))) }));
 jest.mock('../utils/secretCrypto', () => ({ decryptSecret: (v) => (v ? `dec:${v}` : v) }));
 
 const openAIChatService = require('../services/openAIChatService');
+const openAIResponsesService = require('../services/openAIResponsesService');
 const { createChatTools } = require('../services/chatTools');
 const { loadVisionImages } = require('../utils/visionImages');
 const {
@@ -65,6 +67,38 @@ beforeEach(() => {
     generate: jest.fn(async () => { toolState.generations += 1; toolState.jobIds.push('job-1'); return { jobId: 'job-1' }; }),
   };
   createChatTools.mockImplementation(() => ({ tools: [{ name: 'find_workboards' }, { name: 'generate' }], handlers, state: toolState }));
+});
+
+describe('서버 종류별 호출 경로 (#1293)', () => {
+  const official = () => workboard({ serverId: { isActive: true, serverType: 'OpenAI', serverUrl: 'https://api.invalid', configuration: { apiKey: 'enc' } } });
+
+  test('OpenAI 공식 서버는 Responses 로 — 같은 인자, 같은 루프', async () => {
+    openAIResponsesService.completeStream
+      .mockImplementationOnce(async () => ({ content: '', toolCalls: [call('c1', 'find_workboards')], usage: usage(10) }))
+      .mockImplementationOnce(async (url, key, msgs, opts, onDelta) => { onDelta('했어요'); return { content: '했어요', toolCalls: [], usage: usage(20) }; });
+    const conversation = conversationDoc();
+
+    const result = await turn(conversation, official());
+
+    expect(result.ok).toBe(true);
+    expect(openAIChatService.completeStream).not.toHaveBeenCalled();
+    expect(openAIResponsesService.completeStream).toHaveBeenCalledTimes(2);
+    const [url, key, msgs, opts] = openAIResponsesService.completeStream.mock.calls[1];
+    expect(url).toBe('https://api.invalid');
+    expect(key).toBe('dec:enc');
+    expect(msgs.slice(0, 4).map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'tool']); // 루프가 같은 배열에 이어 붙인다
+    expect(opts).toEqual(expect.objectContaining({ model: 'conv-model', extraParams: { temperature: 1 } }));
+    expect(opts.tools.map((t) => t.name)).toEqual(['find_workboards', 'generate']);
+    expect(events.filter(([e]) => e === 'token')).toEqual([['token', { delta: '했어요' }]]);
+    expect(conversation.messages.map((m) => m.role)).toEqual(['system', 'user', 'assistant', 'tool', 'assistant']);
+  });
+
+  test('호환 서버는 Chat Completions 그대로', async () => {
+    scriptModel([{ content: '안녕', toolCalls: [], usage: usage(1) }]);
+    expect((await turn(conversationDoc())).ok).toBe(true);
+    expect(openAIChatService.completeStream).toHaveBeenCalledTimes(1);
+    expect(openAIResponsesService.completeStream).not.toHaveBeenCalled();
+  });
 });
 
 describe('runChatTurn', () => {

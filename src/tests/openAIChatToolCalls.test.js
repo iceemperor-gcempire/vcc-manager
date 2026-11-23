@@ -142,6 +142,15 @@ describe('completeStream — 툴 콜 조각 누적', () => {
     ]);
   });
 
+  test('청크가 한글 글자 중간에서 잘려도 글이 깨지지 않는다 (#1293)', async () => {
+    const buf = Buffer.from(line({ content: '서울과 부산의 날씨' }) + 'data: [DONE]\n');
+    streamWith((s) => { for (let i = 0; i < buf.length; i += 7) s.emit('data', buf.subarray(i, i + 7)); s.emit('end'); });
+    const tokens = [];
+    const r = await openAIChatService.completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'm' }, (d) => tokens.push(d));
+    expect(r.content).toBe('서울과 부산의 날씨');
+    expect(tokens.join('')).toBe('서울과 부산의 날씨');
+  });
+
   test('글과 도구 호출이 함께 와도 둘 다 받는다', async () => {
     streamWith((s) => {
       s.emit('data', Buffer.from(line({ content: '찾아볼게요' })));
