@@ -67,7 +67,7 @@ test.describe('Authenticated user', () => {
     await expect(page).toHaveURL(/tab=runs/);
   });
 
-  test('채팅 페이지 접근 — 새 대화 버튼과 대화 상대 또는 작업판 안내 (#1267)', async ({ page }) => {
+  test('채팅 페이지 접근 — 쓸 수 있는 입력란 또는 작업판 안내 (#1267)', async ({ page }) => {
     await page.goto('/chat');
     await page.waitForLoadState('networkidle');
     expect(page.url()).toContain('/chat');
@@ -75,6 +75,8 @@ test.describe('Authenticated user', () => {
     const composer = page.getByPlaceholder(/메시지를 입력하세요/);
     const noBoard = page.getByText('대화 상대로 쓸 작업판이 없습니다');
     await expect(composer.or(noBoard).first()).toBeVisible();
+    // 판이 있으면 입력란이 열려 있어야 한다 — 판 조회가 실패해 잠긴 입력란만 보고 통과하지 않게
+    if (!(await noBoard.isVisible())) await expect(composer).toBeEnabled();
   });
 });
 

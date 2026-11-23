@@ -183,12 +183,12 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 ## 채팅 (Chat, #1267)
 
-채팅 화면의 대화. 대화는 `ConversationJob`(`kind: 'chat'`)이고, 대화에서 만든 생성 작업은 보통 작업(`/jobs`)이다. 모두 본인 것만 다룬다.
+채팅 화면의 대화. 대화는 `ConversationJob`(`kind: 'chat'`)이고, 대화에서 만든 생성 작업은 보통 작업(`/jobs`)이다. 대화와 생성 작업은 본인 것만 다루고, 작업판은 계정의 접근 권한으로 거른다.
 
 | Method | Endpoint | Description | Auth |
 |:---:|---|---|:---:|
-| `GET` | `/chat/workboards` | 대화 상대로 쓸 수 있는 텍스트 작업판 (사용량 순). `textWorkboards` 는 접근 가능한 텍스트 판 전체 수 | Yes |
-| `GET` | `/chat/sessions` | 내 채팅 대화 목록 (최근에 쓴 순, 메시지 제외). 항목마다 `turnInProgress` | Yes |
+| `GET` | `/chat/workboards` | 대화 상대로 쓸 수 있는 텍스트 작업판 (사용량 순). `textWorkboards` 는 접근 가능한 켜진 텍스트 판 전체 수 | Yes |
+| `GET` | `/chat/sessions` | 내 채팅 대화 목록 (최근에 쓴 순, 메시지 제외) — `page`, `limit`(기본 30, 최대 100). 항목마다 `turnInProgress` | Yes |
 | `GET` | `/chat/sessions/:id` | 대화 전체 + 이 대화에서 만든 작업(결과 미디어 포함) + `turnInProgress` | Yes |
 | `PATCH` | `/chat/sessions/:id` | 제목 변경 — `{ title }` 1~200자 | Yes |
 | `DELETE` | `/chat/sessions/:id` | 대화 삭제. 만든 작업은 남고 연결만 끊긴다. 응답 중이면 409 | Yes |
@@ -206,8 +206,8 @@ MCP 전용 키(`vccm_`)로는 쓸 수 없다 (허용 목록에 없음).
 
 - 새 대화는 `workboardId`, 이어가기는 `sessionId` 를 준다 (`sessionId` 가 있으면 판은 대화에 저장된 것을 쓴다)
 - `text` 는 필수, 20000자까지. `imageIds` 는 내가 올리거나 만든 이미지의 id, 4개까지
-- 스트림이 열리기 전의 거절은 보통 JSON 오류다: 400(입력·판·첨부), 404(대화·판 없음), 409(그 대화가 아직 응답 중)
-- 스트림이 열린 뒤에는 클라이언트가 연결을 끊어도 서버는 턴을 끝까지 돌리고 저장한다. 다시 붙을 때는 `GET /chat/sessions/:id` 의 `turnInProgress` 가 false 가 될 때까지 읽는다
+- 스트림이 열리기 전의 거절은 보통 JSON 오류다: 400(입력·첨부, 채팅 상대로 못 쓰는 판, 이어가는 대화의 판이 없어졌거나 권한이 빠짐), 404(내 대화가 아님·없음, 새 대화의 판이 없거나 접근 불가), 409(그 대화가 아직 응답 중)
+- 스트림이 열린 뒤에는 클라이언트가 연결을 끊어도 서버는 턴을 끝까지 돌리고 저장한다. 다시 붙을 때는 `GET /chat/sessions/:id` 의 `turnInProgress` 가 false 가 될 때까지 읽는다. 응답 중인 채로 10분 넘게 갱신이 없는 대화도 false 가 되므로(서버 재시작 등으로 멈춘 턴), 답이 왔는지는 `session.status` 와 메시지로 본다
 
 SSE 이벤트 (`event:` + JSON `data:`):
 
@@ -220,7 +220,7 @@ SSE 이벤트 (`event:` + JSON `data:`):
 | `round` | `{ round }` | 도구 한 차례(호출과 결과)가 저장됨 |
 | `job` | `{ jobId, status, workboard: { id, name, output } }` | 생성 작업이 등록됨. 진행은 `/chat/sessions/:id` 또는 `/jobs/:id` 로 본다 |
 | `done` | `{ conversationId, content, usage, jobIds, limitReached }` | 턴 끝 |
-| `error` | `{ message, jobIds }` | 턴 실패 — 대화에 `status: 'failed'` 와 사유가 남는다. 이미 등록된 작업은 그대로 돈다 |
+| `error` | `{ message, jobIds? }` | 턴 실패 — 대화에 `status: 'failed'` 와 사유가 남는다. 이미 등록된 작업은 그대로 돈다. 턴 밖에서 난 오류는 `message` 만 온다 |
 
 ## 이미지 (Images)
 

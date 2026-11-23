@@ -259,7 +259,7 @@ async function main() {
   for (const r of appRoutes()) {
     const row = { route: r.path };
     results.push(row);
-    if (opt.only.length && !opt.only.includes(r.path)) { row.status = 'skipped'; row.note = '인자로 고른 화면이 아님'; continue; }
+    if (opt.only.length && !opt.only.includes(r.path) && !opt.only.includes(r.path.replace(/\/:[^/]+\?/g, ''))) { row.status = 'skipped'; row.note = '인자로 고른 화면이 아님'; continue; }
     if (r.public !== opt.public) { row.status = 'skipped'; row.note = r.public ? '로그인 전 화면 (--public 으로)' : '로그인 뒤 화면 (--public 없이)'; continue; }
     if (r.alias) { row.status = 'skipped'; row.note = `이동 주소 → ${r.alias}`; continue; }
     if (NOT_MEASURABLE[r.path]) { row.status = 'skipped'; row.note = NOT_MEASURABLE[r.path]; continue; }
