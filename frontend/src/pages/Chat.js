@@ -165,6 +165,7 @@ export default function Chat() {
     const startedIn = sessionId;
     let sid = sessionId;
     let settled = false;
+    let opened = false; // 스트림이 열렸는가 — 열리기 전의 실패는 보낸 것이 저장되지 않은 것이다
     const finish = () => { if (!settled) { settled = true; settle(sid); } };
 
     setLive({
@@ -181,6 +182,7 @@ export default function Chat() {
       { ...(sessionId ? { sessionId } : { workboardId: board._id }), text: body, imageIds: attachments.map((a) => a.imageId) },
       {
         onEvent: (event, data) => {
+          opened = true;
           if (!mounted.current) return;
           if (event === 'session') {
             sid = data.sessionId;
@@ -198,7 +200,7 @@ export default function Chat() {
         onClose: finish, // done 없이 끊긴 경우에도 저장본으로 돌아간다
         onError: (err) => {
           if (!mounted.current) return;
-          if (!sid || err.status) {
+          if (!opened) {
             // 스트림을 열지 못했다 (검증 실패·이미 응답 중 등) — 보낸 것은 저장되지 않았으니 입력을 되돌린다
             toast.error(err.message || '메시지를 보내지 못했습니다.');
             if (routeRef.current === startedIn) {
