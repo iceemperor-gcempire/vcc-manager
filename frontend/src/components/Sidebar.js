@@ -31,6 +31,7 @@ import {
   Group,
   MenuBook,
   FormatListNumbered,
+  ForumOutlined,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -42,6 +43,7 @@ const DRAWER_WIDTH = 236;
 const workItems = [
   { text: '대시보드', path: '/dashboard', icon: <Dashboard /> },
   { text: '작업판', path: '/workboards', icon: <ViewModule /> },
+  { text: '채팅', path: '/chat', icon: <ForumOutlined /> },
   { text: '작업 절차', path: '/sequences', icon: <FormatListNumbered /> },
   { text: '프로젝트', path: '/projects', icon: <FolderSpecial /> },
   { text: '내 콘텐츠', path: '/content', icon: <Image /> },

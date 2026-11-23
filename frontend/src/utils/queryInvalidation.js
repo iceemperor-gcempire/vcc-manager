@@ -30,6 +30,7 @@ export const WORKBOARD_QUERY_ROOTS = [
   'allWorkboardsForPicker',    // 프로젝트에 작업판 추가 다이얼로그 (#396)
   'sequenceWorkboardPicker',   // 작업 절차 편집기의 작업판 picker
   'sequencePreviewInputs',     // 작업 절차 편집기의 입력 미리보기 — 판의 입력 칸으로 서버가 계산한다
+  'chatWorkboards',            // 채팅 화면의 대화 상대 목록 (#1288)
 ];
 
 export function invalidateWorkboardQueries(queryClient) {

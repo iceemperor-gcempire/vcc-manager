@@ -163,7 +163,9 @@ function convToItem(conv) {
     kind: 'conv',
     type: 'text',
     time: new Date(conv.createdAt),
-    title: conv.workboardId?.name || '텍스트 생성',
+    // 채팅 화면의 대화(#1288)는 대화 제목으로 보인다
+    title: (conv.kind === 'chat' && conv.title) || conv.workboardId?.name || '텍스트 생성',
+    isChat: conv.kind === 'chat',
     projectName: '',
     model: conv.model || '',
     tokens: conv.usage?.totalTokens,
@@ -693,8 +695,12 @@ function JobHistory() {
   };
 
   const handleTextContinue = (item) => {
+    // 채팅 화면의 대화는 채팅 화면에서 잇는다 — 도구 메시지가 섞여 있어 텍스트 판의 대화 화면으로는 못 잇는다 (#1288)
+    if (item.isChat) { navigate(`/chat/${item.id}`); return; }
     navigate(`/prompt-generate/${item.workboardId}?conversationId=${item.id}`);
   };
+  // 채팅 대화의 상세도 채팅 화면이다 — 도구 호출·만든 작업을 거기서만 제대로 보여 준다
+  const handleTextDetail = (item) => (item.isChat ? navigate(`/chat/${item.id}`) : setTextDetail(item));
 
   return (
     <Box>
@@ -774,7 +780,7 @@ function JobHistory() {
               onContinue={handleContinue}
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
-              onTextDetail={(it) => setTextDetail(it)}
+              onTextDetail={handleTextDetail}
               onTextDelete={handleTextDelete}
               onPipelineDetail={(it) => navigate(`/projects/${it.projectId}`)}
             />
@@ -795,7 +801,7 @@ function JobHistory() {
               onContinue={handleContinue}
               onCross={(job) => setCrossJob(job)}
               onTextContinue={handleTextContinue}
-              onTextDetail={(it) => setTextDetail(it)}
+              onTextDetail={handleTextDetail}
               onTextDelete={handleTextDelete}
               onPipelineDetail={(it) => navigate(`/projects/${it.projectId}`)}
             />
