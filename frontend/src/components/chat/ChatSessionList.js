@@ -47,7 +47,7 @@ export default function ChatSessionList({ sessions, activeId, loading, onSelect,
                     {s.title || '제목 없는 대화'}
                   </Typography>
                   <Typography noWrap variant="caption" sx={{ color: 'text.tertiary', display: 'block' }}>
-                    {[s.status === 'processing' ? '응답 중' : relativeTime(s.updatedAt), s.workboardId?.name].filter(Boolean).join(' · ')}
+                    {[s.turnInProgress ? '응답 중' : relativeTime(s.updatedAt), s.workboardId?.name].filter(Boolean).join(' · ')}
                   </Typography>
                 </Box>
                 <IconButton

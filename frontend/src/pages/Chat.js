@@ -61,6 +61,9 @@ const sessionFetch = (id) => () => chatAPI.getSession(id).then((r) => r.data.dat
 export default function Chat() {
   const { id: routeId } = useParams();
   const sessionId = routeId || null;
+  // 스트림 콜백이 "지금 보고 있는 대화"를 알 수 있게 — 콜백은 보낸 순간의 값을 붙잡고 있다
+  const routeRef = useRef(sessionId);
+  routeRef.current = sessionId;
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const confirm = useConfirm();
@@ -75,7 +78,8 @@ export default function Chat() {
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState([]);
   const [boardChoice, setBoardChoice] = usePersistedState('vcc.chat.workboardId', '');
-  // 지금 이 화면이 스트림으로 받고 있는 턴. { sessionId (새 대화는 서버가 알려 줄 때까지 null), userRow, turn }
+  // 지금 이 화면이 스트림으로 받고 있는 턴.
+  // { sessionId (새 대화는 서버가 알려 줄 때까지 null), base·baseJobs (보낸 순간의 저장본), userRow, turn }
   const [live, setLive] = useState(null);
   const mounted = useRef(true);
   // 개발 모드(StrictMode)는 이펙트를 한 번 걷었다 다시 건다 — 다시 걸 때 true 로 돌려놓아야 한다
@@ -93,18 +97,20 @@ export default function Chat() {
     // 스트림으로 받는 동안은 다시 읽지 않는다 — 저장본과 스트림이 같은 메시지를 두 번 그리게 된다
     enabled: !!sessionId && !liveHere,
     staleTime: 0,
-    retry: false,
+    // 없는 대화(404)는 다시 묻지 않는다. 그 밖의 오류는 잠깐의 장애일 수 있다
+    retry: (count, err) => err?.response?.status !== 404 && count < 2,
     // 서버에서 턴이 아직 돌거나(화면을 떠났다 돌아온 경우) 끝나지 않은 작업이 있으면 계속 읽는다
     refetchInterval: (query) => {
       const d = query.state.data;
-      return d && (isSessionBusy(d.session) || (d.jobs || []).some(isJobActive)) ? config.monitoring.recentJobsInterval : false;
+      return d && (isSessionBusy(d) || (d.jobs || []).some(isJobActive)) ? config.monitoring.recentJobsInterval : false;
     },
   });
-  const session = sessionId ? sessionQuery.data?.session : null;
-  const serverJobs = sessionId ? sessionQuery.data?.jobs : null;
+  const detail = sessionId ? sessionQuery.data : null;
+  const session = detail?.session || null;
+  const serverJobs = detail?.jobs || null;
 
   // 서버에서 돌던 턴이 끝나면 목록의 '응답 중' 표시도 갱신한다
-  const busy = isSessionBusy(session) && !liveHere;
+  const busy = isSessionBusy(detail) && !liveHere;
   const wasBusy = useRef(false);
   useEffect(() => {
     if (wasBusy.current && !busy) queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
@@ -120,10 +126,14 @@ export default function Chat() {
     : board?.acceptsImages;
 
   const rows = useMemo(() => {
-    const saved = toChatRows(session?.messages);
-    return liveHere ? [...saved, live.userRow, ...live.turn.rows] : saved;
+    // 받는 동안은 보낸 순간의 저장본 위에 그린다 — 그 사이 끝난 조회가 이번 턴의 메시지를 담아 와도 두 번 그리지 않는다
+    if (liveHere) return [...live.base, live.userRow, ...live.turn.rows];
+    return toChatRows(session?.messages);
   }, [session, liveHere, live]);
-  const jobs = useMemo(() => mergeJobs(serverJobs, liveHere ? live.turn.jobs : []), [serverJobs, liveHere, live]);
+  const jobs = useMemo(
+    () => (liveHere ? mergeJobs(live.baseJobs, live.turn.jobs) : mergeJobs(serverJobs, [])),
+    [serverJobs, liveHere, live],
+  );
   const activeJobs = jobs.filter(isJobActive).length;
 
   // 새 줄이 생기면 맨 아래로
@@ -137,7 +147,11 @@ export default function Chat() {
   // 턴이 끝났다(성공이든 실패든) — 서버 저장본을 다시 읽고 나서 스트림 표시를 걷는다 (그 사이 깜빡임 없이)
   const settle = useCallback(async (sid) => {
     try {
-      if (sid) await queryClient.fetchQuery({ queryKey: sessionKey(sid), queryFn: sessionFetch(sid), staleTime: 0 });
+      if (sid) {
+        // 턴이 끝나기 전에 떠난 조회가 남아 있으면 그 옛 결과를 받게 된다 — 끊고 새로 읽는다
+        await queryClient.cancelQueries({ queryKey: sessionKey(sid) });
+        await queryClient.fetchQuery({ queryKey: sessionKey(sid), queryFn: sessionFetch(sid), staleTime: 0 });
+      }
     } catch (_) { /* 다시 읽기 실패 — 아래에서 스트림 표시를 걷으면 쿼리가 스스로 다시 읽는다 */ }
     queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
     if (mounted.current) setLive(null);
@@ -153,7 +167,13 @@ export default function Chat() {
     let settled = false;
     const finish = () => { if (!settled) { settled = true; settle(sid); } };
 
-    setLive({ sessionId, userRow: { kind: 'bubble', role: 'user', content: body, attachments }, turn: emptyLiveTurn() });
+    setLive({
+      sessionId,
+      base: toChatRows(session?.messages),
+      baseJobs: serverJobs || [],
+      userRow: { kind: 'bubble', role: 'user', content: body, attachments },
+      turn: emptyLiveTurn(),
+    });
     setText('');
     setAttachments([]);
 
@@ -165,7 +185,8 @@ export default function Chat() {
           if (event === 'session') {
             sid = data.sessionId;
             setLive((l) => (l ? { ...l, sessionId: sid } : l));
-            if (!startedIn) navigate(`/chat/${sid}`, { replace: true });
+            // 새 대화를 보낸 그 화면에 아직 있을 때만 옮긴다 — 그 사이 다른 대화를 열었으면 끌고 가지 않는다
+            if (!startedIn && routeRef.current === null) navigate(`/chat/${sid}`, { replace: true });
             queryClient.invalidateQueries({ queryKey: ['chatSessions'] });
           } else if (event === 'done' || event === 'error') {
             // 턴 안의 오류는 서버가 대화에 남긴다 — 다시 읽으면 대화 아래에 보인다
@@ -180,8 +201,10 @@ export default function Chat() {
           if (!sid || err.status) {
             // 스트림을 열지 못했다 (검증 실패·이미 응답 중 등) — 보낸 것은 저장되지 않았으니 입력을 되돌린다
             toast.error(err.message || '메시지를 보내지 못했습니다.');
-            setText(sent.text);
-            setAttachments(sent.attachments);
+            if (routeRef.current === startedIn) {
+              setText(sent.text);
+              setAttachments(sent.attachments);
+            }
             settled = true;
             setLive(null);
             if (sid) queryClient.invalidateQueries({ queryKey: sessionKey(sid) });
@@ -238,10 +261,12 @@ export default function Chat() {
   );
 
   const noBoards = !boardsQuery.isLoading && !boardsQuery.isError && boards.length === 0;
-  const notFound = !!sessionId && sessionQuery.isError;
+  const notFound = !!sessionId && sessionQuery.error?.response?.status === 404;
+  // 대화를 한 번도 못 읽은 채 난 오류 (서버 장애·연결 끊김) — 없는 대화로 보이지 않게 따로 알린다
+  const loadFailed = !!sessionId && !liveHere && sessionQuery.isError && !notFound && !detail;
   const loadingSession = !!sessionId && !liveHere && sessionQuery.isLoading;
   const waiting = liveHere && !(lastRow?.kind === 'bubble' && lastRow.role === 'assistant');
-  const composerDisabled = !!live || busy || notFound || loadingSession || (!sessionId && !board);
+  const composerDisabled = !!live || busy || notFound || loadFailed || loadingSession || (!sessionId && !board);
   const title = session?.title || (sessionId ? '' : '새 대화');
 
   let center;
@@ -253,6 +278,12 @@ export default function Chat() {
         description="지워졌거나 다른 계정의 대화입니다."
         action={<Button variant="outlined" onClick={handleNew}>새 대화</Button>}
       />
+    );
+  } else if (loadFailed) {
+    center = (
+      <Alert severity="error" sx={{ m: 'auto' }} action={<Button color="inherit" size="small" onClick={() => sessionQuery.refetch()}>다시 시도</Button>}>
+        대화를 불러오지 못했습니다.
+      </Alert>
     );
   } else if (!sessionId && noBoards) {
     const hasText = (boardsQuery.data?.textWorkboards || 0) > 0;

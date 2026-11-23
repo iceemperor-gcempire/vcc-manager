@@ -21,6 +21,7 @@ export function addAttachments(current, incoming, max = MAX_CHAT_ATTACHMENTS) {
 
 // 채팅 입력 (#1288) — 글, 이미지 첨부(새로 올리기 · 내 이미지에서 고르기).
 // 첨부는 대화 상대가 이미지를 볼 수 있는지와 무관하게 받는다 — 붙인 이미지는 생성 작업의 입력으로 쓰인다.
+// onAttachmentsChange 는 setState 처럼 (지금 목록) => 새 목록 함수를 받는다.
 export default function ChatComposer({ text, onTextChange, attachments, onAttachmentsChange, onSend, disabled, placeholder, visionNote }) {
   const fileRef = useRef(null);
   const [uploading, setUploading] = useState(false);
@@ -46,7 +47,8 @@ export default function ChatComposer({ text, onTextChange, attachments, onAttach
       toast.error(`이미지를 올리지 못했습니다: ${err.response?.data?.message || err.message}`);
     } finally {
       setUploading(false);
-      if (uploaded.length > 0) onAttachmentsChange(addAttachments(attachments, uploaded));
+      // 올리는 동안 첨부를 뺐을 수 있다 — 그때의 목록이 아니라 지금 목록에 더한다
+      if (uploaded.length > 0) onAttachmentsChange((cur) => addAttachments(cur, uploaded));
     }
   };
 
@@ -68,7 +70,7 @@ export default function ChatComposer({ text, onTextChange, attachments, onAttach
                 sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2, border: 1, borderColor: 'divider' }} />
               <IconButton
                 size="small" aria-label="첨부 빼기"
-                onClick={() => onAttachmentsChange(attachments.filter((x) => x.imageId !== a.imageId))}
+                onClick={() => onAttachmentsChange((cur) => cur.filter((x) => x.imageId !== a.imageId))}
                 sx={{ position: 'absolute', top: -8, right: -8, width: 20, height: 20, bgcolor: 'background.paper', border: 1, borderColor: 'divider', '&:hover': { bgcolor: 'background.paper' } }}
               >
                 <Close sx={{ fontSize: 12 }} />
@@ -120,8 +122,8 @@ export default function ChatComposer({ text, onTextChange, attachments, onAttach
         title="붙일 이미지 고르기"
         multiple
         maxImages={MAX_CHAT_ATTACHMENTS - attachments.length}
-        onSelect={(selected) => onAttachmentsChange(addAttachments(
-          attachments,
+        onSelect={(selected) => onAttachmentsChange((cur) => addAttachments(
+          cur,
           selected.map((s) => ({ imageId: s.imageId, url: s.image?.url })),
         ))}
       />

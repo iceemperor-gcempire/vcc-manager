@@ -90,11 +90,10 @@ export function applyChatEvent(turn, event, data) {
     return next;
   }
   if (event === 'tool_result') {
-    for (const row of rows) {
-      if (row.kind !== 'tools') continue;
-      const step = row.steps.find((s) => s.id === data?.id);
-      if (step) step.status = data?.outcome === 'ok' ? 'ok' : 'failed';
-    }
+    // 가장 최근의, 아직 결과가 없는 호출에 잇는다 — 라운드마다 같은 id(call_0)를 다시 쓰는 서버가 있다
+    const running = rows.flatMap((row) => (row.kind === 'tools' ? row.steps : [])).filter((s) => s.id === data?.id && s.status === 'running');
+    const step = running[running.length - 1];
+    if (step) step.status = data?.outcome === 'ok' ? 'ok' : 'failed';
     return next;
   }
   if (event === 'job') {
@@ -131,7 +130,11 @@ export function jobResults(job) {
   ].filter((r) => r.media && typeof r.media === 'object');
 }
 
-/** 대화가 서버에서 아직 도는 중인지 (화면을 떠났다 돌아온 경우 포함) */
-export function isSessionBusy(session) {
-  return session?.status === 'processing';
+/**
+ * 대화가 서버에서 아직 도는 중인지 (화면을 떠났다 돌아온 경우 포함).
+ * 서버가 준 turnInProgress 를 쓴다 — status 가 processing 이어도 오래 멈춘 턴(서버 재시작 등)은 서버가
+ * 아니라고 답하고, 그때는 다시 보낼 수 있어야 한다. 기준 시간은 서버(utils/conversationView)에만 있다.
+ */
+export function isSessionBusy(detail) {
+  return detail?.turnInProgress === true;
 }

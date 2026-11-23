@@ -25,4 +25,14 @@ function toConversationListItem(conversation) {
   return trimmed ? { ...conversation, messages } : conversation;
 }
 
-module.exports = { isChatConversation, toConversationListItem, LIST_TOOL_CONTENT_CHARS };
+/** 채팅 턴이 processing 에 머문 지 이만큼 지나면 죽은 턴으로 본다 (서버 재시작 등) — 다시 보내기·삭제를 받는다 */
+const STALE_TURN_MS = 10 * 60 * 1000;
+
+/** 채팅 턴이 돌고 있는가 — 오래된 processing 은 죽은 턴으로 본다. mongoose 문서·lean 객체 모두 받는다 */
+function isTurnInProgress(conversation, now = Date.now()) {
+  if (!conversation || conversation.status !== 'processing') return false;
+  const touched = new Date(conversation.updatedAt || conversation.createdAt || 0).getTime();
+  return now - touched < STALE_TURN_MS;
+}
+
+module.exports = { isChatConversation, toConversationListItem, isTurnInProgress, LIST_TOOL_CONTENT_CHARS, STALE_TURN_MS };

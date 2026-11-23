@@ -112,7 +112,7 @@ describe('대화 목록·상세·제목·삭제', () => {
     const res = await request(app).get('/api/chat/sessions');
     expect(res.status).toBe(200);
     expect(ConversationJob.find).toHaveBeenCalledWith({ userId: ME, kind: 'chat' });
-    expect(res.body.data.sessions).toEqual([{ _id: CONV, title: '제목' }]);
+    expect(res.body.data.sessions).toEqual([{ _id: CONV, title: '제목', turnInProgress: false }]);
     expect(res.body.data.pagination).toEqual({ current: 1, pages: 1, total: 1 });
   });
 
@@ -124,6 +124,17 @@ describe('대화 목록·상세·제목·삭제', () => {
     expect(ImageGenerationJob.find).toHaveBeenCalledWith({ conversationId: CONV, userId: ME });
     expect(res.body.data.session.messages).toHaveLength(3);
     expect(res.body.data.jobs).toEqual([{ _id: hex('j'), status: 'completed' }]);
+  });
+
+  test('응답을 받는 중인지는 서버가 알려 준다 — 오래 멈춘 processing 은 아니다 (#1288)', async () => {
+    ImageGenerationJob.find.mockReturnValue(chain([]));
+    ConversationJob.findById.mockResolvedValue(chatDoc({ status: 'processing', updatedAt: new Date() }));
+    expect((await request(app).get(`/api/chat/sessions/${CONV}`)).body.data.turnInProgress).toBe(true);
+    ConversationJob.findById.mockResolvedValue(chatDoc({ status: 'processing', updatedAt: new Date(Date.now() - 11 * 60 * 1000) }));
+    expect((await request(app).get(`/api/chat/sessions/${CONV}`)).body.data.turnInProgress).toBe(false);
+    ConversationJob.find.mockReturnValue(chain([{ _id: CONV, status: 'processing', updatedAt: new Date() }]));
+    ConversationJob.countDocuments.mockResolvedValue(1);
+    expect((await request(app).get('/api/chat/sessions')).body.data.sessions[0].turnInProgress).toBe(true);
   });
 
   test.each([

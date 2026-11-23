@@ -90,6 +90,17 @@ describe('applyChatEvent — 스트림 이벤트를 진행 중인 턴에', () =>
     expect(turn.jobs).toEqual([{ _id: 'j1', status: 'pending', workboardId: { _id: 'w', name: '이미지 판', outputFormat: 'image' } }]);
   });
 
+  it('라운드마다 같은 호출 id 를 다시 쓰는 서버 — 결과는 가장 최근의 진행 중 호출에 붙는다', () => {
+    const turn = run([
+      ['tool_call', { id: 'call_0', name: 'find_workboards' }],
+      ['tool_result', { id: 'call_0', outcome: 'ok' }],
+      ['token', { delta: '다음' }],
+      ['tool_call', { id: 'call_0', name: 'generate' }],
+      ['tool_result', { id: 'call_0', outcome: 'handler_error' }],
+    ]);
+    expect(turn.rows.filter((r) => r.kind === 'tools').flatMap((r) => r.steps.map((s) => s.status))).toEqual(['ok', 'failed']);
+  });
+
   it('모르는 이벤트·빈 조각은 턴을 그대로 둔다', () => {
     const t = emptyLiveTurn();
     expect(applyChatEvent(t, 'session', { sessionId: 's' })).toBe(t);
@@ -116,9 +127,10 @@ describe('작업 패널 보조', () => {
     expect(jobResults(undefined)).toEqual([]);
   });
 
-  it('isSessionBusy', () => {
-    expect(isSessionBusy({ status: 'processing' })).toBe(true);
-    expect(isSessionBusy({ status: 'completed' })).toBe(false);
+  it('isSessionBusy — 서버의 판정만 따른다 (오래 멈춘 processing 은 서버가 false 로 준다)', () => {
+    expect(isSessionBusy({ turnInProgress: true })).toBe(true);
+    expect(isSessionBusy({ turnInProgress: false, session: { status: 'processing' } })).toBe(false);
+    expect(isSessionBusy({ session: { status: 'processing' } })).toBe(false);
     expect(isSessionBusy(undefined)).toBe(false);
   });
 });
@@ -128,6 +140,16 @@ describe('SSE 프레임 읽기', () => {
     expect(parseSseFrame('event: token\ndata: {"delta":"가"}')).toEqual({ event: 'token', data: { delta: '가' } });
     expect(parseSseFrame(': ping')).toBeNull();
     expect(parseSseFrame('data: 글자')).toEqual({ event: 'message', data: '글자' });
+  });
+
+  it('CRLF 프레임과 여러 줄 data 를 읽는다', () => {
+    const { events, rest } = takeSseFrames('event: token\r\ndata: {"delta":"a"}\r\n\r\ndata: 첫 줄\ndata: 둘째 줄\n\n');
+    expect(events).toEqual([{ event: 'token', data: { delta: 'a' } }, { event: 'message', data: '첫 줄\n둘째 줄' }]);
+    expect(rest).toBe('');
+    // 조각이 \r 과 \n 사이에서 끊겨도 이어 읽는다
+    const first = takeSseFrames('data: 1\r\n\r');
+    expect(first.events).toEqual([]);
+    expect(takeSseFrames(`${first.rest}\n`).events).toEqual([{ event: 'message', data: 1 }]);
   });
 
   it('덜 온 꼬리는 남겨 두었다가 다음 조각과 이어 읽는다', () => {

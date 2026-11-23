@@ -177,6 +177,16 @@ describe('작업 히스토리에서 대화 삭제 (#1284)', () => {
     expect(ImageGenerationJob.updateMany).toHaveBeenCalledWith({ conversationId: 'c1' }, { $unset: { conversationId: 1 } });
   });
 
+  test('응답을 받는 중인 채팅 대화는 409 — 지우지 않는다. 오래 멈춘 것은 지운다 (#1288)', async () => {
+    const deleteOne = jest.fn(async () => {});
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'processing', updatedAt: new Date(), deleteOne });
+    expect((await request(app).delete('/api/conversations/c1')).status).toBe(409);
+    expect(deleteOne).not.toHaveBeenCalled();
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'processing', updatedAt: new Date(Date.now() - 11 * 60 * 1000), deleteOne });
+    expect((await request(app).delete('/api/conversations/c1')).status).toBe(200);
+    expect(deleteOne).toHaveBeenCalledTimes(1);
+  });
+
   test('보통 대화는 작업을 건드리지 않는다', async () => {
     const { res } = await remove(undefined);
     expect(res.status).toBe(200);

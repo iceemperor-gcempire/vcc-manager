@@ -47,6 +47,7 @@ export function invalidateWorkboardQueries(queryClient) {
 export const REFRESH_ON_ENTER_PATHS = ['/jobs', '/content'];
 export const REFRESH_ON_ENTER_ROOTS = [
   'historyJobs',      // 작업 히스토리
+  'historyConvs',     //            대화 — 채팅 화면에서 생긴·지운 대화가 바로 보이게 (#1288)
   'generatedImages',  // 내 콘텐츠 — 생성 이미지
   'uploadedImages',   //            업로드 이미지
   'generatedVideos',  //            생성 영상

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, LinearProgress, Button, Tooltip, IconButton } from '@mui/material';
+import { Box, Typography, LinearProgress, Button, ButtonBase, Tooltip, IconButton } from '@mui/material';
 import { AttachFile, PlayArrow, History } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import ToneChip from '../common/ToneChip';
@@ -58,11 +58,10 @@ function JobCard({ job, onAttach, canAttach, onView }) {
               {type === 'audio' ? (
                 <audio src={media.url} controls style={{ width: '100%' }} />
               ) : (
-                <Box
-                  role="button" tabIndex={0} aria-label={type === 'video' ? '영상 크게 보기' : '이미지 크게 보기'}
+                <ButtonBase
+                  aria-label={type === 'video' ? '영상 크게 보기' : '이미지 크게 보기'}
                   onClick={() => onView(job, type, media)}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onView(job, type, media); }}
-                  sx={{ position: 'relative', aspectRatio: '1 / 1', borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'divider', cursor: 'pointer', bgcolor: 'action.hover' }}
+                  sx={{ display: 'block', width: '100%', position: 'relative', aspectRatio: '1 / 1', borderRadius: 2, overflow: 'hidden', border: 1, borderColor: 'divider', bgcolor: 'action.hover' }}
                 >
                   {type === 'video' ? (
                     <>
@@ -72,7 +71,7 @@ function JobCard({ job, onAttach, canAttach, onView }) {
                   ) : (
                     <img src={media.url} alt="만든 이미지" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   )}
-                </Box>
+                </ButtonBase>
               )}
               {type === 'image' && (
                 <Tooltip title={canAttach ? '다음 메시지에 붙이기' : '더 붙일 수 없습니다'}>

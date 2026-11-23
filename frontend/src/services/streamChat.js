@@ -10,14 +10,16 @@ import { API_BASE_URL } from './api';
  */
 export function parseSseFrame(frame) {
   let event = 'message';
-  let dataStr = '';
+  const dataLines = [];
   for (const rawLine of frame.split('\n')) {
     const line = rawLine.trimEnd();
     if (line.startsWith(':')) continue; // 코멘트(하트비트) 무시
     if (line.startsWith('event:')) event = line.slice(6).trim();
-    else if (line.startsWith('data:')) dataStr += line.slice(5).trim();
+    else if (line.startsWith('data:')) dataLines.push(line.slice(5).replace(/^ /, ''));
   }
-  if (!dataStr) return null;
+  // data 줄이 여럿이면 줄바꿈으로 잇는다 (SSE 규약)
+  const dataStr = dataLines.join('\n');
+  if (!dataStr.trim()) return null;
   let data;
   try { data = JSON.parse(dataStr); } catch { data = dataStr; }
   return { event, data };
@@ -26,7 +28,8 @@ export function parseSseFrame(frame) {
 /** 지금까지 받은 글자에서 끝난 프레임을 꺼낸다. 덜 온 꼬리는 rest 로 돌려준다 */
 export function takeSseFrames(buffer) {
   const events = [];
-  let rest = buffer;
+  // CRLF 로 보내는 서버도 받는다. 조각 끝에 걸린 \r 하나는 rest 에 남았다가 다음 조각의 \n 과 만난다
+  let rest = buffer.replace(/\r\n/g, '\n');
   let sep;
   while ((sep = rest.indexOf('\n\n')) !== -1) {
     const parsed = parseSseFrame(rest.slice(0, sep));
@@ -105,14 +108,17 @@ function postSse(path, payload, { onEvent, onError, onClose, signal } = {}) {
 //
 // callbacks: { onToken(delta), onDone(info), onError(error) }
 export function streamPrompt(payload, { onToken, onDone, onError, signal } = {}) {
+  let finished = false;
   return postSse('/jobs/generate-prompt', payload, {
     signal,
     onError,
     onEvent: (event, data) => {
       if (event === 'token') onToken?.(data.delta ?? '');
-      else if (event === 'done') onDone?.(data);
-      else if (event === 'error') onError?.(new Error(data.message || '생성 중 오류가 발생했습니다.'));
+      else if (event === 'done') { finished = true; onDone?.(data); }
+      else if (event === 'error') { finished = true; onError?.(new Error(data.message || '생성 중 오류가 발생했습니다.')); }
     },
+    // done·error 없이 스트림이 닫혔다 — 알리지 않으면 화면이 '받는 중'에 멈춘다
+    onClose: () => { if (!finished) onError?.(new Error('응답이 중간에 끊겼습니다. 다시 시도해 주세요.')); },
   });
 }
 
