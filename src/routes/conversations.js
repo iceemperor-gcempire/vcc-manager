@@ -3,7 +3,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const ConversationJob = require('../models/ConversationJob');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
-const { toConversationListItem, isChatConversation, isTurnInProgress } = require('../utils/conversationView');
+const { toConversationListItem, isChatConversation, isTurnInProgress, idleTurnFilter } = require('../utils/conversationView');
 
 const router = express.Router();
 
@@ -109,10 +109,16 @@ router.delete('/:id', requireAuth, async (req, res) => {
     if (isChatConversation(item) && isTurnInProgress(item)) {
       return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
     }
-    await item.deleteOne();
-    // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다
     if (isChatConversation(item)) {
+      // 판정과 삭제를 한 번에 — 위 검사 뒤에 다른 요청이 턴을 잡았으면 지우지 않는다
+      const removed = await ConversationJob.deleteOne({ _id: item._id, ...idleTurnFilter() });
+      if (!removed.deletedCount) {
+        return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
+      }
+      // 채팅 대화에서 만든 작업은 남긴다 — 연결만 끊는다 (#1284). 채팅 화면의 삭제(routes/chat.js)와 같다
       await ImageGenerationJob.updateMany({ conversationId: item._id }, { $unset: { conversationId: 1 } });
+    } else {
+      await item.deleteOne();
     }
     res.json({ success: true });
   } catch (error) {

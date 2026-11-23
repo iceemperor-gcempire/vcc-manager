@@ -7,10 +7,10 @@ const Workboard = require('../models/Workboard');
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const { MAX_IMAGES } = require('../utils/visionImages');
-const { isChatConversation } = require('../utils/conversationView');
+const { isChatConversation, idleTurnFilter } = require('../utils/conversationView');
 const {
   runChatTurn, buildSystemPrompt, defaultModelOf, titleFrom,
-  isChatCapableWorkboard, isTurnInProgress, STALE_TURN_MS,
+  isChatCapableWorkboard, isTurnInProgress,
 } = require('../services/chatService');
 
 const router = express.Router();
@@ -143,7 +143,9 @@ router.delete('/sessions/:id', requireAuth, async (req, res) => {
     const conversation = await loadMyChat(req, res);
     if (!conversation) return;
     if (isTurnInProgress(conversation)) return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
-    await conversation.deleteOne();
+    // 판정과 삭제를 한 번에 — 위 검사 뒤에 다른 탭이 턴을 잡았으면 지우지 않는다
+    const removed = await ConversationJob.deleteOne({ _id: conversation._id, ...idleTurnFilter() });
+    if (!removed.deletedCount) return res.status(409).json({ message: '응답을 받는 중인 대화는 지울 수 없습니다. 잠시 뒤 다시 시도하세요.' });
     const unlinked = await ImageGenerationJob.updateMany({ conversationId: conversation._id }, { $unset: { conversationId: 1 } });
     console.log(`[chat] session deleted conversation=${conversation._id} unlinkedJobs=${unlinked.modifiedCount || 0}`);
     res.json({ success: true });
@@ -202,10 +204,7 @@ router.post('/messages', requireAuth, async (req, res) => {
       // 턴을 잡는 것과 메시지를 붙이는 것을 한 번의 갱신으로 한다 — 위의 isTurnInProgress 검사만으로는 동시에 온
       // 두 요청이 모두 통과한다 (실호출에서 확인). 조건에 맞는 요청 하나만 문서를 받는다.
       conversation = await ConversationJob.findOneAndUpdate(
-        {
-          _id: conversation._id,
-          $or: [{ status: { $ne: 'processing' } }, { updatedAt: { $lt: new Date(Date.now() - STALE_TURN_MS) } }],
-        },
+        { _id: conversation._id, ...idleTurnFilter() },
         { $push: { messages: userMessage }, $set: { status: 'processing' }, $unset: { error: 1 } },
         { new: true },
       );

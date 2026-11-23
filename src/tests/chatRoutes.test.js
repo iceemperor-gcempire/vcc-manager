@@ -13,7 +13,7 @@ jest.mock('../middleware/auth', () => ({
   buildWorkboardAccessFilter: jest.requireActual('../middleware/auth').buildWorkboardAccessFilter,
 }));
 jest.mock('../models/Workboard', () => ({ find: jest.fn(), findById: jest.fn() }));
-jest.mock('../models/ConversationJob', () => ({ find: jest.fn(), findById: jest.fn(), findOneAndUpdate: jest.fn(), countDocuments: jest.fn(), create: jest.fn(), updateOne: jest.fn(async () => ({})) }));
+jest.mock('../models/ConversationJob', () => ({ find: jest.fn(), findById: jest.fn(), findOneAndUpdate: jest.fn(), countDocuments: jest.fn(), create: jest.fn(), updateOne: jest.fn(async () => ({})), deleteOne: jest.fn(async () => ({ deletedCount: 1 })) }));
 jest.mock('../models/ImageGenerationJob', () => ({ find: jest.fn(), updateMany: jest.fn(async () => ({ modifiedCount: 2 })) }));
 jest.mock('../utils/visionImages', () => ({ MAX_IMAGES: 4 }));
 jest.mock('../models/UploadedImage', () => ({ find: jest.fn() }));
@@ -171,7 +171,7 @@ describe('대화 목록·상세·제목·삭제', () => {
     ConversationJob.findById.mockResolvedValue(doc);
     const res = await request(app).delete(`/api/chat/sessions/${CONV}`);
     expect(res.status).toBe(200);
-    expect(doc.deleteOne).toHaveBeenCalled();
+    expect(ConversationJob.deleteOne).toHaveBeenCalledWith(expect.objectContaining({ _id: doc._id, $or: expect.any(Array) }));
     expect(ImageGenerationJob.updateMany).toHaveBeenCalledWith({ conversationId: CONV }, { $unset: { conversationId: 1 } });
   });
 
@@ -179,7 +179,7 @@ describe('대화 목록·상세·제목·삭제', () => {
     const doc = chatDoc({ status: 'processing', updatedAt: new Date() });
     ConversationJob.findById.mockResolvedValue(doc);
     expect((await request(app).delete(`/api/chat/sessions/${CONV}`)).status).toBe(409);
-    expect(doc.deleteOne).not.toHaveBeenCalled();
+    expect(ConversationJob.deleteOne).not.toHaveBeenCalled();
   });
 });
 
