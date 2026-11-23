@@ -179,9 +179,7 @@ export default function Chat() {
     setText('');
     setAttachments([]);
 
-    streamChatMessage(
-      { ...(sessionId ? { sessionId } : { workboardId: board._id }), text: body, imageIds: attachments.map((a) => a.imageId) },
-      {
+    const handlers = {
         onEvent: (event, data) => {
           opened = true;
           if (!mounted.current) return;
@@ -198,9 +196,10 @@ export default function Chat() {
             setLive((l) => (l ? { ...l, turn: applyChatEvent(l.turn, event, data) } : l));
           }
         },
-        onClose: finish, // done 없이 끊긴 경우에도 저장본으로 돌아간다
+        // done 없이 끊긴 경우에도 저장본으로 돌아간다. 이벤트를 하나도 못 받고 닫혔으면 열지 못한 것과 같이 다룬다
+        onClose: () => (opened ? finish() : handlers.onError(new Error('응답 없이 연결이 닫혔습니다.'))),
         onError: (err) => {
-          if (!mounted.current) return;
+          if (!mounted.current || settled) return; // 이미 끝난 턴 뒤의 읽기 오류는 알리지 않는다
           if (!opened) {
             // 스트림을 열지 못했다. 서버가 거절했으면(err.status: 검증 실패·이미 응답 중 등) 저장되지 않았다.
             // 연결 자체가 안 된 경우는 저장됐는지 알 수 없다 — 입력은 되돌리되, 대화를 다시 읽어 올라갔는지 보이게 한다
@@ -212,13 +211,17 @@ export default function Chat() {
             settled = true;
             setLive(null);
             if (sid) queryClient.invalidateQueries({ queryKey: sessionKey(sid) });
+            queryClient.invalidateQueries({ queryKey: ['chatSessions'] }); // 새 대화가 저장됐다면 목록에 보이게
           } else {
             // 받는 도중 연결이 끊겼다 — 서버는 턴을 계속 돌린다. 저장본을 읽어 '응답 중'으로 이어 본다
             toast.error('연결이 끊겼습니다. 응답은 서버에서 계속 만들어집니다.');
             finish();
           }
         },
-      },
+    };
+    streamChatMessage(
+      { ...(sessionId ? { sessionId } : { workboardId: board._id }), text: body, imageIds: attachments.map((a) => a.imageId) },
+      handlers,
     );
   };
 

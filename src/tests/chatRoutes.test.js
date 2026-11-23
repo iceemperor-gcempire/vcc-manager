@@ -183,6 +183,57 @@ describe('대화 목록·상세·제목·삭제', () => {
   });
 });
 
+describe('DELETE /sessions/:id — 경합 (#1288)', () => {
+  test('조건 삭제가 0건 — 대화가 남아 있으면 409, 이미 없으면 404', async () => {
+    ConversationJob.findById.mockResolvedValue(chatDoc());
+    ConversationJob.deleteOne.mockResolvedValueOnce({ deletedCount: 0 });
+    ConversationJob.countDocuments.mockResolvedValueOnce(1);
+    expect((await request(app).delete(`/api/chat/sessions/${CONV}`)).status).toBe(409);
+    ConversationJob.deleteOne.mockResolvedValueOnce({ deletedCount: 0 });
+    ConversationJob.countDocuments.mockResolvedValueOnce(0);
+    expect((await request(app).delete(`/api/chat/sessions/${CONV}`)).status).toBe(404);
+    expect(ImageGenerationJob.updateMany).not.toHaveBeenCalled();
+  });
+
+  test('작업 연결 끊기가 실패해도 삭제는 성공이다', async () => {
+    ConversationJob.findById.mockResolvedValue(chatDoc());
+    ImageGenerationJob.updateMany.mockRejectedValueOnce(new Error('db down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await request(app).delete(`/api/chat/sessions/${CONV}`)).status).toBe(200);
+    errSpy.mockRestore();
+  });
+});
+
+describe('idleTurnFilter 는 isTurnInProgress 의 정확한 부정이다 (#1288)', () => {
+  const { isTurnInProgress, idleTurnFilter, STALE_TURN_MS } = require('../utils/conversationView');
+  // 이 조건에 쓰인 연산자만 아는 작은 판정기 — null 은 Mongo 처럼 없는 필드도 맞는다
+  const matches = (doc, q) => Object.entries(q).every(([k, v]) => {
+    if (k === '$or') return v.some((sub) => matches(doc, sub));
+    const val = doc[k];
+    if (v === null) return val === null || val === undefined;
+    if (v && typeof v === 'object' && !(v instanceof Date)) {
+      if ('$ne' in v) return val !== v.$ne;
+      if ('$lte' in v) return val instanceof Date && val.getTime() <= v.$lte.getTime();
+    }
+    return val === v;
+  });
+  const now = Date.UTC(2026, 10, 23);
+  const at = (ms) => new Date(now - ms);
+  test.each([
+    ['끝난 대화', { status: 'completed', updatedAt: at(0) }],
+    ['status 없음', { updatedAt: at(0) }],
+    ['방금 잡힌 턴', { status: 'processing', updatedAt: at(1000) }],
+    ['경계 바로 안', { status: 'processing', updatedAt: at(STALE_TURN_MS - 1) }],
+    ['경계', { status: 'processing', updatedAt: at(STALE_TURN_MS) }],
+    ['오래 멈춘 턴', { status: 'processing', updatedAt: at(STALE_TURN_MS + 1) }],
+    ['updatedAt 없음, createdAt 최근', { status: 'processing', createdAt: at(1000) }],
+    ['updatedAt 없음, createdAt 오래됨', { status: 'processing', createdAt: at(STALE_TURN_MS * 2) }],
+    ['시각이 둘 다 없음', { status: 'processing' }],
+  ])('%s', (_, doc) => {
+    expect(matches(doc, idleTurnFilter(now))).toBe(!isTurnInProgress(doc, now));
+  });
+});
+
 describe('POST /messages', () => {
   const send = (body) => request(app).post('/api/chat/messages').send(body);
 
@@ -214,7 +265,7 @@ describe('POST /messages', () => {
     const [filter, update, options] = ConversationJob.findOneAndUpdate.mock.calls[0];
     expect(filter._id).toBe(CONV);
     expect(filter.$or[0]).toEqual({ status: { $ne: 'processing' } });
-    expect(filter.$or[1].updatedAt.$lt).toBeInstanceOf(Date);
+    expect(filter.$or[1].updatedAt.$lte).toBeInstanceOf(Date);
     expect(update.$push.messages).toMatchObject({ role: 'user', content: '하나 더', attachments: [] });
     expect(update.$set).toEqual({ status: 'processing' });
     expect(update.$unset).toEqual({ error: 1 });

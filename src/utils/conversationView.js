@@ -39,8 +39,17 @@ function isTurnInProgress(conversation, now = Date.now()) {
  * isTurnInProgress 가 거짓인 대화만 고르는 DB 조건. 턴을 잡거나 대화를 지울 때 조회 조건에 섞어 쓴다 —
  * "읽고 → 판정하고 → 쓰기" 사이에 다른 요청이 턴을 잡으면 판정이 틀어지므로, 판정과 쓰기를 한 번에 한다.
  */
-const idleTurnFilter = (now = Date.now()) => ({
-  $or: [{ status: { $ne: 'processing' } }, { updatedAt: { $lt: new Date(now - STALE_TURN_MS) } }],
-});
+const idleTurnFilter = (now = Date.now()) => {
+  const cutoff = new Date(now - STALE_TURN_MS);
+  // isTurnInProgress 와 같은 판정: 기준 시각은 updatedAt, 없으면 createdAt, 둘 다 없으면 아주 오래된 것으로 본다.
+  // 경계(딱 STALE_TURN_MS 지난 것)는 죽은 턴이다
+  return {
+    $or: [
+      { status: { $ne: 'processing' } },
+      { updatedAt: { $lte: cutoff } },
+      { updatedAt: null, $or: [{ createdAt: null }, { createdAt: { $lte: cutoff } }] },
+    ],
+  };
+};
 
 module.exports = { isChatConversation, toConversationListItem, isTurnInProgress, idleTurnFilter, LIST_TOOL_CONTENT_CHARS, STALE_TURN_MS };

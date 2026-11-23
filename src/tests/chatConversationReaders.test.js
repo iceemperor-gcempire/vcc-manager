@@ -191,8 +191,24 @@ describe('작업 히스토리에서 대화 삭제 (#1284)', () => {
   test('검사 뒤에 다른 요청이 턴을 잡았으면(조건 삭제가 0건) 409 — 작업 연결도 건드리지 않는다 (#1288)', async () => {
     ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'completed' });
     ConversationJob.deleteOne.mockResolvedValueOnce({ deletedCount: 0 });
+    ConversationJob.countDocuments.mockResolvedValueOnce(1);
     expect((await request(app).delete('/api/conversations/c1')).status).toBe(409);
     expect(ImageGenerationJob.updateMany).not.toHaveBeenCalled();
+  });
+
+  test('조건 삭제가 0건인데 대화가 이미 없으면(동시 삭제) 404', async () => {
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'completed' });
+    ConversationJob.deleteOne.mockResolvedValueOnce({ deletedCount: 0 });
+    ConversationJob.countDocuments.mockResolvedValueOnce(0);
+    expect((await request(app).delete('/api/conversations/c1')).status).toBe(404);
+  });
+
+  test('작업 연결 끊기가 실패해도 삭제는 성공이다 — 대화는 이미 지워졌다', async () => {
+    ConversationJob.findById.mockResolvedValue({ _id: 'c1', userId: 'user-1', kind: 'chat', status: 'completed' });
+    ImageGenerationJob.updateMany.mockRejectedValueOnce(new Error('db down'));
+    const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    expect((await request(app).delete('/api/conversations/c1')).status).toBe(200);
+    errSpy.mockRestore();
   });
 
   test('보통 대화는 작업을 건드리지 않는다', async () => {

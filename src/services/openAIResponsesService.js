@@ -71,6 +71,8 @@ const DROPPED_PARAMS = new Set([
   'conversation', 'previous_response_id', 'background', 'prompt',
 ]);
 
+const isPlainObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+
 // Chat Completions 의 response_format 을 Responses 의 text.format 으로
 function toTextFormat(responseFormat) {
   if (!responseFormat || typeof responseFormat !== 'object') return null;
@@ -87,7 +89,7 @@ function toTextFormat(responseFormat) {
  * reasoning.effort > reasoning_effort, text.format > response_format.
  */
 function toResponsesParams(extraParams) {
-  const src = extraParams && typeof extraParams === 'object' ? extraParams : {};
+  const src = isPlainObject(extraParams) ? extraParams : {};
   const out = {};
   for (const [key, value] of Object.entries(src)) {
     if (DROPPED_PARAMS.has(key)) continue;
@@ -97,12 +99,12 @@ function toResponsesParams(extraParams) {
   const cap = [src.max_output_tokens, src.max_completion_tokens, src.max_tokens].find((v) => v !== undefined && v !== null);
   if (cap !== undefined) out.max_output_tokens = cap;
   if (src.reasoning_effort !== undefined) {
-    const given = src.reasoning && typeof src.reasoning === 'object' ? src.reasoning : {};
+    const given = isPlainObject(src.reasoning) ? src.reasoning : {};
     out.reasoning = { effort: src.reasoning_effort, ...given };
   }
   const format = toTextFormat(src.response_format);
   if (format) {
-    const given = src.text && typeof src.text === 'object' ? src.text : {};
+    const given = isPlainObject(src.text) ? src.text : {};
     out.text = { format, ...given };
   }
   return out;

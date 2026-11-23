@@ -107,6 +107,12 @@ describe('toResponsesTools · toResponsesParams', () => {
       .toEqual({ text: { format: { type: 'json_schema', name: 'n', schema: { type: 'object' }, strict: true }, verbosity: 'low' } });
   });
 
+  test('reasoning·text 가 객체가 아니면(배열 등) 펼치지 않는다', () => {
+    expect(toResponsesParams({ text: [{ verbosity: 'low' }], response_format: { type: 'json_object' } })).toEqual({ text: { format: { type: 'json_object' } } });
+    expect(toResponsesParams({ reasoning: ['x'], reasoning_effort: 'low' })).toEqual({ reasoning: { effort: 'low' } });
+    expect(toResponsesParams(['a'])).toEqual({});
+  });
+
   test('서버 쪽 대화 상태를 잇는 키는 보내지 않는다 — 판 설정 하나가 사용자들의 대화를 섞지 못하게', () => {
     expect(toResponsesParams({ conversation: 'conv_1', previous_response_id: 'resp_1', background: true, prompt: { id: 'p' }, top_p: 0.9 })).toEqual({ top_p: 0.9 });
   });
@@ -227,6 +233,21 @@ describe('completeStream', () => {
     body[Symbol.asyncIterator] = async function* gen() { yield Buffer.from(JSON.stringify({ error: { message: 'The model `x` does not exist' } })); };
     axios.post.mockRejectedValue(Object.assign(new Error('Request failed with status code 404'), { response: { status: 404, data: body } }));
     await expect(completeStream('http://llm', 'k', [{ role: 'user', content: 'hi' }], { model: 'x' })).rejects.toThrow('OpenAI: The model `x` does not exist');
+  });
+
+  test('오류 본문이 오다 멈추면 기한 뒤에 원래 오류로 끝낸다', async () => {
+    const { readErrorMessage } = require('../services/openAIChatService');
+    let destroyed = false;
+    const body = {
+      on() {},
+      destroy() { destroyed = true; this.release(); },
+      [Symbol.asyncIterator]() {
+        let first = true;
+        return { next: () => (first ? (first = false, Promise.resolve({ value: Buffer.from('{"error":'), done: false })) : new Promise((resolve) => { body.release = () => resolve({ done: true }); })) };
+      },
+    };
+    await expect(readErrorMessage({ response: { data: body } }, 20)).resolves.toBeUndefined();
+    expect(destroyed).toBe(true);
   });
 
   test('serverUrl·model 이 없으면 부르지 않는다', async () => {
