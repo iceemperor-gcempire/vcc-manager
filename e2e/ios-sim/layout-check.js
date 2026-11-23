@@ -259,11 +259,12 @@ async function main() {
   for (const r of appRoutes()) {
     const row = { route: r.path };
     results.push(row);
-    if (opt.only.length && !opt.only.includes(r.path)) { row.status = 'skipped'; row.note = '인자로 고른 화면이 아님'; continue; }
+    if (opt.only.length && !opt.only.includes(r.path) && !opt.only.includes(r.path.replace(/\/:[^/]+\?/g, ''))) { row.status = 'skipped'; row.note = '인자로 고른 화면이 아님'; continue; }
     if (r.public !== opt.public) { row.status = 'skipped'; row.note = r.public ? '로그인 전 화면 (--public 으로)' : '로그인 뒤 화면 (--public 없이)'; continue; }
     if (r.alias) { row.status = 'skipped'; row.note = `이동 주소 → ${r.alias}`; continue; }
     if (NOT_MEASURABLE[r.path]) { row.status = 'skipped'; row.note = NOT_MEASURABLE[r.path]; continue; }
-    let target = r.path;
+    // 생략할 수 있는 조각(`/chat/:id?`)은 뺀 주소로 잰다 — 견본이 없어도 그 화면의 기본 모습을 볼 수 있다
+    let target = r.path.replace(/\/:[^/]+\?/g, '');
     if (target.includes(':')) {
       const key = PARAM_SAMPLES[r.path];
       if (!key) { row.status = 'unmeasured'; row.note = '견본 ID 규칙 없음 — layout-check.js 의 PARAM_SAMPLES 에 추가'; continue; }
