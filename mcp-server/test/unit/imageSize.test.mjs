@@ -111,3 +111,108 @@ test('받은 additionalParams 객체는 바꾸지 않는다', () => {
   applyImageSize(WB, params, '2752x1536');
   assert.deepEqual(params, {});
 });
+
+test('같은 문자열이 한 선택지의 표시 이름이자 다른 선택지의 값이면 표시 이름이 먼저다 — 칸에 직접 넣은 값과 같은 순서', () => {
+  const wb = {
+    additionalInputFields: [{
+      name: 'image_size', type: 'select',
+      options: [{ key: 'A', value: '1536x1024' }, { key: '1536x1024', value: '1024x1536' }],
+    }],
+  };
+  assert.equal(applyImageSize(wb, {}, '1536x1024').additionalParams.image_size.value, '1024x1536');
+  assert.equal(applyImageSize(wb, { image_size: '1536x1024' }, undefined).additionalParams.image_size.value, '1024x1536');
+});
+
+test('칸에 직접 넣은 빈 문자열은 없는 것으로 보고 imageSize 를 쓴다', () => {
+  const r = applyImageSize(WB, { image_size: '' }, '2752x1536');
+  assert.equal(r.additionalParams.image_size.value, '2752x1536');
+  assert.deepEqual(r.warnings, []);
+});
+
+// ── 도구 핸들러 — 가짜 서버·가짜 API 로 실제 generate·continue_job 을 불러 보낸 본문을 본다 ──
+const { registerJobTools } = await import('../../src/tools/jobs.js');
+
+const WB_ID = 'wb1';
+// 도구의 필수 칸 검사는 additionalParams 만 본다 — 프롬프트는 top-level 이라 판에 필수 프롬프트 칸을 두지 않는다
+const HANDLER_WB = { additionalInputFields: WB.additionalInputFields.filter((f) => f.name !== 'prompt') };
+const run = async (tool, args, { wb = HANDLER_WB, job } = {}) => {
+  const handlers = {};
+  let sent = null;
+  const apiRequest = async (path, options) => {
+    if (path.startsWith('/workboards/')) return { workboard: { _id: WB_ID, name: '판', outputFormat: 'image', ...wb } };
+    if (path === '/jobs/generate') { sent = options.body; return { job: { id: 'new', status: 'pending' }, message: 'ok' }; }
+    if (path.startsWith('/jobs/')) return { job };
+    throw new Error(`예상 못 한 호출 ${path}`);
+  };
+  registerJobTools({ tool: (name, ...rest) => { handlers[name] = rest[rest.length - 1]; } }, apiRequest);
+  const res = await handlers[tool](args);
+  return { sent, body: JSON.parse(res.content[0].text) };
+};
+const sizeOf = (sent) => valueOf(sent.additionalParams.image_size);
+const valueOf = (v) => (v && typeof v === 'object' ? v.value : v);
+const jobWith = (inputData) => ({ _id: 'j1', workboardId: WB_ID, inputData: { prompt: 'p', ...inputData } });
+
+test('generate: top-level imageSize 만 주면 그 크기가 크기 칸으로 나간다', async () => {
+  const { sent, body } = await run('generate', { workboardId: WB_ID, prompt: 'p', imageSize: '2752x1536' });
+  assert.equal(sizeOf(sent), '2752x1536');
+  assert.equal(sent.imageSize, undefined);
+  assert.ok(!body.defaultsUsed.includes('image_size'));
+});
+
+test('generate: 크기 칸이 없는 판은 top-level 로 나간다', async () => {
+  const { sent } = await run('generate', { workboardId: WB_ID, prompt: 'p', imageSize: '1536x1024' }, { wb: NO_SIZE_WB });
+  assert.equal(sent.imageSize, '1536x1024');
+});
+
+test('continue_job: imageSize 오버라이드가 원래 작업의 크기를 대신한다', async () => {
+  const job = jobWith({ additionalParams: { image_size: { key: '1024x1024 (1:1)', value: '1024x1024' } } });
+  const { sent } = await run('continue_job', { jobId: 'j1', imageSize: '2752x1536' }, { job });
+  assert.equal(sizeOf(sent), '2752x1536');
+});
+
+test('continue_job: 오버라이드가 없으면 원래 작업의 크기 칸 값을 이어받는다', async () => {
+  const job = jobWith({ additionalParams: { image_size: { key: '2752x1536 (가로 16:9 · 2K)', value: '2752x1536' } } });
+  const { sent } = await run('continue_job', { jobId: 'j1' }, { job });
+  assert.equal(sizeOf(sent), '2752x1536');
+});
+
+test('continue_job: 원래 크기가 top-level imageSize 에만 있어도 이어받는다', async () => {
+  const { sent } = await run('continue_job', { jobId: 'j1' }, { job: jobWith({ imageSize: '2752x1536' }) });
+  assert.equal(sizeOf(sent), '2752x1536');
+});
+
+test('continue_job: 대상 판의 크기 칸 이름이 imageSize 여도 원래 image_size 값을 이어받는다', async () => {
+  const wb = { additionalInputFields: [{ ...SIZE_FIELD, name: 'imageSize' }] };
+  const job = jobWith({ additionalParams: { image_size: '2752x1536' } });
+  const { sent } = await run('continue_job', { jobId: 'j1' }, { wb, job });
+  assert.equal(valueOf(sent.additionalParams.imageSize), '2752x1536');
+});
+
+test('continue_job: 대상 판의 선택지에 없는 원래 크기는 버리고 판 기본값을 쓴다', async () => {
+  const job = jobWith({ additionalParams: { image_size: '640x640' } });
+  const { sent, body } = await run('continue_job', { jobId: 'j1' }, { job });
+  assert.equal(sizeOf(sent), '1024x1024');
+  assert.equal(body.warnings, undefined);
+});
+
+test('continue_job: 빈 크기 칸 오버라이드는 imageSize 를 가리지 않는다', async () => {
+  const job = jobWith({ additionalParams: { image_size: '1024x1024' } });
+  const { sent, body } = await run('continue_job', { jobId: 'j1', imageSize: '2752x1536', additionalParams: { image_size: '' } }, { job });
+  assert.equal(sizeOf(sent), '2752x1536');
+  assert.equal(body.warnings, undefined);
+});
+
+test('continue_job: 크기 칸을 직접 넣으면 그 값이 먼저이고 다른 imageSize 는 경고한다', async () => {
+  const job = jobWith({ additionalParams: { image_size: '1024x1024' } });
+  const { sent, body } = await run('continue_job', { jobId: 'j1', imageSize: '1024x1024', additionalParams: { image_size: '2752x1536' } }, { job });
+  assert.equal(sizeOf(sent), '2752x1536');
+  assert.equal(body.warnings.length, 1);
+});
+
+test('continue_job: 크기 칸이 없는 판은 imageSize 오버라이드를 top-level 로 넘기고, 없으면 원래 값을 넘긴다', async () => {
+  const job = jobWith({ imageSize: '1024x1024' });
+  const a = await run('continue_job', { jobId: 'j1', imageSize: '1536x1024' }, { wb: NO_SIZE_WB, job });
+  assert.equal(a.sent.imageSize, '1536x1024');
+  const b = await run('continue_job', { jobId: 'j1' }, { wb: NO_SIZE_WB, job });
+  assert.equal(b.sent.imageSize, '1024x1024');
+});

@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { buildTextInputData } from '../utils/textInput.js';
 import { applyBaseModel, findBaseModelField } from '../utils/baseModel.js';
 import { fillFieldDefaults } from '../utils/fieldDefaults.js';
-import { applyImageSize, findImageSizeField } from '../utils/imageSize.js';
+import { applyImageSize, findImageSizeField, matchSizeOption } from '../utils/imageSize.js';
 
 /**
  * Register job-related tools on the MCP server.
@@ -261,14 +261,17 @@ export function registerJobTools(server, apiRequest) {
 
         // 3. Smart field matching
 
-        // Image Size
+        // Image Size — 크기 칸이 있는 판은 아래 additionalParams 뒤에서 칸에 넣는다 (#1290).
+        // 칸이 없는 판은 top-level 로 넘긴다: 오버라이드가 먼저, 없으면 원래 작업의 값. 옛 내장 선택지가 있으면 거기에 맞춘다
+        const sizeField = findImageSizeField(wb);
         const rawImageSize = params.imageSize || inputData.imageSize;
         let imageSize;
-        if (rawImageSize && wb.baseInputFields?.imageSizes) {
-          imageSize = matchSelectValue(wb.baseInputFields.imageSizes, rawImageSize);
-          if (!imageSize) {
+        if (!sizeField && rawImageSize) {
+          imageSize = rawImageSize;
+          if (wb.baseInputFields?.imageSizes) {
             const first = wb.baseInputFields.imageSizes[0];
-            if (first) imageSize = { key: first.key, value: first.value };
+            imageSize = matchSelectValue(wb.baseInputFields.imageSizes, rawImageSize)
+              || (first ? { key: first.key, value: first.value } : rawImageSize);
           }
         }
 
@@ -296,6 +299,8 @@ export function registerJobTools(server, apiRequest) {
             const originalVal = originalAdditional[field.name];
             const inputVal = overrideVal !== undefined ? overrideVal : originalVal;
 
+            // 크기 칸은 아래에서 따로 정한다 (#1290) — 여기서 기본값으로 떨어뜨리면 imageSize 오버라이드를 가린다
+            if (sizeField && field.name === sizeField.name) continue;
             if (inputVal === undefined) continue;
 
             if (field.type === 'image') {
@@ -339,14 +344,26 @@ export function registerJobTools(server, apiRequest) {
           additionalParams,
           params.aiModel ?? (modelField || isCrossWorkboard ? undefined : inputData.aiModel),
         );
-        // 크기 (#1290) — imageSize 를 주면 원래 작업의 크기 대신 그 값을 크기 칸에 넣는다. 칸 값을 additionalParams 로
-        // 직접 덮었으면 그쪽이 우선. 칸이 없는 판은 위에서 맞춘 top-level 값을 그대로 넘긴다
-        const sizeField = findImageSizeField(wb);
+        // 크기 (#1290) — 먼저 오는 순서: additionalParams 로 직접 넣은 크기 칸 값 → imageSize 오버라이드 → 원래 작업의 크기.
+        // 원래 작업의 크기는 크기 칸(image_size·imageSize)이나 top-level imageSize 어디에 있든 이어받는다.
+        // 대상 판의 선택지에 없는 원래 크기는 버리고 판 기본값으로 둔다 (다른 판으로 이어 갈 때)
+        const isBlank = (v) => v === undefined || v === null || v === '';
         const sizeParams = { ...model.additionalParams };
-        if (sizeField && params.imageSize && overrideAdditional[sizeField.name] === undefined) {
-          delete sizeParams[sizeField.name];
+        let sizeInput;
+        if (sizeField) {
+          const explicitSize = overrideAdditional[sizeField.name];
+          if (!isBlank(explicitSize)) sizeParams[sizeField.name] = explicitSize;
+          if (!isBlank(params.imageSize)) {
+            sizeInput = params.imageSize;
+          } else if (isBlank(explicitSize)) {
+            const inherited = [originalAdditional.image_size, originalAdditional.imageSize, inputData.imageSize]
+              .find((v) => !isBlank(v));
+            if (!isBlank(inherited) && (sizeField.type !== 'select' || matchSizeOption(sizeField, inherited))) {
+              sizeInput = inherited;
+            }
+          }
         }
-        const size = applyImageSize(wb, sizeParams, sizeField ? params.imageSize : imageSize);
+        const size = applyImageSize(wb, sizeParams, sizeField ? sizeInput : imageSize);
         imageSize = size.imageSize;
         // 원래 작업에 없던 칸(다른 판으로 이어 갈 때 등)은 그 판의 기본값으로 채운다 — generate 와 같다
         for (const key of Object.keys(additionalParams)) delete additionalParams[key];
@@ -405,7 +422,7 @@ export function registerJobTools(server, apiRequest) {
         };
 
         if (model.aiModel) matchReport.matchedFields.push(`aiModel: ${model.aiModel}`);
-        if (imageSize) matchReport.matchedFields.push(`imageSize: ${imageSize.key}`);
+        if (imageSize) matchReport.matchedFields.push(`imageSize: ${typeof imageSize === 'object' ? imageSize.key : imageSize}`);
         if (stylePreset) matchReport.matchedFields.push(`stylePreset: ${stylePreset.key}`);
         if (upscaleMethod) matchReport.matchedFields.push(`upscaleMethod: ${upscaleMethod.key}`);
         Object.keys(additionalParams).forEach((k) => {

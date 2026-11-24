@@ -25,18 +25,25 @@ export function findImageSizeField(wb) {
   return null;
 }
 
-// select 칸이면 표시 이름(key)이나 값(value)으로 선택지를 찾는다. 못 찾으면 null
-function findOption(field, input) {
-  if (field.type !== 'select') return null;
-  const raw = valueOf(input);
-  return (field.options || []).find((o) => o.key === raw || o.value === raw) || null;
+/**
+ * select 크기 칸에서 선택지를 찾는다 — 표시 이름(key)이 먼저, 없으면 값(value). 못 찾거나 select 가 아니면 null.
+ * 도구의 다른 select 칸 매칭(jobs.js)과 같은 순서다.
+ */
+export function matchSizeOption(field, input) {
+  if (!field || field.type !== 'select') return null;
+  const options = field.options || [];
+  const key = input && typeof input === 'object' ? input.key : input;
+  const value = valueOf(input);
+  return (!isEmpty(key) && options.find((o) => o.key === key))
+    || (!isEmpty(value) && options.find((o) => o.value === value))
+    || null;
 }
 
 /**
  * top-level imageSize 를 판의 크기 칸에 넣는다.
  *
  * - 칸이 있는 판: additionalParams 에 그 칸 값이 이미 있으면 그대로 둔다. 없으면 imageSize 를 넣는다.
- *   둘 다 없으면 비워 두고, 칸 기본값은 다른 칸과 함께 fillFieldDefaults 가 채운다.
+ *   빈 문자열은 없는 것으로 본다. 둘 다 없으면 비워 두고, 칸 기본값은 다른 칸과 함께 fillFieldDefaults 가 채운다.
  *   top-level imageSize 는 보내지 않는다 — 백엔드가 칸 값을 쓴다
  * - 칸이 없는 판: imageSize 를 top-level 로 그대로 넘긴다 (옛 내장 입력을 쓰는 판)
  *
@@ -55,16 +62,18 @@ export function applyImageSize(wb, additionalParams = {}, imageSize) {
   const warnings = [];
   const explicit = params[field.name];
   if (!isEmpty(explicit)) {
+    const explicitOption = matchSizeOption(field, explicit);
+    if (explicitOption) params[field.name] = { key: explicitOption.key, value: explicitOption.value };
     if (!isEmpty(imageSize)) {
-      const a = findOption(field, explicit);
-      const b = findOption(field, imageSize);
+      const a = matchSizeOption(field, explicit);
+      const b = matchSizeOption(field, imageSize);
       const same = valueOf(a || explicit) === valueOf(b || imageSize);
       if (!same) {
         warnings.push(`imageSize "${valueOf(imageSize)}" was ignored — additionalParams.${field.name} "${valueOf(explicit)}" is used.`);
       }
     }
   } else if (!isEmpty(imageSize)) {
-    const option = findOption(field, imageSize);
+    const option = matchSizeOption(field, imageSize);
     if (option) {
       params[field.name] = { key: option.key, value: option.value };
     } else {
