@@ -94,7 +94,7 @@ LoRA 를 다른 폴더에 두었다면 작업판 편집기의 권한 / 노출에
 | `comfyui/text-to-image-anima.json` | Text to Image - Anima | 이미지 ×1 (업스케일본, 기본 AnimeSharp 2x) · **프롬프트만** · 애니메이션·일러스트 전용 · 긍정·부정 프롬프트 · 스텝·CFG·샘플러 선택 (기본 30 · 4 · er_sde, Turbo 모델은 8~12 · 1) | Anima 모델 (`Anima/anima_baseV10`) + `qwen_3_06b_base` TE + `qwen/qwen_image_vae` VAE (+ 업스케일 모델²) |
 | `comfyui/text-to-image-z-image.json` | Text to Image - Z-Image | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image 터보 (`Z-Image/z_image_turbo_bf16`) + `qwen_3_4b` TE + `Z-Image/ae` VAE + 업스케일 모델² |
 | `comfyui/text-to-image-z-image-aio.json` | Text to Image - Z-Image (AIO) | 이미지 ×1 (업스케일본) · **프롬프트만** | Z-Image **AIO 체크포인트** (TE·VAE 일체, `checkpoints/Z-Image/…aio…`) + 업스케일 모델² |
-| `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (고르면 스텝 칸과 상관없이 공식 Turbo 템플릿의 8스텝 시그마로 돈다, 1024² 약 2초 — #1278. 공식 Turbo 파일 이름일 때만 자동으로 바뀌고, 이름이 다른 Turbo 병합본은 스텝을 8 로 직접 고른다) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
+| `comfyui/text-to-image-qwen-image-21.json` | Text to Image - Qwen-Image 2.1 | 이미지 ×1 · 긍정·부정 프롬프트 · 한글 글씨 · 크기 1MP · 1.5MP · 2K(공식 7가지 비율) | Qwen-Image 2.1 (`qwen\qwen_image_2.1_int8_convrot` — 모델은 `diffusion_models/qwen/` 에 둔다) + `qwen3vl_8b_int8_convrot` TE + `qwen_image_2.1_vae_bf16` (+ 업스케일 모델²). 선택 모델(같은 `qwen/` 폴더): **Turbo** `qwen_image_2.1_turbo_int8_convrot` (고르면 스텝 칸과 상관없이 공식 Turbo 템플릿의 8스텝 시그마로 돈다, 1024² 약 2초 — #1278. 공식 Turbo 파일 이름일 때만 자동으로 바뀌고, 이름이 다른 Turbo 병합본은 스텝을 8 로 직접 고른다) · **Uncensored** `qwen-image-2.1-UC-int8_convrot` ([abenzerps](https://huggingface.co/abenzerps/Qwen-Image-2.1-Uncensored-GGUF), 공식 모델 + 검열 해제 LoRA 병합, 설정은 기본과 같음) |
 | `comfyui/text-to-image-moss-image.json` | Text to Image - MOSS-Image | 이미지 ×1 · 긍정·부정 프롬프트 · 중국어·영어 글씨 · 긴 프롬프트(약 4천 토큰) | ComfyUI **0.42 이상** + Comfy-Org 모델 3개 `openmoss/…` (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 50스텝 약 25초 (int8 모델 약 14초). LoRA 는 LoRA 태그 로더 노드 + `loras/style/openmoss/` (아래 「MOSS-Image」 LoRA) |
 | `comfyui/text-to-image-moss-image-fast.json` | Text to Image - MOSS-Image (빠름) | 이미지 ×1 · ComfyUI 공식 템플릿 설정 · **프롬프트 늘려 쓰기**(기본 켬) · 긍정·부정 프롬프트 | 위 판과 같은 폴더의 int8 모델 · w4a8 인코더 · VAE (아래 「MOSS-Image」) (+ 업스케일 모델²). 1024² 25스텝 약 9초 (늘려 쓰기를 끄면 약 7.5초). LoRA 는 위 판과 같다 |
 
@@ -351,7 +351,10 @@ R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함
 어댑터가 마지막 스텝에서 프레임을 바로 내놓아(DWD) 영상 VAE 디코드를 건너뛴다. 소리는 다른 판처럼 오디오 VAE 로 푼다.
 구성은 piFlow 가 배포하는 `pi-H3-DWD-Spark-SM120` 워크플로를 따랐다 (euler · 시프트 12/3 · pi-Flow Scheduler).
 
-- **샘플링 스텝** (기본 4) — 2스텝용과 4스텝용 어댑터가 따로 있다. 칸 하나가 어댑터 파일, 스케줄러 스텝, `max_raw_t`
+- **길이는 5초 고정** — 1344×768 · 15초 작업에서 ComfyUI 의 동적 VRAM 관리(comfy-aimdo)가 예외를 내고, 이어지는 큰 작업에서 ComfyUI 가 종료되는 것을 확인해
+  3초 · 10초 · 15초 선택지를 뺐다 (ComfyUI 0.46.0 · comfy-aimdo 0.6.0, Windows). 업스트림:
+  [comfy-aimdo#125](https://github.com/Comfy-Org/comfy-aimdo/issues/125) · [#138](https://github.com/Comfy-Org/comfy-aimdo/issues/138). 수정이 나오면 긴 길이를 되살린다 (#1303)
+- **샘플링 스텝** (기본 2) — 2스텝용과 4스텝용 어댑터가 따로 있다. 칸 하나가 어댑터 파일, 스케줄러 스텝, `max_raw_t`
   (4스텝 0.96 · 2스텝 0.93, piFlow 권장값), Spark-Attn 스텝을 함께 바꾼다
 - **가속 — Spark-Attn** (기본 켬) — [Spark-H3](https://github.com/zechengtang/Spark-H3) 의 희소 어텐션. 이 노드는 GPU 구조마다 따로 나오고,
   판에는 RTX 50 시리즈 · RTX PRO Blackwell 용 `MiniMaxH3SparkAttentionSM120` 이 들어 있다. 노드가 없거나 GPU 가 다르면 칸을 끈다 — 노드를 빼고 돈다.
@@ -368,7 +371,8 @@ R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함
 - (Spark-Attn 을 켤 때) Spark-H3 — 운영체제 · GPU 에 맞는 배포본을 받아 설치한다 (검증 v0.2.0 SM120).
   Spark-H3 는 ComfyUI 0.44 까지를 지원 범위로 적어 두었고, 여기서는 0.46.0 에서 돌렸다
 
-실측 (RTX PRO 6000, 1344×768, 첫 프레임 1장, 모델이 올라온 뒤 ComfyUI 실행 시간):
+실측 (RTX PRO 6000, 1344×768, 첫 프레임 1장, 모델이 올라온 뒤 ComfyUI 실행 시간). 길이를 5초로 줄이기 전에 잰 것이라 10초 열과
+아래 15초 · 3초 항목은 지금 판에서는 고를 수 없다:
 
 | 구성 | 5초 | 10초 |
 |---|---|---|
@@ -389,7 +393,7 @@ R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함
 **MiniMax H3 - R2V (pi-H3)** 판은 같은 DWD 어댑터를 REF2VA 베이스에 걸고 조건 노드만 R2V 용으로 바꾼 구성이다.
 어댑터는 FL2VA 용으로 공개됐고 모델 카드는 REF2VA 를 말하지 않는다 — 돌려 보니 되는 구성이지 제작자가 안내한 쓰임은 아니다.
 
-- 칸은 R2V (Pika Flex) 판과 같고(참조 이미지 3 · 영상 2 · 소리 2, H3 업샘플러, 스타일 LoRA), Sol-Attn 칸 대신 **샘플링 스텝** 과 **가속 — Spark-Attn** 이 있다
+- 칸은 R2V (Pika Flex) 판과 같고(참조 이미지 3 · 영상 2 · 소리 2, H3 업샘플러, 스타일 LoRA), 길이만 5초 고정이며, Sol-Attn 칸 대신 **샘플링 스텝** 과 **가속 — Spark-Attn** 이 있다
 - **베이스 모델은 `minimax_h3_ref2va_pruned_w6a8`** — non-pruned `ref2va_int8_convrot` 는 어댑터 모양이 맞지 않아 로드에서 실패한다
 - 판으로 돌려 본 것 (알파, RTX PRO 6000, 1344×768, 각 1회, VCC 작업 시간): 참조 이미지 1장 4스텝 49초 · 2스텝 32초 · Spark-Attn 끔 56초,
   이미지 2장 40초, 참조 영상 170초, 참조 영상 + 영상 소리 178초, 참조 오디오 41초, 10초 81초, 스타일 LoRA 49초, H3 업샘플러 2배(3초 영상) 186초.

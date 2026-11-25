@@ -87,7 +87,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `prompt` | string | **필수** | 생성 프롬프트 |
 | `aiModel` | string | - | 베이스 모델 파일 경로 — `get_workboard` 의 `baseModel.default`·`options` 와 같은 형식. 생략하면 판의 기본 모델. 판의 모델 칸(`baseModel.field`)에 들어간다. `additionalParams` 로 그 칸을 직접 넣었으면 그 값이 우선하고 응답 `warnings` 에 알린다 |
 | `negativePrompt` | string | - | 네거티브 프롬프트 |
-| `imageSize` | string | - | (옛 형식) 이미지 크기. 크기 칸이 있는 판은 `additionalParams` 에 그 칸 이름으로 넣는다 |
+| `imageSize` | string | - | (옛 형식) 이미지 크기. 크기 칸(`image_size`)이 있는 판은 `additionalParams` 에 그 칸 이름으로 넣는 것이 기본이다. 여기로 주면 그 칸에 넣어 보낸다 — 선택지의 값이나 표시 이름. `additionalParams` 로 그 칸을 직접 넣었으면 그 값이 우선하고 응답 `warnings` 에 알린다 |
 | `stylePreset` | string | - | 스타일 프리셋 값 |
 | `upscaleMethod` | string | - | 업스케일 방식 값 |
 | `seed` | number | - | 특정 시드 번호 |
@@ -102,7 +102,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `status` | 작업 상태 |
 | `message` | 결과 메시지 |
 | `defaultsUsed` | 호출자가 안 줘서 판 기본값으로 채운 칸 이름들 (있을 때만) |
-| `warnings` | 무시된 입력이 있을 때만 (예: `aiModel` 과 다른 모델 칸 값을 함께 보냄) |
+| `warnings` | 알릴 것이 있을 때만 — 무시된 입력(`aiModel`·`imageSize` 와 **다른** 값을 그 칸에 함께 보냄. 같은 값이면 알리지 않는다), 크기 칸 선택지에 없는 `imageSize` 를 받은 그대로 보냄 |
 
 ---
 
@@ -146,7 +146,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `prompt` | string | - | 프롬프트 오버라이드 (생략 시 원본 사용) |
 | `negativePrompt` | string | - | 네거티브 프롬프트 오버라이드 |
 | `aiModel` | string | - | 베이스 모델 오버라이드 — 대상 판의 `get_workboard` `baseModel` 기준. 생략하면 원본 작업의 모델 칸 값을 그대로 쓴다 (다른 판으로 이어 갈 때 대상 판의 폴더 제한 밖이면 서버가 거절) |
-| `imageSize` | string | - | 이미지 크기 오버라이드 |
+| `imageSize` | string | - | 이미지 크기 오버라이드 — 대상 판의 크기 칸에 들어간다. `additionalParams` 로 크기 칸을 직접 넣었으면 그 값이 먼저다. 생략하면 원본 작업의 크기를 그대로 쓴다 (대상 판의 선택지에 없는 크기면 그 판의 기본값) |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
 | `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (지정한 키만 오버라이드). 이미지 타입 필드는 imageId 문자열 전달 |
@@ -163,6 +163,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `matching.targetWorkboard` | 대상 작업판 이름 |
 | `matching.crossWorkboard` | 크로스 작업판 여부 |
 | `matching.matchedFields` | 매칭된 필드 목록 |
+| `warnings` | 알릴 것이 있을 때만 — `generate` 와 같다 |
 
 ---
 
