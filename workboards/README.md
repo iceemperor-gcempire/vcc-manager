@@ -351,7 +351,10 @@ R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함
 어댑터가 마지막 스텝에서 프레임을 바로 내놓아(DWD) 영상 VAE 디코드를 건너뛴다. 소리는 다른 판처럼 오디오 VAE 로 푼다.
 구성은 piFlow 가 배포하는 `pi-H3-DWD-Spark-SM120` 워크플로를 따랐다 (euler · 시프트 12/3 · pi-Flow Scheduler).
 
-- **샘플링 스텝** (기본 4) — 2스텝용과 4스텝용 어댑터가 따로 있다. 칸 하나가 어댑터 파일, 스케줄러 스텝, `max_raw_t`
+- **길이는 5초 고정** — 1344×768 · 15초 작업에서 ComfyUI 의 동적 VRAM 관리(comfy-aimdo)가 예외를 내고, 이어지는 큰 작업에서 ComfyUI 가 종료되는 것을 확인해
+  3초 · 10초 · 15초 선택지를 뺐다 (ComfyUI 0.46.0 · comfy-aimdo 0.6.0, Windows). 업스트림:
+  [comfy-aimdo#125](https://github.com/Comfy-Org/comfy-aimdo/issues/125) · [#138](https://github.com/Comfy-Org/comfy-aimdo/issues/138). 수정이 나오면 긴 길이를 되살린다 (#1303)
+- **샘플링 스텝** (기본 2) — 2스텝용과 4스텝용 어댑터가 따로 있다. 칸 하나가 어댑터 파일, 스케줄러 스텝, `max_raw_t`
   (4스텝 0.96 · 2스텝 0.93, piFlow 권장값), Spark-Attn 스텝을 함께 바꾼다
 - **가속 — Spark-Attn** (기본 켬) — [Spark-H3](https://github.com/zechengtang/Spark-H3) 의 희소 어텐션. 이 노드는 GPU 구조마다 따로 나오고,
   판에는 RTX 50 시리즈 · RTX PRO Blackwell 용 `MiniMaxH3SparkAttentionSM120` 이 들어 있다. 노드가 없거나 GPU 가 다르면 칸을 끈다 — 노드를 빼고 돈다.
@@ -368,7 +371,8 @@ R2V 판에서 아래 **업스케일 (인코딩 전)** 픽셀 업스케일과 함
 - (Spark-Attn 을 켤 때) Spark-H3 — 운영체제 · GPU 에 맞는 배포본을 받아 설치한다 (검증 v0.2.0 SM120).
   Spark-H3 는 ComfyUI 0.44 까지를 지원 범위로 적어 두었고, 여기서는 0.46.0 에서 돌렸다
 
-실측 (RTX PRO 6000, 1344×768, 첫 프레임 1장, 모델이 올라온 뒤 ComfyUI 실행 시간):
+실측 (RTX PRO 6000, 1344×768, 첫 프레임 1장, 모델이 올라온 뒤 ComfyUI 실행 시간). 길이를 5초로 줄이기 전에 잰 것이라 10초 열과
+아래 15초 · 3초 항목은 지금 판에서는 고를 수 없다:
 
 | 구성 | 5초 | 10초 |
 |---|---|---|

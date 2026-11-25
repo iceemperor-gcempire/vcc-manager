@@ -17,9 +17,23 @@ const byType = (t) => Object.entries(wf).filter(([, n]) => n.class_type === t);
 const one = (t) => { const l = byType(t); expect(l).toHaveLength(1); return l[0]; };
 const field = (fieldName) => board.additionalInputFields.find((f) => f.name === fieldName);
 
-test('스텝 선택지는 2 와 4 뿐이고 기본은 4', () => {
+test('스텝 선택지는 2 와 4 뿐이고 기본은 2', () => {
   expect(field('steps').options.map((o) => o.value).sort()).toEqual(['2', '4']);
-  expect(field('steps').defaultValue).toBe('4');
+  expect(field('steps').defaultValue).toBe('2');
+});
+
+// 긴 영상(15초)에서 ComfyUI 동적 VRAM 관리가 예외를 내고 다음 큰 작업에서 프로세스가 종료됐다 (#1303).
+// 업스트림 수정이 나올 때까지 길이는 5초 하나만 둔다 — 선택지를 되살릴 때 이 테스트를 함께 고친다.
+test('길이는 5초(124프레임) 하나뿐이다', () => {
+  expect(field('length').options.map((o) => o.value)).toEqual(['124']);
+  expect(field('length').defaultValue).toBe('124');
+  expect(field('length').required).toBe(true);
+});
+
+test('프롬프트 작성 지침도 5초 고정을 따른다 — 다른 길이의 정렬 시각을 남기지 않는다', () => {
+  const pgi = board.promptGeneratorInstructions;
+  expect(pgi).toContain('5초로 고정');
+  for (const t of ['3.04', '10.13', '15.08']) expect(pgi).not.toContain(t);
 });
 
 test('어댑터 파일 이름이 고른 스텝을 따른다 (DWD · loras 폴더 바로 아래)', () => {
