@@ -3,7 +3,7 @@ const path = require('path');
 
 // H3 업샘플러를 쓰는 판 (#1176).
 // 노드 0.7 대는 0.1 대와 입력이 다르다 — 옛 입력(prompt·lora_strength·clip)이 남거나 새 필수 입력이 빠지면
-// ComfyUI 가 요청을 거절한다. 판 여섯 개가 같은 설정으로 맞춰져 있는지 본다.
+// ComfyUI 가 요청을 거절한다. 판 다섯 개가 같은 설정으로 맞춰져 있는지 본다.
 const load = (name) => JSON.parse(fs.readFileSync(path.join(__dirname, `../../workboards/comfyui/${name}.json`), 'utf8')).workboard;
 const BOARDS = [
   'video-upscale-h3-upsampler',
@@ -11,7 +11,6 @@ const BOARDS = [
   'minimax-h3-r2v-turbo',
   'minimax-h3-r2v-pika-flex',
   'minimax-h3-r2v-prism',
-  'minimax-h3-r2v-pi-h3',
 ];
 // 노드 0.7.3 (44db226) 의 필수 입력
 const REQUIRED = [
