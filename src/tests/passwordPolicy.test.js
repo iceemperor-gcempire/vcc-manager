@@ -7,7 +7,7 @@ describe('#663 passwordPolicy', () => {
   test('정책 충족(8자+, 대/소문자·숫자·특수문자) → 통과', () => {
     expect(isValidPassword('Abcdef1!')).toBe(true);
     expect(isValidPassword('StrongP@ss2026')).toBe(true);
-    expect(isValidPassword('AlphaReset2026!')).toBe(true);
+    expect(isValidPassword('Example#Pass9')).toBe(true);
   });
 
   test('정책 미달 → 거부', () => {
