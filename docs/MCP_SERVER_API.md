@@ -79,7 +79,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 
 ### `generate`
 
-이미지/비디오/오디오 생성 (텍스트 작업판은 [`generate_text`](#generate_text)). 사전에 `get_workboard`로 옵션 확인 필요. `additionalParams` 의 select 필드는 옵션 배열의 문자열(표시 이름)이나 값을 그대로 전달하면 key-value 매핑은 자동 처리.
+이미지/비디오/오디오 생성 (텍스트 작업판은 [`generate_text`](#generate_text)). 사전에 `get_workboard`로 옵션 확인 필요. `additionalParams` 의 select 필드는 옵션 배열의 문자열(표시 이름)이나 값을 그대로 전달하면 key-value 매핑은 자동 처리. 선택지에 없는 값을 주면 서버가 `지원하지 않는 값입니다: <칸 이름> = <값>` 으로 거절한다 — 기본값으로 바꿔 실행하지 않는다 (숫자 칸의 범위 밖 값도 같다).
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---------|------|------|------|
@@ -149,7 +149,7 @@ VCC Manager MCP 서버가 제공하는 도구(Tool) 목록과 파라미터 명�
 | `imageSize` | string | - | 이미지 크기 오버라이드 — 대상 판의 크기 칸에 들어간다. `additionalParams` 로 크기 칸을 직접 넣었으면 그 값이 먼저다. 생략하면 원본 작업의 크기를 그대로 쓴다 (대상 판의 선택지에 없는 크기면 그 판의 기본값) |
 | `seed` | number | - | 시드 오버라이드 |
 | `randomSeed` | boolean | - | 랜덤 시드 (기본 true) |
-| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (지정한 키만 오버라이드). 이미지 타입 필드는 imageId 문자열 전달 |
+| `additionalParams` | Record<string, string\|number\|boolean> | - | 추가 파라미터 오버라이드 (지정한 키만 오버라이드). 이미지 타입 필드는 imageId 문자열 전달. 직접 준 선택 칸 값이 대상 판의 선택지에 없으면 서버가 거절한다. 원본 작업에서 물려받은 값은 대상 판의 선택지에 표시 이름이나 값으로 맞춰 보고, 맞는 것이 없으면 그 판의 기본값으로 돈다. 빈 값을 주면 판 기본값으로 채운다 |
 
 **응답 필드:**
 

@@ -246,9 +246,11 @@ export function registerJobTools(server, apiRequest) {
 
         // Helper: match a select option by key (display name) first, then by value
         const matchSelectValue = (options, inputValue) => {
-          if (!options || !inputValue) return null;
-          const key = typeof inputValue === 'object' ? inputValue.key : inputValue;
-          const val = typeof inputValue === 'object' ? inputValue.value : inputValue;
+          if (!options || inputValue === undefined || inputValue === null || inputValue === '') return null;
+          // 선택지의 key · value 는 글자다 — 숫자로 준 값(steps: 4)도 맞춘다 (#1163)
+          const text = (v) => (v === undefined || v === null ? v : String(v));
+          const key = text(typeof inputValue === 'object' ? inputValue.key : inputValue);
+          const val = text(typeof inputValue === 'object' ? inputValue.value : inputValue);
 
           // Match by key (display name) first
           let match = options.find((o) => o.key === key);
@@ -315,7 +317,12 @@ export function registerJobTools(server, apiRequest) {
               const matched = matchSelectValue(field.options, inputVal);
               if (matched) {
                 additionalParams[field.name] = matched;
+              } else if (overrideVal !== undefined) {
+                // 직접 준 값이 선택지에 없으면 그대로 보낸다 — 서버가 "지원하지 않는 값"으로 거절한다 (#1163).
+                // 조용히 기본값으로 바꾸면 요청과 다른 결과가 나온다. generate 와 같은 동작이다
+                additionalParams[field.name] = overrideVal;
               } else {
+                // 원래 작업에서 물려받은 값이 이 판의 선택지에 없으면 판 기본값으로 돈다 (다른 판으로 이어 갈 때)
                 // Fallback to default or first option
                 const fallback = field.defaultValue || field.options[0]?.value;
                 if (fallback) {

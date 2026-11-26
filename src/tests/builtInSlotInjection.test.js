@@ -152,3 +152,23 @@ describe('getModelValue', () => {
     expect(getModelValue({ additionalInputFields: [] }, { aiModel: 'gpt-image-1' })).toBe('gpt-image-1');
   });
 });
+
+describe('선택 칸에 숫자로 온 값 (#1163)', () => {
+  const wb = {
+    additionalInputFields: [
+      { name: 'h3_upsample', label: '업샘플', type: 'select', defaultValue: '2', options: [{ key: '안 함', value: '0' }, { key: '2배', value: '2' }] },
+    ],
+  };
+  const tpl = JSON.stringify({ 1: { class_type: 'X', inputs: { mode: '{{##h3_upsample##}}' } } });
+  const inject = async (inputData) => (await injectInputsIntoWorkflow(tpl, inputData, wb)).workflowJson;
+
+  test('숫자 0 은 선택지 "0" 으로 들어간다 — 빈 값으로 바뀌지 않는다', async () => {
+    expect((await inject({ additionalParams: { h3_upsample: 0 } }))[1].inputs.mode).toBe('0');
+    expect((await inject({ additionalParams: { h3_upsample: { key: '안 함', value: 0 } } }))[1].inputs.mode).toBe('0');
+  });
+
+  test('글자 값과 다른 숫자는 예전과 같다', async () => {
+    expect((await inject({ additionalParams: { h3_upsample: '0' } }))[1].inputs.mode).toBe('0');
+    expect((await inject({ additionalParams: { h3_upsample: 2 } }))[1].inputs.mode).toBe('2');
+  });
+});
