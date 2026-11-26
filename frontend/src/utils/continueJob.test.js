@@ -11,6 +11,7 @@ import {
   buildSameWorkboardContinue,
   buildCrossWorkboardContinue,
   buildWorkboardPickerContinue,
+  restorableAdditionalParams,
 } from './continueJob';
 
 const job = {
@@ -66,5 +67,58 @@ describe('prefill 판정 — #673 안전조건과 #762 복원의 공존', () => 
     ['작업판 선택 경유', picker, true, 'video', false],
   ])('%s', (_label, payload, bmHasDefault, out, expected) => {
     expect(allowPrefill(payload, bmHasDefault, out)).toBe(expected);
+  });
+});
+
+describe('계속하기 칸 값 복원 (#1304)', () => {
+  // 이미지 판에서 만든 작업 — 백엔드가 aiModel · imageSize 를 최상위에도 적는다
+  const imageJobInput = {
+    prompt: 'p',
+    aiModel: { key: 'Model A', value: 'model-a.safetensors' },
+    imageSize: '1024x1024',
+    additionalParams: {
+      base_model: 'model-a.safetensors',
+      image_size: { key: '1:1', value: '1024x1024' },
+      steps: 8,
+      seed: 0,
+    },
+  };
+
+  test('다른 판으로 넘길 때 대상 판에 없는 칸 값은 넣지 않는다', () => {
+    const videoFields = [{ name: 'first_frame' }, { name: 'length' }, { name: 'steps' }, { name: 'seed' }];
+    const { values, skipped } = restorableAdditionalParams({
+      inputData: imageJobInput,
+      fields: videoFields,
+      allowBaseModelPrefill: true,
+    });
+    const allowed = new Set(videoFields.map((f) => f.name));
+    Object.keys(values).forEach((k) => expect(allowed.has(k)).toBe(true));
+    expect(values).toEqual({ steps: 8, seed: 0 });
+    expect(skipped.sort()).toEqual(['aiModel', 'base_model', 'imageSize', 'image_size']);
+  });
+
+  test('같은 판이면 칸 값을 그대로 되살리고, 선택지 객체는 값만 꺼낸다', () => {
+    const fields = [{ name: 'base_model' }, { name: 'image_size' }, { name: 'steps' }, { name: 'seed' }];
+    const { values } = restorableAdditionalParams({ inputData: imageJobInput, fields, allowBaseModelPrefill: true });
+    expect(values).toEqual({ base_model: 'model-a.safetensors', image_size: '1024x1024', steps: 8, seed: 0 });
+  });
+
+  test('base_model 을 가져오지 않기로 한 경우에는 칸이 있어도 넣지 않는다 (#673)', () => {
+    const fields = [{ name: 'base_model' }, { name: 'steps' }];
+    const { values } = restorableAdditionalParams({ inputData: imageJobInput, fields, allowBaseModelPrefill: false });
+    expect(values).toEqual({ steps: 8 });
+  });
+
+  test('옛 작업의 최상위 값은 그 이름의 칸이 있는 판에서만 되살린다', () => {
+    const legacy = { aiModel: { key: 'A', value: 'a.safetensors' }, imageSize: '512x768', stylePreset: null };
+    expect(restorableAdditionalParams({ inputData: legacy, fields: [{ name: 'aiModel' }, { name: 'imageSize' }], allowBaseModelPrefill: true }).values)
+      .toEqual({ aiModel: 'a.safetensors', imageSize: '512x768' });
+    expect(restorableAdditionalParams({ inputData: legacy, fields: [{ name: 'prompt_extra' }], allowBaseModelPrefill: true }).values)
+      .toEqual({});
+  });
+
+  test('칸이 없는 판 · 값이 없는 작업도 빈 결과로 끝난다', () => {
+    expect(restorableAdditionalParams({ inputData: imageJobInput, fields: undefined, allowBaseModelPrefill: true }).values).toEqual({});
+    expect(restorableAdditionalParams({ inputData: {}, fields: [{ name: 'steps' }], allowBaseModelPrefill: true })).toEqual({ values: {}, skipped: [] });
   });
 });

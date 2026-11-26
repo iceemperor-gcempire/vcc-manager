@@ -57,3 +57,41 @@ export function buildWorkboardPickerContinue(job) {
 export function storeContinueJobData(payload) {
   localStorage.setItem(KEY, JSON.stringify(payload));
 }
+
+// 옛 작업은 값을 inputData 최상위에 두었다. 지금 작업도 백엔드가 aiModel · imageSize 를 최상위에 적는다 (#1174 · #1221).
+const LEGACY_TOP_LEVEL_KEYS = ['aiModel', 'imageSize', 'imageSizes', 'stylePreset', 'upscaleMethod', 'referenceImageMethod'];
+
+const unwrapOption = (v) => (typeof v === 'object' && v !== null && v.value !== undefined ? v.value : v);
+
+/**
+ * 계속하기에서 폼의 additionalParams 로 되살릴 값 (#1304).
+ * 대상 작업판에 그 이름의 칸이 있을 때만 넣는다. 폼 값은 제출 때 그대로 서버에 가므로,
+ * 칸이 없는 값을 넣으면 그 판과 무관한 값이 작업에 저장된다.
+ *
+ * @param {object} args
+ * @param {object} args.inputData 원본 작업의 inputData
+ * @param {Array<{name: string}>} args.fields 대상 작업판의 additionalInputFields
+ * @param {boolean} args.allowBaseModelPrefill false 면 base_model 은 가져오지 않는다 (#673)
+ * @returns {{ values: Record<string, any>, skipped: string[] }} skipped 는 칸이 없어 버린 이름
+ */
+export function restorableAdditionalParams({ inputData, fields, allowBaseModelPrefill }) {
+  const names = new Set((fields || []).map((f) => f.name));
+  const values = {};
+  const skipped = [];
+  const put = (name, raw) => {
+    if (raw === undefined || raw === null) return;
+    if (!names.has(name)) {
+      if (!skipped.includes(name)) skipped.push(name);
+      return;
+    }
+    values[name] = unwrapOption(raw);
+  };
+
+  Object.entries(inputData?.additionalParams || {}).forEach(([name, raw]) => {
+    if (name === 'base_model' && !allowBaseModelPrefill) return;
+    put(name, raw);
+  });
+  LEGACY_TOP_LEVEL_KEYS.forEach((name) => put(name, inputData?.[name]));
+
+  return { values, skipped };
+}

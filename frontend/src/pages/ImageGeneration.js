@@ -60,6 +60,7 @@ import AudioSelectDialog from '../components/common/AudioSelectDialog';
 import PromptGeneratorDialog from '../components/PromptGeneratorDialog';
 import { MONO } from '../theme';
 import { isPromptHidden } from '../utils/promptVisibility';
+import { restorableAdditionalParams } from '../utils/continueJob';
 import { BRAND_GRADIENTS } from '../utils/brandGradients';
 import config from '../config';
 import { ATTACHMENT_FIELD_TYPES } from '../templates/capabilities';
@@ -985,21 +986,13 @@ function ImageGeneration() {
         if (typeof jobInputData.negativePrompt === 'string') {
           safeSetValue('negativePrompt', jobInputData.negativePrompt);
         }
-        // customField 들은 additionalParams 네임스페이스에서 복원 (jobInputData 도 동일 구조)
-        if (jobInputData.additionalParams) {
-          Object.entries(jobInputData.additionalParams).forEach(([k, v]) => {
-            if (k === 'base_model' && !allowBaseModelPrefill) return; // #673 비호환/기본값 → 이전 base_model 안 가져옴
-            safeSetValue(`additionalParams.${k}`, typeof v === 'object' && v?.value !== undefined ? v.value : v);
-          });
-        }
-        // 기존 jobInputData 의 top-level aiModel / imageSize 등 — additionalParams 네임스페이스로 매핑 (legacy job 호환)
-        const legacyTopLevelKeys = ['aiModel', 'imageSize', 'imageSizes', 'stylePreset', 'upscaleMethod', 'referenceImageMethod'];
-        legacyTopLevelKeys.forEach((k) => {
-          const v = jobInputData[k];
-          if (v === undefined || v === null) return;
-          const unwrapped = typeof v === 'object' && v?.value !== undefined ? v.value : v;
-          safeSetValue(`additionalParams.${k}`, unwrapped);
+        // 칸 값 복원 — 이 작업판에 그 이름의 칸이 있을 때만 (#1304). 옛 작업의 최상위 값(aiModel · imageSize 등)도 같은 규칙.
+        const restored = restorableAdditionalParams({
+          inputData: jobInputData,
+          fields: workboardData.additionalInputFields,
+          allowBaseModelPrefill,
         });
+        Object.entries(restored.values).forEach(([k, v]) => safeSetValue(`additionalParams.${k}`, v));
 
         // 추가 파라미터 매칭
         if (jobInputData.additionalParams && workboardData.additionalInputFields) {
