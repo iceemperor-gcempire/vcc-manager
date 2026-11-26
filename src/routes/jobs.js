@@ -29,6 +29,7 @@ const { findSilentVideoViolation } = require('../services/videoAudioGuard');
 const { findOrientationViolation } = require('../services/imageOrientationGuard');
 const { findModelFolderViolation } = require('../services/modelFolderGuard');
 const { findLoraFolderViolation, findLoraFieldViolation } = require('../services/loraFolderGuard');
+const { findFieldValueViolation } = require('../services/fieldValueGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
@@ -185,6 +186,11 @@ router.post('/generate', requireAuth, async (req, res) => {
       return res.status(400).json({ message: loraViolation });
     }
 
+    // 선택지 밖 값 · 범위 밖 숫자를 막는다 (#1163) — API·MCP 는 화면의 선택 칸을 거치지 않는다
+    const valueViolation = findFieldValueViolation(wb, lookupInput);
+    if (valueViolation) {
+      return res.status(400).json({ message: valueViolation });
+    }
 
     const inputData = {
       prompt: prompt.trim(),
@@ -420,6 +426,11 @@ router.post('/:id/retry', requireAuth, async (req, res) => {
         || findLoraFieldViolation(retryWb, job.inputData || {});
       if (loraViolation) {
         return res.status(400).json({ message: loraViolation });
+      }
+      // 판의 선택지가 나중에 줄었으면 예전 작업의 값이 밖일 수 있다 (#1163)
+      const valueViolation = findFieldValueViolation(retryWb, job.inputData || {});
+      if (valueViolation) {
+        return res.status(400).json({ message: valueViolation });
       }
     }
 
