@@ -13,6 +13,7 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { buildMediaSearchOr } = require('../utils/mediaSearchFilter');
 const router = express.Router();
 
 // 일괄 삭제 - 선택 항목
@@ -173,29 +174,24 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     if (!type || !['uploaded', 'generated', 'video'].includes(type)) {
       return res.status(400).json({ message: 'Invalid type' });
     }
+    // 형식이 틀린 조건을 "조건 없음"으로 읽으면 삭제 범위가 전체로 넓어진다 (#1314)
+    if (typeof search !== 'string' || typeof tags !== 'string') {
+      return res.status(400).json({ message: 'search 와 tags 는 문자열이어야 합니다' });
+    }
 
     // 필터 구성 (기존 목록 API와 동일)
     const filter = { userId };
 
     if (type === 'uploaded') {
-      if (search) {
-        filter.$or = [
-          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-          { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } }
-        ];
-      }
+      const searchOr = await buildMediaSearchOr(userId, search, { tags: true });
+      if (searchOr) filter.$or = searchOr;
       if (tags) {
         const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
         filter.tags = { $in: tagArray };
       }
     } else if (type === 'generated') {
-      if (search) {
-        filter.$or = [
-          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-          { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } },
-          { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
-        ];
-      }
+      const searchOr = await buildMediaSearchOr(userId, search, { tags: true, prompt: true });
+      if (searchOr) filter.$or = searchOr;
       if (tags) {
         const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
         filter.tags = { $in: tagArray };
@@ -549,12 +545,8 @@ router.get('/uploaded', requireAuth, async (req, res) => {
     
     const filter = { userId: req.user._id };
     
-    if (search) {
-      filter.$or = [
-        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-        { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } }
-      ];
-    }
+    const searchOr = await buildMediaSearchOr(req.user._id, search, { tags: true });
+    if (searchOr) filter.$or = searchOr;
     
     if (tags) {
       const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
@@ -589,13 +581,8 @@ router.get('/generated', requireAuth, async (req, res) => {
     
     const filter = { userId: req.user._id };
     
-    if (search) {
-      filter.$or = [
-        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-        { tags: { $in: [new RegExp(escapeRegex(search), 'i')] } },
-        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
-      ];
-    }
+    const searchOr = await buildMediaSearchOr(req.user._id, search, { tags: true, prompt: true });
+    if (searchOr) filter.$or = searchOr;
     
     if (tags) {
       const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);

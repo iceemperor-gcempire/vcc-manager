@@ -571,6 +571,8 @@ function MyImages() {
     } else {
       const filters = { deleteJob: deleteJobChecked };
       if (mediaState.search) filters.search = mediaState.search;
+      // 목록과 같은 조건으로 지운다 — 태그로 좁혀 본 결과보다 넓게 지우지 않게 (#1314)
+      if (extraQuery?.tags) filters.tags = extraQuery.tags;
       bulkDeleteByFilterMutation.mutate({ type: currentType, filters });
     }
   };
