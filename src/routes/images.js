@@ -178,6 +178,12 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     if (typeof search !== 'string' || typeof tags !== 'string') {
       return res.status(400).json({ message: 'search 와 tags 는 문자열이어야 합니다' });
     }
+    // 조건 없이 부르면 그 종류의 내 콘텐츠 전체가 대상이 된다. 휴지통이 없어 되돌릴 수 없으므로 받지 않는다 (#1314)
+    // 영상은 태그 조건을 쓰지 않으므로 검색어가 있어야 한다
+    const hasCondition = type === 'video' ? !!search.trim() : !!(search.trim() || tags.trim());
+    if (!hasCondition) {
+      return res.status(400).json({ message: '삭제할 조건(검색어나 태그)이 필요합니다' });
+    }
 
     // 필터 구성 (기존 목록 API와 동일)
     const filter = { userId };
@@ -225,20 +231,22 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     const failed = [];
     const errors = [];
 
-    // 태그 usageCount 일괄 차감
-    const tagCountMap = {};
-    for (const doc of docs) {
-      if (doc.tags?.length) {
-        for (const tagId of doc.tags) {
-          const key = tagId.toString();
-          tagCountMap[key] = (tagCountMap[key] || 0) + 1;
+    // 태그 usageCount 일괄 차감 — 실제로 지우는 문서만 센다 (남긴 문서의 태그를 줄이지 않는다, #1314)
+    const decrementTagCounts = async (targets) => {
+      const tagCountMap = {};
+      for (const doc of targets) {
+        if (doc.tags?.length) {
+          for (const tagId of doc.tags) {
+            const key = tagId.toString();
+            tagCountMap[key] = (tagCountMap[key] || 0) + 1;
+          }
         }
       }
-    }
-    const tagOps = Object.entries(tagCountMap).map(([tagId, count]) =>
-      Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
-    );
-    await Promise.allSettled(tagOps);
+      const tagOps = Object.entries(tagCountMap).map(([tagId, count]) =>
+        Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
+      );
+      await Promise.allSettled(tagOps);
+    };
 
     if (type === 'uploaded') {
       // 활성 작업 참조 중인 항목 제외
@@ -263,11 +271,13 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
       }
 
       const toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
+      await decrementTagCounts(toDelete);
       await Promise.allSettled(toDelete.map(d => deleteFile(d.path)));
       const idsToDelete = toDelete.map(d => d._id);
       await UploadedImage.deleteMany({ _id: { $in: idsToDelete } });
       deleted.push(...idsToDelete.map(id => id.toString()));
     } else {
+      await decrementTagCounts(docs);
       await Promise.allSettled(docs.map(d => deleteFile(d.path)));
 
       if (deleteJob) {
