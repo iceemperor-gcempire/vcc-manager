@@ -340,6 +340,41 @@ describe('목록 API 와 일괄 삭제는 같은 범위를 본다', () => {
       expectNothingDeleted();
     });
 
+    test('목록 응답을 만드는 도중 대상이 바뀌어도, 보여 준 항목과 지문은 같은 시점의 것이다', async () => {
+      const a = mine({ originalName: 'x.png', tags: [tagA] });
+      const b = mine({ originalName: 'y.png', tags: [tagA] });
+      const before = [a, { ...b, tags: [] }]; // 처음에는 A 만 태그가 붙어 있다
+      const after = [{ ...a, tags: [] }, b];   // 그 사이 다른 세션이 A 에서 떼고 B 에 붙였다
+      // 목록 라우트의 첫 조회가 끝난 직후에 대상이 바뀐다
+      let calls = 0;
+      MEDIA[type].find.mockImplementation((filter = {}) => {
+        calls += 1;
+        return found((calls === 1 ? before : after).filter((d) => matches(d, filter)));
+      });
+      MEDIA[type].countDocuments.mockImplementation(async (filter = {}) => after.filter((d) => matches(d, filter)).length);
+
+      const list = await request(app).get(LIST_PATH[type]).query({ tags: String(tagA), limit: 12 });
+      expect(list.status).toBe(200);
+      // 화면에는 A 한 건이 보인다
+      expect(list.body[LIST_KEY[type]].map((d) => String(d._id))).toEqual([String(a._id)]);
+      expect(list.body.pagination.total).toBe(1);
+
+      // 그 지문으로 지우려 하면, 지금 대상은 B 이므로 거절된다 — B 가 지워지지 않는다
+      seed(MEDIA[type], after);
+      jest.clearAllMocks();
+      const res = await byFilterRaw({ type, tags: String(tagA), expectedDigest: list.body.pagination.digest });
+      expect(res.status).toBe(409);
+      expectNothingDeleted();
+    });
+
+    test('조건이 있는 목록은 건수를 따로 세지 않는다 (항목 · 건수 · 지문이 한 번의 조회에서 나온다)', async () => {
+      seed(MEDIA[type], docs());
+      const list = await request(app).get(LIST_PATH[type]).query({ search: 'cat', limit: 2, page: 2 });
+      expect(MEDIA[type].countDocuments).not.toHaveBeenCalled();
+      expect(list.body[LIST_KEY[type]].length).toBe(1); // cat 3건 중 2페이지
+      expect(list.body.pagination).toMatchObject({ current: 2, pages: 2, total: 3 });
+    });
+
     test('조건이 없는 목록에는 지문이 없다 — 조건 없는 일괄 삭제는 없다', async () => {
       seed(MEDIA[type], docs());
       const list = await request(app).get(LIST_PATH[type]).query({ limit: 50 });

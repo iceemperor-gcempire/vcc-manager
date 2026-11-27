@@ -63,10 +63,35 @@ async function deleteMediaDocs(type, docs, { deleteJob }) {
   return ids.map(id => id.toString());
 }
 
-// 조건(검색어 · 태그)이 있는 목록의 전체 대상 지문. 조건이 없으면 null — 조건 없는 일괄 삭제는 없다
-async function listTargetDigest(Model, filter, { search, tags }) {
-  if (!String(search || '').trim() && !parseTagIds(tags).ids.length) return null;
-  return digestOfIds(await Model.find(filter).select('_id').lean());
+// 내 콘텐츠 목록 한 페이지.
+// 조건(검색어 · 태그)이 있으면 조건에 맞는 id 전체를 한 번에 읽고, 페이지 항목 · 건수 · 대상 지문을
+// 모두 그 한 번의 결과에서 만든다. 따로 조회하면 그 사이 대상이 바뀌었을 때 "보여 준 항목"과
+// "지문이 가리키는 대상"이 어긋나고, 일괄 삭제는 그 지문을 믿고 지운다 (#1314)
+// 조건이 없으면 지문을 주지 않는다 — 조건 없는 일괄 삭제는 없다.
+async function listMediaPage(Model, filter, { page, limit, search, tags, populate = [] }) {
+  const pageNum = Math.max(parseInt(page, 10) || 1, 1);
+  const pageSize = Math.max(parseInt(limit, 10) || 12, 1);
+  const skip = (pageNum - 1) * pageSize;
+  const withPopulate = (query) => populate.reduce((q, args) => q.populate(...args), query);
+  const hasCondition = !!String(search || '').trim() || parseTagIds(tags).ids.length > 0;
+
+  if (!hasCondition) {
+    const items = await withPopulate(Model.find(filter)).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
+    const total = await Model.countDocuments(filter);
+    return { items, pagination: { current: pageNum, pages: Math.ceil(total / pageSize), total } };
+  }
+
+  const all = await Model.find(filter).sort({ createdAt: -1 }).select('_id').lean();
+  const pageIds = all.slice(skip, skip + pageSize).map((d) => d._id);
+  const order = new Map(pageIds.map((id, i) => [String(id), i]));
+  const docs = pageIds.length
+    ? await withPopulate(Model.find({ _id: { $in: pageIds }, userId: filter.userId }))
+    : [];
+  const items = [...docs].sort((x, y) => order.get(String(x._id)) - order.get(String(y._id)));
+  return {
+    items,
+    pagination: { current: pageNum, pages: Math.ceil(all.length / pageSize), total: all.length, digest: digestOfIds(all) },
+  };
 }
 
 // 일괄 삭제 - 선택 항목
@@ -480,33 +505,14 @@ router.delete('/uploaded-audios/:id', requireAuth, async (req, res) => {
 router.get('/uploaded', requireAuth, async (req, res) => {
   try {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
-    const skip = (page - 1) * limit;
-    
+
     const invalidCondition = validateListCondition({ search, tags });
     if (invalidCondition) return res.status(400).json({ message: invalidCondition });
     // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
     const filter = await buildMediaListFilter('uploaded', req.user._id, { search, tags });
-    
-    const images = await UploadedImage.find(filter)
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    const total = await UploadedImage.countDocuments(filter);
-    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
-    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
-    const digest = await listTargetDigest(UploadedImage, filter, { search, tags });
-    
-    res.json({
-      images,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        ...(digest && { digest })
-      }
-    });
+    const { items, pagination } = await listMediaPage(UploadedImage, filter, { page, limit, search, tags, populate: [['tags']] });
+
+    res.json({ images: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -515,34 +521,14 @@ router.get('/uploaded', requireAuth, async (req, res) => {
 router.get('/generated', requireAuth, async (req, res) => {
   try {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
-    const skip = (page - 1) * limit;
-    
+
     const invalidCondition = validateListCondition({ search, tags });
     if (invalidCondition) return res.status(400).json({ message: invalidCondition });
     // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
     const filter = await buildMediaListFilter('generated', req.user._id, { search, tags });
-    
-    const images = await GeneratedImage.find(filter)
-      .populate('jobId', 'createdAt')
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    const total = await GeneratedImage.countDocuments(filter);
-    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
-    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
-    const digest = await listTargetDigest(GeneratedImage, filter, { search, tags });
-    
-    res.json({
-      images,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        ...(digest && { digest })
-      }
-    });
+    const { items, pagination } = await listMediaPage(GeneratedImage, filter, { page, limit, search, tags, populate: [['jobId', 'createdAt'], ['tags']] });
+
+    res.json({ images: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -828,34 +814,14 @@ router.post('/generated/:id/download', async (req, res) => {
 router.get('/videos', requireAuth, async (req, res) => {
   try {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
-    const skip = (page - 1) * limit;
 
     const invalidCondition = validateListCondition({ search, tags });
     if (invalidCondition) return res.status(400).json({ message: invalidCondition });
-    // 화면이 태그로 좁혀 보여 주므로 영상도 태그로 거른다. 일괄 삭제와 같은 함수 (#1314)
+    // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
     const filter = await buildMediaListFilter('video', req.user._id, { search, tags });
-    
-    const videos = await GeneratedVideo.find(filter)
-      .populate('jobId', 'createdAt')
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    const total = await GeneratedVideo.countDocuments(filter);
-    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
-    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
-    const digest = await listTargetDigest(GeneratedVideo, filter, { search, tags });
-    
-    res.json({
-      videos,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total,
-        ...(digest && { digest })
-      }
-    });
+    const { items, pagination } = await listMediaPage(GeneratedVideo, filter, { page, limit, search, tags, populate: [['jobId', 'createdAt'], ['tags']] });
+
+    res.json({ videos: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
