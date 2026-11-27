@@ -397,7 +397,7 @@ function MediaGrid({
   // extraQuery 변화 시 자동으로 새 쿼리 — queryKey 에 직렬화 포함
   const extraQueryKey = extraQuery ? JSON.stringify(extraQuery) : '';
   useEffect(() => { setPage(1); }, [extraQueryKey]);
-  const { data, isLoading } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData, ...(staleTime !== undefined && { staleTime }) });
+  const { data, isLoading, isPlaceholderData } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData, ...(staleTime !== undefined && { staleTime }) });
 
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};
@@ -414,9 +414,11 @@ function MediaGrid({
   // onStateChange 콜백
   useEffect(() => {
     if (onStateChange) {
-      onStateChange({ items, search, pagination });
+      // tags · isStale — 이 목록이 어떤 조건의 응답인지. 조건을 바꾼 직후에는 예전 목록이 잠깐 남는다(keepPreviousData).
+      // 일괄 삭제는 화면에 보인 것과 같은 범위만 지워야 해서 이걸 본다 (#1314)
+      onStateChange({ items, search, pagination, tags: extraQuery?.tags || '', isStale: isLoading || isPlaceholderData });
     }
-  }, [items, search, pagination]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [items, search, pagination, extraQueryKey, isLoading, isPlaceholderData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleView = (media) => {
     if (selectable) {

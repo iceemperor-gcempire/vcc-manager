@@ -13,146 +13,110 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
-const { buildMediaSearchOr } = require('../utils/mediaSearchFilter');
+const mongoose = require('mongoose');
+const { buildMediaListFilter, parseTagIds, MEDIA_TYPES } = require('../utils/mediaSearchFilter');
 const router = express.Router();
 
+const MEDIA_MODELS = { uploaded: UploadedImage, generated: GeneratedImage, video: GeneratedVideo };
+
+// 지운 문서에 붙어 있던 태그의 사용 횟수를 줄인다 — 실제로 지우는 문서만 넘긴다
+async function decrementTagCounts(docs) {
+  const tagCountMap = {};
+  for (const doc of docs) {
+    for (const tagId of doc.tags || []) {
+      const key = tagId.toString();
+      tagCountMap[key] = (tagCountMap[key] || 0) + 1;
+    }
+  }
+  await Promise.allSettled(Object.entries(tagCountMap).map(([tagId, count]) =>
+    Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
+  ));
+}
+
+// 실행 중인 작업이 쓰고 있는 업로드 이미지의 id — 이것들은 지우지 않는다
+async function findActivelyReferencedIds(docs) {
+  const referencedDocs = docs.filter(d => d.isReferenced);
+  if (!referencedDocs.length) return new Set();
+  const allJobRefs = referencedDocs.flatMap(d => (d.referencedBy || []).map(r => r.jobId));
+  const activeJobs = await ImageGenerationJob.find({
+    _id: { $in: allJobRefs },
+    status: { $in: ['pending', 'processing'] }
+  }).select('_id').lean();
+  const activeJobIds = new Set(activeJobs.map(j => j._id.toString()));
+  return new Set(referencedDocs
+    .filter(d => (d.referencedBy || []).some(r => activeJobIds.has(r.jobId.toString())))
+    .map(d => d._id.toString()));
+}
+
+// 찾아 둔 문서를 지운다. 여기까지 오면 대상은 이미 정해져 있다 (찾기 · 검증은 호출하는 쪽이 끝낸다)
+async function deleteMediaDocs(type, docs, { deleteJob }) {
+  if (!docs.length) return [];
+  await decrementTagCounts(docs);
+  await Promise.allSettled(docs.map(d => deleteFile(d.path)));
+  if (deleteJob && type !== 'uploaded') {
+    const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
+    if (jobIds.length) await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
+  }
+  const ids = docs.map(d => d._id);
+  await MEDIA_MODELS[type].deleteMany({ _id: { $in: ids } });
+  return ids.map(id => id.toString());
+}
+
 // 일괄 삭제 - 선택 항목
+// 휴지통이 없어 되돌릴 수 없다. 요청 전체를 먼저 검증하고, 지울 대상을 전부 찾은 뒤에 지운다 —
+// 중간에 실패해 일부만 지워진 채 오류가 나지 않게 (#1314)
 router.post('/bulk-delete', requireAuth, async (req, res) => {
   try {
-    const { items = [], deleteJob = false } = req.body;
+    const { items, deleteJob = false } = req.body || {};
     const userId = req.user._id;
 
-    if (!items.length) {
+    if (!Array.isArray(items) || !items.length) {
       return res.status(400).json({ message: 'No items provided' });
     }
-
-    // type별 그룹핑
-    const groups = { uploaded: [], generated: [], video: [] };
-    for (const item of items) {
-      if (groups[item.type]) groups[item.type].push(item.id);
+    if (typeof deleteJob !== 'boolean') {
+      return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
+    }
+    const badItem = items.find(item => !item || typeof item !== 'object'
+      || !MEDIA_TYPES.includes(item.type)
+      || typeof item.id !== 'string' || item.id.length !== 24 || !mongoose.isValidObjectId(item.id));
+    if (badItem !== undefined) {
+      return res.status(400).json({ message: '항목 형식이 올바르지 않습니다 (id 는 24자 id, type 은 uploaded · generated · video)' });
     }
 
-    const deleted = [];
+    const groups = { uploaded: [], generated: [], video: [] };
+    for (const item of items) groups[item.type].push(item.id);
+
+    // 1단계 — 찾기. 아무것도 지우지 않는다
     const failed = [];
     const errors = [];
-
-    // 유틸: 태그 usageCount 일괄 차감
-    const decrementTagCounts = async (docs) => {
-      const tagCountMap = {};
-      for (const doc of docs) {
-        if (doc.tags?.length) {
-          for (const tagId of doc.tags) {
-            const key = tagId.toString();
-            tagCountMap[key] = (tagCountMap[key] || 0) + 1;
-          }
-        }
-      }
-      const ops = Object.entries(tagCountMap).map(([tagId, count]) =>
-        Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
-      );
-      await Promise.allSettled(ops);
-    };
-
-    // uploaded 처리
-    if (groups.uploaded.length) {
-      const docs = await UploadedImage.find({ _id: { $in: groups.uploaded }, userId }).lean();
+    const plan = {};
+    for (const type of MEDIA_TYPES) {
+      const ids = [...new Set(groups[type])];
+      if (!ids.length) continue;
+      const docs = await MEDIA_MODELS[type].find({ _id: { $in: ids }, userId }).lean();
       const ownedIds = new Set(docs.map(d => d._id.toString()));
-
-      // 소유권 없는 항목
-      for (const id of groups.uploaded) {
+      for (const id of ids) {
         if (!ownedIds.has(id)) {
           failed.push(id);
           errors.push({ id, reason: 'Access denied or not found' });
         }
       }
-
-      // 활성 작업 참조 중인 항목 제외
-      const referencedDocs = docs.filter(d => d.isReferenced);
-      let activeRefIds = new Set();
-      if (referencedDocs.length) {
-        const allJobRefs = referencedDocs.flatMap(d => (d.referencedBy || []).map(r => r.jobId));
-        const activeJobs = await ImageGenerationJob.find({
-          _id: { $in: allJobRefs },
-          status: { $in: ['pending', 'processing'] }
-        }).select('_id').lean();
-        const activeJobIds = new Set(activeJobs.map(j => j._id.toString()));
-
-        for (const doc of referencedDocs) {
-          const hasActive = (doc.referencedBy || []).some(r => activeJobIds.has(r.jobId.toString()));
-          if (hasActive) {
-            activeRefIds.add(doc._id.toString());
-            failed.push(doc._id.toString());
-            errors.push({ id: doc._id.toString(), reason: 'Referenced by active job' });
-          }
+      let toDelete = docs;
+      if (type === 'uploaded') {
+        const activeRefIds = await findActivelyReferencedIds(docs);
+        for (const id of activeRefIds) {
+          failed.push(id);
+          errors.push({ id, reason: 'Referenced by active job' });
         }
+        toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
       }
-
-      const toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
-      if (toDelete.length) {
-        await decrementTagCounts(toDelete);
-        await Promise.allSettled(toDelete.map(d => deleteFile(d.path)));
-        const idsToDelete = toDelete.map(d => d._id);
-        await UploadedImage.deleteMany({ _id: { $in: idsToDelete } });
-        deleted.push(...idsToDelete.map(id => id.toString()));
-      }
+      plan[type] = toDelete;
     }
 
-    // generated 처리
-    if (groups.generated.length) {
-      const docs = await GeneratedImage.find({ _id: { $in: groups.generated }, userId }).lean();
-      const ownedIds = new Set(docs.map(d => d._id.toString()));
-
-      for (const id of groups.generated) {
-        if (!ownedIds.has(id)) {
-          failed.push(id);
-          errors.push({ id, reason: 'Access denied or not found' });
-        }
-      }
-
-      if (docs.length) {
-        await decrementTagCounts(docs);
-        await Promise.allSettled(docs.map(d => deleteFile(d.path)));
-
-        if (deleteJob) {
-          const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
-          if (jobIds.length) {
-            await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
-          }
-        }
-
-        const idsToDelete = docs.map(d => d._id);
-        await GeneratedImage.deleteMany({ _id: { $in: idsToDelete } });
-        deleted.push(...idsToDelete.map(id => id.toString()));
-      }
-    }
-
-    // video 처리
-    if (groups.video.length) {
-      const docs = await GeneratedVideo.find({ _id: { $in: groups.video }, userId }).lean();
-      const ownedIds = new Set(docs.map(d => d._id.toString()));
-
-      for (const id of groups.video) {
-        if (!ownedIds.has(id)) {
-          failed.push(id);
-          errors.push({ id, reason: 'Access denied or not found' });
-        }
-      }
-
-      if (docs.length) {
-        await decrementTagCounts(docs);
-        await Promise.allSettled(docs.map(d => deleteFile(d.path)));
-
-        if (deleteJob) {
-          const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
-          if (jobIds.length) {
-            await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
-          }
-        }
-
-        const idsToDelete = docs.map(d => d._id);
-        await GeneratedVideo.deleteMany({ _id: { $in: idsToDelete } });
-        deleted.push(...idsToDelete.map(id => id.toString()));
-      }
+    // 2단계 — 지우기
+    const deleted = [];
+    for (const type of MEDIA_TYPES) {
+      if (plan[type]) deleted.push(...await deleteMediaDocs(type, plan[type], { deleteJob }));
     }
 
     res.json({
@@ -166,131 +130,60 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
 });
 
 // 일괄 삭제 - 검색 결과 전체
+// 조건은 목록 API 와 같은 함수(buildMediaListFilter)로 만든다. 화면이 본 건수(expectedCount)와
+// 지금 조건에 맞는 건수가 다르면 지우지 않는다 — 보여 준 것보다 넓게 지우지 않게 (#1314)
 router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
   try {
-    const { type, search = '', tags = '', deleteJob = false } = req.body;
+    const { type, search = '', tags = '', deleteJob = false, expectedCount } = req.body || {};
     const userId = req.user._id;
 
-    if (!type || !['uploaded', 'generated', 'video'].includes(type)) {
+    if (!MEDIA_TYPES.includes(type)) {
       return res.status(400).json({ message: 'Invalid type' });
     }
-    // 형식이 틀린 조건을 "조건 없음"으로 읽으면 삭제 범위가 전체로 넓어진다 (#1314)
+    // 형식이 틀린 조건을 "조건 없음"으로 읽으면 삭제 범위가 전체로 넓어진다
     if (typeof search !== 'string' || typeof tags !== 'string') {
       return res.status(400).json({ message: 'search 와 tags 는 문자열이어야 합니다' });
     }
-    // 조건 없이 부르면 그 종류의 내 콘텐츠 전체가 대상이 된다. 휴지통이 없어 되돌릴 수 없으므로 받지 않는다 (#1314)
-    // 영상은 태그 조건을 쓰지 않으므로 검색어가 있어야 한다
-    const hasCondition = type === 'video' ? !!search.trim() : !!(search.trim() || tags.trim());
-    if (!hasCondition) {
+    if (typeof deleteJob !== 'boolean') {
+      return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
+    }
+    const { ids: tagIds, invalid: invalidTags } = parseTagIds(tags);
+    if (invalidTags.length) {
+      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
+    }
+    // 조건 없이 부르면 그 종류의 내 콘텐츠 전체가 대상이 된다. 받지 않는다
+    if (!search.trim() && !tagIds.length) {
       return res.status(400).json({ message: '삭제할 조건(검색어나 태그)이 필요합니다' });
     }
-
-    // 필터 구성 (기존 목록 API와 동일)
-    const filter = { userId };
-
-    if (type === 'uploaded') {
-      const searchOr = await buildMediaSearchOr(userId, search, { tags: true });
-      if (searchOr) filter.$or = searchOr;
-      if (tags) {
-        const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
-        filter.tags = { $in: tagArray };
-      }
-    } else if (type === 'generated') {
-      const searchOr = await buildMediaSearchOr(userId, search, { tags: true, prompt: true });
-      if (searchOr) filter.$or = searchOr;
-      if (tags) {
-        const tagArray = tags.split(',').map(t => t.trim()).filter(t => t);
-        filter.tags = { $in: tagArray };
-      }
-    } else {
-      // video
-      if (search) {
-        filter.$or = [
-          { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-          { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
-        ];
-      }
+    if (!Number.isInteger(expectedCount) || expectedCount < 0) {
+      return res.status(400).json({ message: 'expectedCount(목록에서 확인한 건수)가 필요합니다' });
     }
 
-    const Model = type === 'uploaded' ? UploadedImage
-      : type === 'generated' ? GeneratedImage
-      : GeneratedVideo;
+    const filter = await buildMediaListFilter(type, userId, { search, tags });
+    const docs = await MEDIA_MODELS[type].find(filter).select('_id path tags jobId isReferenced referencedBy').lean();
 
-    const docs = await Model.find(filter).select('_id path tags jobId isReferenced referencedBy').lean();
-
+    if (docs.length !== expectedCount) {
+      return res.status(409).json({
+        message: `목록이 바뀌었습니다. 확인한 건수는 ${expectedCount}개인데 지금 조건에 맞는 것은 ${docs.length}개입니다. 다시 확인해 주세요`,
+        data: { matched: docs.length }
+      });
+    }
     if (!docs.length) {
       return res.json({ success: true, data: { deleted: 0, failed: 0, errors: [] } });
     }
 
-    // bulk-delete 로직 재사용 - items 형태로 변환
-    const items = docs.map(d => ({ id: d._id.toString(), type }));
-
-    // 내부적으로 bulk-delete와 동일한 로직 적용을 위해 리디렉트 대신 직접 처리
-    // 이미 userId 필터링이 되어 있으므로 소유권 검사 불필요
-    const deleted = [];
     const failed = [];
     const errors = [];
-
-    // 태그 usageCount 일괄 차감 — 실제로 지우는 문서만 센다 (남긴 문서의 태그를 줄이지 않는다, #1314)
-    const decrementTagCounts = async (targets) => {
-      const tagCountMap = {};
-      for (const doc of targets) {
-        if (doc.tags?.length) {
-          for (const tagId of doc.tags) {
-            const key = tagId.toString();
-            tagCountMap[key] = (tagCountMap[key] || 0) + 1;
-          }
-        }
-      }
-      const tagOps = Object.entries(tagCountMap).map(([tagId, count]) =>
-        Tag.updateOne({ _id: tagId }, { $inc: { usageCount: -count } })
-      );
-      await Promise.allSettled(tagOps);
-    };
-
+    let toDelete = docs;
     if (type === 'uploaded') {
-      // 활성 작업 참조 중인 항목 제외
-      const referencedDocs = docs.filter(d => d.isReferenced);
-      let activeRefIds = new Set();
-      if (referencedDocs.length) {
-        const allJobRefs = referencedDocs.flatMap(d => (d.referencedBy || []).map(r => r.jobId));
-        const activeJobs = await ImageGenerationJob.find({
-          _id: { $in: allJobRefs },
-          status: { $in: ['pending', 'processing'] }
-        }).select('_id').lean();
-        const activeJobIds = new Set(activeJobs.map(j => j._id.toString()));
-
-        for (const doc of referencedDocs) {
-          const hasActive = (doc.referencedBy || []).some(r => activeJobIds.has(r.jobId.toString()));
-          if (hasActive) {
-            activeRefIds.add(doc._id.toString());
-            failed.push(doc._id.toString());
-            errors.push({ id: doc._id.toString(), reason: 'Referenced by active job' });
-          }
-        }
+      const activeRefIds = await findActivelyReferencedIds(docs);
+      for (const id of activeRefIds) {
+        failed.push(id);
+        errors.push({ id, reason: 'Referenced by active job' });
       }
-
-      const toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
-      await decrementTagCounts(toDelete);
-      await Promise.allSettled(toDelete.map(d => deleteFile(d.path)));
-      const idsToDelete = toDelete.map(d => d._id);
-      await UploadedImage.deleteMany({ _id: { $in: idsToDelete } });
-      deleted.push(...idsToDelete.map(id => id.toString()));
-    } else {
-      await decrementTagCounts(docs);
-      await Promise.allSettled(docs.map(d => deleteFile(d.path)));
-
-      if (deleteJob) {
-        const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
-        if (jobIds.length) {
-          await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
-        }
-      }
-
-      const idsToDelete = docs.map(d => d._id);
-      await Model.deleteMany({ _id: { $in: idsToDelete } });
-      deleted.push(...idsToDelete.map(id => id.toString()));
+      toDelete = docs.filter(d => !activeRefIds.has(d._id.toString()));
     }
+    const deleted = await deleteMediaDocs(type, toDelete, { deleteJob });
 
     res.json({
       success: true,
@@ -553,15 +446,11 @@ router.get('/uploaded', requireAuth, async (req, res) => {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    const filter = { userId: req.user._id };
-    
-    const searchOr = await buildMediaSearchOr(req.user._id, search, { tags: true });
-    if (searchOr) filter.$or = searchOr;
-    
-    if (tags) {
-      const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      filter.tags = { $in: tagArray };
+    if (parseTagIds(tags).invalid.length) {
+      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
     }
+    // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
+    const filter = await buildMediaListFilter('uploaded', req.user._id, { search, tags });
     
     const images = await UploadedImage.find(filter)
       .populate('tags')
@@ -589,15 +478,11 @@ router.get('/generated', requireAuth, async (req, res) => {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    const filter = { userId: req.user._id };
-    
-    const searchOr = await buildMediaSearchOr(req.user._id, search, { tags: true, prompt: true });
-    if (searchOr) filter.$or = searchOr;
-    
-    if (tags) {
-      const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      filter.tags = { $in: tagArray };
+    if (parseTagIds(tags).invalid.length) {
+      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
     }
+    // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
+    const filter = await buildMediaListFilter('generated', req.user._id, { search, tags });
     
     const images = await GeneratedImage.find(filter)
       .populate('jobId', 'createdAt')
@@ -900,17 +785,14 @@ router.post('/generated/:id/download', async (req, res) => {
 
 router.get('/videos', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 12, search = '' } = req.query;
+    const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
-    
-    const filter = { userId: req.user._id };
-    
-    if (search) {
-      filter.$or = [
-        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
-      ];
+
+    if (parseTagIds(tags).invalid.length) {
+      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
     }
+    // 화면이 태그로 좁혀 보여 주므로 영상도 태그로 거른다. 일괄 삭제와 같은 함수 (#1314)
+    const filter = await buildMediaListFilter('video', req.user._id, { search, tags });
     
     const videos = await GeneratedVideo.find(filter)
       .populate('jobId', 'createdAt')

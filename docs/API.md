@@ -197,8 +197,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `PUT` | `/images/generated/:id` | 생성 이미지 수정 | Yes |
 | `DELETE` | `/images/generated/:id` | 생성 이미지 삭제 | Yes |
 | `POST` | `/images/generated/:id/download` | 생성 이미지 다운로드 | Yes |
-| `POST` | `/images/bulk-delete` | 다중 삭제 (id 목록) | Yes |
-| `POST` | `/images/bulk-delete-by-filter` | 검색 결과 일괄 삭제 | Yes |
+| `POST` | `/images/bulk-delete` | 고른 항목 삭제 — `{ items: [{ id, type }], deleteJob? }`. `type` 은 `uploaded` · `generated` · `video`. 형식이 틀린 항목이 하나라도 있으면 400 이고 아무것도 지우지 않는다. 남의 것 · 실행 중인 작업이 쓰는 업로드 이미지는 건너뛰고 사유를 돌려준다 | Yes |
+| `POST` | `/images/bulk-delete-by-filter` | 조건에 맞는 것 전체 삭제 — `{ type, search?, tags?, expectedCount, deleteJob? }`. 조건은 목록 API(`/images/uploaded` · `/generated` · `/videos`)의 `search` · `tags` 와 같게 읽는다. **`search` 나 `tags` 중 하나는 있어야 하고**(없으면 400), **`expectedCount` 에 같은 조건의 목록 `total` 을 넣는다** — 지금 조건에 맞는 건수와 다르면 409 이고 아무것도 지우지 않는다. 되돌릴 수 없다 | Yes |
 | `GET` | `/images/stats` | 이미지 통계 | Yes |
 
 ## 비디오 (Videos)

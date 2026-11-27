@@ -10,7 +10,8 @@ jest.mock('../models/Tag', () => ({ find: jest.fn() }));
 const Tag = require('../models/Tag');
 const GeneratedImage = require('../models/GeneratedImage');
 const UploadedImage = require('../models/UploadedImage');
-const { buildMediaSearchOr } = require('../utils/mediaSearchFilter');
+const { buildMediaSearchOr, buildMediaListFilter, parseTagIds } = require('../utils/mediaSearchFilter');
+const GeneratedVideo = require('../models/GeneratedVideo');
 
 const userId = new mongoose.Types.ObjectId();
 const tagFind = (docs) => Tag.find.mockReturnValue({ select: () => ({ lean: async () => docs }) });
@@ -70,4 +71,55 @@ describe('조건이 실제 스키마의 캐스팅을 통과한다', () => {
     const broken = { userId, $or: [{ tags: { $in: [/cat/i] } }] };
     expect(() => GeneratedImage.find(broken).cast(GeneratedImage)).toThrow(/Cast to ObjectId failed/);
   });
+});
+
+describe('parseTagIds', () => {
+  const a = String(new mongoose.Types.ObjectId());
+  const b = String(new mongoose.Types.ObjectId());
+  test('쉼표로 나누고 빈 조각은 버린다', () => {
+    expect(parseTagIds(`${a}, ${b},, `)).toEqual({ ids: [a, b], invalid: [] });
+  });
+  test('id 형식이 아닌 조각은 invalid 로 돌려준다 — 12자 문자열도 id 로 치지 않는다', () => {
+    expect(parseTagIds(`${a},nope,aaaaaaaaaaaa`)).toEqual({ ids: [a], invalid: ['nope', 'aaaaaaaaaaaa'] });
+  });
+  test.each([[''], [' , '], [undefined], [null], [['x']], [{ $ne: null }]])('%p → 태그 없음', (v) => {
+    expect(parseTagIds(v)).toEqual({ ids: [], invalid: [] });
+  });
+});
+
+describe('buildMediaListFilter — 목록과 일괄 삭제가 함께 쓰는 조건', () => {
+  const tagId = String(new mongoose.Types.ObjectId());
+  beforeEach(() => tagFind([]));
+
+  test.each(['uploaded', 'generated', 'video'])('%s: 조건이 없어도 userId 는 늘 들어간다', async (type) => {
+    expect(await buildMediaListFilter(type, userId)).toEqual({ userId });
+  });
+
+  test('검색어와 태그는 함께(AND) 걸린다', async () => {
+    const f = await buildMediaListFilter('generated', userId, { search: 'cat', tags: tagId });
+    expect(f.userId).toBe(userId);
+    expect(f.tags).toEqual({ $in: [tagId] });
+    expect(f.$or).toHaveLength(2);
+  });
+
+  test('영상도 태그로 거른다 — 검색어는 이름과 프롬프트만 본다', async () => {
+    const f = await buildMediaListFilter('video', userId, { search: 'cat', tags: tagId });
+    expect(f.tags).toEqual({ $in: [tagId] });
+    expect(f.$or).toEqual([
+      { originalName: { $regex: 'cat', $options: 'i' } },
+      { 'generationParams.prompt': { $regex: 'cat', $options: 'i' } },
+    ]);
+    expect(Tag.find).not.toHaveBeenCalled();
+  });
+
+  test('쉼표뿐인 태그는 조건을 만들지 않는다 (빈 $in 으로 바뀌지 않는다)', async () => {
+    expect(await buildMediaListFilter('uploaded', userId, { tags: ' , ' })).toEqual({ userId });
+  });
+
+  test.each([['GeneratedImage', GeneratedImage, 'generated'], ['UploadedImage', UploadedImage, 'uploaded'], ['GeneratedVideo', GeneratedVideo, 'video']])(
+    '%s: 만든 조건이 실제 스키마의 캐스팅을 통과한다', async (_n, Model, type) => {
+      tagFind([{ _id: new mongoose.Types.ObjectId() }]);
+      const f = await buildMediaListFilter(type, userId, { search: 'cat', tags: tagId });
+      expect(() => Model.find(f).cast(Model)).not.toThrow();
+    });
 });

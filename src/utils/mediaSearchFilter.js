@@ -1,12 +1,24 @@
 /**
- * 내 콘텐츠 검색 조건 (#1314).
+ * 내 콘텐츠 목록 · 일괄 삭제가 함께 쓰는 조건 (#1314).
+ *
+ * 목록과 "검색 결과 전체 삭제"가 조건을 따로 만들면 화면에 보인 것과 지워지는 것이 어긋난다.
+ * 그래서 둘 다 `buildMediaListFilter` 하나로 조건을 만든다.
  *
  * 미디어 문서의 `tags` 는 태그 문서의 id 배열이다. 검색어를 `tags` 에 정규식으로 그대로 걸면
- * mongoose 가 정규식을 ObjectId 로 바꾸려다 실패한다. 그래서 이름이 검색어와 맞는 내 태그의 id 를
+ * mongoose 가 정규식을 ObjectId 로 바꾸려다 실패한다. 이름이 검색어와 맞는 내 태그의 id 를
  * 먼저 찾고, 그 id 로 거른다.
  */
+const mongoose = require('mongoose');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('./escapeRegex');
+
+/** 종류마다 검색어가 닿는 곳. 영상은 태그 이름으로는 찾지 않는다 (원래 동작) */
+const SEARCH_SCOPE = {
+  uploaded: { tags: true },
+  generated: { tags: true, prompt: true },
+  video: { prompt: true },
+};
+const MEDIA_TYPES = Object.keys(SEARCH_SCOPE);
 
 /**
  * @param {*} userId
@@ -26,4 +38,30 @@ async function buildMediaSearchOr(userId, search, { tags = false, prompt = false
   return or;
 }
 
-module.exports = { buildMediaSearchOr };
+/**
+ * 쉼표로 이은 태그 id 문자열을 나눈다.
+ * @returns {{ ids: string[], invalid: string[] }} `invalid` 는 id 형식이 아닌 조각
+ */
+function parseTagIds(tags) {
+  if (typeof tags !== 'string') return { ids: [], invalid: [] };
+  const parts = tags.split(',').map((t) => t.trim()).filter(Boolean);
+  const ids = parts.filter((t) => mongoose.isValidObjectId(t) && String(t).length === 24);
+  return { ids, invalid: parts.filter((t) => !ids.includes(t)) };
+}
+
+/**
+ * 목록과 일괄 삭제가 함께 쓰는 조건.
+ * @param {'uploaded'|'generated'|'video'} type
+ * @param {*} userId 늘 조건에 들어간다
+ * @param {{ search?: string, tags?: string }} [cond]
+ */
+async function buildMediaListFilter(type, userId, { search = '', tags = '' } = {}) {
+  const filter = { userId };
+  const or = await buildMediaSearchOr(userId, search, SEARCH_SCOPE[type]);
+  if (or) filter.$or = or;
+  const { ids } = parseTagIds(tags);
+  if (ids.length) filter.tags = { $in: ids };
+  return filter;
+}
+
+module.exports = { buildMediaSearchOr, buildMediaListFilter, parseTagIds, MEDIA_TYPES };

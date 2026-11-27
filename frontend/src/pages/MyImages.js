@@ -38,6 +38,16 @@ import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
 import PageHeader from '../components/common/PageHeader';
 import { useConfirm } from '../components/common/ConfirmDialog';
+import { snapshotForBulkDelete, buildBulkDeleteFilters } from '../utils/bulkDeleteByFilter';
+
+// 확인창에 무엇을 지우는지 조건을 그대로 적는다 (#1314)
+function describeDeleteSnapshot(snapshot) {
+  if (!snapshot) return '';
+  const parts = [];
+  if (snapshot.search.trim()) parts.push(`검색어 "${snapshot.search}"`);
+  if (snapshot.tags) parts.push(`태그 ${snapshot.tags.split(',').length}개`);
+  return `${parts.join(' · ')} 조건에 맞는`;
+}
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
 // 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
@@ -410,6 +420,7 @@ function MyImages() {
   const [mediaState, setMediaState] = useState({ items: [], search: '', pagination: {} });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState('selected'); // 'selected' | 'allFiltered'
+  const [deleteSnapshot, setDeleteSnapshot] = useState(null); // 전체 삭제 확인창을 열 때 고정한 { search, tags, total }
   const [deleteJobChecked, setDeleteJobChecked] = useState(false);
 
   const queryClient = useQueryClient();
@@ -475,7 +486,14 @@ function MyImages() {
         setSelectedIds(new Set());
         setConfirmOpen(false);
       },
-      onError: () => toast.error('일괄 삭제 실패') });
+      onError: (error) => {
+        // 409 — 확인한 뒤에 목록이 바뀌었다. 지우지 않았으니 목록을 다시 받아 보여 준다 (#1314)
+        toast.error(error?.response?.data?.message || '일괄 삭제 실패');
+        if (error?.response?.status === 409) {
+          queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKeyForTab()) ? getQueryKeyForTab() : [getQueryKeyForTab()] });
+          setConfirmOpen(false);
+        }
+      } });
 
   const handleEdit = (image) => {
     setEditImage(image);
@@ -569,15 +587,18 @@ function MyImages() {
       const items = Array.from(selectedIds).map(id => ({ id, type: currentType }));
       bulkDeleteMutation.mutate({ items, deleteJob: deleteJobChecked });
     } else {
-      const filters = { deleteJob: deleteJobChecked };
-      if (mediaState.search) filters.search = mediaState.search;
-      // 목록과 같은 조건으로 지운다 — 태그로 좁혀 본 결과보다 넓게 지우지 않게 (#1314)
-      if (extraQuery?.tags) filters.tags = extraQuery.tags;
-      bulkDeleteByFilterMutation.mutate({ type: currentType, filters });
+      // 확인창을 열 때 고정한 조건 · 건수 그대로 보낸다 — 그 뒤 화면이 바뀌어도 넓게 지우지 않는다 (#1314)
+      if (!deleteSnapshot) return;
+      bulkDeleteByFilterMutation.mutate({ type: currentType, filters: buildBulkDeleteFilters(deleteSnapshot, { deleteJob: deleteJobChecked }) });
     }
   };
 
   const openConfirmDialog = (type) => {
+    if (type === 'allFiltered') {
+      const snapshot = snapshotForBulkDelete(mediaState);
+      if (!snapshot) return;
+      setDeleteSnapshot(snapshot);
+    }
     setConfirmType(type);
     setDeleteJobChecked(userPreferences.deleteHistoryWithContent || false);
     setConfirmOpen(true);
@@ -690,13 +711,13 @@ function MyImages() {
           >
             선택 삭제
           </Button>
-          {mediaState.search && mediaState.pagination?.total > 0 && (
+          {snapshotForBulkDelete(mediaState) && (
             <Button
               variant="outlined"
               color="error"
               onClick={() => openConfirmDialog('allFiltered')}
             >
-              검색된 {mediaState.pagination.total}개 모두 삭제
+              {mediaState.search?.trim() ? '검색된' : '태그로 고른'} {mediaState.pagination.total}개 모두 삭제
             </Button>
           )}
         </Box>
@@ -804,7 +825,7 @@ function MyImages() {
           <Typography gutterBottom>
             {confirmType === 'selected'
               ? `선택한 ${selectedIds.size}개 항목을 삭제합니다.`
-              : `검색된 ${mediaState.pagination?.total || 0}개 항목을 모두 삭제합니다.`
+              : `${describeDeleteSnapshot(deleteSnapshot)} ${deleteSnapshot?.total || 0}개 항목을 모두 삭제합니다.`
             }
           </Typography>
           {currentType !== 'uploaded' && (
