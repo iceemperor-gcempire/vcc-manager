@@ -75,7 +75,7 @@ const generate = (body) => request(app).post('/api/jobs/generate').send({ workbo
 
 describe('POST /api/jobs/generate — 모델 폴더 (#1086)', () => {
   test('폴더 밖 모델 → 400, 허용 폴더를 알려 주고 작업을 만들지 않는다', async () => {
-    const res = await generate({ additionalParams: { base_model: 'Z-Image\\pornmasterZImage_turboV01.safetensors' } });
+    const res = await generate({ additionalParams: { base_model: 'Z-Image\\z_image_turbo_bf16.safetensors' } });
     expect(res.status).toBe(400);
     expect(res.body.message).toContain('qwen/');
     expect(addImageGenerationJob).not.toHaveBeenCalled();

@@ -62,8 +62,8 @@ npx @modelcontextprotocol/inspector --url http://localhost:3100/mcp
 `test/integration.mjs` — 실제 MCP 서버에 접속해 도구를 부른다. 도구 15개 노출, 작업판 목록·상세(`baseModel`), `generate` 가 기본 모델 없는 판에서 작업을 만들기 전에 막히는지, 그리고 프로젝트·파이프라인 흐름을 본다. 저장소에서 실행한다 (컨테이너 이미지에는 `test/` 가 없다).
 
 ```bash
-# 알파 — MCP 용 키(vccm_)로
-MCP_TEST_URL=https://alpha-vccm-mcp.gcempire.net/mcp \
+# 알파 — MCP 용 키(vccm_)로. 주소는 시험할 MCP 서버 주소로 바꾼다
+MCP_TEST_URL=https://mcp.example.com/mcp \
 MCP_TEST_API_KEY=<vccm_ 키> pnpm --dir mcp-server test:integration
 
 # 실제 생성 1건까지 (릴리스 때)

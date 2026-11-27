@@ -52,7 +52,7 @@ describe.each(['text-to-image-qwen-image-21', 'sketch-to-image-qwen-image-21'])(
       'qwen\\qwen_image_2.1_turbo_int8_convrot.safetensors.bak',
       'qwen\\qwen_image_2.1_turbo_bf16.safetensors;qwen_image_2.1_turbo_int8_convrot.safetensors.x',
       'qwen\\qwen_image_2x1_turbo_bf16.safetensors',
-      'qwen\\qwen-image-2.1-UC-int8_convrot.safetensors',
+      'qwen\\qwen-image-2.1-int8_convrot.safetensors',
     ]) expect([m, isTurbo(m)]).toEqual([m, false]);
   });
 

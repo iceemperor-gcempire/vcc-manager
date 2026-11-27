@@ -69,7 +69,7 @@ function AuthAside() {
         ))}
       </div>
       <div style={{ position: "relative", fontSize: 11, opacity: 0.5, marginTop: 18, fontFamily: "var(--font-mono)" }}>
-        © 2026 gcempire · alpha-vccm-svc
+        © 2026 VCC Manager
       </div>
     </aside>
   );
@@ -112,7 +112,7 @@ function AuthLoginPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         <div>
           <label className="field-label">이메일</label>
-          <input className="input" type="email" defaultValue="ceremp@gcempire.net" autoComplete="email"/>
+          <input className="input" type="email" defaultValue="ceremp@example.com" autoComplete="email"/>
         </div>
         <div>
           <div style={{ display: "flex", alignItems: "center" }}>
@@ -182,8 +182,8 @@ function AuthSignupPage() {
         </div>
         <div>
           <label className="field-label">사내 이메일</label>
-          <input className="input" type="email" placeholder="you@gcempire.net"/>
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>@gcempire.net 도메인만 신청 가능</div>
+          <input className="input" type="email" placeholder="you@example.com"/>
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>@example.com 도메인만 신청 가능</div>
         </div>
         <div>
           <label className="field-label">소속 그룹</label>

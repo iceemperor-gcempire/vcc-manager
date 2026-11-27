@@ -21,7 +21,7 @@ function AdminAuditPage({ mobile }) {
     { t: "오늘 16:47:29", actor: "쎌렘황제",   kind: "run",        target: "파이프라인 'NPC 생성'",   detail: "Mages · run_a47f2c1e" },
     { t: "오늘 14:22:11", actor: "Linda Choi", kind: "permission", target: "한지원",                 detail: "역할 user → vip" },
     { t: "오늘 11:32:04", actor: "쎌렘황제",   kind: "run",        target: "파이프라인 'NPC 생성'",   detail: "Mages · run_8c1bcd1e" },
-    { t: "오늘 10:15:33", actor: "Linda Choi", kind: "create",     target: "사용자 'newhire@gcempire.net'", detail: "초대 발송" },
+    { t: "오늘 10:15:33", actor: "Linda Choi", kind: "create",     target: "사용자 'newhire@example.com'", detail: "초대 발송" },
     { t: "어제 22:18:42", actor: "쎌렘황제",   kind: "delete",     target: "이미지 8장",              detail: "Mages 컨텐츠 라이브러리" },
     { t: "어제 20:12:55", actor: "Kim Minjae", kind: "run",        target: "파이프라인 'NPC 생성'",   detail: "Mages · run_4d7c..." },
     { t: "어제 18:42:11", actor: "쎌렘황제",   kind: "edit",       target: "작업판 'SDXL T2I — LoRA'", detail: "고급 설정 변경" },
