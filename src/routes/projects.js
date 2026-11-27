@@ -10,6 +10,8 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const PromptData = require('../models/PromptData');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const GeneratedAudio = require('../models/GeneratedAudio');
+const Pipeline = require('../models/Pipeline');
+const PipelineRun = require('../models/PipelineRun');
 const Workboard = require('../models/Workboard');
 const { buildProjectCounts } = require('../utils/projectCounts');   // #838 — 세 곳 공용
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
@@ -18,6 +20,9 @@ const { validateBody, projectCreateSchema, projectUpdateSchema } = require('../u
 const { WORKBOARD_EXPORT_VERSION, APP_VERSION, buildWorkboardExportEntry } = require('../utils/workboardExport');
 const { normalizePromptEnhance } = require('../utils/promptEnhance');
 const router = express.Router();
+
+// 아직 끝나지 않은 파이프라인 실행의 상태
+const ACTIVE_RUN_STATUSES = ['pending', 'running'];
 
 // GET /favorites - 즐겨찾기 프로젝트 목록 (대시보드용) - 구체적 경로를 /:id 위에 배치
 router.get('/favorites', requireAuth, async (req, res) => {
@@ -321,10 +326,23 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(404).json({ success: false, message: '프로젝트를 찾을 수 없습니다' });
     }
 
+    // 파이프라인은 프로젝트에 딸린 것이라 함께 지운다. 남기는 것은 콘텐츠다 (#1319)
+    // 도는 실행이 있으면 지우지 않는다 — 지운 뒤에도 워커가 계속 돌며 주인 없는 결과를 만든다
+    const activeRuns = await PipelineRun.countDocuments({
+      projectId: project._id,
+      status: { $in: ACTIVE_RUN_STATUSES },
+    });
+    if (activeRuns > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `실행 중인 파이프라인이 ${activeRuns}건 있습니다. 끝난 뒤에 다시 지워 주세요`,
+      });
+    }
+
     const tagId = project.tagId;
 
-    // 관련 아이템에서 태그 제거
-    await Promise.all([
+    // 관련 아이템에서 태그 제거 — 태그가 없는 옛 프로젝트는 건너뛴다 (빈 값으로 조건을 만들지 않는다)
+    if (tagId) await Promise.all([
       GeneratedImage.updateMany(
         { userId: req.user._id, tags: tagId },
         { $pull: { tags: tagId } }
@@ -353,13 +371,24 @@ router.delete('/:id', requireAuth, async (req, res) => {
       { $pull: { favoriteProjects: project._id } }
     );
 
+    // 이 프로젝트의 파이프라인과 그 실행 기록. 조건은 위에서 찾은 프로젝트의 id 하나다 — 요청 값으로 만들지 않는다.
+    // 다른 프로젝트의 파이프라인이 이 프로젝트를 결과 귀속처(targetProjectId)로 돌린 실행은 그쪽 것이라 남긴다.
+    // (파이프라인은 작업 절차로 옮길 예정이다. 옮길 때 이 묶음 삭제도 함께 옮긴다)
+    const runs = await PipelineRun.deleteMany({ projectId: project._id });
+    const pipelines = await Pipeline.deleteMany({ projectId: project._id });
+    console.log(`🗑️  프로젝트 삭제 ${project._id}: 파이프라인 ${pipelines.deletedCount ?? 0}개 · 실행 기록 ${runs.deletedCount ?? 0}건`);
+
     // 전용 태그 삭제
-    await Tag.findByIdAndDelete(tagId);
+    if (tagId) await Tag.findByIdAndDelete(tagId);
 
     // 프로젝트 삭제
     await Project.findByIdAndDelete(project._id);
 
-    res.json({ success: true, message: '프로젝트가 삭제되었습니다' });
+    res.json({
+      success: true,
+      message: '프로젝트가 삭제되었습니다',
+      data: { deletedPipelines: pipelines.deletedCount ?? 0, deletedPipelineRuns: runs.deletedCount ?? 0 },
+    });
   } catch (error) {
     console.error('Delete project error:', error);
     res.status(500).json({ success: false, message: '프로젝트 삭제 실패' });
