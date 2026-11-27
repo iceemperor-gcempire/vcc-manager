@@ -200,8 +200,7 @@ export const imageAPI = {
     responseType: 'blob',
   }),
   bulkDelete: (items, deleteJob) => api.post('/images/bulk-delete', { items, deleteJob }),
-  // 조건에 맞는 것 전체 삭제는 두 번에 나눈다 — 먼저 대상을 확인하고(지문), 그 지문과 함께 지운다 (#1314)
-  previewBulkDeleteByFilter: (type, conditions) => api.post('/images/bulk-delete-by-filter/preview', { type, ...conditions }),
+  // filters 에는 목록 응답이 준 대상 지문(expectedDigest)이 들어간다 — utils/bulkDeleteByFilter (#1314)
   bulkDeleteByFilter: (type, filters) => api.post('/images/bulk-delete-by-filter', { type, ...filters }),
 };
 

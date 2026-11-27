@@ -311,13 +311,40 @@ describe('목록 API 와 일괄 삭제는 같은 범위를 본다', () => {
       expect(list.body.pagination.total).toBe(listed.length);
       expect(listed.length).toBeGreaterThan(0);
 
+      // 목록이 준 지문 = preview 가 주는 지문
       const seen = await preview({ type, ...condition });
       expect(seen.body.data.count).toBe(listed.length);
+      expect(list.body.pagination.digest).toBe(seen.body.data.digest);
 
+      // 화면은 목록이 준 지문으로 바로 지운다
       jest.clearAllMocks();
-      const res = await byFilterRaw({ type, ...condition, expectedDigest: seen.body.data.digest });
+      const res = await byFilterRaw({ type, ...condition, expectedDigest: list.body.pagination.digest });
       expect(res.status).toBe(200);
       expect(deletedIds(MEDIA[type]).sort()).toEqual(listed);
+    });
+
+    test('첫 페이지만 본 목록의 지문도 전체 대상을 묶는다 — 안 보이는 페이지의 한 건이 바뀌면 지우지 않는다', async () => {
+      const tagged = Array.from({ length: 13 }, () => mine({ originalName: 'x.png', tags: [tagA] }));
+      seed(MEDIA[type], tagged);
+      const list = await request(app).get(LIST_PATH[type]).query({ tags: String(tagA), limit: 12, page: 1 });
+      expect(list.body[LIST_KEY[type]]).toHaveLength(12);
+      expect(list.body.pagination.total).toBe(13);
+
+      // 다른 세션: 2페이지의 한 건에서 태그를 떼고, 새 한 건에 붙였다. 첫 페이지 12건과 총 13건은 그대로다
+      const newcomer = mine({ originalName: 'new.png', tags: [tagA] });
+      seed(MEDIA[type], [...tagged.slice(0, 12), { ...tagged[12], tags: [] }, newcomer]);
+      jest.clearAllMocks();
+      const res = await byFilterRaw({ type, tags: String(tagA), expectedDigest: list.body.pagination.digest });
+      expect(res.status).toBe(409);
+      expect(res.body.data.count).toBe(13);
+      expectNothingDeleted();
+    });
+
+    test('조건이 없는 목록에는 지문이 없다 — 조건 없는 일괄 삭제는 없다', async () => {
+      seed(MEDIA[type], docs());
+      const list = await request(app).get(LIST_PATH[type]).query({ limit: 50 });
+      expect(list.status).toBe(200);
+      expect(list.body.pagination.digest).toBeUndefined();
     });
   });
 

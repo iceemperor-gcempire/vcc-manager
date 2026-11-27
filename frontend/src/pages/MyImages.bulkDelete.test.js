@@ -9,14 +9,16 @@ import { ConfirmProvider } from '../components/common/ConfirmDialog';
 // 휴지통이 없어 되돌릴 수 없다. 화면에서 버튼을 눌러, 확인창에 보인 대상과 서버로 나가는 요청이 같은지 본다.
 
 const img = (id, name) => ({ _id: id, originalName: name, url: `/api/files/generated/${id}.png`, tags: [], metadata: { width: 64, height: 64 }, createdAt: '2026-11-27T00:00:00.000Z' });
-const page = (items, total = items.length) => ({ data: { images: items, videos: items, audios: items, pagination: { current: 1, pages: 1, total } } });
+// 조건이 있는 목록 응답에는 서버가 대상 지문을 함께 준다
+const page = (items, digest) => ({ data: { images: items, videos: items, audios: items, pagination: { current: 1, pages: 1, total: items.length, ...(digest && { digest }) } } });
+const CAT_DIGEST = 'd'.repeat(64);
 
 vi.mock('../services/api', () => {
   const list = () => vi.fn();
   return {
     imageAPI: {
       getGenerated: list(), getUploaded: list(), getVideos: list(), getAudios: list(), getUploadedAudios: list(),
-      previewBulkDeleteByFilter: vi.fn(), bulkDeleteByFilter: vi.fn(), bulkDelete: vi.fn(),
+      bulkDeleteByFilter: vi.fn(), bulkDelete: vi.fn(),
       deleteGenerated: vi.fn(), deleteUploaded: vi.fn(), deleteVideo: vi.fn(), deleteAudio: vi.fn(), deleteUploadedAudio: vi.fn(),
       updateGenerated: vi.fn(), updateUploaded: vi.fn(), updateVideo: vi.fn(), upload: vi.fn(), uploadAudio: vi.fn(),
       downloadGenerated: vi.fn(), downloadVideo: vi.fn(),
@@ -61,11 +63,11 @@ beforeEach(() => {
   textAPI.getGenerated.mockResolvedValue({ data: { data: { items: [], pagination: { total: 0 } } } });
   for (const fn of [imageAPI.getUploaded, imageAPI.getVideos, imageAPI.getAudios, imageAPI.getUploadedAudios]) fn.mockResolvedValue(page([]));
   imageAPI.getGenerated.mockImplementation((params = {}) => {
-    if (params.search === 'cat') return Promise.resolve(page(CATS));
-    if (params.search === 'slow') return new Promise((resolve) => { resolveSearch = () => resolve(page([ALL[2]])); });
+    if (params.search === 'cat') return Promise.resolve(page(CATS, CAT_DIGEST));
+    if (params.search === 'nodigest') return Promise.resolve(page(CATS));
+    if (params.search === 'slow') return new Promise((resolve) => { resolveSearch = () => resolve(page([ALL[2]], 'e'.repeat(64))); });
     return Promise.resolve(page(ALL));
   });
-  imageAPI.previewBulkDeleteByFilter.mockResolvedValue({ data: { success: true, data: { count: 2, digest: 'd'.repeat(64) } } });
   imageAPI.bulkDeleteByFilter.mockResolvedValue({ data: { success: true, data: { deleted: 2, failed: 0, errors: [] } } });
   imageAPI.bulkDelete.mockResolvedValue({ data: { success: true, data: { deleted: 1, failed: 0, errors: [] } } });
 });
@@ -82,19 +84,17 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
     expect(deleteAllButton()).toBeNull();
   });
 
-  test('검색한 뒤 누르면 먼저 서버에 대상을 묻고, 확인창에 그 건수와 조건을 적는다', async () => {
+  test('검색한 뒤 누르면 확인창에 조건과 건수를 적는다 — 확인 전에는 아무것도 보내지 않는다', async () => {
     renderPage();
     await enterSelectMode();
     fireEvent.change(searchBox(), { target: { value: 'cat' } });
     fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
-
-    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat', seenIds: ['a'.repeat(24), 'b'.repeat(24)] }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('검색어 "cat" 조건에 맞는 2개 항목을 모두 삭제합니다.')).toBeInTheDocument();
-    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled(); // 확인 전에는 지우지 않는다
+    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
   });
 
-  test('확인하면 확인창을 열 때의 종류 · 조건 · 지문 그대로 보낸다', async () => {
+  test('확인하면 확인창을 열 때의 종류 · 조건과, 목록이 준 지문 그대로 보낸다', async () => {
     renderPage();
     await enterSelectMode();
     fireEvent.change(searchBox(), { target: { value: 'cat' } });
@@ -103,7 +103,7 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
 
     await waitFor(() => expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledTimes(1));
-    expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat', deleteJob: false, expectedDigest: 'd'.repeat(64) });
+    expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat', deleteJob: false, expectedDigest: CAT_DIGEST });
   });
 
   test('취소하면 아무것도 보내지 않는다', async () => {
@@ -131,59 +131,44 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
     expect(await screen.findByRole('button', { name: '검색된 1개 모두 삭제' })).toBeInTheDocument();
   });
 
-  test('대상 확인을 기다리는 동안에는 선택 삭제도 열 수 없다 — 떠 있는 확인창의 대상이 바뀌지 않는다', async () => {
-    let finishPreview;
-    imageAPI.previewBulkDeleteByFilter.mockImplementation(() => new Promise((resolve) => {
-      finishPreview = () => resolve({ data: { success: true, data: { count: 2, digest: 'd'.repeat(64) } } });
-    }));
+  test('목록이 대상 지문을 주지 않았으면 "모두 삭제"를 내지 않는다 (지울 대상을 모른다)', async () => {
+    renderPage();
+    await enterSelectMode();
+    fireEvent.change(searchBox(), { target: { value: 'nodigest' } });
+    await waitFor(() => expect(imageAPI.getGenerated).toHaveBeenCalledWith(expect.objectContaining({ search: 'nodigest' })));
+    await screen.findByText('cat-1.png').catch(() => {});
+    await new Promise((r) => setTimeout(r, 50));
+    expect(deleteAllButton()).toBeNull();
+  });
+
+  test('확인창이 떠 있는 동안 화면 뒤의 검색어가 바뀌어도, 나가는 요청은 확인창을 열 때의 대상이다', async () => {
     renderPage();
     await enterSelectMode();
     fireEvent.change(searchBox(), { target: { value: 'cat' } });
-    await screen.findByRole('button', { name: '검색된 2개 모두 삭제' });
-    fireEvent.click(screen.getByRole('button', { name: '이 페이지 전체 선택' }));
-    expect(await screen.findByText('2개 선택됨')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: '검색된 2개 모두 삭제' }));
-    await waitFor(() => expect(finishPreview).toBeTypeOf('function'));
-    expect(screen.getByRole('button', { name: '선택 삭제' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: '검색된 2개 모두 삭제' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: '선택 삭제' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-
-    finishPreview();
+    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
     const dialog = await screen.findByRole('dialog');
+
+    fireEvent.change(searchBox(), { target: { value: 'slow' } }); // 확인창 뒤에서 조건이 바뀌었다
+    await waitFor(() => expect(resolveSearch).toBeTypeOf('function'));
+    resolveSearch();
+    await new Promise((r) => setTimeout(r, 50));
     expect(within(dialog).getByText('검색어 "cat" 조건에 맞는 2개 항목을 모두 삭제합니다.')).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+
+    await waitFor(() => expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledTimes(1));
+    expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat', deleteJob: false, expectedDigest: CAT_DIGEST });
   });
 
-  test('대상 확인을 기다리는 사이 검색어를 바꾸면 그 응답은 버린다 — 확인창이 뜨지 않는다', async () => {
-    let finishPreview;
-    imageAPI.previewBulkDeleteByFilter.mockImplementation(() => new Promise((resolve) => {
-      finishPreview = () => resolve({ data: { success: true, data: { count: 2, digest: 'd'.repeat(64) } } });
-    }));
+  test('서버가 "목록이 바뀌었다"(409)고 하면 사유를 보여 주고 확인창을 닫는다 — 다시 누르지 않는 한 지우지 않는다', async () => {
+    imageAPI.bulkDeleteByFilter.mockRejectedValue({ response: { status: 409, data: { message: '확인한 뒤에 목록이 바뀌었습니다' } } });
     renderPage();
     await enterSelectMode();
     fireEvent.change(searchBox(), { target: { value: 'cat' } });
     fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
-    await waitFor(() => expect(finishPreview).toBeTypeOf('function'));
-
-    fireEvent.change(searchBox(), { target: { value: '' } }); // 검색을 지웠다 — 이제 전체 목록이다
-    await waitFor(() => expect(deleteAllButton()).toBeNull());
-    finishPreview();
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
-  });
-
-  test('서버가 확인한 건수가 화면 목록과 다르면 확인창을 열지 않는다', async () => {
-    imageAPI.previewBulkDeleteByFilter.mockResolvedValue({ data: { success: true, data: { count: 3, digest: 'd'.repeat(64) } } });
-    renderPage();
-    await enterSelectMode();
-    fireEvent.change(searchBox(), { target: { value: 'cat' } });
-    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
-    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalled());
-    await new Promise((r) => setTimeout(r, 50));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: '삭제' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(imageAPI.bulkDeleteByFilter).toHaveBeenCalledTimes(1);
   });
 
   test('음악 탭에는 선택 버튼이 없다 (일괄 삭제가 없는 종류)', async () => {
@@ -192,27 +177,6 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
     fireEvent.click(screen.getByRole('tab', { name: /음악|오디오/ }));
     await waitFor(() => expect(imageAPI.getAudios).toHaveBeenCalled());
     expect(screen.queryByRole('button', { name: '선택' })).toBeNull();
-  });
-
-  test('서버가 대상을 확인해 주지 못하면 확인창을 열지 않는다', async () => {
-    imageAPI.previewBulkDeleteByFilter.mockRejectedValue({ response: { status: 400, data: { message: '삭제할 조건(검색어나 태그)이 필요합니다' } } });
-    renderPage();
-    await enterSelectMode();
-    fireEvent.change(searchBox(), { target: { value: 'cat' } });
-    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
-    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalled());
-    expect(screen.queryByRole('dialog')).toBeNull();
-    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
-  });
-
-  test('서버가 0건이라고 하면 확인창을 열지 않는다', async () => {
-    imageAPI.previewBulkDeleteByFilter.mockResolvedValue({ data: { success: true, data: { count: 0, digest: 'e'.repeat(64) } } });
-    renderPage();
-    await enterSelectMode();
-    fireEvent.change(searchBox(), { target: { value: 'cat' } });
-    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
-    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalled());
-    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 

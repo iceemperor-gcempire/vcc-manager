@@ -296,7 +296,9 @@ function ImagesTab({ projectId }) {
             선택 모드 종료
           </Button>
           <Chip label={`${totalSelected}개 선택됨`} color="primary" variant="outlined" />
-          <Button startIcon={<SelectAll />} onClick={() => {
+          <Button startIcon={<SelectAll />} disabled={!!imageMediaState.isStale || !!videoMediaState.isStale} onClick={() => {
+            // 페이지를 넘긴 직후에는 예전 목록이 잠깐 남는다 — 그걸 고르지 않는다 (#1314)
+            if (imageMediaState.isStale || videoMediaState.isStale) return;
             const nextImg = new Set(imageSelectedIds);
             imageMediaState.items.forEach(item => nextImg.add(item._id));
             setImageSelectedIds(nextImg);

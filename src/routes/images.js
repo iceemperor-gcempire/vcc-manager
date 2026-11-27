@@ -63,6 +63,12 @@ async function deleteMediaDocs(type, docs, { deleteJob }) {
   return ids.map(id => id.toString());
 }
 
+// 조건(검색어 · 태그)이 있는 목록의 전체 대상 지문. 조건이 없으면 null — 조건 없는 일괄 삭제는 없다
+async function listTargetDigest(Model, filter, { search, tags }) {
+  if (!String(search || '').trim() && !parseTagIds(tags).ids.length) return null;
+  return digestOfIds(await Model.find(filter).select('_id').lean());
+}
+
 // 일괄 삭제 - 선택 항목
 // 휴지통이 없어 되돌릴 수 없다. 요청 전체를 먼저 검증하고, 지울 대상을 전부 찾은 뒤에 지운다 —
 // 중간에 실패해 일부만 지워진 채 오류가 나지 않게 (#1314)
@@ -131,8 +137,9 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
 
 // 일괄 삭제 - 조건에 맞는 것 전체
 // 휴지통이 없어 되돌릴 수 없다. 그래서 두 번에 나눠 받는다 (#1314):
-//   1) preview — 조건에 맞는 건수와 대상 집합의 지문(digest)을 돌려준다. 아무것도 지우지 않는다
+//   1) 확인 — 목록 API(조건이 있을 때 pagination.digest) 나 preview 가 대상 집합의 지문을 준다. 아무것도 지우지 않는다
 //   2) 삭제 — 같은 조건과 그 지문을 보낸다. 지금 대상 집합의 지문이 다르면 지우지 않는다
+// 화면은 목록이 준 지문을 그대로 쓴다 — 사용자가 본 목록과 지우는 대상이 같은 집합이다
 // 조건은 목록 API 와 같은 함수(buildMediaListFilter)로 만든다.
 const BULK_FILTER_SELECT = '_id path tags jobId isReferenced referencedBy';
 const PREVIEW_SEEN_MAX = 200;
@@ -487,13 +494,17 @@ router.get('/uploaded', requireAuth, async (req, res) => {
       .limit(parseInt(limit));
     
     const total = await UploadedImage.countDocuments(filter);
+    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
+    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
+    const digest = await listTargetDigest(UploadedImage, filter, { search, tags });
     
     res.json({
       images,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
-        total
+        total,
+        ...(digest && { digest })
       }
     });
   } catch (error) {
@@ -519,13 +530,17 @@ router.get('/generated', requireAuth, async (req, res) => {
       .limit(parseInt(limit));
     
     const total = await GeneratedImage.countDocuments(filter);
+    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
+    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
+    const digest = await listTargetDigest(GeneratedImage, filter, { search, tags });
     
     res.json({
       images,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
-        total
+        total,
+        ...(digest && { digest })
       }
     });
   } catch (error) {
@@ -828,13 +843,17 @@ router.get('/videos', requireAuth, async (req, res) => {
       .limit(parseInt(limit));
     
     const total = await GeneratedVideo.countDocuments(filter);
+    // 조건이 있는 목록은 "이 조건에 맞는 전체"의 지문을 함께 준다. 일괄 삭제는 이 지문이 지금 대상과
+    // 같을 때만 된다 — 화면이 본 목록과 지우는 대상을 묶는다 (#1314)
+    const digest = await listTargetDigest(GeneratedVideo, filter, { search, tags });
     
     res.json({
       videos,
       pagination: {
         current: parseInt(page),
         pages: Math.ceil(total / limit),
-        total
+        total,
+        ...(digest && { digest })
       }
     });
   } catch (error) {
