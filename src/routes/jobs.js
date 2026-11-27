@@ -32,6 +32,7 @@ const { findLoraFolderViolation, findLoraFieldViolation } = require('../services
 const { findFieldValueViolation } = require('../services/fieldValueGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
+const { readBodyFlag, readQueryFlag } = require('../utils/booleanFlag');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 
@@ -310,7 +311,9 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
-    const shouldDeleteContent = req.query.deleteContent === 'true';
+    const flag = readQueryFlag(req.query.deleteContent, 'deleteContent');
+    if (!flag.ok) return res.status(400).json({ message: flag.message });
+    const shouldDeleteContent = flag.value;
 
     const job = await ImageGenerationJob.findById(req.params.id).populate('resultImages').populate('resultVideos').populate('resultAudios');
     const check = checkDeletable(job, req.user);
@@ -337,11 +340,18 @@ router.delete('/:id', requireAuth, async (req, res) => {
 const BULK_DELETE_MAX = 200;
 router.post('/bulk-delete', requireAuth, async (req, res) => {
   try {
-    const ids = Array.isArray(req.body && req.body.ids) ? req.body.ids.filter((x) => typeof x === 'string') : [];
-    const deleteContent = !!(req.body && req.body.deleteContent);
-    if (ids.length === 0) {
+    // 형식이 틀린 값은 조용히 걸러 내거나 느슨하게 읽지 않고 거절한다 — 아무것도 지우지 않는다 (#1323)
+    const rawIds = req.body && req.body.ids;
+    if (!Array.isArray(rawIds) || rawIds.length === 0) {
       return res.status(400).json({ message: 'ids 가 비어 있습니다.' });
     }
+    if (!rawIds.every((x) => typeof x === 'string' && /^[0-9a-fA-F]{24}$/.test(x))) {
+      return res.status(400).json({ message: 'ids 에 id 형식이 아닌 값이 있습니다.' });
+    }
+    const contentFlag = readBodyFlag(req.body.deleteContent, 'deleteContent');
+    if (!contentFlag.ok) return res.status(400).json({ message: contentFlag.message });
+    const ids = rawIds.map((x) => x.toLowerCase());
+    const deleteContent = contentFlag.value;
     if (ids.length > BULK_DELETE_MAX) {
       return res.status(400).json({ message: `한 번에 ${BULK_DELETE_MAX}개까지 삭제할 수 있습니다. (요청 ${ids.length}개)` });
     }

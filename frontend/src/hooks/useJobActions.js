@@ -43,11 +43,12 @@ export function useJobActions({ invalidateKeys }) {
   const deleteMutation = useMutation({
     mutationFn: ({ id, deleteContent }) => jobAPI.delete(id, deleteContent),
     onSuccess: (response) => {
-      const { deletedImagesCount = 0, deletedVideosCount = 0 } = response.data || {};
-      if (deletedImagesCount > 0 || deletedVideosCount > 0) {
-        toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상이 삭제되었습니다`);
+      const { deletedImagesCount = 0, deletedVideosCount = 0, deletedAudiosCount = 0 } = response.data || {};
+      if (deletedImagesCount > 0 || deletedVideosCount > 0 || deletedAudiosCount > 0) {
+        toast.success(`작업과 ${deletedImagesCount}개 이미지, ${deletedVideosCount}개 동영상, ${deletedAudiosCount}개 오디오가 삭제되었습니다`);
         queryClient.invalidateQueries({ queryKey: ['generatedImages'] });
         queryClient.invalidateQueries({ queryKey: ['generatedVideos'] });
+        queryClient.invalidateQueries({ queryKey: ['generatedAudios'] });
       } else {
         toast.success('작업이 삭제되었습니다');
       }
@@ -102,20 +103,21 @@ export function useJobActions({ invalidateKeys }) {
   // 콘텐츠 동반 삭제는 사용자 설정(deleteContentWithHistory)에 따라 분기.
   // 동반 삭제일 때만 되돌릴 수 없으므로 danger 는 그 경우에만 붙인다.
   const remove = async (job) => {
-    const contentCount = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0);
+    // 서버는 이미지 · 영상 · 음악을 모두 지운다 — 확인창의 건수도 셋을 다 센다 (#1323, 선택 삭제 removeMany 와 같게)
+    const contentCount = (job.resultImages?.length || 0) + (job.resultVideos?.length || 0) + (job.resultAudios?.length || 0);
     const withContent = !!preferences.deleteContentWithHistory && contentCount > 0;
 
     const ok = await confirm(
       withContent
         ? {
             title: '작업과 콘텐츠를 함께 삭제하시겠습니까?',
-            description: `연관된 ${contentCount}개의 콘텐츠(이미지/동영상)도 같이 삭제됩니다.`,
+            description: `연관된 ${contentCount}개의 콘텐츠(이미지/동영상/오디오)도 같이 삭제됩니다.`,
             danger: true,
             confirmLabel: '모두 삭제',
           }
         : {
             title: '작업 히스토리를 삭제하시겠습니까?',
-            description: '생성된 이미지/동영상은 보존됩니다.',
+            description: '생성된 콘텐츠는 보존됩니다.',
             confirmLabel: '삭제',
           }
     );

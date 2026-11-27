@@ -16,6 +16,7 @@ function mockModel(name) {
     countDocuments: jest.fn().mockResolvedValue(0),
     find: jest.fn(() => ({ limit: () => ({ lean: () => Promise.resolve([]) }), lean: () => Promise.resolve([]) })),
     deleteMany: jest.fn().mockResolvedValue({ deletedCount: 0 }),
+    exists: jest.fn().mockResolvedValue(null),
   };
   return m;
 }
@@ -104,7 +105,8 @@ describe('cleanupOwnerOrphans — dry-run 기본', () => {
   beforeEach(() => {
     MockJob.distinct.mockResolvedValue(['ghost-user']);
     MockJob.countDocuments.mockResolvedValue(17);
-    MockJob.deleteMany.mockResolvedValue({ deletedCount: 17 });
+    MockJob.deleteMany.mockReset().mockResolvedValue({ deletedCount: 17 });
+    MockUser.exists.mockReset().mockResolvedValue(null); // 다시 확인해도 없는 사용자
   });
 
   test('apply 없이는 어떤 것도 삭제하지 않는다', async () => {
@@ -120,6 +122,40 @@ describe('cleanupOwnerOrphans — dry-run 기본', () => {
     const jobRow = result.results.find((r) => r.collection === 'ImageGenerationJob');
     expect(jobRow.deleted).toBe(17);
     expect(MockJob.deleteMany).toHaveBeenCalledWith({ userId: { $in: ['ghost-user'] } });
+  });
+
+  // 지우기 직전의 소유자 재확인 (#1323)
+  test('지우기 직전에 소유자마다 따로 조회한다', async () => {
+    await cleanupOwnerOrphans({ apply: true });
+    expect(MockUser.exists).toHaveBeenCalledWith({ _id: 'ghost-user' });
+  });
+
+  test('목록에는 없었지만 다시 확인하니 있는 사용자의 콘텐츠는 지우지 않는다', async () => {
+    MockUser.exists.mockResolvedValue({ _id: 'ghost-user' }); // 사용자 목록이 잘못 읽힌 경우
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await cleanupOwnerOrphans({ apply: true });
+    warn.mockRestore();
+    expect(MockJob.deleteMany).not.toHaveBeenCalled();
+    expect(result.results.find((r) => r.collection === 'ImageGenerationJob')).toMatchObject({ matched: 17, deleted: 0 });
+    expect(result.skippedOwners).toBe(1);
+    expect(result.files).toEqual({ deleted: 0, absent: 0, byCollection: [] });
+  });
+
+  test('없는 소유자와 살아 있는 소유자가 섞이면 없는 쪽만 지운다', async () => {
+    MockJob.distinct.mockResolvedValue(['ghost-user', 'alive-but-missing-from-list']);
+    MockUser.exists.mockImplementation(async ({ _id }) => (_id === 'alive-but-missing-from-list' ? { _id } : null));
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const result = await cleanupOwnerOrphans({ apply: true });
+    warn.mockRestore();
+    expect(MockJob.deleteMany).toHaveBeenCalledWith({ userId: { $in: ['ghost-user'] } });
+    expect(result.skippedOwners).toBe(1);
+  });
+
+  test('미리 보기(apply 없음)는 소유자를 다시 조회하지도 지우지도 않는다', async () => {
+    const result = await cleanupOwnerOrphans();
+    expect(MockUser.exists).not.toHaveBeenCalled();
+    expect(MockJob.deleteMany).not.toHaveBeenCalled();
+    expect(result.skippedOwners).toBe(0);
   });
 });
 
