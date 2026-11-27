@@ -21,7 +21,7 @@ jest.mock('../middleware/auth', () => ({
 const mockMe = () => me;
 
 function mockMediaModel() {
-  return { find: jest.fn(), deleteMany: jest.fn(async () => ({})) };
+  return { find: jest.fn(), countDocuments: jest.fn(), deleteMany: jest.fn(async () => ({})) };
 }
 jest.mock('../models/UploadedImage', () => mockMediaModel());
 jest.mock('../models/GeneratedImage', () => mockMediaModel());
@@ -45,7 +45,14 @@ const ALL = Object.values(MEDIA);
 
 // find() 결과는 thenable 이면서 select().lean() · lean() 체인도 받는다 (두 라우트가 다르게 부른다)
 const found = (docs) => {
-  const q = { select: () => q, lean: async () => docs, then: (ok, no) => Promise.resolve(docs).then(ok, no) };
+  let out = docs;
+  const q = {
+    select: () => q, populate: () => q, sort: () => q,
+    skip: (n) => { out = out.slice(n); return q; },
+    limit: (n) => { out = out.slice(0, n); return q; },
+    lean: async () => out,
+    then: (ok, no) => Promise.resolve(out).then(ok, no),
+  };
   return q;
 };
 // 조건 객체를 문서에 실제로 적용한다 — 라우트가 쓰는 모양만 (userId · _id $in · tags $in · $or[정규식|tags])
@@ -63,7 +70,10 @@ const matches = (doc, filter) => Object.entries(filter).every(([key, cond]) => (
   key === '$or' ? cond.some((sub) => matches(doc, sub)) : matchField(doc, key, cond)
 ));
 /** 모델이 가진 문서 — find 가 받은 조건을 그대로 적용해 돌려준다 */
-const seed = (Model, docs) => Model.find.mockImplementation((filter = {}) => found(docs.filter((d) => matches(d, filter))));
+const seed = (Model, docs) => {
+  Model.find.mockImplementation((filter = {}) => found(docs.filter((d) => matches(d, filter))));
+  Model.countDocuments.mockImplementation(async (filter = {}) => docs.filter((d) => matches(d, filter)).length);
+};
 const activeJobs = (ids) => ImageGenerationJob.find.mockReturnValue({ select: () => ({ lean: async () => ids.map((_id) => ({ _id })) }) });
 const deletedIds = (Model) => Model.deleteMany.mock.calls.flatMap(([f]) => f._id.$in.map(String));
 const expectNothingDeleted = () => {
@@ -88,12 +98,15 @@ beforeEach(() => {
 afterEach(() => console.error.mockRestore());
 
 const byFilterRaw = (body) => request(app).post('/api/images/bulk-delete-by-filter').send(body);
-/** 화면처럼: 먼저 같은 조건으로 건수를 확인하고 그 건수를 실어 보낸다 */
+const preview = (body) => request(app).post('/api/images/bulk-delete-by-filter/preview').send(body);
+const DIGEST = 'a'.repeat(64); // 형식은 맞지만 어떤 대상과도 맞지 않는 지문
+/** 화면처럼: 먼저 대상을 확인하고(preview), 그 지문을 실어 지운다 */
 const byFilter = async (body) => {
-  const probe = await byFilterRaw({ ...body, expectedCount: 0 });
-  const expectedCount = probe.status === 409 ? probe.body.data.matched : 0;
+  const { deleteJob, ...condition } = body;
+  const seen = await preview(condition);
+  if (seen.status !== 200) return seen;
   jest.clearAllMocks(); // 호출 기록만 지운다 — seed 한 문서는 그대로
-  return byFilterRaw({ ...body, expectedCount });
+  return byFilterRaw({ ...body, expectedDigest: seen.body.data.digest });
 };
 const bySelection = (body) => request(app).post('/api/images/bulk-delete').send(body);
 
@@ -102,71 +115,186 @@ const mine = (over = {}) => ({ _id: oid(), userId: me, originalName: 'cat.png', 
 
 describe('POST /api/images/bulk-delete-by-filter — 요청을 받지 않는 경우', () => {
   const tagId = String(oid());
-  test.each([
-    ['종류가 없다', { search: 'cat', expectedCount: 1 }],
-    ['모르는 종류', { type: 'audio', search: 'cat', expectedCount: 1 }],
-    ['search 가 배열', { type: 'generated', search: ['a', 'b'], expectedCount: 1 }],
-    ['search 가 객체', { type: 'generated', search: { $ne: '' }, expectedCount: 1 }],
-    ['search 가 숫자', { type: 'generated', search: 1, expectedCount: 1 }],
-    ['tags 가 배열', { type: 'uploaded', tags: [tagId], expectedCount: 1 }],
-    ['tags 가 객체', { type: 'uploaded', search: 'cat', tags: { $ne: null }, expectedCount: 1 }],
-    ['tags 에 id 가 아닌 값', { type: 'generated', search: 'cat', tags: `${tagId},nope`, expectedCount: 1 }],
-    ['조건이 하나도 없다 (생성 이미지)', { type: 'generated', expectedCount: 1 }],
-    ['조건이 하나도 없다 (업로드 이미지)', { type: 'uploaded', expectedCount: 1 }],
-    ['조건이 하나도 없다 (영상)', { type: 'video', expectedCount: 1 }],
-    ['검색어가 빈 문자열', { type: 'generated', search: '', expectedCount: 1 }],
-    ['검색어가 공백뿐', { type: 'generated', search: '   ', expectedCount: 1 }],
-    ['태그가 쉼표 · 공백뿐', { type: 'generated', tags: ' , ', expectedCount: 1 }],
-    ['deleteJob 이 문자열 "false"', { type: 'generated', search: 'cat', deleteJob: 'false', expectedCount: 1 }],
-    ['deleteJob 이 문자열 "true"', { type: 'generated', search: 'cat', deleteJob: 'true', expectedCount: 1 }],
-    ['deleteJob 이 숫자', { type: 'generated', search: 'cat', deleteJob: 1, expectedCount: 1 }],
-    ['확인한 건수가 없다', { type: 'generated', search: 'cat' }],
-    ['확인한 건수가 문자열', { type: 'generated', search: 'cat', expectedCount: '1' }],
-    ['확인한 건수가 음수', { type: 'generated', search: 'cat', expectedCount: -1 }],
-    ['확인한 건수가 소수', { type: 'generated', search: 'cat', expectedCount: 1.5 }],
+  const CONDITION_CASES = [
+    ['종류가 없다', { search: 'cat' }],
+    ['모르는 종류', { type: 'audio', search: 'cat' }],
+    ['search 가 배열', { type: 'generated', search: ['a', 'b'] }],
+    ['search 가 객체', { type: 'generated', search: { $ne: '' } }],
+    ['search 가 숫자', { type: 'generated', search: 1 }],
+    ['tags 가 배열', { type: 'uploaded', tags: [tagId] }],
+    ['tags 가 객체', { type: 'uploaded', search: 'cat', tags: { $ne: null } }],
+    ['tags 에 id 가 아닌 값', { type: 'generated', search: 'cat', tags: `${tagId},nope` }],
+    ['조건이 하나도 없다 (생성 이미지)', { type: 'generated' }],
+    ['조건이 하나도 없다 (업로드 이미지)', { type: 'uploaded' }],
+    ['조건이 하나도 없다 (영상)', { type: 'video' }],
+    ['검색어가 빈 문자열', { type: 'generated', search: '' }],
+    ['검색어가 공백뿐', { type: 'generated', search: '   ' }],
+    ['태그가 쉼표 · 공백뿐', { type: 'generated', tags: ' , ' }],
     ['본문이 비었다', {}],
-  ])('%s → 400, 찾지도 지우지도 않는다', async (_n, body) => {
+  ];
+  test.each(CONDITION_CASES)('삭제: %s → 400, 찾지도 지우지도 않는다', async (_n, body) => {
     for (const M of ALL) seed(M, [mine(), mine()]);
-    const res = await byFilterRaw(body);
+    const res = await byFilterRaw({ ...body, expectedDigest: DIGEST });
+    expect(res.status).toBe(400);
+    for (const M of ALL) expect(M.find).not.toHaveBeenCalled();
+    expectNothingDeleted();
+  });
+
+  test.each(CONDITION_CASES)('대상 확인: %s → 400', async (_n, body) => {
+    for (const M of ALL) seed(M, [mine(), mine()]);
+    const res = await preview(body);
+    expect(res.status).toBe(400);
+    for (const M of ALL) expect(M.find).not.toHaveBeenCalled();
+  });
+
+  test.each([
+    ['deleteJob 이 문자열 "false"', { deleteJob: 'false', expectedDigest: DIGEST }],
+    ['deleteJob 이 문자열 "true"', { deleteJob: 'true', expectedDigest: DIGEST }],
+    ['deleteJob 이 숫자', { deleteJob: 1, expectedDigest: DIGEST }],
+    ['지문이 없다 (대상을 확인하지 않았다)', {}],
+    ['지문 대신 건수만 보냈다 (옛 요청)', { expectedCount: 2 }],
+    ['지문이 숫자', { expectedDigest: 2 }],
+    ['지문이 형식에 안 맞는 문자열', { expectedDigest: 'abc' }],
+    ['지문이 객체', { expectedDigest: { $ne: null } }],
+  ])('삭제: %s → 400, 찾지도 지우지도 않는다', async (_n, extra) => {
+    for (const M of ALL) seed(M, [mine(), mine()]);
+    const res = await byFilterRaw({ type: 'generated', search: 'cat', ...extra });
     expect(res.status).toBe(400);
     for (const M of ALL) expect(M.find).not.toHaveBeenCalled();
     expectNothingDeleted();
   });
 });
 
-describe('POST /api/images/bulk-delete-by-filter — 확인한 건수와 다르면 지우지 않는다', () => {
-  test.each([
-    ['확인한 것보다 많이 걸린다 (그 사이 조건에 맞는 것이 늘었다)', 1],
-    ['확인한 것보다 적게 걸린다', 5],
-    ['0건이라고 확인했는데 걸리는 것이 있다', 0],
-  ])('%s → 409, 아무것도 지우지 않는다', async (_n, expectedCount) => {
-    seed(GeneratedImage, [mine(), mine(), mine()]);
-    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedCount });
+describe('POST /api/images/bulk-delete-by-filter/preview — 대상 확인', () => {
+  test('건수와 지문을 돌려주고 아무것도 지우지 않는다', async () => {
+    seed(GeneratedImage, [mine(), mine(), mine({ originalName: 'dog.png' })]);
+    const res = await preview({ type: 'generated', search: 'cat' });
+    expect(res.status).toBe(200);
+    expect(res.body.data.count).toBe(2);
+    expect(res.body.data.digest).toMatch(/^[0-9a-f]{64}$/);
+    expectNothingDeleted();
+    expect(Tag.updateOne).not.toHaveBeenCalled();
+  });
+
+  test('같은 대상이면 지문이 같고, 대상이 하나라도 다르면 지문이 다르다', async () => {
+    const a = mine(); const b = mine(); const c = mine();
+    seed(GeneratedImage, [a, b]);
+    const first = (await preview({ type: 'generated', search: 'cat' })).body.data.digest;
+    seed(GeneratedImage, [b, a]); // 순서만 다르다
+    expect((await preview({ type: 'generated', search: 'cat' })).body.data.digest).toBe(first);
+    seed(GeneratedImage, [a, c]); // 건수는 같고 한 건이 바뀌었다
+    expect((await preview({ type: 'generated', search: 'cat' })).body.data.digest).not.toBe(first);
+  });
+
+  test('남의 문서는 대상에 들지 않는다', async () => {
+    seed(GeneratedImage, [mine(), mine({ userId: oid() })]);
+    expect((await preview({ type: 'generated', search: 'cat' })).body.data.count).toBe(1);
+  });
+});
+
+describe('POST /api/images/bulk-delete-by-filter — 확인한 대상과 다르면 지우지 않는다', () => {
+  const seen = async (condition) => (await preview(condition)).body.data.digest;
+
+  test('확인한 뒤에 조건에 맞는 것이 늘었다 → 409, 아무것도 지우지 않는다', async () => {
+    const a = mine();
+    seed(GeneratedImage, [a]);
+    const digest = await seen({ type: 'generated', search: 'cat' });
+    seed(GeneratedImage, [a, mine()]);
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedDigest: digest });
     expect(res.status).toBe(409);
-    expect(res.body.data.matched).toBe(3);
+    expect(res.body.data.count).toBe(2);
     expectNothingDeleted();
   });
 
-  test('건수가 같으면 지운다', async () => {
-    seed(GeneratedImage, [mine(), mine(), mine()]);
-    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedCount: 3 });
-    expect(res.status).toBe(200);
-    expect(res.body.data.deleted).toBe(3);
+  test('건수는 같은데 한 건이 빠지고 다른 한 건이 들어왔다 → 409, 새로 들어온 것을 지우지 않는다', async () => {
+    const a = mine();
+    const newcomer = mine();
+    seed(GeneratedImage, [a]);
+    const digest = await seen({ type: 'generated', search: 'cat' });
+    seed(GeneratedImage, [newcomer]);
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedDigest: digest });
+    expect(res.status).toBe(409);
+    expectNothingDeleted();
   });
 
-  test('태그를 풀기 전에 본 건수로 태그 없는 요청을 보내면 지우지 않는다 (화면 경합)', async () => {
+  test('태그로 좁혀 확인한 지문으로 태그 없는 요청을 보내면 지우지 않는다 (화면 경합)', async () => {
     const tagA = oid();
     seed(GeneratedImage, [mine({ tags: [tagA] }), mine(), mine()]);
-    // 화면은 "cat + 태그 A" 1건을 보여 줬는데, 요청은 태그가 빠진 채 나갔다
-    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedCount: 1 });
+    const digest = await seen({ type: 'generated', search: 'cat', tags: String(tagA) });
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedDigest: digest });
     expect(res.status).toBe(409);
     expectNothingDeleted();
+  });
+
+  test('다른 종류에서 확인한 지문은 통하지 않는다 (확인 중 탭이 바뀐 요청)', async () => {
+    seed(GeneratedImage, [mine()]);
+    seed(GeneratedVideo, [mine(), mine()]);
+    const digest = await seen({ type: 'generated', search: 'cat' });
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'video', search: 'cat', expectedDigest: digest });
+    expect(res.status).toBe(409);
+    expectNothingDeleted();
+  });
+
+  test('확인한 대상 그대로면 그 대상만 지운다', async () => {
+    const a = mine(); const b = mine(); const other = mine({ originalName: 'dog.png' });
+    seed(GeneratedImage, [a, b, other]);
+    const res = await byFilter({ type: 'generated', search: 'cat' });
+    expect(res.status).toBe(200);
+    expect(deletedIds(GeneratedImage).sort()).toEqual([String(a._id), String(b._id)].sort());
+  });
+});
+
+describe('목록 API 와 일괄 삭제는 같은 범위를 본다', () => {
+  const LIST_PATH = { uploaded: '/api/images/uploaded', generated: '/api/images/generated', video: '/api/images/videos' };
+  const LIST_KEY = { uploaded: 'images', generated: 'images', video: 'videos' };
+  const tagA = oid();
+  const docs = () => [
+    mine({ tags: [tagA] }), mine({ tags: [tagA] }), mine(),
+    mine({ originalName: 'dog.png', tags: [tagA] }), mine({ originalName: 'dog.png' }),
+    mine({ userId: oid(), tags: [tagA] }), // 남의 것
+  ];
+  const CONDITIONS = [
+    ['검색어', { search: 'cat' }],
+    ['태그', { tags: String(tagA) }],
+    ['검색어 + 태그', { search: 'cat', tags: String(tagA) }],
+    ['대문자 검색어', { search: 'CAT' }],
+  ];
+  describe.each(['uploaded', 'generated', 'video'])('%s', (type) => {
+    test.each(CONDITIONS)('%s: 목록에 보인 것 = 확인한 대상 = 지워진 것', async (_n, condition) => {
+      seed(MEDIA[type], docs());
+      const list = await request(app).get(LIST_PATH[type]).query({ ...condition, limit: 50 });
+      expect(list.status).toBe(200);
+      const listed = list.body[LIST_KEY[type]].map((d) => String(d._id)).sort();
+      expect(list.body.pagination.total).toBe(listed.length);
+      expect(listed.length).toBeGreaterThan(0);
+
+      const seen = await preview({ type, ...condition });
+      expect(seen.body.data.count).toBe(listed.length);
+
+      jest.clearAllMocks();
+      const res = await byFilterRaw({ type, ...condition, expectedDigest: seen.body.data.digest });
+      expect(res.status).toBe(200);
+      expect(deletedIds(MEDIA[type]).sort()).toEqual(listed);
+    });
+  });
+
+  test.each([
+    ['search 가 여러 개 (배열로 읽힌다)', '/api/images/generated?search=a&search=b'],
+    ['tags 가 여러 개', `/api/images/uploaded?tags=${tagA}&tags=${tagA}`],
+    ['tags 에 id 가 아닌 값', '/api/images/videos?tags=nope'],
+  ])('목록: %s → 400 (조건을 버리고 전체를 보여 주지 않는다)', async (_n, url) => {
+    const res = await request(app).get(url);
+    expect(res.status).toBe(400);
   });
 });
 
 describe('POST /api/images/bulk-delete-by-filter — 대상 범위', () => {
   test.each(['uploaded', 'generated', 'video'])('%s: 조건에 늘 내 userId 가 들어가고, 그 종류의 모델만 건드린다', async (type) => {
-    await byFilterRaw({ type, search: 'cat', expectedCount: 0 });
+    await preview({ type, search: 'cat' });
     const filter = MEDIA[type].find.mock.calls[0][0];
     expect(String(filter.userId)).toBe(String(me));
     for (const [t, M] of Object.entries(MEDIA)) if (t !== type) expect(M.find).not.toHaveBeenCalled();
@@ -221,7 +349,7 @@ describe('POST /api/images/bulk-delete-by-filter — 대상 범위', () => {
 
   test('맞는 것이 없으면 0건 — 아무것도 지우지 않는다', async () => {
     seed(GeneratedImage, [mine({ originalName: 'dog.png' })]);
-    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedCount: 0 });
+    const res = await byFilter({ type: 'generated', search: 'cat' });
     expect(res.body.data).toEqual({ deleted: 0, failed: 0, errors: [] });
     expectNothingDeleted();
   });
@@ -282,7 +410,7 @@ describe('POST /api/images/bulk-delete-by-filter — 지우는 것', () => {
     const free = mine();
     seed(UploadedImage, [inUse, wasUsed, free]);
     activeJobs([activeJob]);
-    const probe = await byFilterRaw({ type: 'uploaded', search: 'cat', expectedCount: 3 });
+    const probe = await byFilter({ type: 'uploaded', search: 'cat' });
     expect(ImageGenerationJob.find.mock.calls[0][0].status).toEqual({ $in: ['pending', 'processing'] });
     expect(deletedIds(UploadedImage).sort()).toEqual([String(wasUsed._id), String(free._id)].sort());
     expect(deleteFile).not.toHaveBeenCalledWith(inUse.path);
@@ -301,22 +429,23 @@ describe('POST /api/images/bulk-delete-by-filter — 지우는 것', () => {
       mine({ originalName: 'dog.png', tags: [t2] }), // 조건 밖
     ]);
     activeJobs([activeJob]);
-    await byFilterRaw({ type: 'uploaded', search: 'cat', expectedCount: 3 });
+    await byFilter({ type: 'uploaded', search: 'cat' });
     const calls = Tag.updateOne.mock.calls.map(([f, u]) => [f._id, u.$inc.usageCount]).sort();
     expect(calls).toEqual([[String(t1), -2], [String(t2), -1]].sort());
   });
 
   test('찾는 중에 오류가 나면 아무것도 지우지 않는다', async () => {
     GeneratedImage.find.mockImplementation(() => { throw new Error('db down'); });
-    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedCount: 1 });
+    const res = await byFilterRaw({ type: 'generated', search: 'cat', expectedDigest: DIGEST });
     expect(res.status).toBe(500);
     expectNothingDeleted();
   });
 
   test('실행 중인 작업을 확인하다 오류가 나면 아무것도 지우지 않는다', async () => {
     seed(UploadedImage, [mine({ isReferenced: true, referencedBy: [{ jobId: oid() }] }), mine()]);
+    const digest = (await preview({ type: 'uploaded', search: 'cat' })).body.data.digest;
     ImageGenerationJob.find.mockImplementation(() => { throw new Error('db down'); });
-    const res = await byFilterRaw({ type: 'uploaded', search: 'cat', expectedCount: 2 });
+    const res = await byFilterRaw({ type: 'uploaded', search: 'cat', expectedDigest: digest });
     expect(res.status).toBe(500);
     expectNothingDeleted();
   });
@@ -367,6 +496,13 @@ describe('POST /api/images/bulk-delete — 고른 항목 삭제', () => {
     expect(deletedIds(UploadedImage)).toEqual([String(u._id)]);
     expect(deletedIds(GeneratedImage)).toEqual([String(g._id)]);
     expect(deletedIds(GeneratedVideo)).toEqual([String(v._id)]);
+  });
+
+  test('대문자로 적은 id 도 같은 문서다 — 성공과 실패에 겹쳐 세지 않는다', async () => {
+    const picked = mine();
+    seed(GeneratedImage, [picked]);
+    const res = await bySelection({ items: [{ id: String(picked._id).toUpperCase(), type: 'generated' }] });
+    expect(res.body.data).toEqual({ deleted: 1, failed: 0, errors: [] });
   });
 
   test('같은 id 를 두 번 보내도 한 번만 센다', async () => {

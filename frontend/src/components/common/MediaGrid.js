@@ -349,6 +349,9 @@ function AudioList({ items, onDelete, readOnly }) {
   );
 }
 
+const EMPTY_ITEMS = Object.freeze([]);
+const EMPTY_PAGINATION = Object.freeze({});
+
 function MediaGrid({
   type,
   fetchFn = null,
@@ -402,10 +405,12 @@ function MediaGrid({
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};
     let items;
-    if (type === 'video') items = d.videos || [];
-    else if (type === 'audio' || type === 'uploadedAudio') items = d.audios || [];   // #805
-    else items = d.images || [];
-    return { items, pagination: d.pagination || {} };
+    if (type === 'video') items = d.videos;
+    else if (type === 'audio' || type === 'uploadedAudio') items = d.audios;   // #805
+    else items = d.images;
+    // 응답이 오기 전에는 늘 같은 빈 값을 돌려준다 — 매 렌더마다 새 [] · {} 를 만들면 아래 onStateChange 가
+    // 렌더마다 불려 부모와 서로를 계속 다시 그린다 (#1314)
+    return { items: items || EMPTY_ITEMS, pagination: d.pagination || EMPTY_PAGINATION };
   };
 
   const extractor = responseExtractor || defaultExtractor;

@@ -13,8 +13,9 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
-const mongoose = require('mongoose');
-const { buildMediaListFilter, parseTagIds, MEDIA_TYPES } = require('../utils/mediaSearchFilter');
+const {
+  buildMediaListFilter, parseTagIds, isObjectIdString, digestOfIds, validateListCondition, MEDIA_TYPES,
+} = require('../utils/mediaSearchFilter');
 const router = express.Router();
 
 const MEDIA_MODELS = { uploaded: UploadedImage, generated: GeneratedImage, video: GeneratedVideo };
@@ -77,14 +78,13 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
     }
     const badItem = items.find(item => !item || typeof item !== 'object'
-      || !MEDIA_TYPES.includes(item.type)
-      || typeof item.id !== 'string' || item.id.length !== 24 || !mongoose.isValidObjectId(item.id));
+      || !MEDIA_TYPES.includes(item.type) || !isObjectIdString(item.id));
     if (badItem !== undefined) {
       return res.status(400).json({ message: '항목 형식이 올바르지 않습니다 (id 는 24자 id, type 은 uploaded · generated · video)' });
     }
 
     const groups = { uploaded: [], generated: [], video: [] };
-    for (const item of items) groups[item.type].push(item.id);
+    for (const item of items) groups[item.type].push(item.id.toLowerCase()); // 대문자 id 도 같은 문서다
 
     // 1단계 — 찾기. 아무것도 지우지 않는다
     const failed = [];
@@ -129,43 +129,57 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
   }
 });
 
-// 일괄 삭제 - 검색 결과 전체
-// 조건은 목록 API 와 같은 함수(buildMediaListFilter)로 만든다. 화면이 본 건수(expectedCount)와
-// 지금 조건에 맞는 건수가 다르면 지우지 않는다 — 보여 준 것보다 넓게 지우지 않게 (#1314)
+// 일괄 삭제 - 조건에 맞는 것 전체
+// 휴지통이 없어 되돌릴 수 없다. 그래서 두 번에 나눠 받는다 (#1314):
+//   1) preview — 조건에 맞는 건수와 대상 집합의 지문(digest)을 돌려준다. 아무것도 지우지 않는다
+//   2) 삭제 — 같은 조건과 그 지문을 보낸다. 지금 대상 집합의 지문이 다르면 지우지 않는다
+// 조건은 목록 API 와 같은 함수(buildMediaListFilter)로 만든다.
+const BULK_FILTER_SELECT = '_id path tags jobId isReferenced referencedBy';
+
+/** 요청을 검증하고 대상 문서를 찾는다. 틀리면 { status, message } */
+async function resolveBulkFilterTarget(req) {
+  const { type, search = '', tags = '' } = req.body || {};
+  if (!MEDIA_TYPES.includes(type)) return { error: { status: 400, message: 'Invalid type' } };
+  // 형식이 틀린 조건을 "조건 없음"으로 읽으면 삭제 범위가 전체로 넓어진다
+  const invalid = validateListCondition({ search, tags });
+  if (invalid) return { error: { status: 400, message: invalid } };
+  // 조건 없이 부르면 그 종류의 내 콘텐츠 전체가 대상이 된다. 받지 않는다
+  if (!search.trim() && !parseTagIds(tags).ids.length) {
+    return { error: { status: 400, message: '삭제할 조건(검색어나 태그)이 필요합니다' } };
+  }
+  const filter = await buildMediaListFilter(type, req.user._id, { search, tags });
+  const docs = await MEDIA_MODELS[type].find(filter).select(BULK_FILTER_SELECT).lean();
+  return { type, docs };
+}
+
+router.post('/bulk-delete-by-filter/preview', requireAuth, async (req, res) => {
+  try {
+    const target = await resolveBulkFilterTarget(req);
+    if (target.error) return res.status(target.error.status).json({ message: target.error.message });
+    res.json({ success: true, data: { count: target.docs.length, digest: digestOfIds(target.docs) } });
+  } catch (error) {
+    console.error('Bulk delete preview error:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
   try {
-    const { type, search = '', tags = '', deleteJob = false, expectedCount } = req.body || {};
-    const userId = req.user._id;
-
-    if (!MEDIA_TYPES.includes(type)) {
-      return res.status(400).json({ message: 'Invalid type' });
-    }
-    // 형식이 틀린 조건을 "조건 없음"으로 읽으면 삭제 범위가 전체로 넓어진다
-    if (typeof search !== 'string' || typeof tags !== 'string') {
-      return res.status(400).json({ message: 'search 와 tags 는 문자열이어야 합니다' });
-    }
+    const { deleteJob = false, expectedDigest } = req.body || {};
     if (typeof deleteJob !== 'boolean') {
       return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
     }
-    const { ids: tagIds, invalid: invalidTags } = parseTagIds(tags);
-    if (invalidTags.length) {
-      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
+    if (typeof expectedDigest !== 'string' || !/^[0-9a-f]{64}$/.test(expectedDigest)) {
+      return res.status(400).json({ message: 'expectedDigest 가 필요합니다 — 먼저 /bulk-delete-by-filter/preview 로 대상을 확인하세요' });
     }
-    // 조건 없이 부르면 그 종류의 내 콘텐츠 전체가 대상이 된다. 받지 않는다
-    if (!search.trim() && !tagIds.length) {
-      return res.status(400).json({ message: '삭제할 조건(검색어나 태그)이 필요합니다' });
-    }
-    if (!Number.isInteger(expectedCount) || expectedCount < 0) {
-      return res.status(400).json({ message: 'expectedCount(목록에서 확인한 건수)가 필요합니다' });
-    }
+    const target = await resolveBulkFilterTarget(req);
+    if (target.error) return res.status(target.error.status).json({ message: target.error.message });
+    const { type, docs } = target;
 
-    const filter = await buildMediaListFilter(type, userId, { search, tags });
-    const docs = await MEDIA_MODELS[type].find(filter).select('_id path tags jobId isReferenced referencedBy').lean();
-
-    if (docs.length !== expectedCount) {
+    if (digestOfIds(docs) !== expectedDigest) {
       return res.status(409).json({
-        message: `목록이 바뀌었습니다. 확인한 건수는 ${expectedCount}개인데 지금 조건에 맞는 것은 ${docs.length}개입니다. 다시 확인해 주세요`,
-        data: { matched: docs.length }
+        message: `확인한 뒤에 목록이 바뀌었습니다. 지금 조건에 맞는 것은 ${docs.length}개입니다. 다시 확인해 주세요`,
+        data: { count: docs.length }
       });
     }
     if (!docs.length) {
@@ -446,9 +460,8 @@ router.get('/uploaded', requireAuth, async (req, res) => {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    if (parseTagIds(tags).invalid.length) {
-      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
-    }
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
     // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
     const filter = await buildMediaListFilter('uploaded', req.user._id, { search, tags });
     
@@ -478,9 +491,8 @@ router.get('/generated', requireAuth, async (req, res) => {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
     
-    if (parseTagIds(tags).invalid.length) {
-      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
-    }
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
     // 일괄 삭제와 같은 함수로 조건을 만든다 (#1314)
     const filter = await buildMediaListFilter('generated', req.user._id, { search, tags });
     
@@ -788,9 +800,8 @@ router.get('/videos', requireAuth, async (req, res) => {
     const { page = 1, limit = 12, search = '', tags = '' } = req.query;
     const skip = (page - 1) * limit;
 
-    if (parseTagIds(tags).invalid.length) {
-      return res.status(400).json({ message: 'tags 에 id 형식이 아닌 값이 있습니다' });
-    }
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
     // 화면이 태그로 좁혀 보여 주므로 영상도 태그로 거른다. 일괄 삭제와 같은 함수 (#1314)
     const filter = await buildMediaListFilter('video', req.user._id, { search, tags });
     

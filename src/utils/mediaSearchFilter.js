@@ -8,7 +8,7 @@
  * mongoose 가 정규식을 ObjectId 로 바꾸려다 실패한다. 이름이 검색어와 맞는 내 태그의 id 를
  * 먼저 찾고, 그 id 로 거른다.
  */
-const mongoose = require('mongoose');
+const crypto = require('crypto');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('./escapeRegex');
 
@@ -45,8 +45,34 @@ async function buildMediaSearchOr(userId, search, { tags = false, prompt = false
 function parseTagIds(tags) {
   if (typeof tags !== 'string') return { ids: [], invalid: [] };
   const parts = tags.split(',').map((t) => t.trim()).filter(Boolean);
-  const ids = parts.filter((t) => mongoose.isValidObjectId(t) && String(t).length === 24);
-  return { ids, invalid: parts.filter((t) => !ids.includes(t)) };
+  const ids = parts.filter(isObjectIdString).map((t) => t.toLowerCase());
+  return { ids, invalid: parts.filter((t) => !isObjectIdString(t)) };
+}
+
+/** 24자 16진 문자열인가 — 12자 문자열 · 객체 · 숫자는 id 로 치지 않는다 */
+function isObjectIdString(v) {
+  return typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v);
+}
+
+/**
+ * 삭제 대상 집합의 지문. 확인창이 본 대상과 지우려는 대상이 같은지 견준다 —
+ * 건수만 견주면 그 사이 한 건이 빠지고 다른 한 건이 들어온 것을 놓친다.
+ * @param {Array<{_id: *}>} docs
+ */
+function digestOfIds(docs) {
+  const ids = docs.map((d) => String(d._id)).sort();
+  return crypto.createHash('sha256').update(ids.join(',')).digest('hex');
+}
+
+/**
+ * 목록 · 일괄 삭제 요청의 search · tags 형식 검사. 형식이 틀린 값을 "조건 없음"으로 읽지 않는다.
+ * @returns {string|null} 틀렸으면 사유
+ */
+function validateListCondition({ search, tags }) {
+  if (search !== undefined && typeof search !== 'string') return 'search 는 문자열이어야 합니다';
+  if (tags !== undefined && typeof tags !== 'string') return 'tags 는 쉼표로 이은 문자열이어야 합니다';
+  if (parseTagIds(tags).invalid.length) return 'tags 에 id 형식이 아닌 값이 있습니다';
+  return null;
 }
 
 /**
@@ -64,4 +90,6 @@ async function buildMediaListFilter(type, userId, { search = '', tags = '' } = {
   return filter;
 }
 
-module.exports = { buildMediaSearchOr, buildMediaListFilter, parseTagIds, MEDIA_TYPES };
+module.exports = {
+  buildMediaSearchOr, buildMediaListFilter, parseTagIds, isObjectIdString, digestOfIds, validateListCondition, MEDIA_TYPES,
+};
