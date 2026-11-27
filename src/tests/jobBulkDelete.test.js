@@ -108,6 +108,12 @@ describe('POST /api/jobs/bulk-delete (#902)', () => {
       expect(deleteJobRecord).toHaveBeenCalledWith(JOBS[ID.own1], { deleteContent: passed });
     });
 
+    test('deleteContent 를 쿼리로 보내면 400 — 본문에 없다고 꺼짐으로 읽고 지우지 않는다', async () => {
+      const res = await request(app).post('/api/jobs/bulk-delete?deleteContent=false').send({ ids: [ID.own1] });
+      expect(res.status).toBe(400);
+      expect(deleteJobRecord).not.toHaveBeenCalled();
+    });
+
     test('대문자 id 도 같은 작업이다', async () => {
       const res = await request(app).post('/api/jobs/bulk-delete').send({ ids: [ID.own1.toUpperCase()] });
       expect(res.body.deleted).toBe(1);
@@ -145,6 +151,12 @@ describe('DELETE /api/jobs/:id — deleteContent 쿼리 값 (#1323)', () => {
     const res = await del(ID.own1, q);
     expect(res.status).toBe(400);
     expect(ImageGenerationJob.findById).not.toHaveBeenCalled();
+    expect(deleteJobRecord).not.toHaveBeenCalled();
+  });
+
+  test('deleteContent 를 본문으로 보내면 400 — 쿼리에 없다고 꺼짐으로 읽고 지우지 않는다', async () => {
+    const res = await request(app).delete(`/api/jobs/${ID.own1}`).send({ deleteContent: false });
+    expect(res.status).toBe(400);
     expect(deleteJobRecord).not.toHaveBeenCalled();
   });
 

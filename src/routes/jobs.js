@@ -32,7 +32,7 @@ const { findLoraFolderViolation, findLoraFieldViolation } = require('../services
 const { findFieldValueViolation } = require('../services/fieldValueGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
-const { readBodyFlag, readQueryFlag } = require('../utils/booleanFlag');
+const { readBodyFlag, readQueryFlag, misplacedFlag } = require('../utils/booleanFlag');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 
@@ -311,6 +311,8 @@ router.get('/:id', requireAuth, async (req, res) => {
 
 router.delete('/:id', requireAuth, async (req, res) => {
   try {
+    const misplaced = misplacedFlag(req.body, 'deleteContent', '쿼리');
+    if (misplaced) return res.status(400).json({ message: misplaced });
     const flag = readQueryFlag(req.query.deleteContent, 'deleteContent');
     if (!flag.ok) return res.status(400).json({ message: flag.message });
     const shouldDeleteContent = flag.value;
@@ -348,6 +350,8 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
     if (!rawIds.every((x) => typeof x === 'string' && /^[0-9a-fA-F]{24}$/.test(x))) {
       return res.status(400).json({ message: 'ids 에 id 형식이 아닌 값이 있습니다.' });
     }
+    const misplaced = misplacedFlag(req.query, 'deleteContent', '본문');
+    if (misplaced) return res.status(400).json({ message: misplaced });
     const contentFlag = readBodyFlag(req.body.deleteContent, 'deleteContent');
     if (!contentFlag.ok) return res.status(400).json({ message: contentFlag.message });
     const ids = rawIds.map((x) => x.toLowerCase());

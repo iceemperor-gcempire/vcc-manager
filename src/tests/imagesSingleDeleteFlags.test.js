@@ -104,6 +104,13 @@ describe.each(ROUTES)('DELETE %s/:id — deleteJob (#1323)', (_n, path, model) =
     expectNothingDeleted();
   });
 
+  test('deleteJob 을 본문으로 보내면 400 — 쿼리에 없다고 꺼짐으로 읽고 지우지 않는다', async () => {
+    const d = doc(); seed(d);
+    const res = await request(app).delete(`${path}/${d._id}`).send({ deleteJob: true });
+    expect(res.status).toBe(400);
+    expectNothingDeleted();
+  });
+
   test('남의 것은 403 이고 아무것도 지우지 않는다 — deleteJob=true 여도', async () => {
     const d = doc({ userId: oid() }); seed(d);
     expect((await del(d._id, '?deleteJob=true')).status).toBe(403);

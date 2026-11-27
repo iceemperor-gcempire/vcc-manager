@@ -22,4 +22,17 @@ function readQueryFlag(value, name) {
   return { ok: false, message: `${name} 은 true 또는 false 여야 합니다` };
 }
 
-module.exports = { readBodyFlag, readQueryFlag };
+/**
+ * 값이 읽지 않는 자리에 실려 왔는가 — 쿼리로 받는 값을 본문에 넣었거나 그 반대.
+ * 그대로 두면 "값 없음 = 꺼짐"으로 읽고 지나가므로, 보낸 쪽이 뜻한 것과 다르게 지워질 수 있다.
+ * @param {object} elsewhere 이 값을 읽지 않는 쪽 (req.body 또는 req.query)
+ * @returns {string|null} 실려 왔으면 사유
+ */
+function misplacedFlag(elsewhere, name, where) {
+  if (elsewhere && typeof elsewhere === 'object' && elsewhere[name] !== undefined) {
+    return `${name} 은 ${where} 로 보내야 합니다`;
+  }
+  return null;
+}
+
+module.exports = { readBodyFlag, readQueryFlag, misplacedFlag };
