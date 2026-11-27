@@ -70,8 +70,8 @@ test('기본값도 없고 aiModel 도 없으면 비워 둔다 — 필수 칸 검
 });
 
 test('additionalParams 에 칸 값을 직접 넣었으면 그 값이 우선이고, 다른 aiModel 은 경고로 알린다', () => {
-  const r = applyBaseModel(WB, { base_model: 'qwen/explicit.safetensors' }, 'qwen/picked.safetensors');
-  assert.equal(r.additionalParams.base_model, 'qwen/explicit.safetensors');
+  const r = applyBaseModel(WB, { base_model: 'qwen/qwen_image_2.1_int8_convrot.safetensors' }, 'qwen/picked.safetensors');
+  assert.equal(r.additionalParams.base_model, 'qwen/qwen_image_2.1_int8_convrot.safetensors');
   assert.equal(r.warnings.length, 1);
   assert.match(r.warnings[0], /aiModel "qwen\/picked\.safetensors" was ignored/);
 });

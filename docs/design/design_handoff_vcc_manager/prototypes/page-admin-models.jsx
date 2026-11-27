@@ -465,7 +465,7 @@ function AdminModelsPage({ mobile }) {
     { name: "anime-line-clean",              filename: "anime-line-clean.safetensors",              kind: "lora",       baseModel: "sdxl",        size: "144MB",  server: "comfy-01", uses: 156, hue: 200, popular: true },
     { name: "rusty-blood-era",               filename: "rusty-blood-era.safetensors",               kind: "lora",       baseModel: "illustrious", size: "160MB",  server: "comfy-01", uses: 41,  hue: 20 },
     { name: "frost-mage-v2",                 filename: "frost-mage-v2.safetensors",                 kind: "lora",       baseModel: "sdxl",        size: "152MB",  server: "comfy-01", uses: 28,  hue: 220 },
-    { name: "boudoir-style-v3",              filename: "boudoir-style-v3.safetensors",              kind: "lora",       baseModel: "pony",        size: "148MB",  server: "comfy-01", uses: 12,  hue: 0,   nsfw: true },
+    { name: "portrait-style-v3",              filename: "portrait-style-v3.safetensors",              kind: "lora",       baseModel: "pony",        size: "148MB",  server: "comfy-01", uses: 12,  hue: 0,   nsfw: true },
     { name: "4xUltraSharp",                  filename: "4x-UltraSharp.pth",                         kind: "upscaler",                              size: "67MB",   server: "comfy-01", uses: 412, hue: 50 },
     { name: "Anime6B",                       filename: "RealESRGAN_x4plus_anime_6B.pth",            kind: "upscaler",                              size: "18MB",   server: "comfy-01", uses: 248, hue: 80 },
     { name: "sdxl-vae-fp16-fix",             filename: "sdxl_vae_fp16_fix.safetensors",            kind: "vae",                                   size: "335MB",  server: "comfy-01", uses: 412, hue: 180 },

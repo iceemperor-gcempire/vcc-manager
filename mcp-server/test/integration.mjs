@@ -2,7 +2,7 @@
 // MCP 통합 테스트 (#448, #1178) — 실제 MCP 서버에 Streamable HTTP 로 접속해 도구를 부른다.
 //
 // 실행:
-//   MCP_TEST_URL=https://alpha-vccm-mcp.gcempire.net/mcp MCP_TEST_API_KEY=<vccm_ 키> node test/integration.mjs
+//   MCP_TEST_URL=https://mcp.example.com/mcp MCP_TEST_API_KEY=<vccm_ 키> node test/integration.mjs
 //   (저장소 루트에서) pnpm --dir mcp-server test:integration
 //
 // 환경변수:

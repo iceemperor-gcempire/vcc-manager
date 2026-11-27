@@ -95,7 +95,7 @@ describe('searchServerModels — allowedFolders', () => {
       { filename: 'qwen\\qwen_image_2.1_int8_convrot.safetensors', source: 'diffusion_models', civitai: { found: false } },
       { filename: 'Z-Image\\z_image_turbo_bf16.safetensors', source: 'diffusion_models', civitai: { found: true, baseModel: 'ZImageTurbo' } },
       { filename: 'Krea2\\krea2_turbo_int8_convrot.safetensors', source: 'diffusion_models', civitai: { found: false } },
-      { filename: 'Krea2\\moodyKrea2Mix_v70.safetensors', source: 'diffusion_models', civitai: { found: true, baseModel: 'Krea 2' } },
+      { filename: 'Krea2\\krea2TurboOfficialComfy_krea2TurboInt8.safetensors', source: 'diffusion_models', civitai: { found: true, baseModel: 'Krea 2' } },
       { filename: 'IXL\\wai.safetensors', source: 'checkpoints', civitai: { found: true, baseModel: 'Illustrious' } },
     ],
   };
@@ -109,7 +109,7 @@ describe('searchServerModels — allowedFolders', () => {
   test('모델 종류 제한과 겹쳐 적용된다 (AND)', async () => {
     ServerModelCache.findOne.mockResolvedValue(cache);
     const r = await modelMetadataService.searchServerModels('srv', { allowedFolders: ['Krea2/'], allowedBaseModels: ['Krea 2'] });
-    expect(r.models.map((m) => m.filename)).toEqual(['Krea2\\moodyKrea2Mix_v70.safetensors']);
+    expect(r.models.map((m) => m.filename)).toEqual(['Krea2\\krea2TurboOfficialComfy_krea2TurboInt8.safetensors']);
   });
 
   test('폴더 후보는 로더 폴더로 좁힌 뒤, 다른 거름 전에 뽑는다', async () => {
@@ -132,9 +132,9 @@ describe('findModelFolderViolation — 실행 거절', () => {
   };
 
   test('폴더 밖이면 허용 폴더와 받은 값을 알려 준다', () => {
-    const msg = findModelFolderViolation(wb, { additionalParams: { base_model: 'Z-Image\\pornmasterZImage_turboV01.safetensors' } });
+    const msg = findModelFolderViolation(wb, { additionalParams: { base_model: 'Z-Image\\z_image_turbo_bf16.safetensors' } });
     expect(msg).toContain('qwen/');
-    expect(msg).toContain('Z-Image\\pornmasterZImage_turboV01.safetensors');
+    expect(msg).toContain('Z-Image\\z_image_turbo_bf16.safetensors');
   });
 
   test('폴더 안이면 통과 — {key,value} 객체 값도', () => {
