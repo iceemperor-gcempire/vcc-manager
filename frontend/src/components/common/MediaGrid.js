@@ -465,7 +465,7 @@ function MediaGrid({
         <Box mb={3}>
           <TextField
             fullWidth
-            placeholder="이미지 이름이나 태그로 검색..."
+            placeholder="이름이나 태그로 검색..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             InputProps={{
