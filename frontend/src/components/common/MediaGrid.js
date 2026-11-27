@@ -349,6 +349,9 @@ function AudioList({ items, onDelete, readOnly }) {
   );
 }
 
+const EMPTY_ITEMS = Object.freeze([]);
+const EMPTY_PAGINATION = Object.freeze({});
+
 function MediaGrid({
   type,
   fetchFn = null,
@@ -397,26 +400,33 @@ function MediaGrid({
   // extraQuery 변화 시 자동으로 새 쿼리 — queryKey 에 직렬화 포함
   const extraQueryKey = extraQuery ? JSON.stringify(extraQuery) : '';
   useEffect(() => { setPage(1); }, [extraQueryKey]);
-  const { data, isLoading } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData, ...(staleTime !== undefined && { staleTime }) });
+  const { data, isLoading, isPlaceholderData } = useQuery({ queryKey: [actualQueryKey, search, page, pageSize, extraQueryKey], queryFn: () => actualFetchFn({ search: search || undefined, page, limit: pageSize, ...(extraQuery || {}) }), placeholderData: keepPreviousData, ...(staleTime !== undefined && { staleTime }) });
 
   const defaultExtractor = (data) => {
     const d = data?.data?.data || data?.data || {};
     let items;
-    if (type === 'video') items = d.videos || [];
-    else if (type === 'audio' || type === 'uploadedAudio') items = d.audios || [];   // #805
-    else items = d.images || [];
-    return { items, pagination: d.pagination || {} };
+    if (type === 'video') items = d.videos;
+    else if (type === 'audio' || type === 'uploadedAudio') items = d.audios;   // #805
+    else items = d.images;
+    // 응답이 오기 전에는 늘 같은 빈 값을 돌려준다 — 매 렌더마다 새 [] · {} 를 만들면 아래 onStateChange 가
+    // 렌더마다 불려 부모와 서로를 계속 다시 그린다 (#1314)
+    return { items: items || EMPTY_ITEMS, pagination: d.pagination || EMPTY_PAGINATION };
   };
 
   const extractor = responseExtractor || defaultExtractor;
   const { items, pagination } = extractor(data);
 
-  // onStateChange 콜백
+  // onStateChange 콜백 — 내용이 같으면 다시 부르지 않는다. 추출기가 렌더마다 새 배열 · 객체를 만들어도
+  // (ProjectDetail 의 responseExtractor 처럼) 부모와 서로를 끝없이 다시 그리지 않게, 값으로 견준다 (#1314)
+  const itemsKey = items.map((item) => item?._id).join(',');
+  const paginationKey = JSON.stringify(pagination || {});
   useEffect(() => {
     if (onStateChange) {
-      onStateChange({ items, search, pagination });
+      // tags · isStale — 이 목록이 어떤 조건의 응답인지. 조건을 바꾼 직후에는 예전 목록이 잠깐 남는다(keepPreviousData).
+      // 일괄 삭제는 화면에 보인 것과 같은 범위만 지워야 해서 이걸 본다
+      onStateChange({ items, search, pagination, tags: extraQuery?.tags || '', isStale: isLoading || isPlaceholderData });
     }
-  }, [items, search, pagination]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemsKey, search, paginationKey, extraQueryKey, isLoading, isPlaceholderData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleView = (media) => {
     if (selectable) {

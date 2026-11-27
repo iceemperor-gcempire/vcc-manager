@@ -1170,7 +1170,9 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
       
       const ext = getExtensionFromMimeType(itemData.mimeType) || itemData.filename?.split('.').pop()
         || ({ video: 'mp4', audio: 'flac' }[mediaType] || 'png');
-      const filename = `generated_${Date.now()}_${i}.${ext}`;
+      // 작업을 여러 개 함께 처리하므로 시각 · 순번만으로는 이름이 겹칠 수 있다. 겹치면 두 결과가 한 파일을
+      // 나눠 갖고, 하나를 지울 때 다른 하나의 파일도 사라진다 — 무작위 조각을 붙인다 (#1314)
+      const filename = `generated_${Date.now()}_${i}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
       const targetDir = path.join(process.env.UPLOAD_PATH || './uploads', subDir);
       
       await fs.promises.mkdir(targetDir, { recursive: true });

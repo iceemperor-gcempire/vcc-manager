@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Container,
   Typography,
@@ -38,6 +38,7 @@ import MediaGrid from '../components/common/MediaGrid';
 import TextContentPanel from '../components/common/TextContentPanel';
 import PageHeader from '../components/common/PageHeader';
 import { useConfirm } from '../components/common/ConfirmDialog';
+import { BULK_DELETE_TYPES, snapshotForBulkDelete, buildBulkDeleteFilters, describeCondition } from '../utils/bulkDeleteByFilter';
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
 // 클릭으로 selectedTagIds 토글. backend 변경 없이 기존 ?tags=... CSV 로 필터.
@@ -410,6 +411,9 @@ function MyImages() {
   const [mediaState, setMediaState] = useState({ items: [], search: '', pagination: {} });
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmType, setConfirmType] = useState('selected'); // 'selected' | 'allFiltered'
+  // 확인창을 열 때 고정하는 삭제 대상 — 그 뒤 화면(탭 · 검색어 · 태그 · 선택)이 바뀌어도 요청은 이것으로만 만든다 (#1314)
+  const [deleteSnapshot, setDeleteSnapshot] = useState(null);     // 전체 삭제: { type, search, tags, count, digest }
+  const [selectedSnapshot, setSelectedSnapshot] = useState(null); // 선택 삭제: { type, ids }
   const [deleteJobChecked, setDeleteJobChecked] = useState(false);
 
   const queryClient = useQueryClient();
@@ -475,7 +479,14 @@ function MyImages() {
         setSelectedIds(new Set());
         setConfirmOpen(false);
       },
-      onError: () => toast.error('일괄 삭제 실패') });
+      onError: (error) => {
+        // 409 — 확인한 뒤에 목록이 바뀌었다. 지우지 않았으니 목록을 다시 받아 보여 준다 (#1314)
+        toast.error(error?.response?.data?.message || '일괄 삭제 실패');
+        if (error?.response?.status === 409) {
+          queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKeyForTab()) ? getQueryKeyForTab() : [getQueryKeyForTab()] });
+          setConfirmOpen(false);
+        }
+      } });
 
   const handleEdit = (image) => {
     setEditImage(image);
@@ -539,20 +550,28 @@ function MyImages() {
   const isTextTab = tab === 3 || tab === 4;
 
   // Bulk mode handlers
+  const listIsStale = !!mediaState.isStale;
   const handleBulkToggle = useCallback((id) => {
+    if (listIsStale) return; // 새 목록을 기다리는 동안에는 고르지 않는다 (#1314)
     setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [listIsStale]);
 
   const handleSelectAllPage = () => {
+    // 조건 · 페이지를 바꾼 직후에는 예전 목록이 잠깐 남는다 — 그걸 고르지 않는다 (#1314)
+    if (mediaState.isStale) return;
     const next = new Set(selectedIds);
     mediaState.items.forEach(item => next.add(item._id));
     setSelectedIds(next);
   };
+
+  // 검색어 · 태그가 바뀌면 고른 것을 비운다 — 화면에서 사라진 항목이 고른 채로 남아 함께 지워지지 않게 (#1314)
+  const listConditionKey = `${mediaState.search || ''}\u0000${mediaState.tags || ''}`;
+  useEffect(() => { setSelectedIds(new Set()); }, [listConditionKey]);
 
   const handleDeselectAll = () => {
     setSelectedIds(new Set());
@@ -566,18 +585,29 @@ function MyImages() {
 
   const handleBulkDeleteConfirm = () => {
     if (confirmType === 'selected') {
-      const items = Array.from(selectedIds).map(id => ({ id, type: currentType }));
-      bulkDeleteMutation.mutate({ items, deleteJob: deleteJobChecked });
+      if (!selectedSnapshot || selectedSnapshot.ids.length === 0) return;
+      const items = selectedSnapshot.ids.map(id => ({ id, type: selectedSnapshot.type }));
+      bulkDeleteMutation.mutate({ items, deleteJob: deleteJobChecked === true });
     } else {
-      const filters = { deleteJob: deleteJobChecked };
-      if (mediaState.search) filters.search = mediaState.search;
-      bulkDeleteByFilterMutation.mutate({ type: currentType, filters });
+      if (!deleteSnapshot) return;
+      bulkDeleteByFilterMutation.mutate({ type: deleteSnapshot.type, filters: buildBulkDeleteFilters(deleteSnapshot, { deleteJob: deleteJobChecked }) });
     }
   };
 
   const openConfirmDialog = (type) => {
+    // 확인창이 이미 떠 있으면 새로 열지 않는다 — 떠 있는 확인창의 대상이 바뀌지 않게 (#1314)
+    if (confirmOpen) return;
+    if (type === 'allFiltered') {
+      // 목록이 준 대상 지문까지 지금 고정한다. 삭제는 서버의 지금 대상이 이 지문과 같을 때만 된다
+      const snapshot = snapshotForBulkDelete(currentType, mediaState);
+      if (!snapshot) return;
+      setDeleteSnapshot(snapshot);
+    } else {
+      if (!BULK_DELETE_TYPES.includes(currentType) || selectedIds.size === 0) return;
+      setSelectedSnapshot({ type: currentType, ids: Array.from(selectedIds) });
+    }
     setConfirmType(type);
-    setDeleteJobChecked(userPreferences.deleteHistoryWithContent || false);
+    setDeleteJobChecked(userPreferences.deleteHistoryWithContent === true);
     setConfirmOpen(true);
   };
 
@@ -590,6 +620,10 @@ function MyImages() {
   const { data: myTagsData }   = useQuery({ queryKey: ['filterRail', 'tags'], queryFn: () => tagAPI.getMy(), staleTime: 60_000 });
   const filterProjects = (projectsData?.data?.data?.projects || projectsData?.data?.projects || []).filter((p) => !!p.tagId);
   const filterTags = (myTagsData?.data?.data?.tags || myTagsData?.data?.tags || []).filter((t) => !t.isProjectTag);
+
+  // 확인창에 태그 이름을 적으려고 (#1314)
+  // 프로젝트도 태그 id 로 거르므로 이름에 함께 넣는다
+  const tagNameById = Object.fromEntries([...filterTags.map((t) => [t._id, t.name]), ...filterProjects.map((p) => [p.tagId?._id || p.tagId, p.name])]);
 
   const toggleTagFilter = (tagId) => {
     setSelectedTagIds((prev) => {
@@ -650,13 +684,16 @@ function MyImages() {
                 업로드
               </Button>
             )}
-            <Button
-              variant="outlined"
-              startIcon={<CheckBoxIcon />}
-              onClick={() => setBulkMode(true)}
-            >
-              선택
-            </Button>
+            {/* 일괄 삭제는 이미지 · 영상만 된다. 음악 탭에서는 골라도 서버가 지우지 않으므로 버튼을 내지 않는다 (#1314) */}
+            {BULK_DELETE_TYPES.includes(currentType) && (
+              <Button
+                variant="outlined"
+                startIcon={<CheckBoxIcon />}
+                onClick={() => setBulkMode(true)}
+              >
+                선택
+              </Button>
+            )}
           </Box>
         )}
       />
@@ -673,7 +710,7 @@ function MyImages() {
             선택 모드 종료
           </Button>
           <Chip label={`${selectedIds.size}개 선택됨`} color="primary" variant="outlined" />
-          <Button startIcon={<SelectAll />} onClick={handleSelectAllPage}>
+          <Button startIcon={<SelectAll />} onClick={handleSelectAllPage} disabled={listIsStale}>
             이 페이지 전체 선택
           </Button>
           <Button startIcon={<Deselect />} onClick={handleDeselectAll} disabled={selectedIds.size === 0}>
@@ -688,13 +725,13 @@ function MyImages() {
           >
             선택 삭제
           </Button>
-          {mediaState.search && mediaState.pagination?.total > 0 && (
+          {snapshotForBulkDelete(currentType, mediaState) && (
             <Button
               variant="outlined"
               color="error"
               onClick={() => openConfirmDialog('allFiltered')}
             >
-              검색된 {mediaState.pagination.total}개 모두 삭제
+              {mediaState.search?.trim() ? '검색된' : '태그로 고른'} {mediaState.pagination.total}개 모두 삭제
             </Button>
           )}
         </Box>
@@ -799,13 +836,13 @@ function MyImages() {
           {confirmType === 'selected' ? '선택한 항목 삭제' : '검색 결과 전체 삭제'}
         </DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>
+          <Typography gutterBottom sx={{ whiteSpace: 'pre-wrap' }}>
             {confirmType === 'selected'
-              ? `선택한 ${selectedIds.size}개 항목을 삭제합니다.`
-              : `검색된 ${mediaState.pagination?.total || 0}개 항목을 모두 삭제합니다.`
+              ? `선택한 ${selectedSnapshot?.ids.length || 0}개 항목을 삭제합니다.`
+              : `${describeCondition(deleteSnapshot, tagNameById)} 조건에 맞는 ${deleteSnapshot?.count || 0}개 항목을 모두 삭제합니다.`
             }
           </Typography>
-          {currentType !== 'uploaded' && (
+          {(confirmType === 'selected' ? selectedSnapshot?.type : deleteSnapshot?.type) !== 'uploaded' && (
             <FormControlLabel
               control={
                 <Checkbox
