@@ -91,7 +91,7 @@ describe('buildMediaListFilter — 목록과 일괄 삭제가 함께 쓰는 조�
   const tagId = String(new mongoose.Types.ObjectId());
   beforeEach(() => tagFind([]));
 
-  test.each(['uploaded', 'generated', 'video'])('%s: 조건이 없어도 userId 는 늘 들어간다', async (type) => {
+  test.each(['uploaded', 'generated', 'video', 'audio', 'uploadedVideo', 'uploadedAudio'])('%s: 조건이 없어도 userId 는 늘 들어간다', async (type) => {
     expect(await buildMediaListFilter(type, userId)).toEqual({ userId });
   });
 
@@ -102,14 +102,23 @@ describe('buildMediaListFilter — 목록과 일괄 삭제가 함께 쓰는 조�
     expect(f.$or).toHaveLength(2);
   });
 
-  test('영상도 태그로 거른다 — 검색어는 이름과 프롬프트만 본다', async () => {
-    const f = await buildMediaListFilter('video', userId, { search: 'cat', tags: tagId });
+  test.each([
+    ['uploaded', false], ['generated', true], ['video', true], ['audio', true], ['uploadedVideo', false], ['uploadedAudio', false],
+  ])('%s: 이름과 내 태그 이름으로 찾고, 프롬프트는 생성물만 (%p)', async (type, prompt) => {
+    const matched = new mongoose.Types.ObjectId();
+    tagFind([{ _id: matched }]);
+    const f = await buildMediaListFilter(type, userId, { search: 'cat', tags: tagId });
+    expect(Tag.find).toHaveBeenCalledWith({ userId, name: { $regex: 'cat', $options: 'i' } });
     expect(f.tags).toEqual({ $in: [tagId] });
     expect(f.$or).toEqual([
       { originalName: { $regex: 'cat', $options: 'i' } },
-      { 'generationParams.prompt': { $regex: 'cat', $options: 'i' } },
+      { tags: { $in: [matched] } },
+      ...(prompt ? [{ 'generationParams.prompt': { $regex: 'cat', $options: 'i' } }] : []),
     ]);
-    expect(Tag.find).not.toHaveBeenCalled();
+  });
+
+  test('모르는 종류는 조건을 만들지 않고 던진다 (소유자만 걸린 넓은 조건이 나가지 않는다)', async () => {
+    await expect(buildMediaListFilter('text', userId, { search: 'cat' })).rejects.toThrow('모르는 콘텐츠 종류');
   });
 
   test('쉼표뿐인 태그는 조건을 만들지 않는다 (빈 $in 으로 바뀌지 않는다)', async () => {

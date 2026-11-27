@@ -12,13 +12,20 @@ const crypto = require('crypto');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('./escapeRegex');
 
-/** 종류마다 검색어가 닿는 곳. 영상은 태그 이름으로는 찾지 않는다 (원래 동작) */
+/**
+ * 종류마다 검색어가 닿는 곳. 이름은 늘 찾고, 내 태그 이름은 전부, 프롬프트는 생성물만.
+ * 종류를 새로 넣으면 여기에 넣는다 — 목록 라우트가 이 표로 조건을 만든다 (#1321)
+ */
 const SEARCH_SCOPE = {
   uploaded: { tags: true },
   generated: { tags: true, prompt: true },
-  video: { prompt: true },
+  video: { tags: true, prompt: true },
+  audio: { tags: true, prompt: true },
+  uploadedVideo: { tags: true },
+  uploadedAudio: { tags: true },
 };
-const MEDIA_TYPES = Object.keys(SEARCH_SCOPE);
+/** 일괄 삭제(`POST /api/images/bulk-delete*`)가 받는 종류 — 목록 종류보다 좁다 */
+const MEDIA_TYPES = ['uploaded', 'generated', 'video'];
 
 /**
  * @param {*} userId
@@ -77,11 +84,12 @@ function validateListCondition({ search, tags }) {
 
 /**
  * 목록과 일괄 삭제가 함께 쓰는 조건.
- * @param {'uploaded'|'generated'|'video'} type
+ * @param {keyof SEARCH_SCOPE} type
  * @param {*} userId 늘 조건에 들어간다
  * @param {{ search?: string, tags?: string }} [cond]
  */
 async function buildMediaListFilter(type, userId, { search = '', tags = '' } = {}) {
+  if (!SEARCH_SCOPE[type]) throw new Error(`모르는 콘텐츠 종류: ${type}`);
   const filter = { userId };
   const or = await buildMediaSearchOr(userId, search, SEARCH_SCOPE[type]);
   if (or) filter.$or = or;

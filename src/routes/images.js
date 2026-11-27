@@ -12,7 +12,6 @@ const GeneratedVideo = require('../models/GeneratedVideo');
 const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
-const { escapeRegex } = require('../utils/escapeRegex');
 const {
   buildMediaListFilter, parseTagIds, isObjectIdString, digestOfIds, validateListCondition, MEDIA_TYPES,
 } = require('../utils/mediaSearchFilter');
@@ -368,30 +367,15 @@ router.post('/upload-video', requireAuth, videoUpload.single('video'), async (re
 // 업로드한 참조 비디오 목록 (#753)
 router.get('/uploaded-videos', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 12, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 12, search = '', tags = '' } = req.query;
 
-    const filter = { userId: req.user._id };
-    if (search) {
-      filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
-    }
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
+    // 이미지 목록과 같은 함수로 조건을 만든다 — 이름 · 태그 이름 검색과 태그 필터 (#1321)
+    const filter = await buildMediaListFilter('uploadedVideo', req.user._id, { search, tags });
+    const { items, pagination } = await listMediaPage(UploadedVideo, filter, { page, limit, search, tags, populate: [['tags']] });
 
-    const videos = await UploadedVideo.find(filter)
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await UploadedVideo.countDocuments(filter);
-
-    res.json({
-      videos,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
-      }
-    });
+    res.json({ videos: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -465,30 +449,15 @@ router.post('/upload-audio', requireAuth, audioUpload.single('audio'), async (re
 // 업로드한 참조 오디오 목록 (#772)
 router.get('/uploaded-audios', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 12, search = '' } = req.query;
-    const skip = (page - 1) * limit;
+    const { page = 1, limit = 12, search = '', tags = '' } = req.query;
 
-    const filter = { userId: req.user._id };
-    if (search) {
-      filter.originalName = { $regex: escapeRegex(search), $options: 'i' };
-    }
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
+    // 이미지 목록과 같은 함수로 조건을 만든다 — 이름 · 태그 이름 검색과 태그 필터 (#1321)
+    const filter = await buildMediaListFilter('uploadedAudio', req.user._id, { search, tags });
+    const { items, pagination } = await listMediaPage(UploadedAudio, filter, { page, limit, search, tags, populate: [['tags']] });
 
-    const audios = await UploadedAudio.find(filter)
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-
-    const total = await UploadedAudio.countDocuments(filter);
-
-    res.json({
-      audios,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
-      }
-    });
+    res.json({ audios: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -973,35 +942,15 @@ router.post('/videos/:id/download', async (req, res) => {
 // ── 생성 오디오 (#805) — 생성 비디오와 대칭. 썸네일이 없어 thumbnailUrl 관련 처리가 없다 ──
 router.get('/audios', requireAuth, async (req, res) => {
   try {
-    const { page = 1, limit = 12, search = '' } = req.query;
-    const skip = (page - 1) * limit;
-    
-    const filter = { userId: req.user._id };
-    
-    if (search) {
-      filter.$or = [
-        { originalName: { $regex: escapeRegex(search), $options: 'i' } },
-        { 'generationParams.prompt': { $regex: escapeRegex(search), $options: 'i' } }
-      ];
-    }
-    
-    const audios = await GeneratedAudio.find(filter)
-      .populate('jobId', 'createdAt')
-      .populate('tags')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
-    
-    const total = await GeneratedAudio.countDocuments(filter);
-    
-    res.json({
-      audios,
-      pagination: {
-        current: parseInt(page),
-        pages: Math.ceil(total / limit),
-        total
-      }
-    });
+    const { page = 1, limit = 12, search = '', tags = '' } = req.query;
+
+    const invalidCondition = validateListCondition({ search, tags });
+    if (invalidCondition) return res.status(400).json({ message: invalidCondition });
+    // 이미지 목록과 같은 함수로 조건을 만든다 — 이름 · 태그 이름 검색과 태그 필터 (#1321)
+    const filter = await buildMediaListFilter('audio', req.user._id, { search, tags });
+    const { items, pagination } = await listMediaPage(GeneratedAudio, filter, { page, limit, search, tags, populate: [['jobId', 'createdAt'], ['tags']] });
+
+    res.json({ audios: items, pagination });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

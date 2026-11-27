@@ -26,6 +26,9 @@ function mockMediaModel() {
 jest.mock('../models/UploadedImage', () => mockMediaModel());
 jest.mock('../models/GeneratedImage', () => mockMediaModel());
 jest.mock('../models/GeneratedVideo', () => mockMediaModel());
+jest.mock('../models/GeneratedAudio', () => mockMediaModel());
+jest.mock('../models/UploadedAudio', () => mockMediaModel());
+jest.mock('../models/UploadedVideo', () => mockMediaModel());
 jest.mock('../models/Tag', () => ({ find: jest.fn(), updateOne: jest.fn(async () => ({})) }));
 jest.mock('../models/ImageGenerationJob', () => ({ find: jest.fn(), deleteMany: jest.fn(async () => ({})) }));
 jest.mock('../utils/fileUpload', () => ({
@@ -36,12 +39,17 @@ jest.mock('../utils/fileUpload', () => ({
 const UploadedImage = require('../models/UploadedImage');
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
+const GeneratedAudio = require('../models/GeneratedAudio');
+const UploadedAudio = require('../models/UploadedAudio');
+const UploadedVideo = require('../models/UploadedVideo');
 const Tag = require('../models/Tag');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const { deleteFile } = require('../utils/fileUpload');
 
 const MEDIA = { uploaded: UploadedImage, generated: GeneratedImage, video: GeneratedVideo };
 const ALL = Object.values(MEDIA);
+// 목록만 있고 일괄 삭제는 없는 종류
+const LIST_ONLY = { audio: GeneratedAudio, uploadedAudio: UploadedAudio, uploadedVideo: UploadedVideo };
 
 // find() 결과는 thenable 이면서 select().lean() · lean() 체인도 받는다 (두 라우트가 다르게 부른다)
 const found = (docs) => {
@@ -92,7 +100,7 @@ beforeAll(() => {
 beforeEach(() => {
   jest.clearAllMocks();
   Tag.find.mockReturnValue({ select: () => ({ lean: async () => [] }) });
-  for (const M of ALL) seed(M, []);
+  for (const M of [...ALL, ...Object.values(LIST_ONLY)]) seed(M, []);
   activeJobs([]);
   jest.spyOn(console, 'error').mockImplementation(() => {});
 });
@@ -391,6 +399,99 @@ describe('목록 API 와 일괄 삭제는 같은 범위를 본다', () => {
   ])('목록: %s → 400 (조건을 버리고 전체를 보여 주지 않는다)', async (_n, url) => {
     const res = await request(app).get(url);
     expect(res.status).toBe(400);
+  });
+});
+
+describe('목록 검색 — 여섯 종류가 같은 방식으로 찾는다 (#1321)', () => {
+  const LISTS = [
+    ['생성 이미지', '/api/images/generated', 'images', () => GeneratedImage, true],
+    ['업로드 이미지', '/api/images/uploaded', 'images', () => UploadedImage, false],
+    ['영상', '/api/images/videos', 'videos', () => GeneratedVideo, true],
+    ['생성 음악', '/api/images/audios', 'audios', () => GeneratedAudio, true],
+    ['업로드 음악', '/api/images/uploaded-audios', 'audios', () => UploadedAudio, false],
+    ['업로드 영상', '/api/images/uploaded-videos', 'videos', () => UploadedVideo, false],
+  ];
+  const ids = (res, key) => res.body[key].map((d) => String(d._id)).sort();
+
+  describe.each(LISTS)('%s', (_n, path, key, model, hasPrompt) => {
+    test('검색어가 내 태그 이름과 맞으면 그 태그가 붙은 것이 나온다', async () => {
+      const tagId = oid();
+      Tag.find.mockReturnValue({ select: () => ({ lean: async () => [{ _id: tagId }] }) });
+      const tagged = mine({ originalName: 'dog.bin', tags: [tagId] });
+      seed(model(), [tagged, mine({ originalName: 'dog.bin' }), mine({ originalName: 'dog.bin', tags: [oid()] })]);
+      const res = await request(app).get(path).query({ search: '풍경' });
+      expect(res.status).toBe(200);
+      expect(Tag.find).toHaveBeenCalledWith({ userId: me, name: { $regex: '풍경', $options: 'i' } });
+      expect(ids(res, key)).toEqual([String(tagged._id)]);
+      expect(res.body.pagination.total).toBe(1);
+    });
+
+    test('이름으로 찾는다', async () => {
+      const hit = mine();
+      seed(model(), [hit, mine({ originalName: 'dog.bin' })]);
+      const res = await request(app).get(path).query({ search: 'CAT' });
+      expect(ids(res, key)).toEqual([String(hit._id)]);
+    });
+
+    test(hasPrompt ? '프롬프트로도 찾는다' : '프롬프트로는 찾지 않는다 (업로드한 것)', async () => {
+      const byPrompt = mine({ originalName: 'x.bin', generationParams: { prompt: 'a cat' } });
+      seed(model(), [byPrompt]);
+      const res = await request(app).get(path).query({ search: 'cat' });
+      expect(ids(res, key)).toEqual(hasPrompt ? [String(byPrompt._id)] : []);
+    });
+
+    test('태그 필터를 걸면 그 태그가 붙은 것만 나온다', async () => {
+      const tagId = oid();
+      const tagged = mine({ tags: [tagId] });
+      seed(model(), [tagged, mine(), mine({ tags: [oid()] })]);
+      const res = await request(app).get(path).query({ tags: String(tagId) });
+      expect(ids(res, key)).toEqual([String(tagged._id)]);
+    });
+
+    test('남의 것은 태그나 이름이 맞아도 나오지 않는다', async () => {
+      const tagId = oid();
+      Tag.find.mockReturnValue({ select: () => ({ lean: async () => [{ _id: tagId }] }) });
+      const own = mine({ tags: [tagId] });
+      seed(model(), [own, mine({ userId: oid(), tags: [tagId] })]);
+      const res = await request(app).get(path).query({ search: 'cat' });
+      expect(ids(res, key)).toEqual([String(own._id)]);
+    });
+
+    test('조건이 없으면 내 것이 모두 나오고, 형식이 틀린 조건은 400', async () => {
+      seed(model(), [mine(), mine({ originalName: 'dog.bin' }), mine({ userId: oid() })]);
+      expect((await request(app).get(path)).body.pagination.total).toBe(2);
+      expect((await request(app).get(`${path}?search=a&search=b`)).status).toBe(400);
+      expect((await request(app).get(path).query({ tags: 'nope' })).status).toBe(400);
+    });
+  });
+
+  test('영상: 태그 이름으로 찾은 목록과 일괄 삭제 대상이 같다', async () => {
+    const tagId = oid();
+    Tag.find.mockReturnValue({ select: () => ({ lean: async () => [{ _id: tagId }] }) });
+    const byTag = mine({ originalName: 'dog.mp4', tags: [tagId] });
+    const byName = mine({ originalName: '풍경.mp4' });
+    seed(GeneratedVideo, [byTag, byName, mine({ originalName: 'dog.mp4' })]);
+    const list = await request(app).get('/api/images/videos').query({ search: '풍경' });
+    expect(ids(list, 'videos')).toEqual([String(byTag._id), String(byName._id)].sort());
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'video', search: '풍경', expectedDigest: list.body.pagination.digest });
+    expect(res.status).toBe(200);
+    expect(deletedIds(GeneratedVideo).sort()).toEqual([String(byTag._id), String(byName._id)].sort());
+  });
+
+  test('영상: 목록을 본 뒤 태그 이름이 바뀌어 검색 대상이 달라지면 지우지 않는다', async () => {
+    const tagId = oid();
+    Tag.find.mockReturnValue({ select: () => ({ lean: async () => [{ _id: tagId }] }) });
+    const byTag = mine({ originalName: 'dog.mp4', tags: [tagId] });
+    seed(GeneratedVideo, [byTag, mine({ originalName: 'dog.mp4' })]);
+    const list = await request(app).get('/api/images/videos').query({ search: '풍경' });
+    expect(ids(list, 'videos')).toEqual([String(byTag._id)]);
+
+    Tag.find.mockReturnValue({ select: () => ({ lean: async () => [] }) }); // 그 사이 태그 이름이 바뀌었다 — 이제 '풍경'과 맞는 태그가 없다
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'video', search: '풍경', expectedDigest: list.body.pagination.digest });
+    expect(res.status).toBe(409);
+    expectNothingDeleted();
   });
 });
 

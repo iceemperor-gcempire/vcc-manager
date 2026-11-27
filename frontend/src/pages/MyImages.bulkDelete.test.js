@@ -72,7 +72,7 @@ beforeEach(() => {
   imageAPI.bulkDelete.mockResolvedValue({ data: { success: true, data: { deleted: 1, failed: 0, errors: [] } } });
 });
 
-const searchBox = () => screen.getByPlaceholderText('이미지 이름이나 태그로 검색...');
+const searchBox = () => screen.getByPlaceholderText('이름이나 태그로 검색...');
 const enterSelectMode = async () => fireEvent.click(await screen.findByRole('button', { name: '선택' }));
 const deleteAllButton = () => screen.queryByRole('button', { name: /모두 삭제/ });
 
