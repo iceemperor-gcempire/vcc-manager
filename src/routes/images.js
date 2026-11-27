@@ -52,15 +52,16 @@ async function findActivelyReferencedIds(docs) {
 // 찾아 둔 문서를 지운다. 여기까지 오면 대상은 이미 정해져 있다 (찾기 · 검증은 호출하는 쪽이 끝낸다)
 async function deleteMediaDocs(type, docs, { deleteJob }) {
   if (!docs.length) return [];
-  await decrementTagCounts(docs);
   // 지우지 않는 다른 문서가 같은 파일을 쓰고 있으면 그 파일은 남긴다 — 문서만 지운다.
   // 예전에 저장된 결과 중에는 파일 이름이 겹쳐 한 파일을 나눠 가진 것이 있을 수 있다 (#1314)
+  // 이 조회는 아무것도 바꾸기 전에 한다 — 여기서 실패하면 태그 횟수도 문서도 그대로다
   const deletingIds = docs.map(d => d._id);
   const paths = [...new Set(docs.map(d => d.path).filter(Boolean))];
   const sharers = paths.length
     ? await MEDIA_MODELS[type].find({ path: { $in: paths }, _id: { $nin: deletingIds } }).select('path').lean()
     : [];
   const sharedPaths = new Set(sharers.map(d => d.path));
+  await decrementTagCounts(docs);
   if (sharedPaths.size) console.warn(`⚠️ 일괄 삭제: 다른 문서가 함께 쓰는 파일 ${sharedPaths.size}개는 남깁니다 (${type})`);
   await Promise.allSettled(paths.filter(p => !sharedPaths.has(p)).map(p => deleteFile(p)));
   if (deleteJob && type !== 'uploaded') {

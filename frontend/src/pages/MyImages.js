@@ -622,7 +622,8 @@ function MyImages() {
   const filterTags = (myTagsData?.data?.data?.tags || myTagsData?.data?.tags || []).filter((t) => !t.isProjectTag);
 
   // 확인창에 태그 이름을 적으려고 (#1314)
-  const tagNameById = useMemo(() => Object.fromEntries(filterTags.map((t) => [t._id, t.name])), [filterTags]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 프로젝트도 태그 id 로 거르므로 이름에 함께 넣는다
+  const tagNameById = Object.fromEntries([...filterTags.map((t) => [t._id, t.name]), ...filterProjects.map((p) => [p.tagId?._id || p.tagId, p.name])]);
 
   const toggleTagFilter = (tagId) => {
     setSelectedTagIds((prev) => {
@@ -835,7 +836,7 @@ function MyImages() {
           {confirmType === 'selected' ? '선택한 항목 삭제' : '검색 결과 전체 삭제'}
         </DialogTitle>
         <DialogContent>
-          <Typography gutterBottom>
+          <Typography gutterBottom sx={{ whiteSpace: 'pre-wrap' }}>
             {confirmType === 'selected'
               ? `선택한 ${selectedSnapshot?.ids.length || 0}개 항목을 삭제합니다.`
               : `${describeCondition(deleteSnapshot, tagNameById)} 조건에 맞는 ${deleteSnapshot?.count || 0}개 항목을 모두 삭제합니다.`

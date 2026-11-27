@@ -583,6 +583,20 @@ describe('한 파일을 다른 문서와 함께 쓰는 경우 — 남는 문서�
     expect(deleteFile).not.toHaveBeenCalled();
   });
 
+  test('함께 쓰는 문서를 찾다가 오류가 나면 태그 횟수도 문서도 건드리지 않는다', async () => {
+    const a = mine({ path: '/a.bin', tags: [oid()] });
+    let calls = 0;
+    GeneratedImage.find.mockImplementation((filter = {}) => {
+      calls += 1;
+      if (calls === 2) throw new Error('db down'); // 두 번째 조회 = 함께 쓰는 문서 찾기
+      return found([a].filter((d) => matches(d, filter)));
+    });
+    const res = await bySelection({ items: [{ id: String(a._id), type: 'generated' }] });
+    expect(res.status).toBe(500);
+    expect(Tag.updateOne).not.toHaveBeenCalled();
+    expectNothingDeleted();
+  });
+
   test('같은 파일을 쓰는 문서를 모두 지우면 파일도 지운다 — 한 번만', async () => {
     const a = mine({ path: '/shared.bin' });
     const b = mine({ path: '/shared.bin' });
