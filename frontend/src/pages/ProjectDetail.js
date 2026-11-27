@@ -1110,7 +1110,8 @@ function ProjectDetail() {
             "<strong>{project.name}</strong>" 프로젝트를 삭제하시겠습니까?
           </Typography>
           <Typography variant="body2" color="error" sx={{ mt: 2 }}>
-            프로젝트 전용 태그도 함께 삭제되며, 관련 콘텐츠에서 태그가 해제됩니다.
+            이 프로젝트의 파이프라인과 실행 기록, 프로젝트 전용 태그가 함께 사라집니다. 되돌릴 수 없습니다.
+            이미지 · 영상 · 음악 · 글 같은 콘텐츠는 지워지지 않고, 프로젝트 태그만 떼어집니다.
           </Typography>
         </DialogContent>
         <DialogActions>
