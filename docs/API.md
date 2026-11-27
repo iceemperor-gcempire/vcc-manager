@@ -198,7 +198,7 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `DELETE` | `/images/generated/:id` | 생성 이미지 삭제 | Yes |
 | `POST` | `/images/generated/:id/download` | 생성 이미지 다운로드 | Yes |
 | `POST` | `/images/bulk-delete` | 고른 항목 삭제 — `{ items: [{ id, type }], deleteJob? }`. `type` 은 `uploaded` · `generated` · `video`. 형식이 틀린 항목이 하나라도 있으면 400 이고 아무것도 지우지 않는다. 남의 것 · 실행 중인 작업이 쓰는 업로드 이미지는 건너뛰고 사유를 돌려준다 | Yes |
-| `POST` | `/images/bulk-delete-by-filter/preview` | 조건에 맞는 삭제 대상 확인 — `{ type, search?, tags? }` → `{ count, digest }`. 아무것도 지우지 않는다. 조건은 목록 API(`/images/uploaded` · `/generated` · `/videos`)의 `search` · `tags` 와 같게 읽고, **둘 중 하나는 있어야 한다**(없으면 400) | Yes |
+| `POST` | `/images/bulk-delete-by-filter/preview` | 조건에 맞는 삭제 대상 확인 — `{ type, search?, tags?, seenIds? }` → `{ count, digest }`. 아무것도 지우지 않는다. `seenIds`(화면에 보이는 항목의 id, 최대 200개)를 보내면 그중 하나라도 대상에 없을 때 409 를 돌려준다. 조건은 목록 API(`/images/uploaded` · `/generated` · `/videos`)의 `search` · `tags` 와 같게 읽고, **둘 중 하나는 있어야 한다**(없으면 400) | Yes |
 | `POST` | `/images/bulk-delete-by-filter` | 조건에 맞는 것 전체 삭제 — `{ type, search?, tags?, expectedDigest, deleteJob? }`. `expectedDigest` 에 방금 `preview` 가 준 `digest` 를 넣는다. 지금 조건에 맞는 대상이 확인한 것과 하나라도 다르면 409 이고 아무것도 지우지 않는다. 되돌릴 수 없다 | Yes |
 | `GET` | `/images/stats` | 이미지 통계 | Yes |
 

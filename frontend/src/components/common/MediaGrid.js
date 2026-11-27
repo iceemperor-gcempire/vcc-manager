@@ -416,14 +416,17 @@ function MediaGrid({
   const extractor = responseExtractor || defaultExtractor;
   const { items, pagination } = extractor(data);
 
-  // onStateChange 콜백
+  // onStateChange 콜백 — 내용이 같으면 다시 부르지 않는다. 추출기가 렌더마다 새 배열 · 객체를 만들어도
+  // (ProjectDetail 의 responseExtractor 처럼) 부모와 서로를 끝없이 다시 그리지 않게, 값으로 견준다 (#1314)
+  const itemsKey = items.map((item) => item?._id).join(',');
+  const paginationKey = JSON.stringify(pagination || {});
   useEffect(() => {
     if (onStateChange) {
       // tags · isStale — 이 목록이 어떤 조건의 응답인지. 조건을 바꾼 직후에는 예전 목록이 잠깐 남는다(keepPreviousData).
-      // 일괄 삭제는 화면에 보인 것과 같은 범위만 지워야 해서 이걸 본다 (#1314)
+      // 일괄 삭제는 화면에 보인 것과 같은 범위만 지워야 해서 이걸 본다
       onStateChange({ items, search, pagination, tags: extraQuery?.tags || '', isStale: isLoading || isPlaceholderData });
     }
-  }, [items, search, pagination, extraQueryKey, isLoading, isPlaceholderData]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [itemsKey, search, paginationKey, extraQueryKey, isLoading, isPlaceholderData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleView = (media) => {
     if (selectable) {

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import {
-  conditionForBulkDelete, conditionBody, snapshotFromPreview, buildBulkDeleteFilters, describeCondition,
+  conditionForBulkDelete, conditionBody, sameCondition, snapshotFromPreview, buildBulkDeleteFilters, describeCondition,
 } from './bulkDeleteByFilter';
 
 const state = (over = {}) => ({ search: 'cat', tags: '', pagination: { total: 5 }, isStale: false, ...over });
@@ -41,6 +41,28 @@ describe('snapshotFromPreview — 서버가 확인해 준 대상만 연다', () 
     ['응답이 없다', undefined],
   ])('%s → 열지 않는다', (_n, preview) => {
     expect(snapshotFromPreview(cond, preview)).toBeNull();
+  });
+});
+
+describe('snapshotFromPreview — 화면 목록의 건수와 견준다', () => {
+  const cond = { type: 'generated', search: 'cat', tags: '' };
+  test('건수가 같으면 연다', () => {
+    expect(snapshotFromPreview(cond, { count: 3, digest: 'abc' }, { listedTotal: 3 })).toEqual({ ...cond, count: 3, digest: 'abc' });
+  });
+  test.each([[2], [4], [0]])('목록은 %p건이라고 보여 줬는데 대상은 3건 → 열지 않는다', (listedTotal) => {
+    expect(snapshotFromPreview(cond, { count: 3, digest: 'abc' }, { listedTotal })).toBeNull();
+  });
+});
+
+describe('sameCondition', () => {
+  const a = { type: 'generated', search: 'cat', tags: 'x' };
+  test('종류 · 검색어 · 태그가 모두 같아야 같다', () => {
+    expect(sameCondition(a, { ...a })).toBe(true);
+    expect(sameCondition(a, { ...a, type: 'video' })).toBe(false);
+    expect(sameCondition(a, { ...a, search: 'ca' })).toBe(false);
+    expect(sameCondition(a, { ...a, tags: '' })).toBe(false);
+    expect(sameCondition(a, null)).toBe(false);
+    expect(sameCondition(null, null)).toBe(false);
   });
 });
 

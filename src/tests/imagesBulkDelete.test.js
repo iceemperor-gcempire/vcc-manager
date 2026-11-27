@@ -192,6 +192,45 @@ describe('POST /api/images/bulk-delete-by-filter/preview — 대상 확인', () 
   });
 });
 
+describe('POST /api/images/bulk-delete-by-filter/preview — 화면에 보인 항목(seenIds)', () => {
+  test('보인 항목이 모두 대상에 있으면 확인해 준다', async () => {
+    const a = mine(); const b = mine();
+    seed(GeneratedImage, [a, b, mine()]);
+    const res = await preview({ type: 'generated', search: 'cat', seenIds: [String(a._id), String(b._id).toUpperCase()] });
+    expect(res.status).toBe(200);
+    expect(res.body.data.count).toBe(3);
+  });
+
+  test('보인 항목 하나가 대상에 없다 (다른 세션이 그 사이 바꿨다) → 409, 지문을 주지 않는다', async () => {
+    const stillThere = mine();
+    const renamedAway = mine({ originalName: 'dog.png' }); // 화면에는 cat 결과로 보였지만 지금은 조건 밖
+    const newcomer = mine();                               // 그 자리에 들어온 다른 항목 — 건수는 같다
+    seed(GeneratedImage, [stillThere, renamedAway, newcomer]);
+    const res = await preview({ type: 'generated', search: 'cat', seenIds: [String(stillThere._id), String(renamedAway._id)] });
+    expect(res.status).toBe(409);
+    expect(res.body.data.digest).toBeUndefined();
+    expectNothingDeleted();
+  });
+
+  test('남의 항목을 보인 항목으로 보내면 409', async () => {
+    const theirs = mine({ userId: oid() });
+    seed(GeneratedImage, [mine(), theirs]);
+    expect((await preview({ type: 'generated', search: 'cat', seenIds: [String(theirs._id)] })).status).toBe(409);
+  });
+
+  test.each([
+    ['배열이 아니다', 'all'],
+    ['id 가 아닌 값이 섞였다', ['nope']],
+    ['객체가 섞였다', [{ $ne: null }]],
+    ['너무 많다', Array.from({ length: 201 }, () => String(oid()))],
+  ])('seenIds 형식: %s → 400', async (_n, seenIds) => {
+    seed(GeneratedImage, [mine()]);
+    const res = await preview({ type: 'generated', search: 'cat', seenIds });
+    expect(res.status).toBe(400);
+    expect(GeneratedImage.find).not.toHaveBeenCalled();
+  });
+});
+
 describe('POST /api/images/bulk-delete-by-filter — 확인한 대상과 다르면 지우지 않는다', () => {
   const seen = async (condition) => (await preview(condition)).body.data.digest;
 

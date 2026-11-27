@@ -88,7 +88,7 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
     fireEvent.change(searchBox(), { target: { value: 'cat' } });
     fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
 
-    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat' }));
+    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalledWith('generated', { search: 'cat', seenIds: ['a'.repeat(24), 'b'.repeat(24)] }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('검색어 "cat" 조건에 맞는 2개 항목을 모두 삭제합니다.')).toBeInTheDocument();
     expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled(); // 확인 전에는 지우지 않는다
@@ -129,6 +129,69 @@ describe('내 콘텐츠 — 조건에 맞는 것 모두 삭제 (#1314)', () => {
 
     resolveSearch();
     expect(await screen.findByRole('button', { name: '검색된 1개 모두 삭제' })).toBeInTheDocument();
+  });
+
+  test('대상 확인을 기다리는 동안에는 선택 삭제도 열 수 없다 — 떠 있는 확인창의 대상이 바뀌지 않는다', async () => {
+    let finishPreview;
+    imageAPI.previewBulkDeleteByFilter.mockImplementation(() => new Promise((resolve) => {
+      finishPreview = () => resolve({ data: { success: true, data: { count: 2, digest: 'd'.repeat(64) } } });
+    }));
+    renderPage();
+    await enterSelectMode();
+    fireEvent.change(searchBox(), { target: { value: 'cat' } });
+    await screen.findByRole('button', { name: '검색된 2개 모두 삭제' });
+    fireEvent.click(screen.getByRole('button', { name: '이 페이지 전체 선택' }));
+    expect(await screen.findByText('2개 선택됨')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '검색된 2개 모두 삭제' }));
+    await waitFor(() => expect(finishPreview).toBeTypeOf('function'));
+    expect(screen.getByRole('button', { name: '선택 삭제' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '검색된 2개 모두 삭제' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: '선택 삭제' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+
+    finishPreview();
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('검색어 "cat" 조건에 맞는 2개 항목을 모두 삭제합니다.')).toBeInTheDocument();
+  });
+
+  test('대상 확인을 기다리는 사이 검색어를 바꾸면 그 응답은 버린다 — 확인창이 뜨지 않는다', async () => {
+    let finishPreview;
+    imageAPI.previewBulkDeleteByFilter.mockImplementation(() => new Promise((resolve) => {
+      finishPreview = () => resolve({ data: { success: true, data: { count: 2, digest: 'd'.repeat(64) } } });
+    }));
+    renderPage();
+    await enterSelectMode();
+    fireEvent.change(searchBox(), { target: { value: 'cat' } });
+    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
+    await waitFor(() => expect(finishPreview).toBeTypeOf('function'));
+
+    fireEvent.change(searchBox(), { target: { value: '' } }); // 검색을 지웠다 — 이제 전체 목록이다
+    await waitFor(() => expect(deleteAllButton()).toBeNull());
+    finishPreview();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
+  });
+
+  test('서버가 확인한 건수가 화면 목록과 다르면 확인창을 열지 않는다', async () => {
+    imageAPI.previewBulkDeleteByFilter.mockResolvedValue({ data: { success: true, data: { count: 3, digest: 'd'.repeat(64) } } });
+    renderPage();
+    await enterSelectMode();
+    fireEvent.change(searchBox(), { target: { value: 'cat' } });
+    fireEvent.click(await screen.findByRole('button', { name: '검색된 2개 모두 삭제' }));
+    await waitFor(() => expect(imageAPI.previewBulkDeleteByFilter).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(imageAPI.bulkDeleteByFilter).not.toHaveBeenCalled();
+  });
+
+  test('음악 탭에는 선택 버튼이 없다 (일괄 삭제가 없는 종류)', async () => {
+    renderPage();
+    await screen.findByRole('button', { name: '선택' });
+    fireEvent.click(screen.getByRole('tab', { name: /음악|오디오/ }));
+    await waitFor(() => expect(imageAPI.getAudios).toHaveBeenCalled());
+    expect(screen.queryByRole('button', { name: '선택' })).toBeNull();
   });
 
   test('서버가 대상을 확인해 주지 못하면 확인창을 열지 않는다', async () => {

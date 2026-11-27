@@ -28,6 +28,11 @@ export function conditionForBulkDelete(type, listState) {
   return { type, search, tags };
 }
 
+/** 두 조건이 같은가 — 대상 확인을 기다리는 사이 화면이 바뀌었는지 볼 때 쓴다 */
+export function sameCondition(a, b) {
+  return !!a && !!b && a.type === b.type && a.search === b.search && a.tags === b.tags;
+}
+
 /** 고정한 조건으로 서버에 보낼 조건 본문 (확인 · 삭제 공통) */
 export function conditionBody(condition) {
   const body = {};
@@ -38,13 +43,16 @@ export function conditionBody(condition) {
 
 /**
  * 서버가 돌려준 대상 확인 결과를 고정한 조건에 붙인다.
- * @returns {{ type, search, tags, count: number, digest: string } | null} 응답이 이상하면 null (삭제를 열지 않는다)
+ * @param {{ listedTotal?: number }} [opts] 화면 목록이 보여 준 건수
+ * @returns {{ type, search, tags, count: number, digest: string } | null} 응답이 이상하거나 목록과 건수가 다르면 null (삭제를 열지 않는다)
  */
-export function snapshotFromPreview(condition, preview) {
+export function snapshotFromPreview(condition, preview, { listedTotal } = {}) {
   const count = preview?.count;
   const digest = preview?.digest;
   if (!Number.isInteger(count) || count <= 0) return null;
   if (typeof digest !== 'string' || !digest) return null;
+  // 화면 목록의 건수와 다르면 그 사이 목록이 바뀐 것이다 — 화면에 보인 것과 다른 대상을 열지 않는다
+  if (listedTotal !== undefined && count !== listedTotal) return null;
   return { ...condition, count, digest };
 }
 

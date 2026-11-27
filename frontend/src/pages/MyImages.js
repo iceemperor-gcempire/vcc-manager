@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   Container,
   Typography,
@@ -39,7 +39,7 @@ import TextContentPanel from '../components/common/TextContentPanel';
 import PageHeader from '../components/common/PageHeader';
 import { useConfirm } from '../components/common/ConfirmDialog';
 import {
-  BULK_DELETE_TYPES, conditionForBulkDelete, conditionBody, snapshotFromPreview, buildBulkDeleteFilters, describeCondition,
+  BULK_DELETE_TYPES, conditionForBulkDelete, conditionBody, sameCondition, snapshotFromPreview, buildBulkDeleteFilters, describeCondition,
 } from '../utils/bulkDeleteByFilter';
 
 // 필터 레일 (5c 후속) — 좌측 sticky. 프로젝트 / 일반 태그 그룹.
@@ -581,6 +581,7 @@ function MyImages() {
   };
 
   const handleTabChange = (e, v) => {
+    previewTokenRef.current += 1; // 기다리던 대상 확인 응답은 버린다
     setTab(v);
     setBulkMode(false);
     setSelectedIds(new Set());
@@ -597,22 +598,42 @@ function MyImages() {
     }
   };
 
+  // 대상 확인(preview)을 기다리는 사이 화면이 바뀌었는지 보려고, 늘 지금 상태를 가리키는 손잡이를 둔다
+  const latestRef = useRef({});
+  latestRef.current = { type: currentType, mediaState, confirmOpen };
+  const previewTokenRef = useRef(0);
+
   const openConfirmDialog = async (type) => {
+    // 확인창이 이미 떠 있거나 대상 확인 중이면 새로 열지 않는다 — 떠 있는 확인창의 대상이 바뀌지 않게 (#1314)
+    if (confirmOpen || previewing) return;
     if (type === 'allFiltered') {
       const condition = conditionForBulkDelete(currentType, mediaState);
       if (!condition) return;
+      const listedTotal = mediaState.pagination.total;
+      const seenIds = mediaState.items.map((item) => item._id);
       // 서버에 이 조건의 대상을 물어 확인창에 그 건수를 보여 준다. 삭제는 이때 받은 지문과 같을 때만 된다
+      const token = ++previewTokenRef.current;
       setPreviewing(true);
       let snapshot = null;
+      let failure = null;
       try {
-        const res = await imageAPI.previewBulkDeleteByFilter(condition.type, conditionBody(condition));
-        snapshot = snapshotFromPreview(condition, res.data?.data);
+        const res = await imageAPI.previewBulkDeleteByFilter(condition.type, { ...conditionBody(condition), seenIds });
+        snapshot = snapshotFromPreview(condition, res.data?.data, { listedTotal });
+        if (!snapshot) failure = '목록이 바뀌었습니다. 다시 확인해 주세요';
       } catch (error) {
-        toast.error(error?.response?.data?.message || '삭제 대상을 확인하지 못했습니다');
+        failure = error?.response?.data?.message || '삭제 대상을 확인하지 못했습니다';
       } finally {
         setPreviewing(false);
       }
-      if (!snapshot) return;
+      // 기다리는 사이 탭 · 검색어 · 태그가 바뀌었거나 다른 확인창이 떴으면 이 응답은 버린다
+      const latest = latestRef.current;
+      if (token !== previewTokenRef.current || latest.confirmOpen) return;
+      if (!sameCondition(conditionForBulkDelete(latest.type, latest.mediaState), condition)) return;
+      if (!snapshot) {
+        toast.error(failure);
+        queryClient.invalidateQueries({ queryKey: Array.isArray(getQueryKeyForTab()) ? getQueryKeyForTab() : [getQueryKeyForTab()] });
+        return;
+      }
       setDeleteSnapshot(snapshot);
     } else {
       if (!BULK_DELETE_TYPES.includes(currentType) || selectedIds.size === 0) return;
@@ -729,7 +750,7 @@ function MyImages() {
             color="error"
             startIcon={<DeleteSweep />}
             onClick={() => openConfirmDialog('selected')}
-            disabled={selectedIds.size === 0}
+            disabled={selectedIds.size === 0 || previewing}
           >
             선택 삭제
           </Button>

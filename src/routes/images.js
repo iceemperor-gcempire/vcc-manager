@@ -135,6 +135,7 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
 //   2) 삭제 — 같은 조건과 그 지문을 보낸다. 지금 대상 집합의 지문이 다르면 지우지 않는다
 // 조건은 목록 API 와 같은 함수(buildMediaListFilter)로 만든다.
 const BULK_FILTER_SELECT = '_id path tags jobId isReferenced referencedBy';
+const PREVIEW_SEEN_MAX = 200;
 
 /** 요청을 검증하고 대상 문서를 찾는다. 틀리면 { status, message } */
 async function resolveBulkFilterTarget(req) {
@@ -154,8 +155,22 @@ async function resolveBulkFilterTarget(req) {
 
 router.post('/bulk-delete-by-filter/preview', requireAuth, async (req, res) => {
   try {
+    // seenIds — 화면이 지금 보여 주고 있는 항목. 그중 하나라도 대상에 없으면 목록이 그 사이 바뀐 것이다
+    const { seenIds } = req.body || {};
+    if (seenIds !== undefined && (!Array.isArray(seenIds) || seenIds.length > PREVIEW_SEEN_MAX || !seenIds.every(isObjectIdString))) {
+      return res.status(400).json({ message: `seenIds 는 id 목록이어야 합니다 (최대 ${PREVIEW_SEEN_MAX}개)` });
+    }
     const target = await resolveBulkFilterTarget(req);
     if (target.error) return res.status(target.error.status).json({ message: target.error.message });
+    if (seenIds && seenIds.length) {
+      const targetIds = new Set(target.docs.map(d => d._id.toString()));
+      if (!seenIds.every(id => targetIds.has(id.toLowerCase()))) {
+        return res.status(409).json({
+          message: '보고 계신 목록이 그 사이 바뀌었습니다. 목록을 다시 확인해 주세요',
+          data: { count: target.docs.length }
+        });
+      }
+    }
     res.json({ success: true, data: { count: target.docs.length, digest: digestOfIds(target.docs) } });
   } catch (error) {
     console.error('Bulk delete preview error:', error);
