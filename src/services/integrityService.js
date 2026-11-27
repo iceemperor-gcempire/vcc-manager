@@ -101,11 +101,24 @@ async function checkOwnerOrphans() {
  * 개인 콘텐츠 소유자 orphan 정제. 기본 dry-run — apply:true 일 때만 실제 삭제.
  * 구조 리소스는 대상에서 제외 (리포트 전용 정책).
  * 문서뿐 아니라 딸린 디스크 파일도 함께 지운다 (#806) — 예전에는 문서만 지워 고아 파일이 쌓였다.
- * @returns {{ apply: boolean, results: Array<{collection, matched, deleted}>, files: {deleted, absent, byCollection} }}
+ * @returns {{ apply: boolean, results: Array<{collection, matched, deleted}>, files: {deleted, absent, byCollection}, skippedOwners: number }}
  */
 async function cleanupOwnerOrphans({ apply = false } = {}) {
   const userIdSet = await loadExistingUserIdSet();
   const results = [];
+  const skippedOwners = new Set(); // 목록에는 없었지만 다시 확인하니 살아 있는 사용자
+
+  // 지우기 직전에 소유자가 정말 없는지 한 명씩 다시 조회한다 (#1323).
+  // 사용자 목록이 잘못 읽혔다면(비었거나 일부만) 살아 있는 사용자의 콘텐츠가 통째로 대상이 된다.
+  // 목록과 다른 조회로 한 번 더 확인해, 있으면 그 사용자의 것은 건드리지 않는다.
+  const confirmGone = async (ownerIds) => {
+    const gone = [];
+    for (const id of ownerIds) {
+      if (await User.exists({ _id: id })) skippedOwners.add(String(id));
+      else gone.push(id);
+    }
+    return gone;
+  };
 
   // 문서보다 파일을 먼저 지운다 — 문서를 잃으면 경로를 알 수 없어 영구 고아가 된다 (#806).
   // dry-run 에서는 당연히 지우지 않는다.
@@ -115,7 +128,8 @@ async function cleanupOwnerOrphans({ apply = false } = {}) {
     for (const Model of USER_CONTENT_MODELS) {
       (await findOrphanOwnersForModel(Model, 'userId', userIdSet)).forEach((id) => owners.add(id));
     }
-    if (owners.size > 0) files = await deleteMediaFilesFor({ userId: { $in: [...owners] } });
+    const gone = await confirmGone([...owners]);
+    if (gone.length > 0) files = await deleteMediaFilesFor({ userId: { $in: gone } });
   }
 
   for (const Model of USER_CONTENT_MODELS) {
@@ -124,17 +138,22 @@ async function cleanupOwnerOrphans({ apply = false } = {}) {
       results.push({ collection: Model.modelName, matched: 0, deleted: 0 });
       continue;
     }
-    const filter = { userId: { $in: orphanOwners } };
-    const matched = await Model.countDocuments(filter);
+    const matched = await Model.countDocuments({ userId: { $in: orphanOwners } });
     let deleted = 0;
     if (apply && matched > 0) {
-      const r = await Model.deleteMany(filter);
-      deleted = r.deletedCount || 0;
+      const gone = await confirmGone(orphanOwners);
+      if (gone.length > 0) {
+        const r = await Model.deleteMany({ userId: { $in: gone } });
+        deleted = r.deletedCount || 0;
+      }
     }
     results.push({ collection: Model.modelName, matched, deleted });
   }
 
-  return { apply, results, files };
+  if (skippedOwners.size > 0) {
+    console.warn(`⚠️ orphan 정제: 사용자 목록에는 없었지만 다시 확인하니 있는 소유자 ${skippedOwners.size}명 — 이들의 콘텐츠는 지우지 않았습니다 (${[...skippedOwners].slice(0, 5).join(', ')}${skippedOwners.size > 5 ? ' …' : ''})`);
+  }
+  return { apply, results, files, skippedOwners: skippedOwners.size };
 }
 
 /**

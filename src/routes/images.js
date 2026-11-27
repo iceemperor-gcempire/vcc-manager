@@ -13,6 +13,7 @@ const GeneratedAudio = require('../models/GeneratedAudio');
 const ImageGenerationJob = require('../models/ImageGenerationJob');
 const Tag = require('../models/Tag');
 const { escapeRegex } = require('../utils/escapeRegex');
+const { readQueryFlag, misplacedFlag } = require('../utils/booleanFlag');
 const {
   buildMediaListFilter, parseTagIds, isObjectIdString, digestOfIds, validateListCondition, MEDIA_TYPES,
 } = require('../utils/mediaSearchFilter');
@@ -120,6 +121,8 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
     if (typeof deleteJob !== 'boolean') {
       return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
     }
+    const misplacedJobFlag = misplacedFlag(req.query, 'deleteJob', '본문');
+    if (misplacedJobFlag) return res.status(400).json({ message: misplacedJobFlag });
     const badItem = items.find(item => !item || typeof item !== 'object'
       || !MEDIA_TYPES.includes(item.type) || !isObjectIdString(item.id));
     if (badItem !== undefined) {
@@ -228,6 +231,8 @@ router.post('/bulk-delete-by-filter', requireAuth, async (req, res) => {
     if (typeof deleteJob !== 'boolean') {
       return res.status(400).json({ message: 'deleteJob 은 true 또는 false 여야 합니다' });
     }
+    const misplacedJobFlag = misplacedFlag(req.query, 'deleteJob', '본문');
+    if (misplacedJobFlag) return res.status(400).json({ message: misplacedJobFlag });
     if (typeof expectedDigest !== 'string' || !/^[0-9a-f]{64}$/.test(expectedDigest)) {
       return res.status(400).json({ message: 'expectedDigest 가 필요합니다 — 먼저 /bulk-delete-by-filter/preview 로 대상을 확인하세요' });
     }
@@ -730,7 +735,12 @@ router.delete('/uploaded/:id', requireAuth, async (req, res) => {
 
 router.delete('/generated/:id', requireAuth, async (req, res) => {
   try {
-    const { deleteJob = false } = req.query;
+    // 쿼리 값은 true · false 만 받는다 — 틀린 값을 꺼짐으로 읽고 지나가지 않는다 (#1323)
+    const misplaced = misplacedFlag(req.body, 'deleteJob', '쿼리');
+    if (misplaced) return res.status(400).json({ message: misplaced });
+    const jobFlag = readQueryFlag(req.query.deleteJob, 'deleteJob');
+    if (!jobFlag.ok) return res.status(400).json({ message: jobFlag.message });
+    const deleteJob = jobFlag.value;
     
     const image = await GeneratedImage.findById(req.params.id);
     
@@ -752,14 +762,14 @@ router.delete('/generated/:id', requireAuth, async (req, res) => {
 
     await deleteFile(image.path);
 
-    if (deleteJob === 'true' && image.jobId) {
+    if (deleteJob && image.jobId) {
       await ImageGenerationJob.findByIdAndDelete(image.jobId);
     }
 
     await GeneratedImage.findByIdAndDelete(req.params.id);
 
     res.json({
-      message: `Image${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
+      message: `Image${deleteJob ? ' and job' : ''} deleted successfully`
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -914,7 +924,12 @@ router.put('/videos/:id', requireAuth, async (req, res) => {
 
 router.delete('/videos/:id', requireAuth, async (req, res) => {
   try {
-    const { deleteJob = false } = req.query;
+    // 쿼리 값은 true · false 만 받는다 — 틀린 값을 꺼짐으로 읽고 지나가지 않는다 (#1323)
+    const misplaced = misplacedFlag(req.body, 'deleteJob', '쿼리');
+    if (misplaced) return res.status(400).json({ message: misplaced });
+    const jobFlag = readQueryFlag(req.query.deleteJob, 'deleteJob');
+    if (!jobFlag.ok) return res.status(400).json({ message: jobFlag.message });
+    const deleteJob = jobFlag.value;
     
     const video = await GeneratedVideo.findById(req.params.id);
     
@@ -936,14 +951,14 @@ router.delete('/videos/:id', requireAuth, async (req, res) => {
 
     await deleteFile(video.path);
     
-    if (deleteJob === 'true' && video.jobId) {
+    if (deleteJob && video.jobId) {
       await ImageGenerationJob.findByIdAndDelete(video.jobId);
     }
     
     await GeneratedVideo.findByIdAndDelete(req.params.id);
     
     res.json({
-      message: `Video${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
+      message: `Video${deleteJob ? ' and job' : ''} deleted successfully`
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -1082,7 +1097,12 @@ router.put('/audios/:id', requireAuth, async (req, res) => {
 
 router.delete('/audios/:id', requireAuth, async (req, res) => {
   try {
-    const { deleteJob = false } = req.query;
+    // 쿼리 값은 true · false 만 받는다 — 틀린 값을 꺼짐으로 읽고 지나가지 않는다 (#1323)
+    const misplaced = misplacedFlag(req.body, 'deleteJob', '쿼리');
+    if (misplaced) return res.status(400).json({ message: misplaced });
+    const jobFlag = readQueryFlag(req.query.deleteJob, 'deleteJob');
+    if (!jobFlag.ok) return res.status(400).json({ message: jobFlag.message });
+    const deleteJob = jobFlag.value;
     
     const audio = await GeneratedAudio.findById(req.params.id);
     
@@ -1104,14 +1124,14 @@ router.delete('/audios/:id', requireAuth, async (req, res) => {
 
     await deleteFile(audio.path);
     
-    if (deleteJob === 'true' && audio.jobId) {
+    if (deleteJob && audio.jobId) {
       await ImageGenerationJob.findByIdAndDelete(audio.jobId);
     }
     
     await GeneratedAudio.findByIdAndDelete(req.params.id);
     
     res.json({
-      message: `Audio${deleteJob === 'true' ? ' and job' : ''} deleted successfully`
+      message: `Audio${deleteJob ? ' and job' : ''} deleted successfully`
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

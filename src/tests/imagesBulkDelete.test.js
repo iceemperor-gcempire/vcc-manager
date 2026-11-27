@@ -628,6 +628,21 @@ describe('POST /api/images/bulk-delete — 요청을 받지 않는 경우', () =
   });
 });
 
+describe('일괄 삭제: deleteJob 을 쿼리로 보내면 400 (#1323)', () => {
+  test('선택 삭제', async () => {
+    const d = mine(); seed(GeneratedImage, [d]);
+    const res = await request(app).post('/api/images/bulk-delete?deleteJob=false').send({ items: [{ id: String(d._id), type: 'generated' }] });
+    expect(res.status).toBe(400);
+    expectNothingDeleted();
+  });
+  test('조건 삭제', async () => {
+    seed(GeneratedImage, [mine()]);
+    const res = await request(app).post('/api/images/bulk-delete-by-filter?deleteJob=true').send({ type: 'generated', search: 'cat', expectedDigest: DIGEST });
+    expect(res.status).toBe(400);
+    expectNothingDeleted();
+  });
+});
+
 describe('POST /api/images/bulk-delete — 고른 항목 삭제', () => {
   const pick = (type, ...docs) => docs.map((d) => ({ id: String(d._id), type }));
 
