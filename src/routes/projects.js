@@ -371,11 +371,15 @@ router.delete('/:id', requireAuth, async (req, res) => {
       { $pull: { favoriteProjects: project._id } }
     );
 
-    // 이 프로젝트의 파이프라인과 그 실행 기록. 조건은 위에서 찾은 프로젝트의 id 하나다 — 요청 값으로 만들지 않는다.
+    // 이 프로젝트의 파이프라인과 그 실행 기록. 조건은 위에서 찾은 프로젝트의 id 다 — 요청 값으로 만들지 않는다.
     // 다른 프로젝트의 파이프라인이 이 프로젝트를 결과 귀속처(targetProjectId)로 돌린 실행은 그쪽 것이라 남긴다.
     // (파이프라인은 작업 절차로 옮길 예정이다. 옮길 때 이 묶음 삭제도 함께 옮긴다)
-    const runs = await PipelineRun.deleteMany({ projectId: project._id });
+    //
+    // 순서: 정의를 먼저 지운다 — 그 뒤로는 새 실행을 시작할 수 없다. 실행 기록은 끝난 것만 지운다.
+    // 위의 확인과 여기 사이에 시작된 실행이 있어도 도는 기록은 지우지 않는다 (워커가 "파이프라인이 삭제됨"으로 끝낸다).
+    // 어느 단계에서 실패해도 프로젝트는 남고, 다시 지우면 이어서 끝난다.
     const pipelines = await Pipeline.deleteMany({ projectId: project._id });
+    const runs = await PipelineRun.deleteMany({ projectId: project._id, status: { $nin: ACTIVE_RUN_STATUSES } });
     console.log(`🗑️  프로젝트 삭제 ${project._id}: 파이프라인 ${pipelines.deletedCount ?? 0}개 · 실행 기록 ${runs.deletedCount ?? 0}건`);
 
     // 전용 태그 삭제

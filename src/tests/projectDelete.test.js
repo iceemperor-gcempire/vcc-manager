@@ -26,6 +26,7 @@ function mockMatches(doc, filter = {}) {
     const value = mockGet(doc, key);
     if (cond && typeof cond === 'object' && !(cond instanceof mongoose.Types.ObjectId)) {
       if (cond.$in) return (Array.isArray(value) ? value : [value]).some((v) => cond.$in.map(String).includes(String(v)));
+      if (cond.$nin) return !cond.$nin.map(String).includes(String(value));
       if ('$ne' in cond) return String(value) !== String(cond.$ne);
     }
     if (Array.isArray(value)) return value.map(String).includes(String(cond));
@@ -158,7 +159,7 @@ describe('DELETE /api/projects/:id — 지우는 것', () => {
   test('파이프라인 · 실행 기록을 지우는 조건은 그 프로젝트의 id 하나뿐이다', async () => {
     await del(mine._id);
     expect(Pipeline.deleteMany.mock.calls).toEqual([[{ projectId: mine._id }]]);
-    expect(PipelineRun.deleteMany.mock.calls).toEqual([[{ projectId: mine._id }]]);
+    expect(PipelineRun.deleteMany.mock.calls).toEqual([[{ projectId: mine._id, status: { $nin: ['pending', 'running'] } }]]);
   });
 
   test('다른 프로젝트의 파이프라인 · 실행 기록은 남는다 — 이 프로젝트를 결과 귀속처로 돌린 실행도', async () => {
@@ -257,12 +258,38 @@ describe('DELETE /api/projects/:id — 지우지 않는 경우', () => {
     expectNothingChanged(before);
   });
 
-  test('실행 기록을 지우다 실패하면 프로젝트와 태그는 남는다 (다시 지울 수 있다)', async () => {
-    PipelineRun.deleteMany.mockRejectedValueOnce(new Error('db down'));
+  test('확인한 뒤에 시작된 실행(경합)은 지우지 않는다 — 도는 기록은 어느 경우에도 남는다', async () => {
+    const late = { _id: oid(), projectId: mine._id, userId: member._id, status: 'running' };
+    // 활성 실행 확인(countDocuments)이 끝난 직후에 실행이 시작됐다
+    PipelineRun.countDocuments.mockImplementationOnce(async () => { PipelineRun.docs.push(late); return 0; });
+    const res = await del(mine._id);
+    expect(res.status).toBe(200);
+    expect(ids(PipelineRun)).toContain(String(late._id));
+    expect(PipelineRun.docs.filter((r) => String(r.projectId) === String(mine._id))).toEqual([late]);
+  });
+
+  test('파이프라인 정의를 먼저 지운다 (그 뒤로는 새 실행을 시작할 수 없다)', async () => {
+    const order = [];
+    Pipeline.deleteMany.mockImplementationOnce(async () => { order.push('pipelines'); return { deletedCount: 2 }; });
+    PipelineRun.deleteMany.mockImplementationOnce(async () => { order.push('runs'); return { deletedCount: 2 }; });
+    await del(mine._id);
+    expect(order).toEqual(['pipelines', 'runs']);
+  });
+
+  test.each([
+    ['파이프라인을 지우다', () => Pipeline, []],
+    ['실행 기록을 지우다', () => PipelineRun, ['pipelines']],
+  ])('%s 실패하면 500 이고 프로젝트와 태그는 남는다 — 다시 지우면 끝난다', async (_n, failing) => {
+    failing().deleteMany.mockRejectedValueOnce(new Error('db down'));
     const res = await del(mine._id);
     expect(res.status).toBe(500);
     expect(ids(Project)).toContain(String(mine._id));
     expect(ids(Tag)).toContain(String(mine.tagId));
-    expect(Pipeline.deleteMany).not.toHaveBeenCalled();
+
+    const again = await del(mine._id);
+    expect(again.status).toBe(200);
+    expect(ids(Project)).toEqual([String(other._id)]);
+    expect(Pipeline.docs.every((p) => String(p.projectId) === String(other._id))).toBe(true);
+    expect(PipelineRun.docs.every((r) => String(r.projectId) === String(other._id))).toBe(true);
   });
 });
