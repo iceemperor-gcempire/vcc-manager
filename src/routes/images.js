@@ -53,7 +53,16 @@ async function findActivelyReferencedIds(docs) {
 async function deleteMediaDocs(type, docs, { deleteJob }) {
   if (!docs.length) return [];
   await decrementTagCounts(docs);
-  await Promise.allSettled(docs.map(d => deleteFile(d.path)));
+  // 지우지 않는 다른 문서가 같은 파일을 쓰고 있으면 그 파일은 남긴다 — 문서만 지운다.
+  // 예전에 저장된 결과 중에는 파일 이름이 겹쳐 한 파일을 나눠 가진 것이 있을 수 있다 (#1314)
+  const deletingIds = docs.map(d => d._id);
+  const paths = [...new Set(docs.map(d => d.path).filter(Boolean))];
+  const sharers = paths.length
+    ? await MEDIA_MODELS[type].find({ path: { $in: paths }, _id: { $nin: deletingIds } }).select('path').lean()
+    : [];
+  const sharedPaths = new Set(sharers.map(d => d.path));
+  if (sharedPaths.size) console.warn(`⚠️ 일괄 삭제: 다른 문서가 함께 쓰는 파일 ${sharedPaths.size}개는 남깁니다 (${type})`);
+  await Promise.allSettled(paths.filter(p => !sharedPaths.has(p)).map(p => deleteFile(p)));
   if (deleteJob && type !== 'uploaded') {
     const jobIds = docs.filter(d => d.jobId).map(d => d.jobId);
     if (jobIds.length) await ImageGenerationJob.deleteMany({ _id: { $in: jobIds } });
@@ -70,7 +79,9 @@ async function deleteMediaDocs(type, docs, { deleteJob }) {
 // 조건이 없으면 지문을 주지 않는다 — 조건 없는 일괄 삭제는 없다.
 async function listMediaPage(Model, filter, { page, limit, search, tags, populate = [] }) {
   const pageNum = Math.max(parseInt(page, 10) || 1, 1);
-  const pageSize = Math.max(parseInt(limit, 10) || 12, 1);
+  // limit=0 은 예전처럼 "제한 없음"이다 (MongoDB 의 limit(0))
+  const parsedLimit = parseInt(limit, 10);
+  const pageSize = Number.isInteger(parsedLimit) && parsedLimit >= 0 ? parsedLimit : 12;
   const skip = (pageNum - 1) * pageSize;
   const withPopulate = (query) => populate.reduce((q, args) => q.populate(...args), query);
   const hasCondition = !!String(search || '').trim() || parseTagIds(tags).ids.length > 0;
@@ -78,11 +89,11 @@ async function listMediaPage(Model, filter, { page, limit, search, tags, populat
   if (!hasCondition) {
     const items = await withPopulate(Model.find(filter)).sort({ createdAt: -1 }).skip(skip).limit(pageSize);
     const total = await Model.countDocuments(filter);
-    return { items, pagination: { current: pageNum, pages: Math.ceil(total / pageSize), total } };
+    return { items, pagination: { current: pageNum, pages: pageSize ? Math.ceil(total / pageSize) : 1, total } };
   }
 
   const all = await Model.find(filter).sort({ createdAt: -1 }).select('_id').lean();
-  const pageIds = all.slice(skip, skip + pageSize).map((d) => d._id);
+  const pageIds = (pageSize ? all.slice(skip, skip + pageSize) : all).map((d) => d._id);
   const order = new Map(pageIds.map((id, i) => [String(id), i]));
   const docs = pageIds.length
     ? await withPopulate(Model.find({ _id: { $in: pageIds }, userId: filter.userId }))
@@ -90,7 +101,7 @@ async function listMediaPage(Model, filter, { page, limit, search, tags, populat
   const items = [...docs].sort((x, y) => order.get(String(x._id)) - order.get(String(y._id)));
   return {
     items,
-    pagination: { current: pageNum, pages: Math.ceil(all.length / pageSize), total: all.length, digest: digestOfIds(all) },
+    pagination: { current: pageNum, pages: pageSize ? Math.ceil(all.length / pageSize) : 1, total: all.length, digest: digestOfIds(all) },
   };
 }
 

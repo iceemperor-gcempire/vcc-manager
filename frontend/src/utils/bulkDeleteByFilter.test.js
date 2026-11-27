@@ -46,10 +46,21 @@ describe('buildBulkDeleteFilters — 고정한 대상 그대로 보낸다', () =
     });
 });
 
-describe('describeCondition', () => {
-  test('조건을 그대로 적는다', () => {
-    expect(describeCondition({ search: 'cat', tags: 'a,b' })).toBe('검색어 "cat" · 태그 2개');
+describe('describeCondition — 서버가 적용하는 조건을 그대로 적는다', () => {
+  test('검색어와 태그 이름', () => {
+    expect(describeCondition({ search: 'cat', tags: 'a' }, { a: '풍경' })).toBe('검색어 "cat" · 태그 "풍경"');
+  });
+  test('태그가 여러 개면 하나라도 붙은 것이 대상임을 밝힌다', () => {
+    expect(describeCondition({ search: '', tags: 'a,b' }, { a: '풍경', b: '인물' })).toBe('태그 "풍경", "인물" 중 하나라도 붙은 것');
+  });
+  test('이름을 모르는 태그가 있으면 개수로 적는다', () => {
+    expect(describeCondition({ search: '', tags: 'a,b' }, { a: '풍경' })).toBe('태그 2개 중 하나라도 붙은 것');
     expect(describeCondition({ search: '', tags: 'a' })).toBe('태그 1개');
+  });
+  test('공백뿐인 검색어도 조건이므로 그대로 보인다', () => {
+    expect(describeCondition({ search: '  ', tags: 'a' }, { a: '풍경' })).toBe('검색어 "  " · 태그 "풍경"');
+  });
+  test('조건이 없으면 빈 문자열', () => {
     expect(describeCondition(null)).toBe('');
   });
 });

@@ -39,11 +39,22 @@ export function buildBulkDeleteFilters(snapshot, { deleteJob = false } = {}) {
   return body;
 }
 
-/** 확인창에 적을 조건 설명 */
-export function describeCondition(condition) {
+/**
+ * 확인창에 적을 조건 설명 — 서버가 실제로 적용하는 조건을 그대로 적는다.
+ * 검색어는 공백도 조건이므로 다듬지 않고 따옴표 안에 그대로 보인다. 태그는 이름을 적고, 여러 개면
+ * "하나라도 붙은 것"이 대상임을 밝힌다.
+ * @param {{ search: string, tags: string }} condition
+ * @param {Record<string, string>} [tagNames] 태그 id → 이름
+ */
+export function describeCondition(condition, tagNames = {}) {
   if (!condition) return '';
   const parts = [];
-  if (condition.search.trim()) parts.push(`검색어 "${condition.search}"`);
-  if (condition.tags) parts.push(`태그 ${condition.tags.split(',').length}개`);
+  if (condition.search) parts.push(`검색어 "${condition.search}"`);
+  if (condition.tags) {
+    const ids = condition.tags.split(',');
+    const names = ids.map((id) => tagNames[id]).filter(Boolean);
+    const label = names.length === ids.length ? names.map((n) => `"${n}"`).join(', ') : `${ids.length}개`;
+    parts.push(ids.length > 1 ? `태그 ${label} 중 하나라도 붙은 것` : `태그 ${label}`);
+  }
   return parts.join(' · ');
 }

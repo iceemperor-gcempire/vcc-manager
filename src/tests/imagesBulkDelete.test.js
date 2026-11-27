@@ -60,6 +60,7 @@ const get = (doc, path) => path.split('.').reduce((o, k) => (o == null ? o : o[k
 const matchField = (doc, field, cond) => {
   const value = get(doc, field);
   if (cond && cond.$regex !== undefined) return typeof value === 'string' && new RegExp(cond.$regex, cond.$options).test(value);
+  if (cond && cond.$nin && !cond.$in) return !cond.$nin.map(String).includes(String(value));
   if (cond && cond.$in) {
     const want = cond.$in.map(String);
     return (Array.isArray(value) ? value : [value]).some((v) => v != null && want.includes(String(v)));
@@ -549,6 +550,45 @@ describe('POST /api/images/bulk-delete-by-filter — 지우는 것', () => {
     const res = await byFilterRaw({ type: 'uploaded', search: 'cat', expectedDigest: digest });
     expect(res.status).toBe(500);
     expectNothingDeleted();
+  });
+});
+
+describe('한 파일을 다른 문서와 함께 쓰는 경우 — 남는 문서의 파일을 지우지 않는다', () => {
+  test.each(['uploaded', 'generated', 'video'])('%s (선택 삭제): 고르지 않은 문서가 같은 파일을 쓰면 문서만 지운다', async (type) => {
+    const picked = mine({ path: '/shared.bin' });
+    const sharer = mine({ path: '/shared.bin' });
+    const own = mine({ path: '/own.bin' });
+    seed(MEDIA[type], [picked, sharer, own]);
+    const res = await bySelection({ items: [picked, own].map((d) => ({ id: String(d._id), type })) });
+    expect(res.body.data).toMatchObject({ deleted: 2, failed: 0 });
+    expect(deletedIds(MEDIA[type]).sort()).toEqual([String(picked._id), String(own._id)].sort());
+    expect(deleteFile.mock.calls).toEqual([['/own.bin']]); // 함께 쓰는 파일은 남는다
+  });
+
+  test('조건 삭제: 조건 밖 문서가 같은 파일을 쓰면 그 파일은 남긴다', async () => {
+    const hit = mine({ path: '/shared.bin' });
+    const outside = mine({ originalName: 'dog.png', path: '/shared.bin' });
+    seed(GeneratedImage, [hit, outside]);
+    await byFilter({ type: 'generated', search: 'cat' });
+    expect(deletedIds(GeneratedImage)).toEqual([String(hit._id)]);
+    expect(deleteFile).not.toHaveBeenCalled();
+  });
+
+  test('남의 문서가 같은 파일을 쓰고 있어도 그 파일은 남긴다', async () => {
+    const own = mine({ path: '/shared.bin' });
+    const theirs = mine({ userId: oid(), path: '/shared.bin' });
+    seed(GeneratedVideo, [own, theirs]);
+    await bySelection({ items: [{ id: String(own._id), type: 'video' }] });
+    expect(deletedIds(GeneratedVideo)).toEqual([String(own._id)]);
+    expect(deleteFile).not.toHaveBeenCalled();
+  });
+
+  test('같은 파일을 쓰는 문서를 모두 지우면 파일도 지운다 — 한 번만', async () => {
+    const a = mine({ path: '/shared.bin' });
+    const b = mine({ path: '/shared.bin' });
+    seed(GeneratedImage, [a, b]);
+    await bySelection({ items: [a, b].map((d) => ({ id: String(d._id), type: 'generated' })) });
+    expect(deleteFile.mock.calls).toEqual([['/shared.bin']]);
   });
 });
 

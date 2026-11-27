@@ -621,6 +621,9 @@ function MyImages() {
   const filterProjects = (projectsData?.data?.data?.projects || projectsData?.data?.projects || []).filter((p) => !!p.tagId);
   const filterTags = (myTagsData?.data?.data?.tags || myTagsData?.data?.tags || []).filter((t) => !t.isProjectTag);
 
+  // 확인창에 태그 이름을 적으려고 (#1314)
+  const tagNameById = useMemo(() => Object.fromEntries(filterTags.map((t) => [t._id, t.name])), [filterTags]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const toggleTagFilter = (tagId) => {
     setSelectedTagIds((prev) => {
       const next = new Set(prev);
@@ -835,7 +838,7 @@ function MyImages() {
           <Typography gutterBottom>
             {confirmType === 'selected'
               ? `선택한 ${selectedSnapshot?.ids.length || 0}개 항목을 삭제합니다.`
-              : `${describeCondition(deleteSnapshot)} 조건에 맞는 ${deleteSnapshot?.count || 0}개 항목을 모두 삭제합니다.`
+              : `${describeCondition(deleteSnapshot, tagNameById)} 조건에 맞는 ${deleteSnapshot?.count || 0}개 항목을 모두 삭제합니다.`
             }
           </Typography>
           {(confirmType === 'selected' ? selectedSnapshot?.type : deleteSnapshot?.type) !== 'uploaded' && (
