@@ -25,6 +25,7 @@ const { findUnusableAttachments, describeUnusableAttachments } = require('./atta
 const { findModelFolderViolation } = require('./modelFolderGuard');
 const { IMAGE_ONLY_REQUEST, isPromptEnhanceOn, findPromptEnhanceProblem } = require('../utils/promptEnhance');
 const { findLoraFolderViolation, findLoraFieldViolation } = require('./loraFolderGuard');
+const { findFieldValueViolation } = require('./fieldValueGuard');
 const { buildSequenceStepInput } = require('../utils/sequenceInputs');
 const queueService = require('./queueService');
 
@@ -418,6 +419,9 @@ async function runImageStep(userId, run, step, inputData, ctx = {}) {
   if (folderViolation) throw new Error(folderViolation);
   const loraViolation = await findLoraFolderViolation(workboard, jobInput.prompt) || findLoraFieldViolation(workboard, jobInput);
   if (loraViolation) throw new Error(loraViolation);
+  // 선택지 밖 값 · 범위 밖 숫자도 같은 규칙으로 막는다 (#1163)
+  const valueViolation = findFieldValueViolation(workboard, jobInput);
+  if (valueViolation) throw new Error(valueViolation);
 
   // queueService 의 addImageGenerationJob 재사용
   const job = await queueService.addImageGenerationJob(userId, workboard._id, jobInput, ctx.jobMarker || {});

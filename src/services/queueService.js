@@ -931,6 +931,10 @@ const injectInputsIntoWorkflow = async (workflowTemplate, inputData, workboard =
       
       // 키-값 객체에서 값 추출
       let value = extractValue(rawValue);
+      // 선택 칸에 숫자 0 을 보내면 위에서 빈 값으로 바뀐다 — 선택지 "0" 으로 넣는다 (#1163).
+      // 칸 값 검사(fieldValueGuard)가 통과시킨 값과 실제로 들어가는 값이 같아야 한다
+      const unwrappedRaw = rawValue && typeof rawValue === 'object' && rawValue.value !== undefined ? rawValue.value : rawValue;
+      if (field.type === 'select' && typeof unwrappedRaw === 'number') value = String(unwrappedRaw);
       
       // 필드 타입에 따른 값 변환
       switch (field.type) {
@@ -1166,7 +1170,9 @@ const saveGeneratedMedia = async (jobId, mediaItems, inputData, mediaType, workb
       
       const ext = getExtensionFromMimeType(itemData.mimeType) || itemData.filename?.split('.').pop()
         || ({ video: 'mp4', audio: 'flac' }[mediaType] || 'png');
-      const filename = `generated_${Date.now()}_${i}.${ext}`;
+      // 작업을 여러 개 함께 처리하므로 시각 · 순번만으로는 이름이 겹칠 수 있다. 겹치면 두 결과가 한 파일을
+      // 나눠 갖고, 하나를 지울 때 다른 하나의 파일도 사라진다 — 무작위 조각을 붙인다 (#1314)
+      const filename = `generated_${Date.now()}_${i}_${crypto.randomBytes(4).toString('hex')}.${ext}`;
       const targetDir = path.join(process.env.UPLOAD_PATH || './uploads', subDir);
       
       await fs.promises.mkdir(targetDir, { recursive: true });

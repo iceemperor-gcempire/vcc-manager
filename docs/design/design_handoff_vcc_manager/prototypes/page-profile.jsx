@@ -118,7 +118,7 @@ function ProfileSection({ mobile }) {
           </div>
           <div style={{ gridColumn: mobile ? "auto" : "span 2" }}>
             <label className="field-label">이메일</label>
-            <input className="input" defaultValue="ceremp@gcempire.net" disabled style={{ background: "var(--bg-subtle)" }}/>
+            <input className="input" defaultValue="ceremp@example.com" disabled style={{ background: "var(--bg-subtle)" }}/>
             <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>변경하려면 관리자에게 요청하세요.</div>
           </div>
           <div>

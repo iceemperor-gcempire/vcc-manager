@@ -124,6 +124,8 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 
 **허용 LoRA 폴더** (`allowedLoraFolders`, ComfyUI 작업판, #1099) — 규칙은 허용 모델 폴더와 같다. 이 폴더(하위 포함) 안의 LoRA 만 LoRA 선택 목록에 나오고, 프롬프트의 `<lora:이름:가중치>` 태그가 폴더 밖 파일을 가리키거나 `lora` 타입 입력 칸의 값이 폴더 밖 파일이면 `POST /jobs/generate` · 재시도 · 파이프라인 단계는 `400` 이다(빈 칸은 LoRA 를 걸지 않으므로 검사하지 않는다). 태그는 LoRA 태그 로더(`LoraTagLoader`)와 같은 규칙으로 파일에 맞춘다 — 서버 LoRA 목록(정렬 순)에서 파일 이름이 태그 이름으로 시작하는 첫 파일. 목록에 없는 이름은 판단하지 않고 통과시킨다(로더도 그 태그를 건너뛴다). 계열이 다른 LoRA 는 ComfyUI 가 오류 없이 무시하므로, 짝이 정해진 판은 폴더로 묶어 둔다.
 
+**입력 칸의 허용 값** (#1163) — 이미지·영상·오디오 생성에서 `select` 칸은 선택지(`options[].value`) 안의 값만 받고, `number` 칸은 숫자와 판이 정한 범위(`validation.min` · `max`)만 받는다. 밖의 값으로 들어온 `POST /jobs/generate` 와 작업 재시도는 `400` 이다(`지원하지 않는 값입니다: <칸 이름> = <값>`). 파이프라인 · 작업 절차는 실행을 받은 뒤 그 단계가 같은 메시지로 실패한다. 기본값으로 바꿔 실행하지 않는다. 선택지 값은 글자지만 숫자로 보내도 된다(`4` 와 `"4"` 는 같다). 표시 이름(`options[].key`)은 값이 아니다. 칸을 보내지 않으면 판 기본값으로 돌고, 그 기본값도 같은 검사를 받는다 — 선택지에서 기본값을 뺐다면 기본값도 함께 고친다. 빈 값(`""`)을 직접 보낸 것은 이 검사에서 보지 않는다. 판의 선택지를 줄이면 그 전에 만든 작업의 재시도도 막힌다 — 값을 고쳐 새로 만든다. 선택지를 정하지 않은 `select` 칸, 글자 칸, 텍스트 작업판은 검사하지 않는다. 모델 · LoRA 칸은 위의 폴더 규칙을 따른다.
+
 ## 작업 (Jobs)
 
 | Method | Endpoint | Description | Auth |
@@ -195,8 +197,9 @@ VCC Manager 의 REST API 엔드포인트 목록. 모든 요청의 기본 URL 은
 | `PUT` | `/images/generated/:id` | 생성 이미지 수정 | Yes |
 | `DELETE` | `/images/generated/:id` | 생성 이미지 삭제 | Yes |
 | `POST` | `/images/generated/:id/download` | 생성 이미지 다운로드 | Yes |
-| `POST` | `/images/bulk-delete` | 다중 삭제 (id 목록) | Yes |
-| `POST` | `/images/bulk-delete-by-filter` | 검색 결과 일괄 삭제 | Yes |
+| `POST` | `/images/bulk-delete` | 고른 항목 삭제 — `{ items: [{ id, type }], deleteJob? }`. `type` 은 `uploaded` · `generated` · `video`. 형식이 틀린 항목이 하나라도 있으면 400 이고 아무것도 지우지 않는다. 남의 것 · 실행 중인 작업이 쓰는 업로드 이미지는 건너뛰고 사유를 돌려준다 | Yes |
+| `POST` | `/images/bulk-delete-by-filter/preview` | 조건에 맞는 삭제 대상 확인 — `{ type, search?, tags?, seenIds? }` → `{ count, digest }`. 아무것도 지우지 않는다. `seenIds`(화면에 보이는 항목의 id, 최대 200개)를 보내면 그중 하나라도 대상에 없을 때 409 를 돌려준다. 조건은 목록 API(`/images/uploaded` · `/generated` · `/videos`)의 `search` · `tags` 와 같게 읽고, **둘 중 하나는 있어야 한다**(없으면 400) | Yes |
+| `POST` | `/images/bulk-delete-by-filter` | 조건에 맞는 것 전체 삭제 — `{ type, search?, tags?, expectedDigest, deleteJob? }`. `expectedDigest` 에 대상 지문을 넣는다 — 같은 조건의 목록 응답(`pagination.digest`, 조건이 있을 때만 온다)이나 `preview` 가 준 값. 지금 조건에 맞는 대상이 확인한 것과 하나라도 다르면 409 이고 아무것도 지우지 않는다. 되돌릴 수 없다 | Yes |
 | `GET` | `/images/stats` | 이미지 통계 | Yes |
 
 ## 비디오 (Videos)

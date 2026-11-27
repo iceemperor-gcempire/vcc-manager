@@ -200,6 +200,7 @@ export const imageAPI = {
     responseType: 'blob',
   }),
   bulkDelete: (items, deleteJob) => api.post('/images/bulk-delete', { items, deleteJob }),
+  // filters 에는 목록 응답이 준 대상 지문(expectedDigest)이 들어간다 — utils/bulkDeleteByFilter (#1314)
   bulkDeleteByFilter: (type, filters) => api.post('/images/bulk-delete-by-filter', { type, ...filters }),
 };
 

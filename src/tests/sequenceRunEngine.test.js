@@ -242,6 +242,24 @@ describe('processSequenceRun', () => {
     expect(queueService.addImageGenerationJob).not.toHaveBeenCalled();
   });
 
+  test('단계에 저장된 값이 판의 선택지 밖이면 작업을 만들지 않고 실패 (#1163)', async () => {
+    const lengthField = { name: 'length', label: '길이', type: 'select', defaultValue: '124', options: [{ key: '5초', value: '124' }] };
+    mockWorkboards({
+      [WB_TEXT]: workboardDoc(WB_TEXT),
+      [WB_IMAGE]: workboardDoc(WB_IMAGE, { additionalInputFields: [{ name: 'prompt', type: 'string' }, lengthField] }),
+    });
+    const run = fakeRun();
+    SequenceRun.findById.mockResolvedValue(run);
+    const def = definition();
+    def.steps[1].inputs = { seed: 7, length: '362' }; // 선택지가 줄기 전에 저장한 값
+    Sequence.findById.mockResolvedValue(def);
+
+    await processSequenceRun({ data: { runId: 'run1' } });
+
+    expect(run.steps[1]).toMatchObject({ status: 'failed', error: { message: '지원하지 않는 값입니다: 길이 = 362' } });
+    expect(queueService.addImageGenerationJob).not.toHaveBeenCalled();
+  });
+
   test('admin 실행자는 첨부 검증을 건너뛴다', async () => {
     jest.useFakeTimers();
     const { findUnusableAttachments } = require('../services/attachmentOwnership');

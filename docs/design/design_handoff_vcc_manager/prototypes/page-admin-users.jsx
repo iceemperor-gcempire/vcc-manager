@@ -82,14 +82,14 @@ function AdminUsersPage({ mobile }) {
   ];
 
   const users = [
-    { name: "쎌렘황제",    email: "ceremp@gcempire.net",  initial: "셀", avatarBg: "linear-gradient(135deg,#6B6BE0,#9B6BD8)", role: "admin", lastSeen: "지금",   usage: 1247, groups: [{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
-    { name: "한지원",      email: "hjwon@gcempire.net",   initial: "한", avatarBg: "linear-gradient(135deg,#2F77E4,#4E8EE8)", role: "vip",   lastSeen: "12분 전", usage: 412, groups: [{name:"VIP",color:"#BE7415"},{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
-    { name: "Kim Minjae",  email: "minjae.k@gcempire.net",initial: "K",  avatarBg: "linear-gradient(135deg,#0F9385,#2EBA6B)", role: null,    lastSeen: "1시간 전",usage: 248, groups: [{name:"디자인",color:"#0F9385"}], status: "active" },
-    { name: "박서연",      email: "syp@gcempire.net",     initial: "박", avatarBg: "linear-gradient(135deg,#BE7415,#D69021)", role: null,    lastSeen: "어제",   usage: 187, groups: [{name:"엔지",color:"#2F77E4"}], status: "active" },
-    { name: "Linda Choi",  email: "linda@gcempire.net",   initial: "L",  avatarBg: "linear-gradient(135deg,#D5383E,#E84B52)", role: "admin", lastSeen: "어제",   usage: 92,  groups: [{name:"관리",color:"#D5383E"}], status: "active" },
-    { name: "정현우",      email: "hwjung@gcempire.net",  initial: "정", avatarBg: "linear-gradient(135deg,#5B5BD6,#7676E0)", role: null,    lastSeen: "3일 전", usage: 64,  groups: [{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
-    { name: "no-name",     email: "guest-031@gc.net",     initial: "?",  avatarBg: "linear-gradient(135deg,#8A8F9A,#B6BAC2)", role: null,    lastSeen: "—",      usage: 0,   groups: [{name:"대기",color:"#BE7415"}], status: "pending" },
-    { name: "이도윤",      email: "dyleeold@gcempire.net",initial: "이", avatarBg: "linear-gradient(135deg,#717684,#A0A4AF)", role: null,    lastSeen: "3주 전", usage: 18,  groups: [{name:"디자인",color:"#0F9385"}], status: "suspended" },
+    { name: "쎌렘황제",    email: "ceremp@example.com",  initial: "셀", avatarBg: "linear-gradient(135deg,#6B6BE0,#9B6BD8)", role: "admin", lastSeen: "지금",   usage: 1247, groups: [{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
+    { name: "한지원",      email: "hjwon@example.com",   initial: "한", avatarBg: "linear-gradient(135deg,#2F77E4,#4E8EE8)", role: "vip",   lastSeen: "12분 전", usage: 412, groups: [{name:"VIP",color:"#BE7415"},{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
+    { name: "Kim Minjae",  email: "minjae.k@example.com",initial: "K",  avatarBg: "linear-gradient(135deg,#0F9385,#2EBA6B)", role: null,    lastSeen: "1시간 전",usage: 248, groups: [{name:"디자인",color:"#0F9385"}], status: "active" },
+    { name: "박서연",      email: "syp@example.com",     initial: "박", avatarBg: "linear-gradient(135deg,#BE7415,#D69021)", role: null,    lastSeen: "어제",   usage: 187, groups: [{name:"엔지",color:"#2F77E4"}], status: "active" },
+    { name: "Linda Choi",  email: "linda@example.com",   initial: "L",  avatarBg: "linear-gradient(135deg,#D5383E,#E84B52)", role: "admin", lastSeen: "어제",   usage: 92,  groups: [{name:"관리",color:"#D5383E"}], status: "active" },
+    { name: "정현우",      email: "hwjung@example.com",  initial: "정", avatarBg: "linear-gradient(135deg,#5B5BD6,#7676E0)", role: null,    lastSeen: "3일 전", usage: 64,  groups: [{name:"콘텐츠",color:"#7B4DD8"}], status: "active" },
+    { name: "no-name",     email: "guest-031@example.org",     initial: "?",  avatarBg: "linear-gradient(135deg,#8A8F9A,#B6BAC2)", role: null,    lastSeen: "—",      usage: 0,   groups: [{name:"대기",color:"#BE7415"}], status: "pending" },
+    { name: "이도윤",      email: "dyleeold@example.com",initial: "이", avatarBg: "linear-gradient(135deg,#717684,#A0A4AF)", role: null,    lastSeen: "3주 전", usage: 18,  groups: [{name:"디자인",color:"#0F9385"}], status: "suspended" },
   ];
 
   const tabs = [
@@ -236,9 +236,9 @@ function AdminUsersPage({ mobile }) {
       {tab === "invites" && (
         <div className="card">
           {[
-            { email: "intern1@gcempire.net", invitedBy: "Linda Choi", time: "2일 전", group: "콘텐츠 제작" },
-            { email: "newhire@gcempire.net", invitedBy: "쎌렘황제",   time: "1주 전", group: "엔지니어링" },
-            { email: "vendor@partner.io",    invitedBy: "쎌렘황제",   time: "2주 전", group: "외부" },
+            { email: "intern1@example.com", invitedBy: "Linda Choi", time: "2일 전", group: "콘텐츠 제작" },
+            { email: "newhire@example.com", invitedBy: "쎌렘황제",   time: "1주 전", group: "엔지니어링" },
+            { email: "vendor@example.org",    invitedBy: "쎌렘황제",   time: "2주 전", group: "외부" },
           ].map((inv, i) => (
             <div key={i} style={{
               padding: "14px 16px",
