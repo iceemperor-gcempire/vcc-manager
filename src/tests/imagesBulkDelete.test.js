@@ -478,6 +478,21 @@ describe('목록 검색 — 여섯 종류가 같은 방식으로 찾는다 (#132
     expect(res.status).toBe(200);
     expect(deletedIds(GeneratedVideo).sort()).toEqual([String(byTag._id), String(byName._id)].sort());
   });
+
+  test('영상: 목록을 본 뒤 태그 이름이 바뀌어 검색 대상이 달라지면 지우지 않는다', async () => {
+    const tagId = oid();
+    Tag.find.mockReturnValue({ select: () => ({ lean: async () => [{ _id: tagId }] }) });
+    const byTag = mine({ originalName: 'dog.mp4', tags: [tagId] });
+    seed(GeneratedVideo, [byTag, mine({ originalName: 'dog.mp4' })]);
+    const list = await request(app).get('/api/images/videos').query({ search: '풍경' });
+    expect(ids(list, 'videos')).toEqual([String(byTag._id)]);
+
+    Tag.find.mockReturnValue({ select: () => ({ lean: async () => [] }) }); // 그 사이 태그 이름이 바뀌었다 — 이제 '풍경'과 맞는 태그가 없다
+    jest.clearAllMocks();
+    const res = await byFilterRaw({ type: 'video', search: '풍경', expectedDigest: list.body.pagination.digest });
+    expect(res.status).toBe(409);
+    expectNothingDeleted();
+  });
 });
 
 describe('POST /api/images/bulk-delete-by-filter — 대상 범위', () => {
