@@ -1,5 +1,6 @@
 // 작업 삭제 공통 로직 (#902). DELETE /jobs/:id 와 POST /jobs/bulk-delete 가 같은 규칙을 쓴다.
 //
+// - 라우트는 먼저 dequeueIfPending 으로 대기 중인 작업을 대기열에서 뺀다 (#1325)
 // - 참조 이미지의 referencedBy 에서 이 작업을 뺀다
 // - deleteContent=true 면 결과 이미지·영상·오디오의 파일과 레코드를 지우고, 아니면 jobId 만 끊는다
 //   (히스토리 삭제 시 콘텐츠 보존 — GeneratedImage/Video/Audio 의 jobId 가 required:false 인 이유)
@@ -26,6 +27,24 @@ function checkDeletable(job, user) {
   if (!job) return { ok: false, status: 404, reason: 'Job not found' };
   if (job.userId.toString() !== user._id.toString() && !user.isAdmin) return { ok: false, status: 403, reason: 'Access denied' };
   if (job.status === 'processing') return { ok: false, status: 400, reason: 'Cannot delete job that is currently processing' };
+  return { ok: true };
+}
+
+/**
+ * 대기 중인 작업을 지우기 전에 대기열에서 뺀다 (#1325). 빼지 않으면 기록만 사라지고 생성은 그대로 돈다.
+ * 그 사이 워커가 이미 가져갔으면(active) 지우지 않는다 — 처리 중인 작업과 같게 다룬다.
+ * 대기 중이 아닌 작업은 아무것도 하지 않는다.
+ * @returns {Promise<{ ok: true } | { ok: false, status: number, reason: string }>}
+ */
+async function dequeueIfPending(job) {
+  if (job.status !== 'pending' || !job.queueJobId) return { ok: true };
+  // queueService 는 무거운 모듈이라 쓸 때 불러온다
+  const { cancelQueueJob } = require('./queueService');
+  const { removed, state } = await cancelQueueJob(job.queueJobId, { expectedJobId: job._id });
+  console.log(`🗑️  대기 중인 작업 ${job._id} 삭제 — 대기열: ${removed ? '뺐음' : (state || '없음')}`);
+  if (!removed && state === 'active') {
+    return { ok: false, status: 400, reason: 'Cannot delete job that is currently processing' };
+  }
   return { ok: true };
 }
 
@@ -72,4 +91,4 @@ async function deleteJobRecord(job, { deleteContent = false } = {}) {
   return counts;
 }
 
-module.exports = { deleteJobRecord, checkDeletable, CONTENT_KINDS };
+module.exports = { deleteJobRecord, checkDeletable, dequeueIfPending, CONTENT_KINDS };

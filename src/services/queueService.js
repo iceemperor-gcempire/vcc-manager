@@ -3,6 +3,7 @@ const Redis = require('redis');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { jobStopReason } = require('./jobCancelCheck');
 const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const geminiService = require('./geminiService');
@@ -384,15 +385,11 @@ const abortActiveJob = (jobId) => {
   return false;
 };
 
-// 취소 여부 확인 — worker 체크포인트용 (#521)
+// 취소 · 삭제 여부 확인 — worker 체크포인트용 (#521, #1325). 지워진 작업도 멈춘다
 const isJobCancelled = async (jobId) => {
-  try {
-    const doc = await ImageGenerationJob.findById(jobId).select('status').lean();
-    return doc?.status === 'cancelled';
-  } catch (error) {
-    console.error(`Error checking cancel state for ${jobId}:`, error.message);
-    return false;
-  }
+  const reason = await jobStopReason(jobId);
+  if (reason === 'deleted') console.log(`🗑️  Job ${jobId} 는 지워진 작업 — 생성 · 저장을 하지 않는다`);
+  return !!reason;
 };
 
 const processImageGeneration = async (job) => {
@@ -1433,7 +1430,9 @@ const getQueueStats = async () => {
 
 // 취소된 잡을 Bull 큐에서 제거 (#521)
 // waiting/delayed/paused 면 실행 자체를 차단. active 면 worker 체크포인트가 처리.
-const cancelQueueJob = async (queueJobId) => {
+// expectedJobId 를 주면 대기열 항목이 그 작업의 것일 때만 뺀다 (#1325).
+// 복원 뒤에는 대기열 번호가 처음부터 다시 매겨져, 옛 작업 문서에 적힌 번호가 다른 사람의 새 작업을 가리킬 수 있다.
+const cancelQueueJob = async (queueJobId, { expectedJobId } = {}) => {
   if (!imageGenerationQueue || !queueJobId) {
     return { removed: false, state: null };
   }
@@ -1441,6 +1440,10 @@ const cancelQueueJob = async (queueJobId) => {
     const queueJob = await imageGenerationQueue.getJob(queueJobId);
     if (!queueJob) {
       return { removed: false, state: null };
+    }
+    if (expectedJobId && String(queueJob.data?.jobId) !== String(expectedJobId)) {
+      console.warn(`⚠️ Queue job ${queueJobId} 는 다른 작업(${queueJob.data?.jobId})의 것 — 빼지 않는다 (요청 작업 ${expectedJobId})`);
+      return { removed: false, state: 'mismatch' };
     }
     const state = await queueJob.getState();
     if (['waiting', 'delayed', 'paused'].includes(state)) {

@@ -13,7 +13,7 @@ jest.mock('../services/queueService', () => ({ addImageGenerationJob: jest.fn(),
 jest.mock('../models/ImageGenerationJob', () => ({ findById: jest.fn(), find: jest.fn(), countDocuments: jest.fn(), updateOne: jest.fn() }));
 jest.mock('../services/jobDeletionService', () => {
   const actual = jest.requireActual('../services/jobDeletionService');
-  return { checkDeletable: actual.checkDeletable, deleteJobRecord: jest.fn().mockResolvedValue({ deletedImagesCount: 2, deletedVideosCount: 0, deletedAudiosCount: 0 }) };
+  return { checkDeletable: actual.checkDeletable, dequeueIfPending: jest.fn().mockResolvedValue({ ok: true }), deleteJobRecord: jest.fn().mockResolvedValue({ deletedImagesCount: 2, deletedVideosCount: 0, deletedAudiosCount: 0 }) };
 });
 
 const ImageGenerationJob = require('../models/ImageGenerationJob');

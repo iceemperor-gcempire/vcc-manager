@@ -29,26 +29,45 @@ const MEDIA_FILE_MODEL_NAMES = Object.freeze([...GENERATED_MEDIA_MODELS, ...UPLO
  * @param {Object} filter - mongoose 필터 (예: `{ userId }`, `{ userId: { $in: [...] } }`)
  * @param {Object} [options]
  * @param {string} [options.uploadRoot] - 업로드 루트 (기본 UPLOAD_PATH)
- * @returns {Promise<{deleted: number, absent: number, byCollection: Array<{collection, docs, deleted, absent}>}>}
+ * @returns {Promise<{deleted: number, absent: number, kept: number, byCollection: Array<{collection, docs, deleted, absent}>}>}
+ *   `kept` 는 지우지 않는 다른 문서가 같은 파일을 쓰고 있어 남긴 것
  *   `absent` 는 경로는 알았는데 디스크에 이미 없던 것 — 실패가 아니라 이미 정리된 상태다.
  */
 async function deleteMediaFilesFor(filter, { uploadRoot = process.env.UPLOAD_PATH || './uploads' } = {}) {
   const byCollection = [];
   let deleted = 0;
   let absent = 0;
+  let kept = 0; // 다른 문서가 함께 써서 남긴 파일
 
   for (const name of MEDIA_FILE_MODEL_NAMES) {
     const Model = MEDIA_MODELS[name];
     const projection = { path: 1, ...(THUMBNAIL_MODELS.has(name) ? { thumbnailUrl: 1 } : {}) };
     const docs = await Model.find(filter, projection).lean();
 
+    // 지우지 않는 다른 문서가 같은 파일을 쓰고 있으면 그 파일은 남긴다 (#1325).
+    // 옛 데이터에는 파일 이름이 겹쳐 한 파일을 나눠 가진 문서가 있을 수 있다 — 남는 문서의 파일을 지우지 않는다
+    const ids = docs.map((d) => d._id);
+    const paths = [...new Set(docs.map((d) => d.path).filter(Boolean))];
+    const sharers = paths.length
+      ? await Model.find({ path: { $in: paths }, _id: { $nin: ids } }, { path: 1 }).lean()
+      : [];
+    const sharedPaths = new Set(sharers.map((d) => d.path));
+    kept += paths.filter((p) => sharedPaths.has(p)).length;
+    // 썸네일도 같은 규칙 — 남는 문서가 같은 썸네일을 쓰면 남긴다
+    const thumbUrls = THUMBNAIL_MODELS.has(name) ? [...new Set(docs.map((d) => d.thumbnailUrl).filter(Boolean))] : [];
+    const thumbSharers = thumbUrls.length
+      ? await Model.find({ thumbnailUrl: { $in: thumbUrls }, _id: { $nin: ids } }, { thumbnailUrl: 1 }).lean()
+      : [];
+    const sharedThumbs = new Set(thumbSharers.map((d) => d.thumbnailUrl));
+
     const targets = [];
+    const seen = new Set();
     for (const doc of docs) {
-      if (doc.path) targets.push(doc.path);
+      if (doc.path && !sharedPaths.has(doc.path) && !seen.has(doc.path)) { seen.add(doc.path); targets.push(doc.path); }
       // 썸네일은 별도 경로 필드가 없어 URL 에서 환산한다 (routes/images.js 와 같은 규칙)
-      if (doc.thumbnailUrl) {
+      if (doc.thumbnailUrl && !sharedThumbs.has(doc.thumbnailUrl)) {
         const thumbPath = uploadUrlToDiskPath(doc.thumbnailUrl, uploadRoot);
-        if (thumbPath) targets.push(thumbPath);
+        if (thumbPath && !seen.has(thumbPath)) { seen.add(thumbPath); targets.push(thumbPath); }
       }
     }
 
@@ -64,11 +83,11 @@ async function deleteMediaFilesFor(filter, { uploadRoot = process.env.UPLOAD_PAT
 
   // 0건이어도 남긴다 — "대상이 없었다" 와 "이 단계가 안 돌았다" 가 로그에서 구분되어야 한다
   console.log(
-    `🧹 미디어 파일 정리: 삭제 ${deleted}건 · 이미 없음 ${absent}건 | ` +
+    `🧹 미디어 파일 정리: 삭제 ${deleted}건 · 이미 없음 ${absent}건 · 함께 써서 남김 ${kept}건 | ` +
     byCollection.map((c) => `${c.collection} ${c.deleted}/${c.docs}`).join(', ')
   );
 
-  return { deleted, absent, byCollection };
+  return { deleted, absent, kept, byCollection };
 }
 
 module.exports = { deleteMediaFilesFor, MEDIA_FILE_MODEL_NAMES };

@@ -26,11 +26,25 @@ const MODELS = {
   UploadedAudio: require('../models/UploadedAudio'),
 };
 
-/** 각 모델의 find 를 주어진 문서 배열로 대체 */
-function stubFinds(docsByModel) {
+/**
+ * 각 모델의 find 를 대체한다.
+ * - 대상 조회(정리할 문서): docsByModel
+ * - 함께 쓰는 문서 조회(`{ path: { $in }, _id: { $nin } }`): sharersByModel 중 경로가 맞는 것
+ */
+function stubFinds(docsByModel, sharersByModel = {}) {
   return Object.entries(MODELS).map(([name, Model]) =>
-    jest.spyOn(Model, 'find').mockReturnValue({
-      lean: () => Promise.resolve(docsByModel[name] || []),
+    jest.spyOn(Model, 'find').mockImplementation((filter = {}) => {
+      if (filter.thumbnailUrl && filter.thumbnailUrl.$in) {
+        const excluded = ((filter._id && filter._id.$nin) || []).map(String);
+        const hits = (sharersByModel[name] || []).filter((d) => filter.thumbnailUrl.$in.includes(d.thumbnailUrl) && !excluded.includes(String(d._id)));
+        return { lean: () => Promise.resolve(hits) };
+      }
+      if (filter.path && filter.path.$in) {
+        const excluded = ((filter._id && filter._id.$nin) || []).map(String);
+        const hits = (sharersByModel[name] || []).filter((d) => filter.path.$in.includes(d.path) && !excluded.includes(String(d._id)));
+        return { lean: () => Promise.resolve(hits) };
+      }
+      return { lean: () => Promise.resolve(docsByModel[name] || []) };
     })
   );
 }
@@ -126,5 +140,60 @@ describe('deleteMediaFilesFor (#806)', () => {
     expect(res.deleted).toBe(0);
     expect(console.log).toHaveBeenCalledWith(expect.stringContaining('미디어 파일 정리'));
     spies.forEach((s) => s.mockRestore());
+  });
+});
+
+describe('다른 문서와 함께 쓰는 파일은 남긴다 (#1325)', () => {
+  test('지우지 않는 문서가 같은 경로를 쓰면 그 파일은 지우지 않는다', async () => {
+    stubFinds(
+      { GeneratedImage: [{ _id: 'a', path: '/u/shared.png' }, { _id: 'b', path: '/u/own.png' }] },
+      { GeneratedImage: [{ _id: 'other', path: '/u/shared.png' }] },
+    );
+    const result = await deleteMediaFilesFor({ userId: 'gone' });
+    expect(fileUpload.deleteFile.mock.calls.map(([p]) => p)).toEqual(['/u/own.png']);
+    expect(result).toMatchObject({ deleted: 1, kept: 1 });
+  });
+
+  test('함께 쓰는 문서를 찾는 조건에서 지우는 문서 자신은 뺀다', async () => {
+    const spies = stubFinds({ GeneratedVideo: [{ _id: 'a', path: '/u/v.mp4' }] });
+    await deleteMediaFilesFor({ userId: 'gone' });
+    const videoSpy = spies[Object.keys(MODELS).indexOf('GeneratedVideo')];
+    const sharerQuery = videoSpy.mock.calls.map(([f]) => f).find((f) => f.path);
+    expect(sharerQuery).toEqual({ path: { $in: ['/u/v.mp4'] }, _id: { $nin: ['a'] } });
+  });
+
+  test('지우는 문서끼리만 같은 파일을 쓰면 파일을 지운다 — 한 번만', async () => {
+    stubFinds({ UploadedImage: [{ _id: 'a', path: '/u/same.png' }, { _id: 'b', path: '/u/same.png' }] });
+    const result = await deleteMediaFilesFor({ userId: 'gone' });
+    expect(fileUpload.deleteFile.mock.calls).toEqual([['/u/same.png']]);
+    expect(result.kept).toBe(0);
+  });
+
+  test('다른 종류의 문서가 같은 경로를 쓰는 것은 보지 않는다 (종류마다 폴더가 다르다)', async () => {
+    stubFinds(
+      { GeneratedImage: [{ _id: 'a', path: '/u/x.png' }] },
+      { GeneratedVideo: [{ _id: 'v', path: '/u/x.png' }] },
+    );
+    await deleteMediaFilesFor({ userId: 'gone' });
+    expect(fileUpload.deleteFile.mock.calls).toEqual([['/u/x.png']]);
+  });
+
+  test('영상: 남는 문서가 같은 본체와 썸네일을 쓰면 둘 다 남긴다', async () => {
+    const shared = { path: '/u/v.mp4', thumbnailUrl: '/uploads/videos/v_thumb.jpg' };
+    stubFinds(
+      { GeneratedVideo: [{ _id: 'a', ...shared }] },
+      { GeneratedVideo: [{ _id: 'other', ...shared }] },
+    );
+    await deleteMediaFilesFor({ userId: 'gone' }, { uploadRoot: '/u' });
+    expect(fileUpload.deleteFile).not.toHaveBeenCalled();
+  });
+
+  test('함께 쓰는 문서를 찾다가 실패하면 그 종류의 파일은 지우지 않고 던진다', async () => {
+    jest.spyOn(MODELS.GeneratedImage, 'find').mockImplementation((filter = {}) => {
+      if (filter.path) return { lean: () => Promise.reject(new Error('db down')) };
+      return { lean: () => Promise.resolve([{ _id: 'a', path: '/u/a.png' }]) };
+    });
+    await expect(deleteMediaFilesFor({ userId: 'gone' })).rejects.toThrow('db down');
+    expect(fileUpload.deleteFile).not.toHaveBeenCalled();
   });
 });
