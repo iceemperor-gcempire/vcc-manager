@@ -53,15 +53,21 @@ async function deleteMediaFilesFor(filter, { uploadRoot = process.env.UPLOAD_PAT
       : [];
     const sharedPaths = new Set(sharers.map((d) => d.path));
     kept += paths.filter((p) => sharedPaths.has(p)).length;
+    // 썸네일도 같은 규칙 — 남는 문서가 같은 썸네일을 쓰면 남긴다
+    const thumbUrls = THUMBNAIL_MODELS.has(name) ? [...new Set(docs.map((d) => d.thumbnailUrl).filter(Boolean))] : [];
+    const thumbSharers = thumbUrls.length
+      ? await Model.find({ thumbnailUrl: { $in: thumbUrls }, _id: { $nin: ids } }, { thumbnailUrl: 1 }).lean()
+      : [];
+    const sharedThumbs = new Set(thumbSharers.map((d) => d.thumbnailUrl));
 
     const targets = [];
     const seen = new Set();
     for (const doc of docs) {
       if (doc.path && !sharedPaths.has(doc.path) && !seen.has(doc.path)) { seen.add(doc.path); targets.push(doc.path); }
       // 썸네일은 별도 경로 필드가 없어 URL 에서 환산한다 (routes/images.js 와 같은 규칙)
-      if (doc.thumbnailUrl) {
+      if (doc.thumbnailUrl && !sharedThumbs.has(doc.thumbnailUrl)) {
         const thumbPath = uploadUrlToDiskPath(doc.thumbnailUrl, uploadRoot);
-        if (thumbPath) targets.push(thumbPath);
+        if (thumbPath && !seen.has(thumbPath)) { seen.add(thumbPath); targets.push(thumbPath); }
       }
     }
 

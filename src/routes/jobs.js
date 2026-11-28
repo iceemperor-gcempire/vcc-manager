@@ -31,7 +31,7 @@ const { findModelFolderViolation } = require('../services/modelFolderGuard');
 const { findLoraFolderViolation, findLoraFieldViolation } = require('../services/loraFolderGuard');
 const { findFieldValueViolation } = require('../services/fieldValueGuard');
 const { normalizeJobMemo } = require('../constants/jobMemo');
-const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
+const { deleteJobRecord, checkDeletable, dequeueIfPending } = require('../services/jobDeletionService');
 const { excludeSequenceStepJobs } = require('../utils/historyFilters');
 const { findUnusableAttachments, describeUnusableAttachments } = require('../services/attachmentOwnership');
 
@@ -318,6 +318,10 @@ router.delete('/:id', requireAuth, async (req, res) => {
       return res.status(check.status).json({ message: check.reason });
     }
 
+    // 대기 중이면 대기열에서 먼저 뺀다. 워커가 이미 가져갔으면 처리 중으로 보고 지우지 않는다 (#1325)
+    const dequeued = await dequeueIfPending(job);
+    if (!dequeued.ok) return res.status(dequeued.status).json({ message: dequeued.reason });
+
     // 삭제 규칙은 jobDeletionService 로 통일 (#902) — bulk-delete 와 같은 코드
     const { deletedImagesCount, deletedVideosCount, deletedAudiosCount } = await deleteJobRecord(job, { deleteContent: shouldDeleteContent });
 
@@ -360,6 +364,12 @@ router.post('/bulk-delete', requireAuth, async (req, res) => {
       const check = checkDeletable(job, req.user);
       if (!check.ok) {
         results.push({ id, status: 'skipped', reason: check.reason });
+        totals.skipped++;
+        continue;
+      }
+      const dequeued = await dequeueIfPending(job);
+      if (!dequeued.ok) {
+        results.push({ id, status: 'skipped', reason: dequeued.reason });
         totals.skipped++;
         continue;
       }
@@ -508,8 +518,8 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     // DB 상태를 먼저 cancelled 로 — active 잡은 worker 체크포인트가 이 상태를 보고 중단 (#521)
     await job.updateStatus('cancelled');
 
-    // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단)
-    const { removed, state } = await cancelQueueJob(job.queueJobId);
+    // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단). 그 대기열 항목이 이 작업의 것일 때만 뺀다 (#1325)
+    const { removed, state } = await cancelQueueJob(job.queueJobId, { expectedJobId: job._id });
 
     // active 잡의 진행 중 외부 API HTTP 호출 즉시 중단 (Gemini/GPT — ComfyUI 는 비대상) (#539)
     const aborted = abortActiveJob(job._id);

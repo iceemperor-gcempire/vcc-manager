@@ -34,6 +34,11 @@ const MODELS = {
 function stubFinds(docsByModel, sharersByModel = {}) {
   return Object.entries(MODELS).map(([name, Model]) =>
     jest.spyOn(Model, 'find').mockImplementation((filter = {}) => {
+      if (filter.thumbnailUrl && filter.thumbnailUrl.$in) {
+        const excluded = ((filter._id && filter._id.$nin) || []).map(String);
+        const hits = (sharersByModel[name] || []).filter((d) => filter.thumbnailUrl.$in.includes(d.thumbnailUrl) && !excluded.includes(String(d._id)));
+        return { lean: () => Promise.resolve(hits) };
+      }
       if (filter.path && filter.path.$in) {
         const excluded = ((filter._id && filter._id.$nin) || []).map(String);
         const hits = (sharersByModel[name] || []).filter((d) => filter.path.$in.includes(d.path) && !excluded.includes(String(d._id)));
@@ -173,6 +178,16 @@ describe('다른 문서와 함께 쓰는 파일은 남긴다 (#1325)', () => {
     expect(fileUpload.deleteFile.mock.calls).toEqual([['/u/x.png']]);
   });
 
+  test('영상: 남는 문서가 같은 본체와 썸네일을 쓰면 둘 다 남긴다', async () => {
+    const shared = { path: '/u/v.mp4', thumbnailUrl: '/uploads/videos/v_thumb.jpg' };
+    stubFinds(
+      { GeneratedVideo: [{ _id: 'a', ...shared }] },
+      { GeneratedVideo: [{ _id: 'other', ...shared }] },
+    );
+    await deleteMediaFilesFor({ userId: 'gone' }, { uploadRoot: '/u' });
+    expect(fileUpload.deleteFile).not.toHaveBeenCalled();
+  });
+
   test('함께 쓰는 문서를 찾다가 실패하면 그 종류의 파일은 지우지 않고 던진다', async () => {
     jest.spyOn(MODELS.GeneratedImage, 'find').mockImplementation((filter = {}) => {
       if (filter.path) return { lean: () => Promise.reject(new Error('db down')) };
@@ -182,4 +197,3 @@ describe('다른 문서와 함께 쓰는 파일은 남긴다 (#1325)', () => {
     expect(fileUpload.deleteFile).not.toHaveBeenCalled();
   });
 });
-
