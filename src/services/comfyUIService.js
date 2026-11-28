@@ -201,47 +201,166 @@ const processHistoryResult = async (serverUrl, history) => {
   return { images, videos, audios };
 };
 
-const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000) => {
+/** 사용자가 취소해 대기를 끝냈다는 표시. 실패와 구분한다 (#1327) */
+const cancelledError = () => Object.assign(new Error('Job cancelled'), { code: 'ERR_CANCELED', name: 'CanceledError' });
+
+/**
+ * ComfyUI 에 넘어간 prompt 하나를 취소한다 (#1327).
+ *
+ * 같은 ComfyUI 서버를 다른 사용자 · 다른 도구가 함께 쓴다. 그래서 **이 prompt 만** 겨눈다.
+ *
+ * - 서버의 작업별 취소(`POST /api/jobs/{id}/cancel`)를 쓴다. 대기 중이면 대기열에서 빼고, 실행 중이면
+ *   "지금 실행 중인 것이 이 id 인지"와 중단을 서버가 한 잠금 안에서 처리한다.
+ * - `/interrupt` 는 쓰지 않는다. id 를 붙여 보내도 서버가 확인과 중단을 따로 해서, 그 사이 내 작업이 끝나고
+ *   남의 작업이 시작되면 남의 작업이 멈춘다. id 를 안 읽는 옛 서버에서는 늘 전체 중단이다.
+ * - 작업별 취소가 없는 옛 서버에서는 대기열에서 그 id 를 빼는 것까지만 한다. 이미 실행 중이면 그대로 둔다
+ *   (끝나면 결과만 버린다).
+ * - id 를 모르면 아무것도 하지 않는다.
+ *
+ * @returns {Promise<{ action: 'none'|'cancelled'|'dequeue-requested', reason?: string }>}
+ */
+const cancelPrompt = async (serverUrl, promptId) => {
+  if (!serverUrl || typeof promptId !== 'string' || !promptId) return { action: 'none', reason: 'no-prompt-id' };
+  const opts = { timeout: 8000 };
+  try {
+    const { data } = await axios.post(`${serverUrl}/api/jobs/${encodeURIComponent(promptId)}/cancel`, {}, opts);
+    if (typeof data?.cancelled === 'boolean') {
+      return data.cancelled ? { action: 'cancelled' } : { action: 'none', reason: 'not-in-queue' };
+    }
+    return { action: 'none', reason: 'unexpected-response' };
+  } catch (error) {
+    const status = error.response?.status;
+    if (status !== 404 && status !== 405) {
+      console.error(`⚠️ ComfyUI 취소 요청 실패 (prompt ${promptId}): ${error.message}`);
+      return { action: 'none', reason: 'unreachable' };
+    }
+  }
+  // 작업별 취소가 없는 서버 — id 를 지정한 대기열 삭제만
+  try {
+    await axios.post(`${serverUrl}/queue`, { delete: [promptId] }, opts);
+    return { action: 'dequeue-requested', reason: 'no-job-cancel-api' };
+  } catch (error) {
+    console.error(`⚠️ ComfyUI 대기열 삭제 실패 (prompt ${promptId}): ${error.message}`);
+    return { action: 'none', reason: 'unreachable' };
+  }
+};
+
+const SUBMIT_ABORTED = Symbol('submit-aborted');
+
+/** 제출 응답이 끊겼을 때, 접수가 뒤늦게 끝났을 수 있어 한 번 더 취소해 보기까지의 간격 */
+const CANCEL_RETRY_AFTER_LOST_SUBMIT_MS = 5000;
+
+/**
+ * 제출 요청이 나가 있는 사이 취소됐을 때의 뒷정리 (#1327). 워커는 기다리지 않는다 — 이 함수는 뒤에서 돈다.
+ *
+ * - 제출 응답이 오면 **응답의 id** 로 취소한다 (옛 서버는 우리가 보낸 id 를 무시하고 자기 id 를 준다)
+ * - 응답이 끊기면 접수됐는지 알 수 없다. 우리가 보낸 id 로 취소하고, 취소할 것이 없었다면 잠시 뒤 한 번 더 본다
+ */
+const cancelAfterSubmitSettles = (serverUrl, submitting, requestedPromptId) => {
+  const log = (id, outcome, note) => console.log(
+    `🚫 Prompt ${id} cancelled while submitting${note} — ComfyUI: ${outcome.action}${outcome.reason ? ` (${outcome.reason})` : ''}`
+  );
+  return submitting.then(
+    async (response) => {
+      const id = response?.data?.prompt_id;
+      log(id, await cancelPrompt(serverUrl, id), '');
+    },
+    async () => {
+      const first = await cancelPrompt(serverUrl, requestedPromptId);
+      log(requestedPromptId, first, ' (submit response lost)');
+      if (first.reason !== 'not-in-queue') return;
+      await new Promise((resolve) => { const t = setTimeout(resolve, CANCEL_RETRY_AFTER_LOST_SUBMIT_MS); t.unref?.(); });
+      log(requestedPromptId, await cancelPrompt(serverUrl, requestedPromptId), ' (retry)');
+    }
+  );
+};
+
+/**
+ * @param {{ signal?: AbortSignal }} [options] `signal` 은 **사용자 취소 전용**이다 (#1327).
+ *   시간 초과 · 서버 종료에는 쓰지 않는다 — 그 경로는 ComfyUI 작업을 살려 둔다 (#755).
+ */
+const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000, { signal } = {}) => {
   const clientId = uuidv4();
+  if (signal?.aborted) throw cancelledError();
 
   console.log(`🔗 ComfyUI Service: Connecting to ${serverUrl}`);
   console.log(`🆔 Client ID: ${clientId}`);
 
+  let ws = null;
+  let handedOff = false;   // 대기 단계로 넘어가면 소켓 정리는 그쪽이 맡는다
   try {
     // 1. WebSocket을 먼저 연결 (ComfyUI 공식 패턴: connect → prompt 순서)
     //    캐시 히트나 빠른 모델의 경우 POST 직후 완료 메시지가 발생하므로
     //    반드시 WebSocket이 먼저 준비되어야 메시지를 놓치지 않음
-    const ws = new WebSocket(`${serverUrl.replace('http', 'ws')}/ws?clientId=${clientId}`);
+    ws = new WebSocket(`${serverUrl.replace('http', 'ws')}/ws?clientId=${clientId}`);
 
-    // WebSocket 연결 대기
+    // WebSocket 연결 대기 — 그 사이 취소되면 바로 끝낸다 (#1327)
     await new Promise((resolve, reject) => {
-      const connectTimeout = setTimeout(() => {
-        ws.close();
-        reject(new Error('WebSocket connection timeout'));
-      }, 10000);
-
+      let onAbortConnect = null;
+      const done = (fn, arg) => {
+        clearTimeout(connectTimeout);
+        if (onAbortConnect) signal.removeEventListener('abort', onAbortConnect);
+        fn(arg);
+      };
+      const connectTimeout = setTimeout(() => done(reject, new Error('WebSocket connection timeout')), 10000);
+      if (signal) {
+        onAbortConnect = () => done(reject, cancelledError());
+        signal.addEventListener('abort', onAbortConnect, { once: true });
+      }
       ws.on('open', () => {
-        clearTimeout(connectTimeout);
         console.log(`WebSocket connected to ComfyUI`);
-        resolve();
+        done(resolve);
       });
-
-      ws.on('error', (error) => {
-        clearTimeout(connectTimeout);
-        reject(new Error(`WebSocket connection error: ${error.message}`));
-      });
+      ws.on('error', (error) => done(reject, new Error(`WebSocket connection error: ${error.message}`)));
     });
+    if (signal?.aborted) throw cancelledError();
 
     // 2. WebSocket 연결 후 워크플로우 제출
+    //    prompt id 를 우리가 정해 보낸다 — 응답을 못 받아도 그 id 로 취소할 수 있다 (#1327).
+    //    id 를 받지 않는 옛 서버는 자기가 정한 id 를 돌려주므로 응답의 id 를 따른다.
     console.log(`📤 Submitting workflow to ComfyUI...`);
-    const promptResponse = await axios.post(`${serverUrl}/prompt`, {
+    const requestedPromptId = uuidv4();
+    const submitting = axios.post(`${serverUrl}/prompt`, {
       prompt: workflowJson,
-      client_id: clientId
+      client_id: clientId,
+      prompt_id: requestedPromptId
     });
+
+    let promptResponse;
+    if (!signal) {
+      promptResponse = await submitting;
+    } else {
+      // 제출 중 취소: 워커는 바로 끝내고, 제출 결과를 받아 취소하는 일은 뒤에서 한다
+      let onAbortSubmit = null;
+      const aborted = new Promise((resolve) => {
+        onAbortSubmit = () => resolve(SUBMIT_ABORTED);
+        if (signal.aborted) onAbortSubmit();
+        else signal.addEventListener('abort', onAbortSubmit, { once: true });
+      });
+      let outcome;
+      try {
+        outcome = await Promise.race([submitting, aborted]);
+      } catch (submitError) {
+        // 취소된 뒤에 제출이 실패했다 — 접수됐을 수 있으니 뒷정리를 건다
+        if (signal.aborted) {
+          cancelAfterSubmitSettles(serverUrl, submitting, requestedPromptId);
+          throw cancelledError();
+        }
+        throw submitError;
+      } finally {
+        signal.removeEventListener('abort', onAbortSubmit);
+      }
+      if (outcome === SUBMIT_ABORTED) {
+        cancelAfterSubmitSettles(serverUrl, submitting, requestedPromptId);
+        throw cancelledError();
+      }
+      promptResponse = outcome;
+    }
 
     const promptId = promptResponse.data.prompt_id;
     console.log(`✅ Workflow submitted successfully, Prompt ID: ${promptId}`);
     console.log(`📊 Prompt response:`, promptResponse.data);
+    handedOff = true;
 
     // 3. WebSocket으로 완료 대기
     //    executing { node: null }은 히스토리 저장 후 전송되므로 가장 안전한 완료 신호
@@ -253,9 +372,11 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       let livenessFailures = 0;
       const timeoutSec = Math.round(executionTimeout / 1000);
 
+      let onAbort = null;
       const cleanup = () => {
         if (livenessTimer) clearTimeout(livenessTimer);
         if (pollTimer) clearInterval(pollTimer);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
       };
       const safeResolve = (value) => {
         if (settled) return;
@@ -297,6 +418,7 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       // history 에 결과가 있으면 수거하고 true. 오류로 끝났으면 reject 후 true. 아직 없으면 false.
       const tryCompleteFromHistory = async () => {
         const history = await fetchHistoryEntry();
+        if (settled) return true;   // 조회하는 사이 끝났으면 (취소 등) 결과를 받지 않는다
         if (!history) return false;
         if (history.status?.status_str === 'error') {
           safeReject(new Error(`ComfyUI execution error: ${extractHistoryError(history) || 'Unknown error'}`));
@@ -307,10 +429,26 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
         return true;
       };
 
+      // 사용자 취소 (#1327): ComfyUI 에서 이 prompt 만 취소하고 대기를 바로 끝낸다.
+      // 제출 요청이 나가 있는 사이 취소됐으면 여기서 바로 처리된다.
+      if (signal) {
+        onAbort = () => {
+          if (settled) return;
+          // 먼저 취소로 끝낸다 — ComfyUI 응답을 기다리는 사이 다른 신호(오류 · 완료)가 결말을 바꾸지 못하게
+          safeReject(cancelledError());
+          cancelPrompt(serverUrl, promptId).then((outcome) => {
+            console.log(`🚫 Prompt ${promptId} cancelled by user — ComfyUI: ${outcome.action}${outcome.reason ? ` (${outcome.reason})` : ''}`);
+          });
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      }
+
       // liveness 기반 타임아웃 (#755): 만료 시점에 즉시 실패시키지 않고 완료/생존을 확인한다.
       // ComfyUI 큐에 살아있으면 대기를 연장 — "ComfyUI 는 도는데 vcc 는 실패" 불일치 제거.
       // timeout 설정의 의미는 완주 제한이 아니라 생존 확인 주기 + 실종 판정이 된다.
       const armLivenessTimer = () => {
+        if (settled) return;   // 확인이 도는 사이 끝났으면 타이머를 다시 걸지 않는다
         livenessTimer = setTimeout(async () => {
           if (settled) return;
           try {
@@ -402,6 +540,9 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       });
     });
   } catch (error) {
+    // 대기 단계로 넘어가기 전에 끝났으면 소켓을 여기서 닫는다
+    if (!handedOff && ws) { try { ws.close(); } catch (_) { /* already closed */ } }
+    if (error.code === 'ERR_CANCELED' && signal?.aborted) throw error;   // 취소는 제출 실패가 아니다 (#1327)
     // ComfyUI 응답 본문 로깅 — 400 등 에러 시 root cause (validation 메시지 / node mismatch 등) 보존
     const respBody = error.response?.data ? JSON.stringify(error.response.data).substring(0, 1500) : '';
     if (respBody) {
@@ -632,6 +773,7 @@ module.exports = {
   fetchNodeRepoMap,
   validateWorkflow,
   interruptExecution,
+  cancelPrompt,
   getQueue,
   getLoraModels,
   getCheckpointModels,

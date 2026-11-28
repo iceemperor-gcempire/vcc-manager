@@ -511,7 +511,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     // 큐에서 제거 (waiting/delayed 면 실행 자체를 차단)
     const { removed, state } = await cancelQueueJob(job.queueJobId);
 
-    // active 잡의 진행 중 외부 API HTTP 호출 즉시 중단 (Gemini/GPT — ComfyUI 는 비대상) (#539)
+    // active 잡 중단 — 외부 API 는 HTTP 호출을 끊고, ComfyUI 는 넘겨 둔 prompt 만 취소한다 (#539, #1327)
     const aborted = abortActiveJob(job._id);
     console.log(`🚫 Job ${job._id} cancelled (queue: ${removed ? 'removed' : state || 'not found'}, http aborted: ${aborted})`);
 
