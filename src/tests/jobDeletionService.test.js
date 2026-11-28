@@ -8,6 +8,7 @@ jest.mock('../models/GeneratedVideo', () => ({ findByIdAndDelete: jest.fn().mock
 jest.mock('../models/GeneratedAudio', () => ({ findByIdAndDelete: jest.fn().mockResolvedValue(null), updateMany: jest.fn().mockResolvedValue({}) }));
 jest.mock('../models/ImageGenerationJob', () => ({ findByIdAndDelete: jest.fn().mockResolvedValue(null) }));
 jest.mock('../utils/fileUpload', () => ({ deleteFile: jest.fn().mockResolvedValue(undefined) }));
+jest.mock('../services/queueService', () => ({ cancelQueueJob: jest.fn().mockResolvedValue({ removed: true, state: 'waiting' }) }));
 
 const GeneratedImage = require('../models/GeneratedImage');
 const GeneratedVideo = require('../models/GeneratedVideo');
@@ -16,6 +17,7 @@ const ImageGenerationJob = require('../models/ImageGenerationJob');
 const UploadedImage = require('../models/UploadedImage');
 const { deleteFile } = require('../utils/fileUpload');
 const { deleteJobRecord, checkDeletable } = require('../services/jobDeletionService');
+const { cancelQueueJob } = require('../services/queueService');
 
 const job = () => ({
   _id: 'job-1', userId: 'u1', status: 'completed',
@@ -65,3 +67,35 @@ describe('deleteJobRecord', () => {
     expect(GeneratedImage.findByIdAndDelete).toHaveBeenCalledWith('img-1');
   });
 });
+
+describe('대기 중인 작업 삭제는 대기열에서도 뺀다 (#1325)', () => {
+  beforeEach(() => { jest.clearAllMocks(); jest.spyOn(console, 'log').mockImplementation(() => {}); });
+  afterEach(() => console.log.mockRestore());
+
+  test('pending 이고 대기열 id 가 있으면 대기열에서 뺀 뒤 기록을 지운다', async () => {
+    const order = [];
+    cancelQueueJob.mockImplementationOnce(async () => { order.push('queue'); return { removed: true, state: 'waiting' }; });
+    ImageGenerationJob.findByIdAndDelete.mockImplementationOnce(async () => { order.push('record'); return null; });
+    await deleteJobRecord({ ...job(), status: 'pending', queueJobId: '42', resultImages: [], resultVideos: [], resultAudios: [] });
+    expect(cancelQueueJob).toHaveBeenCalledWith('42');
+    expect(order).toEqual(['queue', 'record']);
+  });
+
+  test.each(['completed', 'failed', 'cancelled'])('%s 작업은 대기열을 건드리지 않는다', async (status) => {
+    await deleteJobRecord({ ...job(), status, queueJobId: '42' });
+    expect(cancelQueueJob).not.toHaveBeenCalled();
+  });
+
+  test('대기열 id 가 없는 pending 작업도 기록은 지운다', async () => {
+    await deleteJobRecord({ ...job(), status: 'pending', resultImages: [], resultVideos: [], resultAudios: [] });
+    expect(cancelQueueJob).not.toHaveBeenCalled();
+    expect(ImageGenerationJob.findByIdAndDelete).toHaveBeenCalledWith('job-1');
+  });
+
+  test('이미 돌기 시작해 대기열에서 못 뺐어도 기록은 지운다 — 워커가 지워진 작업임을 보고 멈춘다', async () => {
+    cancelQueueJob.mockResolvedValueOnce({ removed: false, state: 'active' });
+    await deleteJobRecord({ ...job(), status: 'pending', queueJobId: '42', resultImages: [], resultVideos: [], resultAudios: [] });
+    expect(ImageGenerationJob.findByIdAndDelete).toHaveBeenCalledWith('job-1');
+  });
+});
+

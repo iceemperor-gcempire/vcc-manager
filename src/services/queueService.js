@@ -3,6 +3,7 @@ const Redis = require('redis');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { jobStopReason } = require('./jobCancelCheck');
 const sharp = require('sharp');
 const comfyUIService = require('./comfyUIService');
 const geminiService = require('./geminiService');
@@ -384,15 +385,11 @@ const abortActiveJob = (jobId) => {
   return false;
 };
 
-// 취소 여부 확인 — worker 체크포인트용 (#521)
+// 취소 · 삭제 여부 확인 — worker 체크포인트용 (#521, #1325). 지워진 작업도 멈춘다
 const isJobCancelled = async (jobId) => {
-  try {
-    const doc = await ImageGenerationJob.findById(jobId).select('status').lean();
-    return doc?.status === 'cancelled';
-  } catch (error) {
-    console.error(`Error checking cancel state for ${jobId}:`, error.message);
-    return false;
-  }
+  const reason = await jobStopReason(jobId);
+  if (reason === 'deleted') console.log(`🗑️  Job ${jobId} 는 지워진 작업 — 생성 · 저장을 하지 않는다`);
+  return !!reason;
 };
 
 const processImageGeneration = async (job) => {
