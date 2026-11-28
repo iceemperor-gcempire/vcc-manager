@@ -290,7 +290,7 @@ async function handleOpenAIImage({ workboardData, inputData, job, signal }) {
   };
 }
 
-async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
+async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId, signal }) {
   // 미첨부 시 입력 슬롯이 통째로 제거되는 필드 (#771 `_vcc.omitInputsUnless`).
   // 이 필드들은 흰 PNG 를 올려도 모델에 도달하지 않으므로 업로드 자체를 건너뛴다 (#786).
   const omitConditionedFields = new Set(getOmitConditionedFieldNames(workboardData.workflowData));
@@ -354,7 +354,8 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
     workboardData.serverUrl,
     workflowJson,
     (progress) => job.progress(20 + (progress * 0.7)),
-    workboardData.timeout || 300000
+    workboardData.timeout || 300000,
+    { signal }   // 사용자 취소를 ComfyUI 까지 전달 (#1327)
   );
   job.progress(90);
 
@@ -370,8 +371,10 @@ async function handleComfyUIWorkflow({ workboardData, inputData, job, jobId }) {
   return { ...result, seed: actualSeed };
 }
 
-// 진행 중 잡의 AbortController — 취소 시 외부 API HTTP 호출 즉시 중단용 (#539)
-// in-memory 라 단일 백엔드 인스턴스 전제. ComfyUI 경로는 재매칭 플로우 보존을 위해 제외.
+// 진행 중 잡의 AbortController — 사용자 취소 전용 (#539, #1327)
+// 외부 API 는 HTTP 호출을 끊고, ComfyUI 는 넘겨 둔 prompt 만 취소한다.
+// **시간 초과 · 서버 종료에서는 부르지 않는다** — 그때는 ComfyUI 작업을 살려 두고 다시 맞춘다 (#755).
+// in-memory 라 단일 백엔드 인스턴스 전제.
 const activeJobAborters = new Map();
 
 const abortActiveJob = (jobId) => {

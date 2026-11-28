@@ -201,8 +201,53 @@ const processHistoryResult = async (serverUrl, history) => {
   return { images, videos, audios };
 };
 
-const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000) => {
+/** 사용자가 취소해 대기를 끝냈다는 표시. 실패와 구분한다 (#1327) */
+const cancelledError = () => Object.assign(new Error('Job cancelled'), { code: 'ERR_CANCELED', name: 'CanceledError' });
+
+/**
+ * ComfyUI 에 넘어간 prompt 하나를 취소한다 (#1327).
+ *
+ * 같은 ComfyUI 서버를 다른 사용자 · 다른 도구가 함께 쓴다. 그래서 **이 prompt 만** 겨눈다:
+ * 대기 중이면 대기열에서 그 id 만 빼고, 실행 중이면 그 id 를 지정해 중단한다.
+ * 실행 중인 것이 이 prompt 가 아니면 중단 요청을 보내지 않는다. id 를 모르면 아무것도 하지 않는다.
+ *
+ * @returns {Promise<{ action: 'none'|'dequeued'|'interrupted', reason?: string }>}
+ */
+const cancelPrompt = async (serverUrl, promptId) => {
+  if (!serverUrl || typeof promptId !== 'string' || !promptId) return { action: 'none', reason: 'no-prompt-id' };
+  const opts = { timeout: 8000 };
+  const readQueue = async () => {
+    const { data } = await axios.get(`${serverUrl}/queue`, opts);
+    const has = (list) => (list || []).some((e) => Array.isArray(e) && e[1] === promptId);
+    return { running: has(data?.queue_running), pending: has(data?.queue_pending) };
+  };
+  try {
+    let state = await readQueue();
+    let dequeued = false;
+    if (state.pending) {
+      await axios.post(`${serverUrl}/queue`, { delete: [promptId] }, opts);
+      dequeued = true;
+      // 빼는 사이 실행으로 넘어갔을 수 있다 — 다시 본다
+      state = await readQueue();
+    }
+    if (state.running) {
+      await axios.post(`${serverUrl}/interrupt`, { prompt_id: promptId }, opts);
+      return { action: 'interrupted' };
+    }
+    return dequeued ? { action: 'dequeued' } : { action: 'none', reason: 'not-in-queue' };
+  } catch (error) {
+    console.error(`⚠️ ComfyUI 취소 요청 실패 (prompt ${promptId}): ${error.message}`);
+    return { action: 'none', reason: 'unreachable' };
+  }
+};
+
+/**
+ * @param {{ signal?: AbortSignal }} [options] `signal` 은 **사용자 취소 전용**이다 (#1327).
+ *   시간 초과 · 서버 종료에는 쓰지 않는다 — 그 경로는 ComfyUI 작업을 살려 둔다 (#755).
+ */
+const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executionTimeout = 300000, { signal } = {}) => {
   const clientId = uuidv4();
+  if (signal?.aborted) throw cancelledError();
 
   console.log(`🔗 ComfyUI Service: Connecting to ${serverUrl}`);
   console.log(`🆔 Client ID: ${clientId}`);
@@ -232,6 +277,12 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       });
     });
 
+    // 연결하는 사이 취소됐으면 제출하지 않는다 (#1327)
+    if (signal?.aborted) {
+      try { ws.close(1000); } catch (_) { /* already closed */ }
+      throw cancelledError();
+    }
+
     // 2. WebSocket 연결 후 워크플로우 제출
     console.log(`📤 Submitting workflow to ComfyUI...`);
     const promptResponse = await axios.post(`${serverUrl}/prompt`, {
@@ -253,9 +304,11 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       let livenessFailures = 0;
       const timeoutSec = Math.round(executionTimeout / 1000);
 
+      let onAbort = null;
       const cleanup = () => {
         if (livenessTimer) clearTimeout(livenessTimer);
         if (pollTimer) clearInterval(pollTimer);
+        if (onAbort && signal) signal.removeEventListener('abort', onAbort);
       };
       const safeResolve = (value) => {
         if (settled) return;
@@ -306,6 +359,19 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
         safeResolve({ ...result, promptId });
         return true;
       };
+
+      // 사용자 취소 (#1327): ComfyUI 에서 이 prompt 만 취소하고 대기를 바로 끝낸다.
+      // 제출 요청이 나가 있는 사이 취소됐으면 여기서 바로 처리된다.
+      if (signal) {
+        onAbort = async () => {
+          if (settled) return;
+          const outcome = await cancelPrompt(serverUrl, promptId);
+          console.log(`🚫 Prompt ${promptId} cancelled by user — ComfyUI: ${outcome.action}${outcome.reason ? ` (${outcome.reason})` : ''}`);
+          safeReject(cancelledError());
+        };
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      }
 
       // liveness 기반 타임아웃 (#755): 만료 시점에 즉시 실패시키지 않고 완료/생존을 확인한다.
       // ComfyUI 큐에 살아있으면 대기를 연장 — "ComfyUI 는 도는데 vcc 는 실패" 불일치 제거.
@@ -402,6 +468,7 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
       });
     });
   } catch (error) {
+    if (error.code === 'ERR_CANCELED' && signal?.aborted) throw error;   // 취소는 제출 실패가 아니다 (#1327)
     // ComfyUI 응답 본문 로깅 — 400 등 에러 시 root cause (validation 메시지 / node mismatch 등) 보존
     const respBody = error.response?.data ? JSON.stringify(error.response.data).substring(0, 1500) : '';
     if (respBody) {
@@ -632,6 +699,7 @@ module.exports = {
   fetchNodeRepoMap,
   validateWorkflow,
   interruptExecution,
+  cancelPrompt,
   getQueue,
   getLoraModels,
   getCheckpointModels,
