@@ -480,6 +480,10 @@ const processImageGeneration = async (job) => {
     // 취소로 인한 HTTP 중단 — 실패가 아니라 취소 종결 (Bull 재시도 방지) (#539)
     if (aborter.signal.aborted || error.code === 'ERR_CANCELED' || error.name === 'CanceledError') {
       console.log(`🚫 Job ${jobId} — generation aborted by cancel`);
+      // 취소와 같은 때 난 다른 오류는 취소에 가려진다 — 진단용으로만 남긴다 (#1327)
+      if (error.code !== 'ERR_CANCELED' && error.name !== 'CanceledError') {
+        console.warn(`⚠️ Job ${jobId} — 취소 시점에 다른 오류가 있었다: ${error.message}`);
+      }
       return { cancelled: true };
     }
     console.error(`Error processing job ${jobId}:`, error);
