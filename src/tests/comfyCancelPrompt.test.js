@@ -246,59 +246,131 @@ describe('submitWorkflow — 취소 신호', () => {
     expect(mutations(posts)).toHaveLength(0);
   });
 
-  test('제출 응답이 오기 전에 취소되고 곧 응답이 오면, 받은 id 로 취소한다', async () => {
-    const posts = fakeComfy();
-    const base = axios.post.getMockImplementation();
-    let release;
-    axios.post.mockImplementation(async (url, body) => {
-      if (url.endsWith('/prompt')) { posts.push({ path: '/prompt', body }); await new Promise((r) => { release = r; }); return { data: { prompt_id: MINE } }; }
-      return base(url, body);
-    });
-    const c = new AbortController();
-    const outcome = submitWorkflow(SERVER, {}, null, 300000, { signal: c.signal }).catch((e) => e);
-    await settle();
-    c.abort();
-    release();
-    expect(await outcome).toMatchObject({ code: 'ERR_CANCELED' });
-    await settle();
-    expect(mutations(posts)).toEqual([{ path: CANCEL(MINE), body: {} }]);
-  });
-
-  test('제출 응답이 끝내 안 오면 기다리다 우리가 정한 id 로 취소하고 끝낸다. 소켓도 닫는다', async () => {
-    jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
-    try {
-      const posts = fakeComfy();
+  describe('제출 요청이 나가 있는 사이 취소', () => {
+    /** /prompt 응답을 붙잡아 두고 원하는 때 원하는 결과로 풀어 준다 */
+    const holdSubmit = (posts) => {
       const base = axios.post.getMockImplementation();
+      const gate = {};
       axios.post.mockImplementation(async (url, body) => {
-        if (url.endsWith('/prompt')) { posts.push({ path: '/prompt', body }); return new Promise(() => {}); }
-        return base(url, body);
+        if (!url.endsWith('/prompt')) return base(url, body);
+        posts.push({ path: '/prompt', body });
+        return new Promise((resolve, reject) => { gate.resolve = resolve; gate.reject = reject; });
       });
+      return gate;
+    };
+    const start = async (opts) => {
+      const posts = fakeComfy(opts);
+      const gate = holdSubmit(posts);
       const c = new AbortController();
       const outcome = submitWorkflow(SERVER, {}, null, 300000, { signal: c.signal }).catch((e) => e);
       await settle();
+      return { posts, gate, c, outcome, requested: () => sent(posts, '/prompt')[0].body.prompt_id };
+    };
+
+    test('응답을 기다리지 않고 바로 취소로 끝난다. 소켓을 닫는다', async () => {
+      const { posts, c, outcome } = await start();
       c.abort();
-      await jest.advanceTimersByTimeAsync(9000);
-      expect(mutations(posts)).toHaveLength(0);          // 아직 기다리는 중
-      await jest.advanceTimersByTimeAsync(1500);
       expect(await outcome).toMatchObject({ code: 'ERR_CANCELED' });
-      const requested = sent(posts, '/prompt')[0].body.prompt_id;
-      expect(mutations(posts)).toEqual([{ path: CANCEL(requested), body: {} }]);
       expect(WebSocket.last.closed).toBe(true);
-      expect(jest.getTimerCount()).toBe(0);
-    } finally {
-      jest.useRealTimers();
-    }
+      expect(mutations(posts)).toHaveLength(0);   // 아직 id 를 모른다 — 엉뚱한 것을 취소하지 않는다
+    });
+
+    test('뒤늦게 응답이 오면 응답의 id 로 취소한다', async () => {
+      const { posts, gate, c, outcome } = await start();
+      c.abort();
+      await outcome;
+      gate.resolve({ data: { prompt_id: MINE } });
+      await settle();
+      expect(mutations(posts)).toEqual([{ path: CANCEL(MINE), body: {} }]);
+    });
+
+    test('옛 서버가 우리가 보낸 id 와 다른 id 를 돌려주면 그 id 로 취소한다', async () => {
+      const { posts, gate, c, outcome, requested } = await start();
+      c.abort();
+      await outcome;
+      gate.resolve({ data: { prompt_id: 'server-issued-id' } });
+      await settle();
+      expect(requested()).not.toBe('server-issued-id');
+      expect(mutations(posts)).toEqual([{ path: CANCEL('server-issued-id'), body: {} }]);
+    });
+
+    test('응답이 아주 늦게 와도 (유예 없음) 받는 대로 취소한다', async () => {
+      jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
+      try {
+        const { posts, gate, c, outcome } = await start();
+        c.abort();
+        await outcome;
+        await jest.advanceTimersByTimeAsync(10 * 60 * 1000);
+        expect(mutations(posts)).toHaveLength(0);
+        gate.resolve({ data: { prompt_id: MINE } });
+        await settle();
+        expect(mutations(posts)).toEqual([{ path: CANCEL(MINE), body: {} }]);
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('취소 뒤 응답이 끊기면 (접수 여부 모름) 우리가 보낸 id 로 취소한다', async () => {
+      const { posts, gate, c, outcome, requested } = await start({ jobCancel: true });
+      c.abort();
+      await outcome;
+      gate.reject(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }));
+      await settle();
+      expect(mutations(posts)).toEqual([{ path: CANCEL(requested()), body: {} }]);
+    });
+
+    test('응답이 끊긴 것과 취소가 겹쳐도 (끊김이 먼저 보여도) 취소로 끝나고 그 id 를 취소한다', async () => {
+      const { posts, gate, c, outcome, requested } = await start({ jobCancel: true });
+      c.abort();
+      gate.reject(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }));
+      expect(await outcome).toMatchObject({ code: 'ERR_CANCELED' });
+      await settle();
+      expect(mutations(posts)).toEqual([{ path: CANCEL(requested()), body: {} }]);
+    });
+
+    test('끊긴 뒤 취소할 것이 없었으면 잠시 뒤 한 번 더 본다 — 접수가 늦게 끝났을 수 있다', async () => {
+      jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick'] });
+      try {
+        const { posts, gate, c, outcome, requested } = await start({ jobCancel: false });
+        c.abort();
+        await outcome;
+        gate.reject(new Error('socket hang up'));
+        await settle();
+        expect(mutations(posts)).toHaveLength(1);
+        await jest.advanceTimersByTimeAsync(5000);
+        await settle();
+        expect(mutations(posts)).toEqual([
+          { path: CANCEL(requested()), body: {} },
+          { path: CANCEL(requested()), body: {} },
+        ]);
+        await jest.advanceTimersByTimeAsync(60000);
+        expect(mutations(posts)).toHaveLength(2);   // 더는 보내지 않는다
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    test('취소하지 않았는데 응답이 끊기면 제출 실패다. 취소 요청은 나가지 않는다', async () => {
+      const { posts, gate, outcome } = await start();
+      gate.reject(new Error('socket hang up'));
+      const err = await outcome;
+      expect(err.message).toMatch(/Failed to submit workflow/);
+      await settle();
+      expect(mutations(posts)).toHaveLength(0);
+      expect(WebSocket.last.closed).toBe(true);
+    });
   });
 
-  test('취소 없이 제출이 실패하면 제출 실패로 남고 소켓을 닫는다', async () => {
-    const posts = fakeComfy();
+  test('취소 없이 제출이 실패하면 제출 실패로 남고 소켓을 닫는다. /prompt 말고는 아무것도 보내지 않는다', async () => {
+    fakeComfy();
     axios.post.mockRejectedValue(Object.assign(new Error('Request failed with status code 400'), { response: { status: 400, data: { error: 'bad' } } }));
     const c = new AbortController();
     const err = await submitWorkflow(SERVER, {}, null, 300000, { signal: c.signal }).catch((e) => e);
+    await settle();
     expect(err.message).toMatch(/Failed to submit workflow/);
     expect(err.code).toBeUndefined();
     expect(WebSocket.last.closed).toBe(true);
-    expect(posts).toHaveLength(0);
+    expect(axios.post.mock.calls.map(([url]) => url.replace(SERVER, ''))).toEqual(['/prompt']);
   });
 
   test('취소했는데 ComfyUI 가 응답하지 않아도 대기는 취소로 끝난다', async () => {

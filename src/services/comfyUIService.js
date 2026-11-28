@@ -245,8 +245,35 @@ const cancelPrompt = async (serverUrl, promptId) => {
   }
 };
 
-/** 제출 요청이 나가 있는 사이 취소되면 응답을 이만큼만 더 기다린다 */
-const SUBMIT_GRACE_AFTER_CANCEL_MS = 10000;
+const SUBMIT_ABORTED = Symbol('submit-aborted');
+
+/** 제출 응답이 끊겼을 때, 접수가 뒤늦게 끝났을 수 있어 한 번 더 취소해 보기까지의 간격 */
+const CANCEL_RETRY_AFTER_LOST_SUBMIT_MS = 5000;
+
+/**
+ * 제출 요청이 나가 있는 사이 취소됐을 때의 뒷정리 (#1327). 워커는 기다리지 않는다 — 이 함수는 뒤에서 돈다.
+ *
+ * - 제출 응답이 오면 **응답의 id** 로 취소한다 (옛 서버는 우리가 보낸 id 를 무시하고 자기 id 를 준다)
+ * - 응답이 끊기면 접수됐는지 알 수 없다. 우리가 보낸 id 로 취소하고, 취소할 것이 없었다면 잠시 뒤 한 번 더 본다
+ */
+const cancelAfterSubmitSettles = (serverUrl, submitting, requestedPromptId) => {
+  const log = (id, outcome, note) => console.log(
+    `🚫 Prompt ${id} cancelled while submitting${note} — ComfyUI: ${outcome.action}${outcome.reason ? ` (${outcome.reason})` : ''}`
+  );
+  return submitting.then(
+    async (response) => {
+      const id = response?.data?.prompt_id;
+      log(id, await cancelPrompt(serverUrl, id), '');
+    },
+    async () => {
+      const first = await cancelPrompt(serverUrl, requestedPromptId);
+      log(requestedPromptId, first, ' (submit response lost)');
+      if (first.reason !== 'not-in-queue') return;
+      await new Promise((resolve) => { const t = setTimeout(resolve, CANCEL_RETRY_AFTER_LOST_SUBMIT_MS); t.unref?.(); });
+      log(requestedPromptId, await cancelPrompt(serverUrl, requestedPromptId), ' (retry)');
+    }
+  );
+};
 
 /**
  * @param {{ signal?: AbortSignal }} [options] `signal` 은 **사용자 취소 전용**이다 (#1327).
@@ -303,25 +330,28 @@ const submitWorkflow = async (serverUrl, workflowJson, progressCallback, executi
     if (!signal) {
       promptResponse = await submitting;
     } else {
-      // 제출 중 취소: 응답을 잠깐 더 기다렸다가, 오든 안 오든 그 id 를 취소하고 끝낸다
+      // 제출 중 취소: 워커는 바로 끝내고, 제출 결과를 받아 취소하는 일은 뒤에서 한다
       let onAbortSubmit = null;
-      let graceTimer = null;
       const aborted = new Promise((resolve) => {
-        onAbortSubmit = () => { graceTimer = setTimeout(() => resolve('gave-up'), SUBMIT_GRACE_AFTER_CANCEL_MS); };
+        onAbortSubmit = () => resolve(SUBMIT_ABORTED);
         if (signal.aborted) onAbortSubmit();
         else signal.addEventListener('abort', onAbortSubmit, { once: true });
       });
       let outcome;
       try {
         outcome = await Promise.race([submitting, aborted]);
+      } catch (submitError) {
+        // 취소된 뒤에 제출이 실패했다 — 접수됐을 수 있으니 뒷정리를 건다
+        if (signal.aborted) {
+          cancelAfterSubmitSettles(serverUrl, submitting, requestedPromptId);
+          throw cancelledError();
+        }
+        throw submitError;
       } finally {
         signal.removeEventListener('abort', onAbortSubmit);
-        if (graceTimer) clearTimeout(graceTimer);
       }
-      if (outcome === 'gave-up') {
-        submitting.catch(() => {});   // 늦게 오는 실패가 처리 안 된 거절이 되지 않게
-        const result = await cancelPrompt(serverUrl, requestedPromptId);
-        console.log(`🚫 Prompt ${requestedPromptId} cancelled while submitting (no response) — ComfyUI: ${result.action}${result.reason ? ` (${result.reason})` : ''}`);
+      if (outcome === SUBMIT_ABORTED) {
+        cancelAfterSubmitSettles(serverUrl, submitting, requestedPromptId);
         throw cancelledError();
       }
       promptResponse = outcome;
